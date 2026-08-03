@@ -4,7 +4,9 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project state
 
-**No application code exists yet.** The repository currently contains only planning documents (`README.md`, `ROADMAP.md`, `STACK.md`, `LICENSE`). `ROADMAP.md` is the executable source of truth: it defines the repo structure, data contracts, and a phased task list (T-xx, I-xx, E-xx, R-xx, C-xx, U-xx, X-xx) with acceptance criteria. Before writing code, check `ROADMAP.md` for the task ID being implemented and its acceptance criterion — each task is meant to ship with the test that verifies it.
+`ROADMAP.md` is the executable source of truth: it defines the repo structure, data contracts, and a phased task list (T-xx, I-xx, E-xx, R-xx, C-xx, U-xx, X-xx) with acceptance criteria. Before writing code, check `ROADMAP.md` for the task ID being implemented and its acceptance criterion — each task is meant to ship with the test that verifies it.
+
+**Current task completion state is tracked in [`docs/progress.md`](docs/progress.md)**, not in this file or in `ROADMAP.md` — check it before assuming what's already implemented.
 
 `ROADMAP.md` and `STACK.md` are written in Italian and are binding for implementation decisions (data schemas, phase gates, dependency choices). `README.md` is the (currently one-line) public-facing description.
 
