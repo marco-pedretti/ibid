@@ -21,6 +21,7 @@ sys.path.insert(0, str(ROOT))
 import src.config as cfg
 from src.datasets.schema import Chunk
 from src.generation.chat import generate
+from src.generation.citations import extract_cited, parse
 from src.generation.prompt import SYSTEM, build_user_message
 from src.index.embed import encode
 from src.index.store import get_client, search
@@ -75,6 +76,7 @@ def main() -> None:
         temperature=cfg.TEMPERATURE,
         max_tokens=cfg.MAX_NEW_TOKENS,
     )
+    answer = parse(answer, len(chunks))
 
     print("\n" + "=" * 60)
     print("RISPOSTA:")
@@ -82,9 +84,14 @@ def main() -> None:
     print(answer)
     print("=" * 60)
 
-    print("\nFonti:")
-    for i, chunk in enumerate(chunks):
-        print(f"  [{i+1}] {chunk.source_uri}  ({chunk.doc_id})")
+    cited = extract_cited(answer)
+    print("\nFonti citate:")
+    for i in cited:
+        chunk = chunks[i - 1]
+        print(f"  [{i}] {chunk.source_uri}  ({chunk.doc_id})")
+    uncited = [i + 1 for i in range(len(chunks)) if i + 1 not in cited]
+    if uncited:
+        print(f"\nChunk recuperati ma non citati: {uncited}")
 
 
 if __name__ == "__main__":
