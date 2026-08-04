@@ -32,6 +32,43 @@ La curva di scaling in **C-06** si ferma quindi a 12B. I tre punti della curva s
 
 ---
 
+## Embedding — backend e modello (T-05)
+
+### Perché non PyTorch + sentence-transformers
+
+La scelta originale (STACK.md) era `BAAI/bge-m3` via `sentence-transformers`. Su questa macchina è inutilizzabile:
+
+| Backend | Velocità (testi lunghi ~200 parole) | Note |
+|---|---|---|
+| PyTorch CPU (sentence-transformers) | **0.06 embed/s** | ~1675s per 100 chunk |
+| fastembed ONNX CPU | **1.9 embed/s** | ONNX più efficiente, ma ancora lento |
+| fastembed + onnxruntime-directml (AMD GPU) | **10.4 embed/s** | DirectX 12 → GPU senza ROCm |
+
+PyTorch non vede la GPU AMD su Windows perché non esiste un backend nativo: ROCm è Linux-only e CUDA non è compatibile con AMD. `onnxruntime-directml` invece usa DirectX 12 Machine Learning, che funziona su qualsiasi GPU DirectX 12 — inclusa la RX 6750 XT.
+
+### Soluzione adottata
+
+`fastembed` + `onnxruntime-directml` con rilevamento automatico del provider in `src/index/embed.py`:
+
+```python
+_PROVIDERS = (
+    ["DmlExecutionProvider", "CPUExecutionProvider"]
+    if "DmlExecutionProvider" in onnxruntime.get_available_providers()
+    else ["CPUExecutionProvider"]
+)
+```
+
+### Modello attuale vs target
+
+**Attuale (T-05):** `intfloat/multilingual-e5-large` — fastembed non ha ancora BGE-M3 nel catalogo.  
+**Target:** `BAAI/bge-m3` — quando fastembed lo supporta, cambiare una riga in `src/config.py` e re-ingest.
+
+La differenza qualitativa sul retrieval denso puro è piccola (~2-5 punti nDCG su benchmark BEIR). La differenza che conta è che **BGE-M3 produce anche vettori sparsi** nello stesso passaggio — necessari per il retrieval ibrido di R-01 senza aggiungere un secondo modello. Con e5-large R-01 richiederebbe un modello separato per la parte sparsa.
+
+Il re-ingest è necessario al cambio modello perché le collection Qdrant contengono vettori nello spazio del modello corrente, incompatibili con quelli del nuovo.
+
+---
+
 ## Note operative
 
 - La colonna **VRAM** viene da `ollama ps` subito dopo la generazione con 32k context e prompt breve (~40 token); il KV cache occupa quota minima in questo caso.

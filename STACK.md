@@ -179,6 +179,10 @@ Alternative permissive già in tabella: **pypdfium2** per rendering e bbox, **pd
 | FastAPI, Pydantic, uvicorn | MIT / BSD | sì |
 | datasets (HuggingFace) | Apache 2.0 | sì |
 | huggingface_hub | Apache 2.0 | sì |
+| qdrant-client | Apache 2.0 | sì |
+| fastembed | Apache 2.0 | sì |
+| onnxruntime-directml | MIT | sì — sostituisce onnxruntime standard; abilita AMD GPU via DirectX 12 (21 embed/s vs 2/s CPU)
+| ~~sentence-transformers~~ | ~~Apache 2.0~~ | rimossa — PyTorch senza CUDA/ROCm su Windows: ~0.06 embed/s |
 | Qdrant (client e server) | Apache 2.0 | sì |
 | BGE-M3 | MIT | sì |
 | bge-reranker-v2-m3 | Apache 2.0 | sì |
