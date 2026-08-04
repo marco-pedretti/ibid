@@ -1,0 +1,44 @@
+{
+  "timestamp": "20260804_103814",
+  "results": [
+    {
+      "model": "gemma4:e2b",
+      "gen_tps": 91.2,
+      "prefill_tps": 434.5,
+      "eval_count": 119,
+      "prompt_eval_count": 37,
+      "total_seconds": 11.2,
+      "processor": "100% GPU",
+      "ollama_size": "1.9 GB",
+      "response_preview": "Il Retrieval-Augmented Generation (RAG) è una tecnica che migliora i modelli di linguaggio generativi combinando la capacità di generazione con la ricerca di informazioni esterne. Permette al modello di basare le sue risposte su dati specifici e aggiornati recuperati da una base di conoscenza estern",
+      "num_ctx": 32768,
+      "temperature": 0.0
+    },
+    {
+      "model": "gemma4:latest",
+      "gen_tps": 15.1,
+      "prefill_tps": 146.3,
+      "eval_count": 102,
+      "prompt_eval_count": 37,
+      "total_seconds": 15.9,
+      "processor": "100% GPU",
+      "ollama_size": "3.3 GB",
+      "response_preview": "Il **Retrieval-Augmented Generation (RAG)** combina la capacità di un modello linguistico generativo con l'accesso a una base di conoscenza esterna e specifica. Prima di rispondere, il sistema recupera i documenti o le informazioni più pertinenti da questa fonte dati per contestualizzare la risposta",
+      "num_ctx": 32768,
+      "temperature": 0.0
+    },
+    {
+      "model": "gemma4:12b",
+      "gen_tps": 2.4,
+      "prefill_tps": 33.8,
+      "eval_count": 124,
+      "prompt_eval_count": 41,
+      "total_seconds": 68.5,
+      "processor": "100% GPU",
+      "ollama_size": "8.1 GB",
+      "response_preview": "Ecco una spiegazione in tre frasi:\n\nLa *Retrieval-Augmented Generation* (RAG) è una tecnica che permette a un modello di intelligenza artificiale di consultare una base di dati esterna prima di generare una risposta. Invece di affidarsi solo alla memoria interna, il sistema \"pesca\" informazioni pert",
+      "num_ctx": 32768,
+      "temperature": 0.0
+    }
+  ]
+}

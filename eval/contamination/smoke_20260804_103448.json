@@ -1,0 +1,31 @@
+{
+  "timestamp": "20260804_103448",
+  "results": [
+    {
+      "model": "gemma4:latest",
+      "gen_tps": 18.6,
+      "prefill_tps": 208.3,
+      "eval_count": 400,
+      "prompt_eval_count": 48,
+      "total_seconds": 29.2,
+      "processor": "100% GPU",
+      "ollama_size": "3.3 GB",
+      "response_preview": "",
+      "num_ctx": 32768,
+      "temperature": 0.0
+    },
+    {
+      "model": "gemma4:12b",
+      "gen_tps": 2.4,
+      "prefill_tps": 38.4,
+      "eval_count": 400,
+      "prompt_eval_count": 48,
+      "total_seconds": 185.6,
+      "processor": "100% GPU",
+      "ollama_size": "8.1 GB",
+      "response_preview": "",
+      "num_ctx": 32768,
+      "temperature": 0.0
+    }
+  ]
+}
