@@ -181,12 +181,11 @@ Alternative permissive già in tabella: **pypdfium2** per rendering e bbox, **pd
 | huggingface_hub | Apache 2.0 | sì |
 | qdrant-client | Apache 2.0 | sì |
 | fastembed | Apache 2.0 | sì |
-| onnxruntime-directml | MIT | sì — sostituisce onnxruntime standard; abilita AMD GPU via DirectX 12 (21 embed/s vs 2/s CPU)
+| onnxruntime-directml | MIT | sì — sostituisce onnxruntime standard; abilita AMD GPU via DirectX 12 (~10 embed/s vs ~2/s CPU) |
 | ~~sentence-transformers~~ | ~~Apache 2.0~~ | rimossa — PyTorch senza CUDA/ROCm su Windows: ~0.06 embed/s |
 | Qdrant (client e server) | Apache 2.0 | sì |
 | BGE-M3 | MIT | sì |
 | bge-reranker-v2-m3 | Apache 2.0 | sì |
-| sentence-transformers | Apache 2.0 | sì |
 | llama.cpp / Ollama | MIT | sì |
 | ir_measures | MIT | sì |
 | RAGAS | Apache 2.0 | sì |
@@ -194,6 +193,8 @@ Alternative permissive già in tabella: **pypdfium2** per rendering e bbox, **pd
 | pypdfium2 | permissiva | sì |
 | pdfplumber, Docling | MIT | sì |
 | **PyMuPDF** | **AGPL-3.0** | **no** |
+
+**Verifica T-07 (2026-08-04):** tutte le dipendenze in `pyproject.toml` controllate; nessuna copyleft in albero. Licenze confermate da LICENSE file nelle dist-info: pydantic MIT, uvicorn/starlette BSD-3-Clause, ruff MIT, pytest MIT.
 
 **Regola per chi aggiunge dipendenze** (persone e coding agent): prima di introdurre una libreria, verificarne la licenza e aggiornare questa tabella. Qualsiasi licenza copyleft (GPL, AGPL, LGPL con linking statico) va segnalata e discussa prima dell'inserimento, non dopo.
 
