@@ -177,6 +177,7 @@ Alternative permissive già in tabella: **pypdfium2** per rendering e bbox, **pd
 | Componente | Licenza | Compatibile MIT |
 |---|---|---|
 | FastAPI, Pydantic, uvicorn | MIT / BSD | sì |
+| datasets (HuggingFace) | Apache 2.0 | sì |
 | Qdrant (client e server) | Apache 2.0 | sì |
 | BGE-M3 | MIT | sì |
 | bge-reranker-v2-m3 | Apache 2.0 | sì |

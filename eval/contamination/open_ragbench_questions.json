@@ -1,0 +1,146 @@
+[
+  {
+    "id": "b1a1a353-1a36-4986-9685-8b98cdf1f84e",
+    "query": "Does being uniformly sharp imply achievability and pointwise sharpness?",
+    "type": "extractive",
+    "source": "text",
+    "doc_id": "2405.08806v2",
+    "section_id": 4,
+    "expected_answer": "Yes, if a bound is uniformly sharp, then it is both achievable and pointwise sharp for all values."
+  },
+  {
+    "id": "be745f73-f575-4282-9230-a588a14845e8",
+    "query": "Does the imprecision noise decrease with increasing optical power?",
+    "type": "extractive",
+    "source": "text",
+    "doc_id": "2409.02275v2",
+    "section_id": 5,
+    "expected_answer": "Yes, the observed imprecision noise is inversely proportional to the optical power."
+  },
+  {
+    "id": "4ed2b922-a660-4f89-a06e-405c41cabc95",
+    "query": "Is there a significant performance difference between CT and CXR when stratified by lesion type?",
+    "type": "extractive",
+    "source": "text",
+    "doc_id": "2404.11221v4",
+    "section_id": 9,
+    "expected_answer": "Yes, there is a significant performance difference between CT and CXR when stratified by lesion type (p<0.001)."
+  },
+  {
+    "id": "2ab70cbf-01e4-4e57-971c-0848f2d764ea",
+    "query": "What skills do students develop through virtual reality projects?",
+    "type": "abstractive",
+    "source": "text",
+    "doc_id": "2407.02591v1",
+    "section_id": 6,
+    "expected_answer": "Students working on virtual reality projects develop a range of skills including verbal and written communication, time management, problem-solving abilities, risk tolerance, innovation, and creativity. These competencies are crucial for their success both academically and as future entrepreneurs."
+  },
+  {
+    "id": "2fb8ef85-01c6-4d62-b019-2ed0d3581572",
+    "query": "Is it optimal for the manager to offer a threshold test if $\\operatorname{Pr}\\left[\\lambda \\geq \\lambda^{*}\\right]>0$?",
+    "type": "extractive",
+    "source": "text",
+    "doc_id": "2405.18521v2",
+    "section_id": 10,
+    "expected_answer": "Yes."
+  },
+  {
+    "id": "bbb3370d-c0c3-459d-a09b-4effd51bed6e",
+    "query": "Why is Dual accuracy considered effective for assessing LMMs' reliability?",
+    "type": "abstractive",
+    "source": "text",
+    "doc_id": "2403.20331v2",
+    "section_id": 29,
+    "expected_answer": "Because it precisely assesses reliability without compromising real-world applicability."
+  },
+  {
+    "id": "d0dad0c1-1e89-4dac-8d25-89325294bfff",
+    "query": "How does price discrimination benefit sellers in segmented markets?",
+    "type": "abstractive",
+    "source": "text-image",
+    "doc_id": "2406.14174v3",
+    "section_id": 8,
+    "expected_answer": "Price discrimination allows sellers to charge different prices to different consumer segments based on their willingness to pay. This strategy can increase seller profits by capturing more consumer surplus from each segment compared to uniform pricing."
+  },
+  {
+    "id": "55c7d367-4f29-4fd5-8097-6d05769f2f24",
+    "query": "Why might a multi-domain model underperform compared to specialized ones?",
+    "type": "abstractive",
+    "source": "text-image",
+    "doc_id": "2403.12117v2",
+    "section_id": 25,
+    "expected_answer": "A multi-domain model might underperform due to negative transfer, where conflicting information across different domains hinders its ability to learn effectively."
+  },
+  {
+    "id": "510861b7-f0c2-4e6f-a1aa-57a40c2e2e69",
+    "query": "How do various language models compare in terms of their loan approval decision frequencies?",
+    "type": "abstractive",
+    "source": "text-image",
+    "doc_id": "2411.11853v3",
+    "section_id": 20,
+    "expected_answer": "Different language models exhibit varying frequencies for denying loans, partially approving them, or fully approving them. This comparison helps understand each model's tendency towards certain types of decisions under specific conditions."
+  },
+  {
+    "id": "35eea885-ce03-49df-965c-86b34aef116b",
+    "query": "How does the Chialvo neuron model incorporate randomness into its framework?",
+    "type": "abstractive",
+    "source": "text-image",
+    "doc_id": "2407.18922v3",
+    "section_id": 2,
+    "expected_answer": "The Chialvo neuron model incorporates randomness by introducing stochastic elements like Gaussian noise into a deterministic framework. This affects ion current parameters and allows for simulation of various dynamic behaviors in neurons."
+  },
+  {
+    "id": "c4008f15-6b3b-4bed-a2b2-2ea591d827b2",
+    "query": "How does a two-dimensional scaling plot help in analyzing financial datasets?",
+    "type": "abstractive",
+    "source": "text-image",
+    "doc_id": "2405.04904v2",
+    "section_id": 32,
+    "expected_answer": "A two-dimensional scaling plot helps visualize the relationships and distances between different financial time series, making it easier to identify clusters or patterns based on sectoral differences."
+  },
+  {
+    "id": "ce91c3b1-4a14-4af2-b0b7-fdb6bf3c9be7",
+    "query": "What is the standard deviation of the root mean squared error (RMSE) for the Ridge Regression model?",
+    "type": "extractive",
+    "source": "text-table",
+    "doc_id": "2412.20245v4",
+    "section_id": 15,
+    "expected_answer": "The standard deviation of the root mean squared error (RMSE) for the Ridge Regression model is 0.0226."
+  },
+  {
+    "id": "8dd45b87-0c38-4767-9640-3c19d8305b77",
+    "query": "What is one-inflation in the context of hospital discharge data, and how does it affect model estimates?",
+    "type": "abstractive",
+    "source": "text-table",
+    "doc_id": "2402.02272v2",
+    "section_id": 23,
+    "expected_answer": "One-inflation refers to an excess number of patients discharged on their first day due to either quick recovery or death. This phenomenon can lead to biased estimates in regression models like ZTNB if not properly accounted for."
+  },
+  {
+    "id": "316acde9-dec7-4408-b3ce-04d2a3c2f090",
+    "query": "What is the cost associated with generating around 6000 GPT summaries?",
+    "type": "extractive",
+    "source": "text-table",
+    "doc_id": "2406.15888v2",
+    "section_id": 12,
+    "expected_answer": "The cost associated with generating around 6000 GPT summaries is $2.5."
+  },
+  {
+    "id": "2ca85e92-56fd-4e1b-8623-c5f2df601ea8",
+    "query": "Does the Gate Control List (GCL) manage queue gates for scheduled traffic?",
+    "type": "extractive",
+    "source": "text-table-image",
+    "doc_id": "2412.10243v3",
+    "section_id": 2,
+    "expected_answer": "Yes, the Gate Control List (GCL) manages queue gates for scheduled traffic."
+  },
+  {
+    "id": "3b25cdbb-73b5-45a3-b051-d7c667bf5c8e",
+    "query": "What techniques are employed to minimize parasitic capacitance in precision measurement circuits?",
+    "type": "abstractive",
+    "source": "text-table-image",
+    "doc_id": "2412.18252v2",
+    "section_id": 4,
+    "expected_answer": "Parasitic capacitance is minimized through PCB layout optimization, which reduced it from an initial value of approximately 8 pF to about 3 pF."
+  }
+]
