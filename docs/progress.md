@@ -20,20 +20,6 @@ Tracciamento dei task di `ROADMAP.md` man mano che vengono completati. Non sosti
 
 ---
 
-## Fase 2 — Harness, baseline, rumore
-
-| Task | Stato | Note |
-|---|---|---|
-| E-01 | ✅ fatto (2026-08-05) | Schema `GoldenQuery` + `GoldenQrel` in `src/datasets/golden.py`. Loader `load_open_ragbench_golden()`: 3045 query da `queries.json`/`qrels.json`/`answers.json` — 1 chunk rilevante per query (relevance=2), chunk_id `"open_ragbench:{doc_id}:{section_id}"`. Loader `load_ledger_golden()`: 10000 query dai 10 shard parquet (`eval/data-*-of-*.parquet`) — qrels graduati 0-2, chunk_id `"ledger:{doc_id}:{page:04d}"`. Aggiunto `download_qa()` in `ledger.py`. CLI `scripts/build_golden.py` (supporta `--dataset`). Validazione inline in `validate_golden_file()`. Output: `eval/golden/open_ragbench.jsonl` (3045 righe), `eval/golden/ledger.jsonl` (10000 righe). 26 nuovi test in `tests/test_golden.py`. **224/224 test passati.** |
-| E-02 | ⬜ da fare | — |
-| E-03 | ⬜ da fare | — |
-| E-04 | ⬜ da fare | — |
-| E-05 | ⬜ da fare | — |
-| E-06 | ⬜ da fare | — |
-| E-07 | ⬜ da fare | — |
-
----
-
 ## Fase 1 — Ingestion multi-dataset e profilatore
 
 | Task | Stato | Note |
@@ -45,3 +31,17 @@ Tracciamento dei task di `ROADMAP.md` man mano che vengono completati. Non sosti
 | I-05 | ✅ fatto (2026-08-05) | Pipeline `table_heavy` in `src/ingestion/pipeline_table_heavy.py`: `_split_segments()` usa `re.split` con gruppo catturante su `<table\b…</table>` per produrre segmenti alternati `("text",…)` / `("table",…)`; ogni segmento `table` diventa un chunk atomico (mai spezzato); i segmenti `text` vengono sub-chunkati con i helper di I-03. `_first_heading()` aggiorna `section_path` a ogni heading Markdown trovato nel testo, e il valore viene ereditato dai chunk tabella che seguono. Criterio accettazione verificato: nessun chunk contiene un `<table` senza il corrispondente `</table>`. Assunzione documentata: tabelle non annidate (conforme al corpus LEDGER Mathpix Markdown). 28 test unitari in `tests/test_pipeline_table_heavy.py`, 170/170 pass totali. |
 | I-06 | ⏭ rinviato | Nessun dataset corrente fornisce PDF fisici o coordinate bbox: open_ragbench è JSON pre-processato (no PDF), LEDGER è Mathpix Markdown `.mmd` (PDF sorgente non scaricati, coordinate perse nella conversione OCR). `bbox=None` per entrambi; `page` già popolato dal loader LEDGER. Applicabile solo con un futuro dataset che distribuisce PDF nativi + coordinate. Non blocca E-01→R-07. Nota aggiunta in ROADMAP §5. |
 | I-07 | ✅ fatto (2026-08-05) | Indicizzazione con named vectors (dense + sparse) su Qdrant, una collection per dataset. `src/index/embed.py`: aggiunto `encode_sparse()` via `SparseTextEmbedding` (Qdrant/bm25, CPU). `src/index/store.py`: migrato a named vectors (`"dense"` + `"sparse"`), payload esteso con `pipeline` e `section_path`, aggiunto `delete_collection()`. `scripts/ingest.py` riscritto: supporta `--dataset open_ragbench|ledger|all`, `--drop`, `--batch-size`, progress reporting con throughput e ETA, tempo totale in minuti. `scripts/query.py` aggiornato per `using="dense"` e payload completo. Fix test: tolleranza fp32 batch variance su DirectML alzata da 1e-6 a 1e-5. 28 nuovi test in `tests/test_index_embed.py` (18) e `tests/test_index_store.py` (10). **198/198 test passati.** Gate: `python scripts/ingest.py --drop` completato in **122 minuti** su 65.950 chunk totali (18.840 ORB + 47.110 LEDGER), batch=32, RX 6750 XT. Bottleneck: dense embedding ~10 embed/s × 66k chunk ≈ 110 min GPU. Criterio "< 20 min" era per BGE-M3 (PR #602 ancora aperto) — aggiornato in ROADMAP con i numeri reali. Sparse (BM25 CPU): 41s totali. Upsert: 50s totali. |
+
+---
+
+## Fase 2 — Harness, baseline, rumore
+
+| Task | Stato | Note |
+|---|---|---|
+| E-01 | ✅ fatto (2026-08-05) | Schema `GoldenQuery` + `GoldenQrel` in `src/datasets/golden.py`. Loader `load_open_ragbench_golden()`: 3045 query da `queries.json`/`qrels.json`/`answers.json` — 1 chunk rilevante per query (relevance=2), chunk_id `"open_ragbench:{doc_id}:{section_id}"`. Loader `load_ledger_golden()`: 10000 query dai 10 shard parquet (`eval/data-*-of-*.parquet`) — qrels graduati 0-2, chunk_id `"ledger:{doc_id}:{page:04d}"`. Aggiunto `download_qa()` in `ledger.py`. CLI `scripts/build_golden.py` (supporta `--dataset`). Validazione inline in `validate_golden_file()`. Output: `eval/golden/open_ragbench.jsonl` (3045 righe), `eval/golden/ledger.jsonl` (10000 righe). 26 nuovi test in `tests/test_golden.py`. **224/224 test passati.** |
+| E-02 | ⬜ da fare | — |
+| E-03 | ⬜ da fare | — |
+| E-04 | ⬜ da fare | — |
+| E-05 | ⬜ da fare | — |
+| E-06 | ⬜ da fare | — |
+| E-07 | ⬜ da fare | — |
