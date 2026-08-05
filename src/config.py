@@ -42,6 +42,11 @@ SPARSE_EMBEDDING_MODEL: str = "Qdrant/bm25"
 # ---------------------------------------------------------------------------
 TOP_K: int = 5
 
+# Hybrid RRF (R-01): smoothing constant and candidate pool per index.
+# Fetch HYBRID_FETCH_K from each of dense and sparse before fusing.
+RRF_K: int = 60
+HYBRID_FETCH_K: int = 20
+
 # ---------------------------------------------------------------------------
 # Paths
 # ---------------------------------------------------------------------------

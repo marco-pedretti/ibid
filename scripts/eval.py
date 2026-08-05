@@ -1,14 +1,15 @@
-"""E-03 / E-06: Run retrieval evaluation and write EvalRun JSON to eval/results/.
+"""E-03 / E-06 / R-01: Run retrieval evaluation and write EvalRun JSON to eval/results/.
 
 Usage:
     python scripts/eval.py [--dataset open_ragbench|ledger|all] [--top-k N] [--limit N]
     python scripts/eval.py --retrieval-mode sparse   # E-06 lexical-only baseline
+    python scripts/eval.py --retrieval-mode hybrid   # R-01 hybrid RRF
 
 Options:
     --dataset        Which dataset(s) to evaluate (default: all)
     --top-k          Retrieval depth (default: cfg.TOP_K = 5)
     --limit          Evaluate only first N answerable queries per dataset (smoke test)
-    --retrieval-mode dense (default) | sparse — sparse = E-06 lexical-only BM25
+    --retrieval-mode dense (default) | sparse | hybrid
 """
 
 from __future__ import annotations
@@ -40,7 +41,8 @@ def run_dataset(
         print(f"  ERROR: {golden_path} not found — run build_golden.py first.")
         return
 
-    pipeline_mode = "baseline_c" if retrieval_mode == "sparse" else "generic"
+    pipeline_mode_map = {"sparse": "baseline_c", "hybrid": "hybrid_rrf"}
+    pipeline_mode = pipeline_mode_map.get(retrieval_mode, "generic")
     n_desc = f"first {limit}" if limit else "all"
     print(
         f"  Evaluating {n_desc} queries against {dataset_id} "
@@ -75,8 +77,8 @@ def main() -> None:
     parser.add_argument("--top-k", type=int, default=cfg.TOP_K)
     parser.add_argument("--limit", type=int, default=None,
                         help="Evaluate only first N answerable queries (smoke test)")
-    parser.add_argument("--retrieval-mode", choices=["dense", "sparse"], default="dense",
-                        help="dense=E-03 (default), sparse=E-06 lexical-only BM25")
+    parser.add_argument("--retrieval-mode", choices=["dense", "sparse", "hybrid"], default="dense",
+                        help="dense=E-03 (default), sparse=E-06 lexical-only BM25, hybrid=R-01 RRF")
     args = parser.parse_args()
 
     datasets = ["open_ragbench", "ledger"] if args.dataset == "all" else [args.dataset]

@@ -18,6 +18,7 @@ from src.datasets.schema import EvalRun
 from src.eval.metrics import DEFAULT_MEASURES, build_qrels, build_run, compute_metrics
 from src.index.embed import encode, encode_sparse
 from src.index.store import get_client, search
+from src.retrieval.hybrid import hybrid_search
 
 
 def _git_commit() -> str:
@@ -87,16 +88,33 @@ def run_retrieval_eval(
 
     texts = [q.query_text for q in answerable]
 
-    if retrieval_mode == "sparse":
+    if retrieval_mode == "hybrid":
+        dense_vecs = encode(texts, cfg.EMBEDDING_MODEL, batch_size=cfg.EMBEDDING_BATCH)
+        sparse_vecs = encode_sparse(texts, cfg.SPARSE_EMBEDDING_MODEL)
+        for query, dvec, svec in zip(answerable, dense_vecs, sparse_vecs):
+            results = hybrid_search(
+                client, dataset_id, dvec, svec,
+                top_k=top_k,
+                rrf_k=cfg.RRF_K,
+                fetch_k=cfg.HYBRID_FETCH_K,
+            )
+            chunk_ids = [r.payload["chunk_id"] for r in results]
+            scores = [r.score for r in results]
+            run.extend(build_run(query.query_id, chunk_ids, scores))
+    elif retrieval_mode == "sparse":
         vecs = encode_sparse(texts, cfg.SPARSE_EMBEDDING_MODEL)
+        for query, vec in zip(answerable, vecs):
+            results = search(client, dataset_id, vec, top_k=top_k, using="sparse")
+            chunk_ids = [p.payload["chunk_id"] for p in results]
+            scores = [p.score for p in results]
+            run.extend(build_run(query.query_id, chunk_ids, scores))
     else:
         vecs = encode(texts, cfg.EMBEDDING_MODEL, batch_size=cfg.EMBEDDING_BATCH)
-
-    for query, vec in zip(answerable, vecs):
-        results = search(client, dataset_id, vec, top_k=top_k, using=retrieval_mode)
-        chunk_ids = [p.payload["chunk_id"] for p in results]
-        scores = [p.score for p in results]
-        run.extend(build_run(query.query_id, chunk_ids, scores))
+        for query, vec in zip(answerable, vecs):
+            results = search(client, dataset_id, vec, top_k=top_k, using="dense")
+            chunk_ids = [p.payload["chunk_id"] for p in results]
+            scores = [p.score for p in results]
+            run.extend(build_run(query.query_id, chunk_ids, scores))
 
     metrics = compute_metrics(qrels, run, DEFAULT_MEASURES)
 
