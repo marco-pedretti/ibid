@@ -61,6 +61,28 @@ The project is **MIT licensed**; no copyleft (GPL/AGPL/LGPL-static) dependency m
 - **Never add PyMuPDF** — it's AGPL-3.0 and its network clause would force the whole project (including Docker images) to relicense as AGPL. Use `pypdfium2` (rendering/bbox) and `pdfplumber` (MIT, tables/layout) instead.
 - Any new dependency must have its license checked and recorded in the license table in `STACK.md` before being introduced.
 
+## Git workflow (mandatory — do not skip)
+
+**Every task gets its own branch before touching any file.**
+
+```
+git checkout -b <task-id>     # e.g. E-04, R-01, C-02
+# ... implement ...
+git commit -m "..."
+git checkout main
+git merge --squash <task-id>
+git commit -m "<same message>"
+```
+
+Every commit must include:
+```
+Co-Authored-By: Elia Dallanoce <eliadallanoce@gmail.com>
+```
+
+**Never add Claude as co-author.** Human authors only: Marco (marcopedretti3@gmail.com) and Elia (eliadallanoce@gmail.com).
+
+This rule has been violated on E-01 and E-03 (committed directly to main). It must be followed from every task forward without exception.
+
 ## Working rules from ROADMAP.md §12 (apply to coding-agent work in this repo)
 
 - Never measure two changes at once — one change, then a measurement, before the next change.
