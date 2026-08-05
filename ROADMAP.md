@@ -171,6 +171,8 @@ Per ogni dataset candidato: 16 domande costruite con lo stesso schema dei test p
 
 **I-01 va fatto per primo** anche se serve al routing solo in Fase 3: è lo strumento con cui decidete cosa entra nel corpus e come, e vi risparmia di scoprire a valle che un dataset non è quello che pensavate.
 
+**Nota su I-06 — rinviato per i dataset correnti.** Nessuno dei due dataset fornisce PDF fisici o coordinate spaziali: open_ragbench è distribuito come JSON pre-processato (coordinate PDF non presenti), LEDGER è distribuito come Mathpix Markdown `.mmd` (PDF sorgente non scaricati per evitare ~3,5 GB; le coordinate OCR sono già perse nella conversione). Il campo `bbox` resta `None` per entrambi; `page` è già popolato dal loader LEDGER via `<--- Page Split --->`. I-06 diventa applicabile solo se si aggiunge un dataset distribuito con PDF nativi e coordinate esportate (es. brevetti, documenti tecnici). La feature UI che dipende da I-06 (U-04/U-05: overlay bbox sulla pagina PNG) non è bloccante per E-01→R-07.
+
 **Gate:** report del profilatore per i tre dataset, e i due dataset principali risultano di generi diversi.
 
 ---
