@@ -17,8 +17,8 @@ from src.datasets.golden import GoldenQuery
 from src.datasets.schema import EvalRun
 from src.eval.metrics import DEFAULT_MEASURES, build_qrels, build_run, compute_metrics
 from src.index.embed import encode, encode_sparse
-from src.index.store import get_client, search
-from src.retrieval.hybrid import hybrid_search
+from src.index.store import get_client, search_batch
+from src.retrieval.hybrid import rrf_fuse
 
 
 def _git_commit() -> str:
@@ -89,29 +89,30 @@ def run_retrieval_eval(
     texts = [q.query_text for q in answerable]
 
     if retrieval_mode == "hybrid":
+        fetch_k = max(cfg.HYBRID_FETCH_K, top_k)
         dense_vecs = encode(texts, cfg.EMBEDDING_MODEL, batch_size=cfg.EMBEDDING_BATCH)
         sparse_vecs = encode_sparse(texts, cfg.SPARSE_EMBEDDING_MODEL)
-        for query, dvec, svec in zip(answerable, dense_vecs, sparse_vecs):
-            results = hybrid_search(
-                client, dataset_id, dvec, svec,
-                top_k=top_k,
-                rrf_k=cfg.RRF_K,
-                fetch_k=cfg.HYBRID_FETCH_K,
-            )
-            chunk_ids = [r.payload["chunk_id"] for r in results]
-            scores = [r.score for r in results]
+        dense_all = search_batch(client, dataset_id, dense_vecs, top_k=fetch_k, using="dense")
+        sparse_all = search_batch(client, dataset_id, sparse_vecs, top_k=fetch_k, using="sparse")
+        for query, dense_hits, sparse_hits in zip(answerable, dense_all, sparse_all):
+            payload_map = {h.payload["chunk_id"]: h.payload for h in dense_hits + sparse_hits}
+            dense_ids = [h.payload["chunk_id"] for h in dense_hits]
+            sparse_ids = [h.payload["chunk_id"] for h in sparse_hits]
+            fused = rrf_fuse([dense_ids, sparse_ids], k=cfg.RRF_K, top_n=top_k)
+            chunk_ids = [cid for cid, _ in fused]
+            scores = [s for _, s in fused]
             run.extend(build_run(query.query_id, chunk_ids, scores))
     elif retrieval_mode == "sparse":
         vecs = encode_sparse(texts, cfg.SPARSE_EMBEDDING_MODEL)
-        for query, vec in zip(answerable, vecs):
-            results = search(client, dataset_id, vec, top_k=top_k, using="sparse")
+        results_all = search_batch(client, dataset_id, vecs, top_k=top_k, using="sparse")
+        for query, results in zip(answerable, results_all):
             chunk_ids = [p.payload["chunk_id"] for p in results]
             scores = [p.score for p in results]
             run.extend(build_run(query.query_id, chunk_ids, scores))
     else:
         vecs = encode(texts, cfg.EMBEDDING_MODEL, batch_size=cfg.EMBEDDING_BATCH)
-        for query, vec in zip(answerable, vecs):
-            results = search(client, dataset_id, vec, top_k=top_k, using="dense")
+        results_all = search_batch(client, dataset_id, vecs, top_k=top_k, using="dense")
+        for query, results in zip(answerable, results_all):
             chunk_ids = [p.payload["chunk_id"] for p in results]
             scores = [p.score for p in results]
             run.extend(build_run(query.query_id, chunk_ids, scores))

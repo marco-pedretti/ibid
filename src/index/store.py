@@ -13,11 +13,14 @@ from qdrant_client import QdrantClient
 from qdrant_client.models import (
     Distance,
     PointStruct,
+    QueryRequest,
     QueryResponse,
     SparseVector,
     SparseVectorParams,
     VectorParams,
 )
+
+_SEARCH_BATCH = 256
 
 from src.datasets.schema import Chunk
 
@@ -89,3 +92,30 @@ def search(
         using=using,
         limit=top_k,
     ).points
+
+
+def search_batch(
+    client: QdrantClient,
+    collection: str,
+    vectors: list[list[float]] | list[SparseVector],
+    top_k: int,
+    using: str = "dense",
+) -> list[list[QueryResponse]]:
+    """Batch search: sends vectors in chunks of _SEARCH_BATCH per HTTP request.
+
+    Avoids Windows socket exhaustion (WinError 10048) when evaluating thousands
+    of queries sequentially — each chunk becomes one round-trip instead of N.
+    """
+    all_results: list[list[QueryResponse]] = []
+    for start in range(0, len(vectors), _SEARCH_BATCH):
+        batch = vectors[start : start + _SEARCH_BATCH]
+        requests = [
+            QueryRequest(query=vec, using=using, limit=top_k, with_payload=True)
+            for vec in batch
+        ]
+        responses = client.query_batch_points(
+            collection_name=collection,
+            requests=requests,
+        )
+        all_results.extend(r.points for r in responses)
+    return all_results

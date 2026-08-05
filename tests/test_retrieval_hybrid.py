@@ -163,6 +163,13 @@ def _write_golden(tmp_path: Path) -> Path:
     return p
 
 
+def _make_batch_hit(chunk_id: str, score: float = 0.9) -> MagicMock:
+    hit = MagicMock()
+    hit.payload = {"chunk_id": chunk_id}
+    hit.score = score
+    return hit
+
+
 class TestHybridHarness:
     def _run_hybrid(self, tmp_path):
         from src.datasets.schema import EvalRun
@@ -172,23 +179,20 @@ class TestHybridHarness:
         path = _write_golden(tmp_path)
         dense_vec = [0.1] * 1024
         sparse_vec = SparseVector(indices=[0], values=[1.0])
-        hit = MagicMock()
-        hit.payload = {"chunk_id": "open_ragbench:doc1:0"}
-        hit.score = 0.9
+        # search_batch returns list[list[hit]]: one inner list per query
+        batch_hit = _make_batch_hit("open_ragbench:doc1:0")
 
         with patch("src.eval.harness.get_client"), \
              patch("src.eval.harness.encode", return_value=[dense_vec]), \
              patch("src.eval.harness.encode_sparse", return_value=[sparse_vec]), \
-             patch("src.eval.harness.hybrid_search", return_value=[
-                 HybridResult(payload={"chunk_id": "open_ragbench:doc1:0"}, score=0.016)
-             ]) as mock_hybrid:
+             patch("src.eval.harness.search_batch", return_value=[[batch_hit]]) as mock_batch:
             run = run_retrieval_eval(
                 "open_ragbench", path,
                 retrieval_mode="hybrid",
                 pipeline_mode="hybrid_rrf",
                 limit=1,
             )
-        return run, mock_hybrid
+        return run, mock_batch
 
     def test_hybrid_returns_evalrun(self, tmp_path):
         from src.datasets.schema import EvalRun
@@ -196,18 +200,18 @@ class TestHybridHarness:
         assert isinstance(run, EvalRun)
 
     def test_hybrid_calls_both_encode_functions(self, tmp_path):
-        from src.datasets.schema import EvalRun
         from src.eval.harness import run_retrieval_eval
         from qdrant_client.models import SparseVector
 
         path = _write_golden(tmp_path)
         dense_vec = [0.1] * 1024
         sparse_vec = SparseVector(indices=[0], values=[1.0])
+        batch_hit = _make_batch_hit("open_ragbench:doc1:0")
 
         with patch("src.eval.harness.get_client"), \
              patch("src.eval.harness.encode", return_value=[dense_vec]) as mock_enc, \
              patch("src.eval.harness.encode_sparse", return_value=[sparse_vec]) as mock_sparse, \
-             patch("src.eval.harness.hybrid_search", return_value=[]):
+             patch("src.eval.harness.search_batch", return_value=[[batch_hit]]):
             run_retrieval_eval(
                 "open_ragbench", path,
                 retrieval_mode="hybrid",
@@ -217,27 +221,28 @@ class TestHybridHarness:
         mock_enc.assert_called_once()
         mock_sparse.assert_called_once()
 
-    def test_hybrid_does_not_call_search_directly(self, tmp_path):
+    def test_hybrid_calls_search_batch_twice(self, tmp_path):
+        # One search_batch call for dense, one for sparse
         from src.eval.harness import run_retrieval_eval
         from qdrant_client.models import SparseVector
 
         path = _write_golden(tmp_path)
-        dense_vec = [0.1] * 1024
         sparse_vec = SparseVector(indices=[0], values=[1.0])
+        batch_hit = _make_batch_hit("open_ragbench:doc1:0")
 
         with patch("src.eval.harness.get_client"), \
-             patch("src.eval.harness.encode", return_value=[dense_vec]), \
+             patch("src.eval.harness.encode", return_value=[[0.1] * 1024]), \
              patch("src.eval.harness.encode_sparse", return_value=[sparse_vec]), \
-             patch("src.eval.harness.hybrid_search", return_value=[]) as mock_hybrid, \
-             patch("src.eval.harness.search") as mock_search:
+             patch("src.eval.harness.search_batch", return_value=[[batch_hit]]) as mock_batch:
             run_retrieval_eval(
                 "open_ragbench", path,
                 retrieval_mode="hybrid",
                 limit=1,
             )
 
-        mock_hybrid.assert_called_once()
-        mock_search.assert_not_called()
+        assert mock_batch.call_count == 2
+        usings = [c.kwargs.get("using") for c in mock_batch.call_args_list]
+        assert set(usings) == {"dense", "sparse"}
 
     def test_hybrid_pipeline_mode(self, tmp_path):
         run, _ = self._run_hybrid(tmp_path)
@@ -249,11 +254,12 @@ class TestHybridHarness:
 
         path = _write_golden(tmp_path)
         sparse_vec = SparseVector(indices=[0], values=[1.0])
+        batch_hit = _make_batch_hit("open_ragbench:doc1:0")
 
         with patch("src.eval.harness.get_client"), \
              patch("src.eval.harness.encode", return_value=[[0.1] * 1024]), \
              patch("src.eval.harness.encode_sparse", return_value=[sparse_vec]), \
-             patch("src.eval.harness.hybrid_search", return_value=[]):
+             patch("src.eval.harness.search_batch", return_value=[[batch_hit]]):
             run_hybrid = run_retrieval_eval(
                 "open_ragbench", path, retrieval_mode="hybrid",
                 pipeline_mode="hybrid_rrf", limit=1,
@@ -261,7 +267,7 @@ class TestHybridHarness:
 
         with patch("src.eval.harness.get_client"), \
              patch("src.eval.harness.encode", return_value=[[0.1] * 1024]), \
-             patch("src.eval.harness.search", return_value=[]):
+             patch("src.eval.harness.search_batch", return_value=[[]]):
             run_dense = run_retrieval_eval(
                 "open_ragbench", path, retrieval_mode="dense",
                 pipeline_mode="generic", limit=1,
