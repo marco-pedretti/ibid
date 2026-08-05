@@ -140,68 +140,91 @@ if page == "EvalRun Comparator":
     label_to_run = dict(zip(labels, filtered_runs))
 
     selected_labels: list[str] = st.multiselect(
-        "Seleziona ≥ 2 run da confrontare",
+        "Seleziona 1 run (dettaglio) o ≥ 2 (confronto)",
         options=labels,
         default=labels[: min(2, len(labels))],
     )
-    if len(selected_labels) < 2:
-        st.info("Seleziona almeno 2 run per confrontarli.")
+    if not selected_labels:
+        st.info("Seleziona almeno un run.")
         st.stop()
 
     sel = [label_to_run[l] for l in selected_labels]
 
-    # Metadata cards
-    meta_cols = st.columns(len(sel))
-    for col, run in zip(meta_cols, sel):
-        with col:
-            st.markdown(f"**{run_label(run)}**")
-            st.json({
-                "dataset": run.dataset_id,
-                "pipeline": run.pipeline_mode,
-                "model": run.model,
-                "commit": run.git_commit[:7],
-                "temperature": run.temperature,
-                "context_window": run.context_window,
-                "quantization": run.quantization,
-                "reasoning": run.reasoning_enabled,
-            })
+    # --- Single run: detail view ---
+    if len(sel) == 1:
+        run = sel[0]
+        st.subheader(run_label(run))
+        st.json({
+            "dataset": run.dataset_id,
+            "pipeline": run.pipeline_mode,
+            "model": run.model,
+            "commit": run.git_commit[:7],
+            "config_hash": run.config_hash,
+            "temperature": run.temperature,
+            "context_window": run.context_window,
+            "quantization": run.quantization,
+            "reasoning": run.reasoning_enabled,
+        })
+        st.divider()
+        st.subheader("Metriche")
+        metrics_df = pd.DataFrame(
+            {"Valore": run.metrics}
+        ).sort_index()
+        metrics_df.index.name = "Metric"
+        st.dataframe(metrics_df, use_container_width=True)
+        st.bar_chart(metrics_df, use_container_width=True)
 
-    st.divider()
-    st.subheader("Metriche")
+    # --- Multi-run: comparison view ---
+    else:
+        meta_cols = st.columns(len(sel))
+        for col, run in zip(meta_cols, sel):
+            with col:
+                st.markdown(f"**{run_label(run)}**")
+                st.json({
+                    "dataset": run.dataset_id,
+                    "pipeline": run.pipeline_mode,
+                    "model": run.model,
+                    "commit": run.git_commit[:7],
+                    "temperature": run.temperature,
+                    "context_window": run.context_window,
+                    "quantization": run.quantization,
+                    "reasoning": run.reasoning_enabled,
+                })
 
-    table = compare_table(sel)
-    short_labels = [run_label(r) for r in sel]
-    df = pd.DataFrame(table, index=short_labels).T
-    df.index.name = "Metric"
+        st.divider()
+        st.subheader("Metriche")
 
-    st.dataframe(
-        df.style.highlight_max(axis=1, color="#d4edda").highlight_min(axis=1, color="#f8d7da"),
-        use_container_width=True,
-    )
+        table = compare_table(sel)
+        short_labels = [run_label(r) for r in sel]
+        df = pd.DataFrame(table, index=short_labels).T
+        df.index.name = "Metric"
 
-    # Visual bar chart
-    st.subheader("Grafico")
-    chart_df = pd.DataFrame(table, index=short_labels).T
-    st.bar_chart(chart_df, use_container_width=True)
-
-    # Delta table (2-run only)
-    if len(sel) == 2:
-        st.subheader("Delta (run 2 − run 1)")
-        delta = {
-            m: vals[1] - vals[0]
-            for m, vals in table.items()
-            if not any(math.isnan(v) for v in vals)
-        }
-        delta_df = pd.DataFrame(
-            {"Metric": list(delta.keys()), "Δ": list(delta.values())}
-        ).set_index("Metric")
         st.dataframe(
-            delta_df.style.map(
-                lambda v: "color: green" if v > 0 else ("color: red" if v < 0 else ""),
-                subset=["Δ"],
-            ),
+            df.style.highlight_max(axis=1, color="#d4edda").highlight_min(axis=1, color="#f8d7da"),
             use_container_width=True,
         )
+
+        st.subheader("Grafico")
+        chart_df = pd.DataFrame(table, index=short_labels).T
+        st.bar_chart(chart_df, use_container_width=True)
+
+        if len(sel) == 2:
+            st.subheader("Delta (run 2 − run 1)")
+            delta = {
+                m: vals[1] - vals[0]
+                for m, vals in table.items()
+                if not any(math.isnan(v) for v in vals)
+            }
+            delta_df = pd.DataFrame(
+                {"Metric": list(delta.keys()), "Δ": list(delta.values())}
+            ).set_index("Metric")
+            st.dataframe(
+                delta_df.style.map(
+                    lambda v: "color: green" if v > 0 else ("color: red" if v < 0 else ""),
+                    subset=["Δ"],
+                ),
+                use_container_width=True,
+            )
 
 # =============================================================================
 # PAGE 2 — Chunk Inspector
@@ -403,11 +426,11 @@ elif page == "Collection Stats":
             try:
                 info = client.get_collection(name)
                 pc = info.points_count or 0
-                vc = info.vectors_count or 0
+                vc = getattr(info, "vectors_count", None)
 
                 mc1, mc2 = st.columns(2)
                 mc1.metric("Punti (chunk)", f"{pc:,}")
-                mc2.metric("Vettori totali", f"{vc:,}")
+                mc2.metric("Vettori totali", f"{vc:,}" if vc is not None else "—")
 
                 # Named vector config
                 vconf = info.config.params.vectors
