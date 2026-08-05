@@ -1,10 +1,10 @@
 .PHONY: fetch-datasets ingest eval demo
 
 fetch-datasets:
-	@echo "TODO: T-04"
+	python scripts/fetch_dataset.py
 
 ingest:
-	@echo "TODO: T-05"
+	python scripts/ingest.py
 
 eval:
 	python scripts/eval.py
