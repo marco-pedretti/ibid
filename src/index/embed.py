@@ -1,17 +1,20 @@
-"""Dense embedding via fastembed + ONNX Runtime DirectML (AMD GPU on Windows).
+"""Dense and sparse embedding via fastembed + ONNX Runtime DirectML (AMD GPU on Windows).
 
-fastembed uses ONNX Runtime under the hood. With onnxruntime-directml installed,
-DmlExecutionProvider routes inference to the GPU via DirectX 12 — no ROCm needed.
-Falls back to CPU if DirectML is not available.
+Dense model: intfloat/multilingual-e5-large (1024-dim, multilingual, Apache 2.0)
+  - fastembed routes ONNX inference to AMD RX 6750 XT via DmlExecutionProvider (DirectX 12)
+  - Falls back to CPU if DirectML is not available
+  - Target: BAAI/bge-m3 when fastembed PR #602 merges
 
-Current model: intfloat/multilingual-e5-large (1024-dim, multilingual, Apache 2.0)
-Target model: BAAI/bge-m3 — switch when fastembed adds it to its model catalogue.
+Sparse model: Qdrant/bm25 (statistical, multilingual, Apache 2.0, ~1 MB)
+  - CPU-only — no GPU needed for statistical BM25
+  - Used in R-01 hybrid RRF alongside dense vectors
 """
 
 from __future__ import annotations
 
 import onnxruntime
-from fastembed import TextEmbedding
+from fastembed import SparseTextEmbedding, TextEmbedding
+from qdrant_client.models import SparseVector
 
 _PROVIDERS = (
     ["DmlExecutionProvider", "CPUExecutionProvider"]
@@ -19,21 +22,37 @@ _PROVIDERS = (
     else ["CPUExecutionProvider"]
 )
 
-_cache: dict[str, TextEmbedding] = {}
+_dense_cache: dict[str, TextEmbedding] = {}
+_sparse_cache: dict[str, SparseTextEmbedding] = {}
 
 
-def _model(name: str) -> TextEmbedding:
-    if name not in _cache:
-        _cache[name] = TextEmbedding(model_name=name, providers=_PROVIDERS)
-    return _cache[name]
+def _dense_model(name: str) -> TextEmbedding:
+    if name not in _dense_cache:
+        _dense_cache[name] = TextEmbedding(model_name=name, providers=_PROVIDERS)
+    return _dense_cache[name]
+
+
+def _sparse_model(name: str) -> SparseTextEmbedding:
+    if name not in _sparse_cache:
+        _sparse_cache[name] = SparseTextEmbedding(model_name=name)
+    return _sparse_cache[name]
 
 
 def encode(texts: list[str], model_name: str, batch_size: int = 32) -> list[list[float]]:
     """Return L2-normalized dense vectors for each text."""
-    vecs = list(_model(model_name).embed(texts, batch_size=batch_size))
+    vecs = list(_dense_model(model_name).embed(texts, batch_size=batch_size))
     return [v.tolist() for v in vecs]
 
 
+def encode_sparse(texts: list[str], model_name: str) -> list[SparseVector]:
+    """Return BM25 sparse vectors for each text."""
+    results = list(_sparse_model(model_name).embed(texts))
+    return [
+        SparseVector(indices=r.indices.tolist(), values=r.values.tolist())
+        for r in results
+    ]
+
+
 def vector_size(model_name: str) -> int:
-    dummy = list(_model(model_name).embed(["x"]))
+    dummy = list(_dense_model(model_name).embed(["x"]))
     return len(dummy[0])

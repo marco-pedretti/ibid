@@ -33,8 +33,8 @@ def _payload_to_chunk(p: dict) -> Chunk:
         dataset_id=p["dataset_id"],
         doc_id=p["doc_id"],
         doc_genre=p.get("doc_genre", ""),
-        pipeline="",
-        section_path="",
+        pipeline=p.get("pipeline", ""),
+        section_path=p.get("section_path", ""),
         page=p.get("page", 0),
         bbox=None,
         content_type=p.get("content_type", "text"),
@@ -57,7 +57,7 @@ def main() -> None:
 
     # 2. Retrieve
     client = get_client(cfg.QDRANT_URL)
-    hits = search(client, args.dataset, q_vec, args.top_k)
+    hits = search(client, args.dataset, q_vec, args.top_k, using="dense")
     chunks = [_payload_to_chunk(h.payload) for h in hits]
 
     print(f"\nTop {len(chunks)} chunk recuperati:")
