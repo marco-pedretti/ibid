@@ -263,3 +263,67 @@ class TestRunGenerationEval:
             run_a = run_generation_eval("open_ragbench", path, baseline="A", model="m1", limit=1)
             run_b = run_generation_eval("open_ragbench", path, baseline="A", model="m2", limit=1)
         assert run_a.config_hash != run_b.config_hash
+
+
+# ---------------------------------------------------------------------------
+# E-05 — Baseline B (strict prompt)
+# ---------------------------------------------------------------------------
+
+class TestBaselineB:
+    def test_pipeline_mode_is_baseline_b(self, tmp_path):
+        path = _write_golden(tmp_path, [_answerable_query()])
+        with patch("src.eval.generation_harness.generate", return_value="42."), \
+             patch("src.eval.generation_harness.judge_answer", return_value="correct"):
+            run = run_generation_eval("open_ragbench", path, baseline="B", limit=1)
+        assert run.pipeline_mode == "baseline_b"
+
+    def test_baseline_b_exact_abstention_phrase_detected(self):
+        # The phrase from BASELINE_B_SYSTEM must be detected by is_abstained
+        phrase = "I cannot answer without more information."
+        assert is_abstained(phrase) is True
+
+    def test_baseline_b_all_abstained(self, tmp_path):
+        queries = [_answerable_query(qid=f"q{i}") for i in range(4)]
+        path = _write_golden(tmp_path, queries)
+        with patch("src.eval.generation_harness.generate",
+                   return_value="I cannot answer without more information."):
+            run = run_generation_eval("open_ragbench", path, baseline="B")
+        assert run.metrics["abstention_rate"] == pytest.approx(1.0)
+        assert run.metrics["correct_rate"] == pytest.approx(0.0)
+        assert run.metrics["wrong_rate"] == pytest.approx(0.0)
+
+    def test_baseline_b_mixed_abstained_and_correct(self, tmp_path):
+        # 2 abstain, 1 correct, 1 wrong  →  rates = 0.5, 0.25, 0.25
+        queries = [_answerable_query(qid=f"q{i}") for i in range(4)]
+        path = _write_golden(tmp_path, queries)
+
+        responses = [
+            "I cannot answer without more information.",
+            "I cannot answer without more information.",
+            "The answer is 42.",
+            "The answer is 999.",
+        ]
+        judge_verdicts = ["correct", "wrong"]
+        resp_iter = iter(responses)
+        judge_iter = iter(judge_verdicts)
+
+        with patch("src.eval.generation_harness.generate",
+                   side_effect=lambda **_: next(resp_iter)), \
+             patch("src.eval.generation_harness.judge_answer",
+                   side_effect=lambda **_: next(judge_iter)):
+            run = run_generation_eval("open_ragbench", path, baseline="B")
+
+        assert run.metrics["abstention_rate"] == pytest.approx(0.5)
+        assert run.metrics["correct_rate"] == pytest.approx(0.25)
+        assert run.metrics["wrong_rate"] == pytest.approx(0.25)
+
+    def test_baseline_b_different_hash_from_a(self, tmp_path):
+        path = _write_golden(tmp_path, [_answerable_query()])
+        with patch("src.eval.generation_harness.generate", return_value="42."), \
+             patch("src.eval.generation_harness.judge_answer", return_value="correct"):
+            run_a = run_generation_eval("open_ragbench", path, baseline="A", model="m", limit=1)
+            run_b = run_generation_eval("open_ragbench", path, baseline="B", model="m", limit=1)
+        assert run_a.config_hash != run_b.config_hash
+
+    def test_baseline_b_contains_abstention_instruction(self):
+        assert "cannot answer without more information" in BASELINE_B_SYSTEM
