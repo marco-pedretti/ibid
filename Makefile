@@ -7,7 +7,7 @@ ingest:
 	@echo "TODO: T-05"
 
 eval:
-	@echo "TODO: E-03"
+	python scripts/eval.py
 
 demo:
 	docker compose --profile demo up

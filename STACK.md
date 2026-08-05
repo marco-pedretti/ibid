@@ -191,7 +191,8 @@ Alternative permissive già in tabella: **pypdfium2** per rendering e bbox, **pd
 | BAAI/bge-m3 | MIT | sì — modello target (non ancora in fastembed, PR #602 aperto) |
 | bge-reranker-v2-m3 | Apache 2.0 | sì |
 | llama.cpp / Ollama | MIT | sì |
-| ir_measures | MIT | sì |
+| pandas | BSD-3-Clause | sì — lettura parquet LEDGER e manipolazione dati |
+| ir_measures 0.4.3 | MIT | sì — nDCG, Recall@k, MRR, Success@1 per E-03 |
 | RAGAS | Apache 2.0 | sì |
 | ruff, pytest, uv | MIT / Apache 2.0 | sì |
 | pypdfium2 | permissiva | sì |
