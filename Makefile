@@ -9,5 +9,8 @@ ingest:
 eval:
 	python scripts/eval.py
 
+eval-generation:
+	python scripts/eval_generation.py --baseline A
+
 demo:
 	docker compose --profile demo up

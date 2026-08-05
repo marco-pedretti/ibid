@@ -13,6 +13,7 @@ ROOT = Path(__file__).parent.parent
 # ---------------------------------------------------------------------------
 LLM_BASE_URL: str = os.getenv("LLM_BASE_URL", "http://localhost:11434/v1")
 LLM_MODEL: str = os.getenv("LLM_MODEL", "gemma4:latest")
+LLM_QUANTIZATION: str = os.getenv("LLM_QUANTIZATION", "Q4_K_M")
 CONTEXT_WINDOW: int = 32768
 TEMPERATURE: float = 0.0
 MAX_NEW_TOKENS: int = 1024
