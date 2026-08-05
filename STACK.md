@@ -198,6 +198,13 @@ Alternative permissive già in tabella: **pypdfium2** per rendering e bbox, **pd
 
 **Regola per chi aggiunge dipendenze** (persone e coding agent): prima di introdurre una libreria, verificarne la licenza e aggiornare questa tabella. Qualsiasi licenza copyleft (GPL, AGPL, LGPL con linking statico) va segnalata e discussa prima dell'inserimento, non dopo.
 
+### Dataset usati
+
+| Dataset | Repo HuggingFace | Licenza | Compatibile MIT | Note |
+|---|---|---|---|---|
+| `vectara/open_ragbench` | `vectara/open_ragbench` | Apache 2.0 | sì | Dataset principale (academic PDFs) |
+| `artefactory/ledger-long-context-KPI-QA` | `artefactory/ledger-long-context-KPI-QA` | CC-BY-4.0 | sì | Secondo dataset (annual reports, table-heavy); contamination check superato 2026-08-05 (0/8 corrette senza contesto con Gemma 12B) |
+
 ### Codice, dati e modelli sono cose distinte
 
 - **Codice** → MIT, file `LICENSE` nella radice.
