@@ -53,7 +53,7 @@ Tracciamento dei task di `ROADMAP.md` man mano che vengono completati. Non sosti
 | Task | Stato | Note |
 |---|---|---|
 | D-01 | ✅ fatto (2026-08-05) | Dashboard interna Streamlit in `dashboard/app.py`. Due pagine: **EvalRun Comparator** (carica tutti i JSON da `eval/results/`, multiselect ≥2 run, tabella metrice affiancata con highlight verde/rosso, colonna delta per 2 run) e **Chunk Inspector** (query libera su open_ragbench o ledger, dense o sparse, slider top-k, risultati come expander con score/doc_id/section_path/testo). Helper puri in `dashboard/eval_store.py` (`load_eval_runs`, `run_label`, `compare_table`) testabili senza importare Streamlit. 22 nuovi test in `tests/test_dashboard.py`. `streamlit>=1.35` (Apache 2.0) aggiunto a `pyproject.toml` e tabella licenze `STACK.md`. Makefile: target `dashboard`. **355/355 test passati.** Eseguire: `make dashboard`. |
-| R-01 | ⬜ da fare | — |
+| R-01 | ✅ fatto (2026-08-05) | Hybrid dense+sparse con RRF in `src/retrieval/hybrid.py`: `rrf_fuse()` (pura, no Qdrant, formula 1/(k+rank)) + `hybrid_search()` (fetch_k candidati da ciascun indice, fuse, restituisce `HybridResult`). `src/config.py`: `RRF_K=60`, `HYBRID_FETCH_K=20`. Harness esteso con path `retrieval_mode="hybrid"`: encode dense+sparse in batch, chiama `hybrid_search()`, passa RRF scores a `build_run()`. CLI `scripts/eval.py` aggiornato (`--retrieval-mode hybrid`, `pipeline_mode="hybrid_rrf"`). 20 nuovi test in `tests/test_retrieval_hybrid.py`. **399/399 test passati.** Eseguire: `python scripts/eval.py --retrieval-mode hybrid --dataset open_ragbench --limit 50`. |
 | R-02 | ⬜ da fare | — |
 | R-03 | ⬜ da fare | — |
 | R-04 | ⬜ da fare | — |
