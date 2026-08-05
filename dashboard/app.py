@@ -20,6 +20,7 @@ from pathlib import Path
 ROOT = Path(__file__).parent.parent
 sys.path.insert(0, str(ROOT))
 
+import altair as alt
 import pandas as pd
 import streamlit as st
 
@@ -115,6 +116,44 @@ def _render_results(results: list, show_scores_chart: bool = True) -> None:
             st.markdown(p.get("text", "*(testo assente)*"))
 
 
+def _render_run_meta(run) -> None:
+    """Show EvalRun metadata as structured fields, not raw JSON."""
+    r1c1, r1c2, r1c3 = st.columns(3)
+    r1c1.metric("Dataset", run.dataset_id)
+    r1c2.metric("Pipeline", run.pipeline_mode)
+    r1c3.metric("Model", run.model)
+    r2c1, r2c2, r2c3 = st.columns(3)
+    r2c1.metric("Commit", run.git_commit[:7])
+    r2c2.metric("Quantization", run.quantization)
+    r2c3.metric("Config hash", run.config_hash)
+    r3c1, r3c2, r3c3 = st.columns(3)
+    r3c1.metric("Temperatura", run.temperature)
+    r3c2.metric("Context window", run.context_window if run.context_window else "—")
+    r3c3.metric("Reasoning", "✅" if run.reasoning_enabled else "❌")
+
+
+def _grouped_bar_chart(df: pd.DataFrame, height: int = 300) -> None:
+    """Altair grouped bar chart. df: index=metrics, columns=run labels."""
+    melted = (
+        df.reset_index()
+        .rename(columns={"index": "Metric"})
+        .melt(id_vars="Metric", var_name="Run", value_name="Score")
+    )
+    chart = (
+        alt.Chart(melted)
+        .mark_bar()
+        .encode(
+            x=alt.X("Metric:N", sort=None, axis=alt.Axis(labelAngle=-30, title="")),
+            y=alt.Y("Score:Q", axis=alt.Axis(title="Score")),
+            color=alt.Color("Run:N", legend=alt.Legend(orient="bottom")),
+            xOffset="Run:N",
+            tooltip=["Metric:N", "Run:N", alt.Tooltip("Score:Q", format=".4f")],
+        )
+        .properties(height=height)
+    )
+    st.altair_chart(chart, use_container_width=True)
+
+
 # =============================================================================
 # PAGE 1 — EvalRun Comparator
 # =============================================================================
@@ -154,25 +193,13 @@ if page == "EvalRun Comparator":
     if len(sel) == 1:
         run = sel[0]
         st.subheader(run_label(run))
-        st.json({
-            "dataset": run.dataset_id,
-            "pipeline": run.pipeline_mode,
-            "model": run.model,
-            "commit": run.git_commit[:7],
-            "config_hash": run.config_hash,
-            "temperature": run.temperature,
-            "context_window": run.context_window,
-            "quantization": run.quantization,
-            "reasoning": run.reasoning_enabled,
-        })
+        _render_run_meta(run)
         st.divider()
         st.subheader("Metriche")
-        metrics_df = pd.DataFrame(
-            {"Valore": run.metrics}
-        ).sort_index()
+        metrics_df = pd.DataFrame({"Valore": run.metrics}).sort_index()
         metrics_df.index.name = "Metric"
         st.dataframe(metrics_df, use_container_width=True)
-        st.bar_chart(metrics_df, use_container_width=True)
+        _grouped_bar_chart(metrics_df.rename(columns={"Valore": run_label(run)}))
 
     # --- Multi-run: comparison view ---
     else:
@@ -180,16 +207,8 @@ if page == "EvalRun Comparator":
         for col, run in zip(meta_cols, sel):
             with col:
                 st.markdown(f"**{run_label(run)}**")
-                st.json({
-                    "dataset": run.dataset_id,
-                    "pipeline": run.pipeline_mode,
-                    "model": run.model,
-                    "commit": run.git_commit[:7],
-                    "temperature": run.temperature,
-                    "context_window": run.context_window,
-                    "quantization": run.quantization,
-                    "reasoning": run.reasoning_enabled,
-                })
+                st.divider()
+                _render_run_meta(run)
 
         st.divider()
         st.subheader("Metriche")
@@ -198,15 +217,10 @@ if page == "EvalRun Comparator":
         short_labels = [run_label(r) for r in sel]
         df = pd.DataFrame(table, index=short_labels).T
         df.index.name = "Metric"
-
-        st.dataframe(
-            df.style.highlight_max(axis=1, color="#d4edda").highlight_min(axis=1, color="#f8d7da"),
-            use_container_width=True,
-        )
+        st.dataframe(df, use_container_width=True)
 
         st.subheader("Grafico")
-        chart_df = pd.DataFrame(table, index=short_labels).T
-        st.bar_chart(chart_df, use_container_width=True)
+        _grouped_bar_chart(df)
 
         if len(sel) == 2:
             st.subheader("Delta (run 2 − run 1)")
