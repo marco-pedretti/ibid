@@ -51,4 +51,4 @@ def test_build_includes_chunk_text():
 
 def test_build_empty_chunks():
     msg = build_user_message("Q?", [])
-    assert "Domanda: Q?" in msg
+    assert "Q?" in msg

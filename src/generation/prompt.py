@@ -9,18 +9,19 @@ from __future__ import annotations
 from src.datasets.schema import Chunk
 
 SYSTEM = (
-    "Sei un assistente di ricerca preciso. Rispondi alla domanda usando SOLO i chunk di contesto forniti.\n"
-    "Per ogni affermazione, cita il/i chunk di provenienza con marcatori [n] immediatamente dopo l'affermazione.\n"
-    "Usa solo marcatori contigui come [1][2], mai [1,2] o [1-2] o [1 e 2].\n"
-    "Cita solo i chunk che supportano direttamente l'affermazione.\n"
-    "Se il contesto non contiene informazioni sufficienti, rispondi esattamente: "
-    "'Non ho informazioni sufficienti.'\n\n"
-    "Esempio di formato corretto:\n"
-    "Il valore massimo è 400ms [2][3]. Il modello proposto supera la baseline [1]."
+    "You are a precise research assistant. Answer the question using ONLY the provided context chunks.\n"
+    "After each claim, immediately cite the source chunk(s) with [n] markers.\n"
+    "Use only contiguous markers like [1][2], never [1,2] or [1-2] or [1 and 2].\n"
+    "Cite only chunks that directly support the claim.\n"
+    "If the context does not contain sufficient information, reply exactly: "
+    "'Insufficient information.'\n\n"
+    "Respond in the same language as the question.\n\n"
+    "Correct format example:\n"
+    "The maximum value is 400ms [2][3]. The proposed model outperforms the baseline [1]."
 )
 
 
 def build_user_message(query: str, chunks: list[Chunk]) -> str:
     parts = [f"[{i + 1}] {c.text}" for i, c in enumerate(chunks)]
     context = "\n\n".join(parts)
-    return f"Contesto:\n{context}\n\nDomanda: {query}"
+    return f"Context:\n{context}\n\nQuestion: {query}"
