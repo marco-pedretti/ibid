@@ -27,6 +27,7 @@ class GoldenQuery(BaseModel):
     dataset_id: str
     query_text: str
     qrels: list[GoldenQrel]
+    answerable: bool = True  # False for E-02 unanswerable queries (qrels will be empty)
     reference_answer: str | None = None
     meta: dict[str, Any] = Field(default_factory=dict)
 
@@ -141,7 +142,7 @@ def validate_golden_file(path: Path) -> int:
                 obj = GoldenQuery.model_validate_json(line)
             except Exception as exc:
                 raise ValueError(f"Line {i}: {exc}") from exc
-            if not obj.qrels:
-                raise ValueError(f"Line {i}: qrels is empty for query_id={obj.query_id!r}")
+            if obj.answerable and not obj.qrels:
+                raise ValueError(f"Line {i}: answerable query has empty qrels for query_id={obj.query_id!r}")
             count += 1
     return count

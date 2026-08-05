@@ -261,11 +261,17 @@ class TestSaveAndValidate:
         save_golden(self._sample_queries(), out)
         assert validate_golden_file(out) == 5
 
-    def test_validate_raises_on_malformed_json(self, tmp_path):
+    def test_validate_raises_on_answerable_with_empty_qrels(self, tmp_path):
         out = tmp_path / "test.jsonl"
-        out.write_text('{"query_id": "q1", "dataset_id": "x", "query_text": "Q?", "qrels": []}\n', encoding="utf-8")
-        with pytest.raises(ValueError, match="qrels is empty"):
+        # answerable=True (default) with empty qrels → error
+        out.write_text('{"query_id": "q1", "dataset_id": "x", "query_text": "Q?", "qrels": [], "answerable": true}\n', encoding="utf-8")
+        with pytest.raises(ValueError, match="empty qrels"):
             validate_golden_file(out)
+
+    def test_validate_accepts_unanswerable_with_empty_qrels(self, tmp_path):
+        out = tmp_path / "test.jsonl"
+        out.write_text('{"query_id": "q1", "dataset_id": "x", "query_text": "Q?", "qrels": [], "answerable": false}\n', encoding="utf-8")
+        assert validate_golden_file(out) == 1
 
     def test_validate_raises_on_missing_field(self, tmp_path):
         out = tmp_path / "test.jsonl"
