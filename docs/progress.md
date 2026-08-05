@@ -20,6 +20,20 @@ Tracciamento dei task di `ROADMAP.md` man mano che vengono completati. Non sosti
 
 ---
 
+## Fase 2 — Harness, baseline, rumore
+
+| Task | Stato | Note |
+|---|---|---|
+| E-01 | ✅ fatto (2026-08-05) | Schema `GoldenQuery` + `GoldenQrel` in `src/datasets/golden.py`. Loader `load_open_ragbench_golden()`: 3045 query da `queries.json`/`qrels.json`/`answers.json` — 1 chunk rilevante per query (relevance=2), chunk_id `"open_ragbench:{doc_id}:{section_id}"`. Loader `load_ledger_golden()`: 10000 query dai 10 shard parquet (`eval/data-*-of-*.parquet`) — qrels graduati 0-2, chunk_id `"ledger:{doc_id}:{page:04d}"`. Aggiunto `download_qa()` in `ledger.py`. CLI `scripts/build_golden.py` (supporta `--dataset`). Validazione inline in `validate_golden_file()`. Output: `eval/golden/open_ragbench.jsonl` (3045 righe), `eval/golden/ledger.jsonl` (10000 righe). 26 nuovi test in `tests/test_golden.py`. **224/224 test passati.** |
+| E-02 | ⬜ da fare | — |
+| E-03 | ⬜ da fare | — |
+| E-04 | ⬜ da fare | — |
+| E-05 | ⬜ da fare | — |
+| E-06 | ⬜ da fare | — |
+| E-07 | ⬜ da fare | — |
+
+---
+
 ## Fase 1 — Ingestion multi-dataset e profilatore
 
 | Task | Stato | Note |

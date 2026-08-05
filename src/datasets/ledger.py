@@ -41,6 +41,18 @@ def download(data_dir: Path) -> Path:
     return local_dir
 
 
+def download_qa(data_dir: Path) -> Path:
+    """Download sharded eval parquets (QA + qrels) to data_dir/ledger/eval/. Returns that dir."""
+    local_dir = data_dir / DATASET_ID
+    snapshot_download(
+        repo_id=REPO_ID,
+        repo_type="dataset",
+        local_dir=str(local_dir),
+        allow_patterns=["eval/data-*-of-*.parquet"],
+    )
+    return local_dir / "eval"
+
+
 def _content_type(page_text: str) -> str:
     """Classify a page by its dominant content."""
     has_table = bool(_TABLE_RE.search(page_text))
