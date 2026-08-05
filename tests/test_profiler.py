@@ -125,9 +125,10 @@ def test_profiles_sorted_by_doc_id():
     assert profiles[1].doc_id == "doc_b"
 
 
-def test_default_genre_empty():
+def test_genre_assigned_not_empty():
+    # genre is now computed by assign_genre, never left blank
     p = profile_from_chunks([_chunk("doc1", "text")])[0]
-    assert p.doc_genre == ""
+    assert p.doc_genre in {"table_heavy", "academic_pdf", "continuous_text"}
     assert p.n_pages == 0
 
 

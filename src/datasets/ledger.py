@@ -19,6 +19,7 @@ from typing import Iterator
 
 from huggingface_hub import snapshot_download
 
+from src.profiling.genre import assign_genre
 from .schema import Chunk
 
 REPO_ID = "artefactory/ledger-long-context-KPI-QA"
@@ -71,7 +72,17 @@ def iter_chunks(dataset_dir: Path) -> Iterator[Chunk]:
         exchange, ticker, year = _parse_doc_id(mmd_file)
         doc_id = mmd_file.stem  # "NYSE_SHW_2017"
         text = mmd_file.read_text(encoding="utf-8")
-        pages = text.split(PAGE_SEP)
+        pages = [p.strip() for p in text.split(PAGE_SEP)]
+        non_empty = [p for p in pages if p]
+
+        # Compute per-doc features for genre assignment (I-02)
+        n = len(non_empty)
+        n_table_pages = sum(1 for p in non_empty if _TABLE_RE.search(p))
+        n_chars = sum(len(p) for p in non_empty)
+        td = n_table_pages / n if n > 0 else 0.0
+        asl = n_chars / n if n > 0 else 0.0
+        doc_genre = assign_genre(td, asl)
+        pipeline = doc_genre  # "table_heavy" | "academic_pdf" | "continuous_text"
 
         for page_num, page_text in enumerate(pages):
             page_text = page_text.strip()
@@ -85,8 +96,8 @@ def iter_chunks(dataset_dir: Path) -> Iterator[Chunk]:
                 chunk_id=chunk_id,
                 dataset_id=DATASET_ID,
                 doc_id=doc_id,
-                doc_genre="table_heavy",
-                pipeline="table_heavy",
+                doc_genre=doc_genre,
+                pipeline=pipeline,
                 section_path="",
                 page=page_num,
                 bbox=None,

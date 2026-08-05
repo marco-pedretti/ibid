@@ -122,13 +122,21 @@ def test_iter_chunks_chunk_id_format():
     assert chunks[1].chunk_id == "ledger:NYSE_SHW_2017:0001"
 
 
-def test_iter_chunks_doc_genre():
+def test_iter_chunks_doc_genre_table_heavy():
+    # A page with HTML table → table_density=1.0 → "table_heavy"
     with tempfile.TemporaryDirectory() as td:
-        dataset_dir = _make_mmd_dir(Path(td), {
-            "NYSE_SHW_2017.mmd": "A page.",
-        })
+        page = "## Summary\n\n<table><tr><td>Revenue</td><td>100</td></tr></table>"
+        dataset_dir = _make_mmd_dir(Path(td), {"NYSE_SHW_2017.mmd": page})
         chunks = list(iter_chunks(dataset_dir))
     assert chunks[0].doc_genre == "table_heavy"
+
+
+def test_iter_chunks_doc_genre_continuous():
+    # Plain text, short section → "continuous_text"
+    with tempfile.TemporaryDirectory() as td:
+        dataset_dir = _make_mmd_dir(Path(td), {"NYSE_SHW_2017.mmd": "A page."})
+        chunks = list(iter_chunks(dataset_dir))
+    assert chunks[0].doc_genre == "continuous_text"
 
 
 def test_iter_chunks_content_type_mixed():

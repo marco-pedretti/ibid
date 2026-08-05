@@ -15,6 +15,7 @@ from dataclasses import dataclass, field
 from typing import Iterable
 
 from src.datasets.schema import Chunk
+from src.profiling.genre import assign_genre
 
 _TABLE_TYPES = {"table", "mixed"}
 _IMAGE_TYPES = {"figure_caption", "mixed"}
@@ -51,6 +52,8 @@ def profile_from_chunks(chunks: Iterable[Chunk]) -> list[DocProfile]:
         n_image = sum(1 for c in doc_chunks if c.content_type in _IMAGE_TYPES)
         has_text = any(c.content_type in _TEXT_TYPES for c in doc_chunks)
 
+        td = n_table / n if n > 0 else 0.0
+        asl = n_chars / n if n > 0 else 0.0
         profiles.append(DocProfile(
             doc_id=doc_id,
             dataset_id=dataset_id,
@@ -59,9 +62,10 @@ def profile_from_chunks(chunks: Iterable[Chunk]) -> list[DocProfile]:
             has_text_layer=has_text,
             n_table_sections=n_table,
             n_image_sections=n_image,
-            table_density=n_table / n if n > 0 else 0.0,
+            table_density=td,
             image_density=n_image / n if n > 0 else 0.0,
-            avg_section_len=n_chars / n if n > 0 else 0.0,
+            avg_section_len=asl,
+            doc_genre=assign_genre(td, asl),
         ))
     return profiles
 

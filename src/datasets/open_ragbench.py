@@ -8,14 +8,11 @@ from typing import Iterator
 
 from huggingface_hub import snapshot_download
 
+from src.profiling.genre import assign_genre
 from .schema import Chunk
 
 REPO_ID = "vectara/open_ragbench"
 DATASET_ID = "open_ragbench"
-
-# T-04 placeholders — replaced by profilatore (I-02) and routing (I-03/I-04/I-05)
-_DOC_GENRE = "academic_pdf"
-_PIPELINE = "continuous_text"
 
 
 def download(data_dir: Path) -> Path:
@@ -39,8 +36,18 @@ def iter_chunks(dataset_dir: Path) -> Iterator[Chunk]:
             doc = json.load(f)
 
         arxiv_base = doc_id.split("v")[0]
+        sections = doc.get("sections", [])
 
-        for section in doc.get("sections", []):
+        # Compute per-doc profile features for genre assignment (I-02)
+        n = len(sections)
+        n_table_sec = sum(1 for s in sections if s.get("tables"))
+        n_chars = sum(len(s.get("text", "")) for s in sections)
+        td = n_table_sec / n if n > 0 else 0.0
+        asl = n_chars / n if n > 0 else 0.0
+        doc_genre = assign_genre(td, asl)
+        pipeline = "table_heavy" if doc_genre == "table_heavy" else "continuous_text"
+
+        for section in sections:
             section_id: int = section["section_id"]
             text: str = section.get("text", "").strip()
             tables: dict = section.get("tables", {})
@@ -71,8 +78,8 @@ def iter_chunks(dataset_dir: Path) -> Iterator[Chunk]:
                 chunk_id=f"{DATASET_ID}:{doc_id}:{section_id}",
                 dataset_id=DATASET_ID,
                 doc_id=doc_id,
-                doc_genre=_DOC_GENRE,
-                pipeline=_PIPELINE,
+                doc_genre=doc_genre,
+                pipeline=pipeline,
                 section_path="",
                 page=0,
                 bbox=None,
