@@ -167,7 +167,7 @@ Per ogni dataset candidato: 16 domande costruite con lo stesso schema dei test p
 | I-04 | Pipeline `structured_hierarchical`: chunking su sezioni, `section_path` popolato | — |
 | I-05 | Pipeline `table_heavy`: tabella come unità atomica, mai spezzata a metà | Nessun chunk contiene una tabella troncata |
 | I-06 | Estrazione bbox e rendering pagine a PNG dove il formato lo consente | `bbox` e `page` popolati per i dataset con PDF |
-| I-07 | Indicizzazione BGE-M3 (densi + sparsi) su Qdrant, una collection per dataset | Reindicizzazione completa in < 20 minuti |
+| I-07 | Indicizzazione ~~BGE-M3~~ `multilingual-e5-large` (densi) + `Qdrant/bm25` (sparsi) su Qdrant, una collection per dataset | Reindicizzazione completa in < 20 minuti. **Nota:** BGE-M3 sostituirà `multilingual-e5-large` quando fastembed PR #602 sarà mergiato — richiederà re-ingestion e sarà trattato come ablation separata, non patch incrementale |
 
 **I-01 va fatto per primo** anche se serve al routing solo in Fase 3: è lo strumento con cui decidete cosa entra nel corpus e come, e vi risparmia di scoprire a valle che un dataset non è quello che pensavate.
 
