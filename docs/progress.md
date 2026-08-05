@@ -16,4 +16,18 @@ Tracciamento dei task di `ROADMAP.md` man mano che vengono completati. Non sosti
 
 **Deliberatamente saltato in T-01:** `src/config.py` (nessun parametro di retrieval esiste finché non c'è retrieval — arriva a R-01), logica applicativa nei package vuoti, `uv.lock` (si genera al primo `uv sync` reale).
 
-**Fase 0 completa.** Tutti i task T-01…T-07 chiusi. Prossimo step: Fase 1 (ingestion pipeline completa — I-01 e seguenti).
+**Fase 0 completa.** Tutti i task T-01…T-07 chiusi.
+
+---
+
+## Fase 1 — Ingestion multi-dataset e profilatore
+
+| Task | Stato | Note |
+|---|---|---|
+| I-01 | ✅ fatto (2026-08-05) | Profilatore documenti in `src/profiling/profiler.py`: `DocProfile` dataclass + `profile_from_chunks()` (generico su Chunk objects, raggruppa per `dataset_id`/`doc_id`) + `dataset_summary()` + `format_report()`. CLI in `scripts/profile.py`. Report su open_ragbench: 997 doc, 18840 sezioni, 87M chars, 100% ha text layer, table density media 0.103 (max 0.800 su 2404.02228v3). Campi `n_pages` e `doc_genre` presenti ma vuoti (popolati da I-06 e I-02). 16 test unitari in `tests/test_profiler.py`, 62/62 pass totali. Acceptance criterion soddisfatto: `python scripts/profile.py` produce il report tabellare. |
+| I-02 | — | |
+| I-03 | — | |
+| I-04 | — | |
+| I-05 | — | |
+| I-06 | — | |
+| I-07 | — | |
