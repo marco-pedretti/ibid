@@ -43,13 +43,15 @@ Tutto il resto è dettaglio. Queste quattro determinano com'è il progetto.
 
 | Ambito | Scelta | Note |
 |---|---|---|
-| Vector store | **Qdrant** | Containerizza pulito, gestisce vettori densi **e sparsi** insieme: fate l'ibrido senza un secondo motore |
-| Embedding | **BGE-M3** | Denso + sparso + multi-vector in un solo modello, multilingue, licenza MIT. È esattamente l'architettura ibrida che vi serve, già dentro il modello |
-| Embedding (confronto) | **Qwen3-Embedding-0.6B** | Braccio di confronto per l'ablation. Cambiare embedder è una riga di config e vi regala una riga di tabella |
+| Vector store | **Qdrant** | Containerizza pulito, gestisce vettori densi **e sparsi** in named vectors: una collection, due indici, ibrido senza un secondo motore |
+| Embedding denso | **`intfloat/multilingual-e5-large`** | 1024-dim, 100+ lingue, Apache 2.0. Via fastembed 0.8.0 + onnxruntime-directml: ~10 embed/s su RX 6750 XT via DirectX 12, senza CUDA né ROCm |
+| Embedding sparso | **`Qdrant/bm25`** | fastembed `SparseTextEmbedding`. Statistico (no GPU), multilingual (18 lingue con stopword list), Apache 2.0, ~1 MB. Entra in R-01 (ibrido RRF) |
+| Embedding target | **BAAI/bge-m3** | Dense+sparse+multi-vector in un unico passaggio, MIT. Quando disponibile in fastembed (PR #602 aperto a luglio 2026): cambiare `EMBEDDING_MODEL` in `config.py` e re-ingest. Non blocca R-01 |
+| GPU backend | **onnxruntime-directml** | DirectML in maintenance mode (nessuna nuova feature, patch sicurezza garantite). Windows ML non applicabile per la RX 6750 XT: l'EP AMD per GPU discrete (MIGraphX) richiede un driver esatto e non supporta ancora scenari GenAI; VitisAI è solo per NPU Ryzen AI. DirectML rimane la scelta corretta ed è incluso in Windows ML come legacy EP |
 | Reranker | **bge-reranker-v2-m3** | Cross-encoder multilingue. Sul retrieval con modelli piccoli vale più di qualsiasi prompt |
 | Fusione | RRF, scritto da voi | Venti righe |
 
-> Nota: il campo degli embedding si muove in fretta. Verificate la leaderboard MTEB multilingue al momento della Fase 1 — ma non cambiate modello dopo aver iniziato a misurare, o le righe della tabella non sono più confrontabili.
+> **Decisioni fissate in Fase 1 (agosto 2026):** modello denso scelto (`multilingual-e5-large`), sparso scelto (`Qdrant/bm25`), GPU backend confermato (DirectML). Non cambiare modello dopo aver iniziato a misurare: le righe della tabella non sono più confrontabili. La sostituzione con BGE-M3 è pianificata ma avverrà come ablation separata con re-ingestion completa, non come patch incrementale.
 
 ## Modelli e inferenza
 
@@ -180,11 +182,13 @@ Alternative permissive già in tabella: **pypdfium2** per rendering e bbox, **pd
 | datasets (HuggingFace) | Apache 2.0 | sì |
 | huggingface_hub | Apache 2.0 | sì |
 | qdrant-client | Apache 2.0 | sì |
-| fastembed | Apache 2.0 | sì |
-| onnxruntime-directml | MIT | sì — sostituisce onnxruntime standard; abilita AMD GPU via DirectX 12 (~10 embed/s vs ~2/s CPU) |
+| fastembed 0.8.0 | Apache 2.0 | sì |
+| onnxruntime-directml | MIT | sì — abilita AMD GPU via DirectX 12 (~10 embed/s su RX 6750 XT vs ~0.06 embed/s PyTorch CPU) |
 | ~~sentence-transformers~~ | ~~Apache 2.0~~ | rimossa — PyTorch senza CUDA/ROCm su Windows: ~0.06 embed/s |
 | Qdrant (client e server) | Apache 2.0 | sì |
-| BGE-M3 | MIT | sì |
+| intfloat/multilingual-e5-large | Apache 2.0 | sì — modello denso attivo; 1024-dim, 100+ lingue |
+| Qdrant/bm25 | Apache 2.0 | sì — modello sparso attivo; statistico, multilingual |
+| BAAI/bge-m3 | MIT | sì — modello target (non ancora in fastembed, PR #602 aperto) |
 | bge-reranker-v2-m3 | Apache 2.0 | sì |
 | llama.cpp / Ollama | MIT | sì |
 | ir_measures | MIT | sì |
