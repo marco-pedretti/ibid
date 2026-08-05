@@ -205,6 +205,7 @@ Per ogni dataset candidato: 16 domande costruite con lo stesso schema dei test p
 
 | ID | Task | Criterio di accettazione |
 |---|---|---|
+| D-01 | **Dashboard interna Streamlit**: confronto EvalRun affiancati per dataset, inspector di chunk recuperati per query freeform | ≥ 2 EvalRun visualizzabili e confrontabili; inspector funziona su query libera contro entrambi i dataset |
 | R-01 | Ibrido denso+sparso con fusione RRF | Delta contro baseline C, confrontato col rumore |
 | R-02 | Reranker cross-encoder sui top-k | Delta misurato |
 | R-03 | Riscrittura query | Delta misurato |

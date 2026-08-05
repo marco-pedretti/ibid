@@ -45,3 +45,18 @@ Tracciamento dei task di `ROADMAP.md` man mano che vengono completati. Non sosti
 | E-05 | ⬜ da fare | — |
 | E-06 | ⬜ da fare | — |
 | E-07 | ⬜ da fare | — |
+
+---
+
+## Fase 3 — Retrieval e routing
+
+| Task | Stato | Note |
+|---|---|---|
+| D-01 | ⬜ da fare | Dashboard interna Streamlit (da costruire prima di R-01) |
+| R-01 | ⬜ da fare | — |
+| R-02 | ⬜ da fare | — |
+| R-03 | ⬜ da fare | — |
+| R-04 | ⬜ da fare | — |
+| R-05 | ⬜ da fare | — |
+| R-06 | ⬜ da fare | — |
+| R-07 | ⬜ da fare | — |
