@@ -31,9 +31,9 @@ def load_eval_runs(results_dir: Path) -> list[EvalRun]:
 
 
 def run_label(run: EvalRun) -> str:
-    """Short display label: timestamp + dataset + pipeline + short commit."""
+    """Short display label for multiselect and chart legends."""
     ts = run.timestamp.strftime("%m-%d %H:%M")
-    return f"[{ts}] {run.dataset_id} | {run.pipeline_mode} | {run.git_commit[:7]}"
+    return f"{run.dataset_id} · {run.pipeline_mode} · {run.git_commit[:7]}  [{ts}]"
 
 
 def compare_table(runs: list[EvalRun]) -> dict[str, list[float]]:

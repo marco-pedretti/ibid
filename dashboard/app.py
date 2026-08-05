@@ -192,8 +192,15 @@ if page == "EvalRun Comparator":
     # --- Single run: detail view ---
     if len(sel) == 1:
         run = sel[0]
-        st.subheader(run_label(run))
-        _render_run_meta(run)
+        with st.container(border=True):
+            st.markdown(f"### {run.pipeline_mode}")
+            st.caption(
+                f"{run.dataset_id}  ·  "
+                f"`{run.git_commit[:7]}`  ·  "
+                f"{run.timestamp.strftime('%d %b %H:%M')}"
+            )
+            st.divider()
+            _render_run_meta(run)
         st.divider()
         st.subheader("Metriche")
         metrics_df = pd.DataFrame({"Valore": run.metrics}).sort_index()
@@ -206,9 +213,15 @@ if page == "EvalRun Comparator":
         meta_cols = st.columns(len(sel))
         for col, run in zip(meta_cols, sel):
             with col:
-                st.markdown(f"**{run_label(run)}**")
-                st.divider()
-                _render_run_meta(run)
+                with st.container(border=True):
+                    st.markdown(f"### {run.pipeline_mode}")
+                    st.caption(
+                        f"{run.dataset_id}  ·  "
+                        f"`{run.git_commit[:7]}`  ·  "
+                        f"{run.timestamp.strftime('%d %b %H:%M')}"
+                    )
+                    st.divider()
+                    _render_run_meta(run)
 
         st.divider()
         st.subheader("Metriche")
