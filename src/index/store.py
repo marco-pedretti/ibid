@@ -79,7 +79,7 @@ def upsert(
 def search(
     client: QdrantClient,
     collection: str,
-    vector: list[float],
+    vector: list[float] | SparseVector,
     top_k: int,
     using: str = "dense",
 ) -> list[QueryResponse]:

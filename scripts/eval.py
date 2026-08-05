@@ -1,12 +1,14 @@
-"""E-03: Run retrieval evaluation and write EvalRun JSON to eval/results/.
+"""E-03 / E-06: Run retrieval evaluation and write EvalRun JSON to eval/results/.
 
 Usage:
     python scripts/eval.py [--dataset open_ragbench|ledger|all] [--top-k N] [--limit N]
+    python scripts/eval.py --retrieval-mode sparse   # E-06 lexical-only baseline
 
 Options:
-    --dataset   Which dataset(s) to evaluate (default: all)
-    --top-k     Retrieval depth (default: cfg.TOP_K = 5)
-    --limit     Evaluate only first N answerable queries per dataset (smoke test)
+    --dataset        Which dataset(s) to evaluate (default: all)
+    --top-k          Retrieval depth (default: cfg.TOP_K = 5)
+    --limit          Evaluate only first N answerable queries per dataset (smoke test)
+    --retrieval-mode dense (default) | sparse — sparse = E-06 lexical-only BM25
 """
 
 from __future__ import annotations
@@ -27,20 +29,32 @@ GOLDEN_DIR = ROOT / "eval" / "golden"
 RESULTS_DIR = ROOT / "eval" / "results"
 
 
-def run_dataset(dataset_id: str, top_k: int, limit: int | None) -> None:
+def run_dataset(
+    dataset_id: str,
+    top_k: int,
+    limit: int | None,
+    retrieval_mode: str,
+) -> None:
     golden_path = GOLDEN_DIR / f"{dataset_id}.jsonl"
     if not golden_path.exists():
         print(f"  ERROR: {golden_path} not found — run build_golden.py first.")
         return
 
+    pipeline_mode = "baseline_c" if retrieval_mode == "sparse" else "generic"
     n_desc = f"first {limit}" if limit else "all"
-    print(f"  Evaluating {n_desc} queries against {dataset_id} (top_k={top_k})...", flush=True)
+    print(
+        f"  Evaluating {n_desc} queries against {dataset_id} "
+        f"(top_k={top_k}, retrieval={retrieval_mode})...",
+        flush=True,
+    )
     t0 = time.time()
 
     eval_run = run_retrieval_eval(
         dataset_id=dataset_id,
         golden_path=golden_path,
         top_k=top_k,
+        pipeline_mode=pipeline_mode,
+        retrieval_mode=retrieval_mode,
         limit=limit,
     )
 
@@ -56,17 +70,19 @@ def run_dataset(dataset_id: str, top_k: int, limit: int | None) -> None:
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Retrieval evaluation (E-03)")
+    parser = argparse.ArgumentParser(description="Retrieval evaluation (E-03/E-06)")
     parser.add_argument("--dataset", choices=["open_ragbench", "ledger", "all"], default="all")
     parser.add_argument("--top-k", type=int, default=cfg.TOP_K)
     parser.add_argument("--limit", type=int, default=None,
                         help="Evaluate only first N answerable queries (smoke test)")
+    parser.add_argument("--retrieval-mode", choices=["dense", "sparse"], default="dense",
+                        help="dense=E-03 (default), sparse=E-06 lexical-only BM25")
     args = parser.parse_args()
 
     datasets = ["open_ragbench", "ledger"] if args.dataset == "all" else [args.dataset]
     for ds in datasets:
         print(f"=== {ds} ===")
-        run_dataset(ds, args.top_k, args.limit)
+        run_dataset(ds, args.top_k, args.limit, args.retrieval_mode)
 
 
 if __name__ == "__main__":

@@ -16,7 +16,7 @@ import src.config as cfg
 from src.datasets.golden import GoldenQuery
 from src.datasets.schema import EvalRun
 from src.eval.metrics import DEFAULT_MEASURES, build_qrels, build_run, compute_metrics
-from src.index.embed import encode
+from src.index.embed import encode, encode_sparse
 from src.index.store import get_client, search
 
 
@@ -29,11 +29,12 @@ def _git_commit() -> str:
         return "unknown"
 
 
-def _config_hash(top_k: int, pipeline_mode: str) -> str:
+def _config_hash(top_k: int, pipeline_mode: str, retrieval_mode: str) -> str:
     params = {
         "embedding_model": cfg.EMBEDDING_MODEL,
         "top_k": top_k,
         "pipeline_mode": pipeline_mode,
+        "retrieval_mode": retrieval_mode,
         "qdrant_url": cfg.QDRANT_URL,
     }
     return hashlib.md5(
@@ -56,15 +57,17 @@ def run_retrieval_eval(
     golden_path: Path,
     top_k: int | None = None,
     pipeline_mode: str = "generic",
+    retrieval_mode: str = "dense",
     limit: int | None = None,
 ) -> EvalRun:
-    """Run dense retrieval on answerable golden queries and compute IR metrics.
+    """Run retrieval evaluation on answerable golden queries and compute IR metrics.
 
     Args:
         dataset_id: "open_ragbench" | "ledger"
         golden_path: path to eval/golden/{dataset_id}.jsonl
         top_k: number of results per query (default: cfg.TOP_K)
-        pipeline_mode: "generic" | "routed" (routing comes in R-06)
+        pipeline_mode: "generic" | "routed" | "baseline_c" (routing comes in R-06)
+        retrieval_mode: "dense" (E-03) | "sparse" (E-06, lexical-only BM25)
         limit: evaluate only first N answerable queries (for smoke tests)
 
     Returns:
@@ -82,12 +85,15 @@ def run_retrieval_eval(
     qrels = build_qrels(answerable)
     run: list = []
 
-    # Embed all query texts in batches for efficiency
     texts = [q.query_text for q in answerable]
-    dense_vecs = encode(texts, cfg.EMBEDDING_MODEL, batch_size=cfg.EMBEDDING_BATCH)
 
-    for query, vec in zip(answerable, dense_vecs):
-        results = search(client, dataset_id, vec, top_k=top_k, using="dense")
+    if retrieval_mode == "sparse":
+        vecs = encode_sparse(texts, cfg.SPARSE_EMBEDDING_MODEL)
+    else:
+        vecs = encode(texts, cfg.EMBEDDING_MODEL, batch_size=cfg.EMBEDDING_BATCH)
+
+    for query, vec in zip(answerable, vecs):
+        results = search(client, dataset_id, vec, top_k=top_k, using=retrieval_mode)
         chunk_ids = [p.payload["chunk_id"] for p in results]
         scores = [p.score for p in results]
         run.extend(build_run(query.query_id, chunk_ids, scores))
@@ -98,7 +104,7 @@ def run_retrieval_eval(
         run_id=str(uuid.uuid4()),
         timestamp=datetime.now(timezone.utc),
         git_commit=_git_commit(),
-        config_hash=_config_hash(top_k, pipeline_mode),
+        config_hash=_config_hash(top_k, pipeline_mode, retrieval_mode),
         dataset_id=dataset_id,
         model="retrieval_only",
         quantization="none",
