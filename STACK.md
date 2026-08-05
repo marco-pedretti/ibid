@@ -194,6 +194,7 @@ Alternative permissive già in tabella: **pypdfium2** per rendering e bbox, **pd
 | pandas | BSD-3-Clause | sì — lettura parquet LEDGER e manipolazione dati |
 | ir_measures 0.4.3 | MIT | sì — nDCG, Recall@k, MRR, Success@1 per E-03 |
 | RAGAS | Apache 2.0 | sì |
+| streamlit>=1.35 | Apache 2.0 | sì — dashboard interna (D-01) |
 | ruff, pytest, uv | MIT / Apache 2.0 | sì |
 | pypdfium2 | permissiva | sì |
 | pdfplumber, Docling | MIT | sì |

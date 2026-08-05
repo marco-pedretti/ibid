@@ -1,4 +1,4 @@
-.PHONY: fetch-datasets ingest eval demo
+.PHONY: fetch-datasets ingest eval eval-generation noise-floor dashboard demo
 
 fetch-datasets:
 	python scripts/fetch_dataset.py
@@ -14,6 +14,9 @@ eval-generation:
 
 noise-floor:
 	python scripts/eval_noise.py --mode retrieval --n-runs 5
+
+dashboard:
+	streamlit run dashboard/app.py
 
 demo:
 	docker compose --profile demo up
