@@ -1,0 +1,20 @@
+{
+  "run_id": "9f3bca8c-c99f-4498-96ff-1774e0a29efd",
+  "timestamp": "2026-08-05T14:42:42.655399Z",
+  "git_commit": "c2014ff95916f59b5fd810bbde3123a85ad6992d",
+  "config_hash": "cf904919",
+  "dataset_id": "open_ragbench",
+  "model": "retrieval_only",
+  "quantization": "none",
+  "context_window": 0,
+  "temperature": 0.0,
+  "reasoning_enabled": false,
+  "pipeline_mode": "baseline_c",
+  "metrics": {
+    "R@10": 0.8443349753694581,
+    "Success@1": 0.5954022988505747,
+    "R@5": 0.8443349753694581,
+    "RR@10": 0.6948056923918979,
+    "nDCG@10": 0.7323050117409416
+  }
+}

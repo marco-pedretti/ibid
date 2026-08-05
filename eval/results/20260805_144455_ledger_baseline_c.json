@@ -1,0 +1,20 @@
+{
+  "run_id": "97c30ca1-0ded-4496-808c-9db29fee1695",
+  "timestamp": "2026-08-05T14:44:55.926657Z",
+  "git_commit": "c2014ff95916f59b5fd810bbde3123a85ad6992d",
+  "config_hash": "cf904919",
+  "dataset_id": "ledger",
+  "model": "retrieval_only",
+  "quantization": "none",
+  "context_window": 0,
+  "temperature": 0.0,
+  "reasoning_enabled": false,
+  "pipeline_mode": "baseline_c",
+  "metrics": {
+    "Success@1": 0.0367,
+    "R@10": 0.024292474035162603,
+    "R@5": 0.024292474035162603,
+    "nDCG@10": 0.025691091164884904,
+    "RR@10": 0.05673166666666657
+  }
+}
