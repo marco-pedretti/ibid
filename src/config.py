@@ -30,7 +30,7 @@ QDRANT_URL: str = os.getenv("QDRANT_URL", "http://localhost:6333")
 # DirectML (maintenance mode) remains the correct backend for this GPU.
 # Target: BAAI/bge-m3 when fastembed PR #602 merges — re-ingest required.
 EMBEDDING_MODEL: str = "intfloat/multilingual-e5-large"
-EMBEDDING_BATCH: int = 32
+EMBEDDING_BATCH: int = 32  # TODO: provare 64 — I-07 ha girato 122 min con 32; se DirectML scala bene può dimezzare
 
 # Sparse: BM25 via fastembed SparseTextEmbedding (CPU, no GPU needed — statistical model).
 # Multilingual (18 language stopword lists), Apache 2.0. Used in R-01 hybrid RRF.
