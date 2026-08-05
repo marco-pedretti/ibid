@@ -12,5 +12,8 @@ eval:
 eval-generation:
 	python scripts/eval_generation.py --baseline A
 
+noise-floor:
+	python scripts/eval_noise.py --mode retrieval --n-runs 5
+
 demo:
 	docker compose --profile demo up
