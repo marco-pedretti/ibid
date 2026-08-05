@@ -63,16 +63,21 @@ The project is **MIT licensed**; no copyleft (GPL/AGPL/LGPL-static) dependency m
 
 ## Git workflow (mandatory — do not skip)
 
-**Every task gets its own branch before touching any file.**
+**Every ROADMAP task gets its own branch before touching any file.**
 
 ```
-git checkout -b <task-id>     # e.g. E-04, R-01, C-02
+git checkout -b <task-id>          # e.g. R-01, C-02
 # ... implement ...
-git commit -m "..."
+git commit -m "<task-id>: ..."
 git checkout main
-git merge --squash <task-id>
-git commit -m "<same message>"
+git merge --no-ff <task-id>        # preserves branch commits, creates a merge commit
+git branch -d <task-id>            # always delete the branch after merging
 ```
+
+Rules:
+- `--no-ff` is mandatory — never fast-forward, never squash. The merge commit marks the task boundary on main.
+- Delete the branch immediately after merging with `git branch -d`.
+- Small fixes or enhancements to an already-merged task (not a new ROADMAP task) may go directly to main without a branch.
 
 Every commit must include:
 ```
