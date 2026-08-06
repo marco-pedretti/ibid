@@ -102,7 +102,7 @@ def _embed_chunks(
         elapsed = time.time() - t0
         rate = done / elapsed if elapsed > 0 else 0
         eta = (n - done) / rate if rate > 0 else 0
-        print(f"    {done}/{n}  {rate:.1f}/s  ETA {eta:.0f}s", end="\r", flush=True)
+        print(f"    {done}/{n}  {rate:.1f}/s  ETA {eta:.0f}s", flush=True)
     dense_elapsed = time.time() - t0
     print(f"    {n}/{n}  {n/dense_elapsed:.1f}/s  [{dense_elapsed:.1f}s]          ")
 
