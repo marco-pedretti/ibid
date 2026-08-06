@@ -129,8 +129,10 @@ def _ingest_dataset(
     sparse_model: str,
     dim: int,
     pipeline_mode: str = "original",
+    collection_suffix: str = "",
 ) -> None:
-    print(f"\n=== {dataset_id} (pipeline_mode={pipeline_mode}) ===")
+    collection = f"{dataset_id}_{collection_suffix}" if collection_suffix else dataset_id
+    print(f"\n=== {dataset_id} (pipeline_mode={pipeline_mode}, collection={collection}) ===")
 
     # Load chunks
     print("  Caricamento chunk ...", end=" ", flush=True)
@@ -141,9 +143,9 @@ def _ingest_dataset(
 
     # Recreate collection if requested
     if drop:
-        print(f"  Drop collection '{dataset_id}' ...")
-        delete_collection(client, dataset_id)
-    ensure_collection(client, dataset_id, dim)
+        print(f"  Drop collection '{collection}' ...")
+        delete_collection(client, collection)
+    ensure_collection(client, collection, dim)
 
     # Embed
     dense_vecs, sparse_vecs = _embed_chunks(
@@ -151,9 +153,9 @@ def _ingest_dataset(
     )
 
     # Upsert
-    print(f"  Upsert su Qdrant (collection={dataset_id}) ...", end=" ", flush=True)
+    print(f"  Upsert su Qdrant (collection={collection}) ...", end=" ", flush=True)
     t2 = time.time()
-    upsert(client, dataset_id, chunks, dense_vecs, sparse_vecs)
+    upsert(client, collection, chunks, dense_vecs, sparse_vecs)
     print(f"{len(chunks)} punti in {time.time()-t2:.1f}s")
 
 
@@ -182,6 +184,15 @@ def main() -> None:
         help=(
             "original: one chunk per section/page (current default); "
             "routed: genre-appropriate pipeline (R-06, for R-07 ablation)"
+        ),
+    )
+    parser.add_argument(
+        "--collection-suffix",
+        default="",
+        metavar="SUFFIX",
+        help=(
+            "Append _{SUFFIX} to collection name (e.g. 'routed' → 'open_ragbench_routed'). "
+            "Keeps the original collection intact while building a parallel one."
         ),
     )
     args = parser.parse_args()
@@ -213,6 +224,7 @@ def main() -> None:
             sparse_model=cfg.SPARSE_EMBEDDING_MODEL,
             dim=dim,
             pipeline_mode=args.pipeline_mode,
+            collection_suffix=args.collection_suffix,
         )
 
     total = time.time() - t_total

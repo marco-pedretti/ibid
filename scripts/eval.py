@@ -1,4 +1,4 @@
-"""E-03 / E-06 / R-01–R-05: Run retrieval evaluation and write EvalRun JSON to eval/results/.
+"""E-03 / E-06 / R-01–R-07: Run retrieval evaluation and write EvalRun JSON to eval/results/.
 
 Usage:
     python scripts/eval.py [--dataset open_ragbench|ledger|all] [--top-k N] [--limit N]
@@ -11,6 +11,7 @@ Usage:
     python scripts/eval.py --filter-content-type text            # R-04 text-only filter
     python scripts/eval.py --filter-content-type auto            # R-04 keyword-inferred filter
     python scripts/eval.py --doc-aggregate                       # R-05 doc-level file list
+    python scripts/eval.py --collection open_ragbench_routed --pipeline-mode routed --doc-aggregate  # R-07
 
 Options:
     --dataset              Which dataset(s) to evaluate (default: all)
@@ -21,6 +22,8 @@ Options:
     --query-rewrite        Rewrite queries with LLM before embedding (R-03)
     --filter-content-type  text | table | mixed | auto (R-04 metadata filter)
     --doc-aggregate        Aggregate chunks to doc-level and report doc_R@5/doc_R@10 (R-05)
+    --collection           Override Qdrant collection name (R-07: e.g. open_ragbench_routed)
+    --pipeline-mode        Label stored in EvalRun.pipeline_mode (R-07: generic | routed)
 """
 
 from __future__ import annotations
@@ -50,6 +53,8 @@ def run_dataset(
     query_rewrite: bool = False,
     filter_content_type: str | None = None,
     doc_aggregate: bool = False,
+    collection: str | None = None,
+    pipeline_mode_override: str | None = None,
 ) -> None:
     golden_path = GOLDEN_DIR / f"{dataset_id}.jsonl"
     if not golden_path.exists():
@@ -57,7 +62,7 @@ def run_dataset(
         return
 
     base_mode_map = {"sparse": "baseline_c", "hybrid": "hybrid_rrf"}
-    base_mode = base_mode_map.get(retrieval_mode, "generic")
+    base_mode = pipeline_mode_override or base_mode_map.get(retrieval_mode, "generic")
     suffixes = []
     if query_rewrite:
         suffixes.append("rewritten")
@@ -69,11 +74,12 @@ def run_dataset(
         suffixes.append("docagg")
     pipeline_mode = "_".join([base_mode] + suffixes) if suffixes else base_mode
 
+    eff_collection = collection or dataset_id
     n_desc = f"first {limit}" if limit else "all"
     extras = "".join(f" + {s}" for s in suffixes)
     print(
         f"  Evaluating {n_desc} queries against {dataset_id} "
-        f"(top_k={top_k}, retrieval={retrieval_mode}{extras})...",
+        f"(collection={eff_collection}, top_k={top_k}, retrieval={retrieval_mode}{extras})...",
         flush=True,
     )
     t0 = time.time()
@@ -89,6 +95,7 @@ def run_dataset(
         filter_content_type=filter_content_type,
         doc_aggregate=doc_aggregate,
         limit=limit,
+        collection=collection,
     )
 
     elapsed = time.time() - t0
@@ -119,13 +126,27 @@ def main() -> None:
                         help="Apply metadata filter: text|table|mixed=static, auto=keyword-inferred (R-04)")
     parser.add_argument("--doc-aggregate", action="store_true",
                         help="Aggregate chunk results to doc-level; adds doc_R@5/doc_R@10 to metrics (R-05)")
+    parser.add_argument("--collection", default=None, metavar="NAME",
+                        help=(
+                            "Qdrant collection to query instead of dataset_id "
+                            "(R-07: e.g. open_ragbench_routed). Use per-dataset when --dataset=all."
+                        ))
+    parser.add_argument("--pipeline-mode", default=None, metavar="MODE",
+                        help=(
+                            "Override pipeline_mode label in EvalRun "
+                            "(R-07: 'routed' | 'generic'; default derived from retrieval flags)"
+                        ))
     args = parser.parse_args()
 
     datasets = ["open_ragbench", "ledger"] if args.dataset == "all" else [args.dataset]
     for ds in datasets:
         print(f"=== {ds} ===")
-        run_dataset(ds, args.top_k, args.limit, args.retrieval_mode, args.rerank,
-                    args.query_rewrite, args.filter_content_type, args.doc_aggregate)
+        run_dataset(
+            ds, args.top_k, args.limit, args.retrieval_mode, args.rerank,
+            args.query_rewrite, args.filter_content_type, args.doc_aggregate,
+            collection=args.collection,
+            pipeline_mode_override=args.pipeline_mode,
+        )
 
 
 if __name__ == "__main__":
