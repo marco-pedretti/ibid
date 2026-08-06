@@ -20,6 +20,7 @@ from src.eval.metrics import DEFAULT_MEASURES, build_qrels, build_run, compute_m
 from src.index.embed import encode, encode_sparse
 from src.index.store import get_client, search_batch
 from src.retrieval.hybrid import rrf_fuse
+from src.retrieval.query_rewrite import rewrite_batch
 from src.retrieval.reranker import rerank as cross_encode
 
 
@@ -32,7 +33,13 @@ def _git_commit() -> str:
         return "unknown"
 
 
-def _config_hash(top_k: int, pipeline_mode: str, retrieval_mode: str, rerank: bool = False) -> str:
+def _config_hash(
+    top_k: int,
+    pipeline_mode: str,
+    retrieval_mode: str,
+    rerank: bool = False,
+    query_rewrite: bool = False,
+) -> str:
     params = {
         "embedding_model": cfg.EMBEDDING_MODEL,
         "top_k": top_k,
@@ -42,6 +49,8 @@ def _config_hash(top_k: int, pipeline_mode: str, retrieval_mode: str, rerank: bo
     }
     if rerank:
         params["reranker_model"] = cfg.RERANKER_MODEL
+    if query_rewrite:
+        params["query_rewrite_model"] = cfg.QUERY_REWRITE_MODEL or cfg.LLM_MODEL
     return hashlib.md5(
         json.dumps(params, sort_keys=True).encode()
     ).hexdigest()[:8]
@@ -75,6 +84,7 @@ def run_retrieval_eval(
     pipeline_mode: str = "generic",
     retrieval_mode: str = "dense",
     rerank: bool = False,
+    query_rewrite: bool = False,
     limit: int | None = None,
 ) -> EvalRun:
     """Run retrieval evaluation on answerable golden queries and compute IR metrics.
@@ -86,6 +96,7 @@ def run_retrieval_eval(
         pipeline_mode: "generic" | "routed" | "baseline_c" | "dense_reranked" | …
         retrieval_mode: "dense" | "sparse" | "hybrid"
         rerank: if True, apply cross-encoder reranking after initial retrieval (R-02)
+        query_rewrite: if True, rewrite queries with LLM before embedding (R-03)
         limit: evaluate only first N answerable queries (for smoke tests)
 
     Returns:
@@ -109,7 +120,18 @@ def run_retrieval_eval(
     n = len(answerable)
     report_every = max(1, n // 10)
 
-    texts = [q.query_text for q in answerable]
+    raw_texts = [q.query_text for q in answerable]
+    if query_rewrite:
+        print(f"  Rewriting {n} queries...", flush=True)
+        t_rw = time.time()
+        texts = rewrite_batch(
+            raw_texts,
+            base_url=cfg.LLM_BASE_URL,
+            model=cfg.QUERY_REWRITE_MODEL or cfg.LLM_MODEL,
+        )
+        print(f"  Rewriting done in {time.time() - t_rw:.1f}s", flush=True)
+    else:
+        texts = raw_texts
 
     if retrieval_mode == "hybrid":
         hybrid_fetch = max(cfg.HYBRID_FETCH_K, rerank_fetch_k)
@@ -182,7 +204,7 @@ def run_retrieval_eval(
         run_id=str(uuid.uuid4()),
         timestamp=datetime.now(timezone.utc),
         git_commit=_git_commit(),
-        config_hash=_config_hash(top_k, pipeline_mode, retrieval_mode, rerank),
+        config_hash=_config_hash(top_k, pipeline_mode, retrieval_mode, rerank, query_rewrite),
         dataset_id=dataset_id,
         model="retrieval_only",
         quantization="none",
