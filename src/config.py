@@ -53,6 +53,10 @@ HYBRID_FETCH_K: int = 20
 RERANKER_MODEL: str = "BAAI/bge-reranker-base"
 RERANK_FETCH_K: int = 20
 
+# Query rewriting (R-03): LLM rewrites the query before embedding.
+# Uses LLM_BASE_URL / LLM_MODEL; override here for a dedicated smaller model.
+QUERY_REWRITE_MODEL: str = os.getenv("QUERY_REWRITE_MODEL", "")  # "" = use LLM_MODEL
+
 # ---------------------------------------------------------------------------
 # Paths
 # ---------------------------------------------------------------------------

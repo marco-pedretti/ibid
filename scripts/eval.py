@@ -1,11 +1,13 @@
-"""E-03 / E-06 / R-01 / R-02: Run retrieval evaluation and write EvalRun JSON to eval/results/.
+"""E-03 / E-06 / R-01 / R-02 / R-03: Run retrieval evaluation and write EvalRun JSON to eval/results/.
 
 Usage:
     python scripts/eval.py [--dataset open_ragbench|ledger|all] [--top-k N] [--limit N]
-    python scripts/eval.py --retrieval-mode sparse          # E-06 lexical-only baseline
-    python scripts/eval.py --retrieval-mode hybrid          # R-01 hybrid RRF
-    python scripts/eval.py --rerank                         # R-02 cross-encoder reranker
-    python scripts/eval.py --retrieval-mode hybrid --rerank # hybrid + reranker
+    python scripts/eval.py --retrieval-mode sparse               # E-06 lexical-only baseline
+    python scripts/eval.py --retrieval-mode hybrid               # R-01 hybrid RRF
+    python scripts/eval.py --rerank                              # R-02 cross-encoder reranker
+    python scripts/eval.py --retrieval-mode hybrid --rerank      # hybrid + reranker
+    python scripts/eval.py --query-rewrite                       # R-03 query rewriting
+    python scripts/eval.py --query-rewrite --rerank              # R-03 + R-02
 
 Options:
     --dataset        Which dataset(s) to evaluate (default: all)
@@ -13,6 +15,7 @@ Options:
     --limit          Evaluate only first N answerable queries per dataset (smoke test)
     --retrieval-mode dense (default) | sparse | hybrid
     --rerank         Apply cross-encoder reranking after initial retrieval (R-02)
+    --query-rewrite  Rewrite queries with LLM before embedding (R-03)
 """
 
 from __future__ import annotations
@@ -39,6 +42,7 @@ def run_dataset(
     limit: int | None,
     retrieval_mode: str,
     rerank: bool = False,
+    query_rewrite: bool = False,
 ) -> None:
     golden_path = GOLDEN_DIR / f"{dataset_id}.jsonl"
     if not golden_path.exists():
@@ -47,13 +51,18 @@ def run_dataset(
 
     base_mode_map = {"sparse": "baseline_c", "hybrid": "hybrid_rrf"}
     base_mode = base_mode_map.get(retrieval_mode, "generic")
-    pipeline_mode = f"{base_mode}_reranked" if rerank else base_mode
+    suffixes = []
+    if query_rewrite:
+        suffixes.append("rewritten")
+    if rerank:
+        suffixes.append("reranked")
+    pipeline_mode = "_".join([base_mode] + suffixes) if suffixes else base_mode
 
     n_desc = f"first {limit}" if limit else "all"
-    rerank_desc = " + rerank" if rerank else ""
+    extras = "".join(f" + {s}" for s in suffixes)
     print(
         f"  Evaluating {n_desc} queries against {dataset_id} "
-        f"(top_k={top_k}, retrieval={retrieval_mode}{rerank_desc})...",
+        f"(top_k={top_k}, retrieval={retrieval_mode}{extras})...",
         flush=True,
     )
     t0 = time.time()
@@ -65,6 +74,7 @@ def run_dataset(
         pipeline_mode=pipeline_mode,
         retrieval_mode=retrieval_mode,
         rerank=rerank,
+        query_rewrite=query_rewrite,
         limit=limit,
     )
 
@@ -89,12 +99,14 @@ def main() -> None:
                         help="dense=E-03 (default), sparse=E-06 lexical-only BM25, hybrid=R-01 RRF")
     parser.add_argument("--rerank", action="store_true",
                         help="Apply cross-encoder reranking after initial retrieval (R-02)")
+    parser.add_argument("--query-rewrite", action="store_true",
+                        help="Rewrite queries with LLM before embedding (R-03)")
     args = parser.parse_args()
 
     datasets = ["open_ragbench", "ledger"] if args.dataset == "all" else [args.dataset]
     for ds in datasets:
         print(f"=== {ds} ===")
-        run_dataset(ds, args.top_k, args.limit, args.retrieval_mode, args.rerank)
+        run_dataset(ds, args.top_k, args.limit, args.retrieval_mode, args.rerank, args.query_rewrite)
 
 
 if __name__ == "__main__":
