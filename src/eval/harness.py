@@ -20,6 +20,7 @@ from src.eval.metrics import DEFAULT_MEASURES, build_qrels, build_run, compute_m
 from src.index.embed import encode, encode_sparse
 from src.index.store import get_client, search_batch
 from src.retrieval.hybrid import rrf_fuse
+from src.retrieval.metadata_filter import build_content_type_filter, infer_content_type
 from src.retrieval.query_rewrite import rewrite_batch
 from src.retrieval.reranker import rerank as cross_encode
 
@@ -39,6 +40,7 @@ def _config_hash(
     retrieval_mode: str,
     rerank: bool = False,
     query_rewrite: bool = False,
+    filter_content_type: str | None = None,
 ) -> str:
     params = {
         "embedding_model": cfg.EMBEDDING_MODEL,
@@ -51,6 +53,8 @@ def _config_hash(
         params["reranker_model"] = cfg.RERANKER_MODEL
     if query_rewrite:
         params["query_rewrite_model"] = cfg.QUERY_REWRITE_MODEL or cfg.LLM_MODEL
+    if filter_content_type:
+        params["filter_content_type"] = filter_content_type
     return hashlib.md5(
         json.dumps(params, sort_keys=True).encode()
     ).hexdigest()[:8]
@@ -85,6 +89,7 @@ def run_retrieval_eval(
     retrieval_mode: str = "dense",
     rerank: bool = False,
     query_rewrite: bool = False,
+    filter_content_type: str | None = None,
     limit: int | None = None,
 ) -> EvalRun:
     """Run retrieval evaluation on answerable golden queries and compute IR metrics.
@@ -97,6 +102,8 @@ def run_retrieval_eval(
         retrieval_mode: "dense" | "sparse" | "hybrid"
         rerank: if True, apply cross-encoder reranking after initial retrieval (R-02)
         query_rewrite: if True, rewrite queries with LLM before embedding (R-03)
+        filter_content_type: "text" | "table" | "mixed" | "auto" | None.
+            "auto" infers the filter per query from keywords (R-04).
         limit: evaluate only first N answerable queries (for smoke tests)
 
     Returns:
@@ -133,6 +140,18 @@ def run_retrieval_eval(
     else:
         texts = raw_texts
 
+    # Build per-query filters (R-04): None list means no filter applied.
+    if filter_content_type == "auto":
+        query_filters = [
+            build_content_type_filter(ct) if (ct := infer_content_type(t)) else None
+            for t in texts
+        ]
+    elif filter_content_type:
+        f = build_content_type_filter(filter_content_type)
+        query_filters: list | None = [f] * n
+    else:
+        query_filters = None
+
     if retrieval_mode == "hybrid":
         hybrid_fetch = max(cfg.HYBRID_FETCH_K, rerank_fetch_k)
         print(f"  Embedding {n} queries (dense)...", flush=True)
@@ -140,8 +159,8 @@ def run_retrieval_eval(
         dense_vecs = encode(texts, cfg.EMBEDDING_MODEL, batch_size=cfg.EMBEDDING_BATCH)
         print(f"  Dense embeddings done in {time.time() - t_enc:.1f}s", flush=True)
         sparse_vecs = encode_sparse(texts, cfg.SPARSE_EMBEDDING_MODEL)
-        dense_all = search_batch(client, dataset_id, dense_vecs, top_k=hybrid_fetch, using="dense")
-        sparse_all = search_batch(client, dataset_id, sparse_vecs, top_k=hybrid_fetch, using="sparse")
+        dense_all = search_batch(client, dataset_id, dense_vecs, top_k=hybrid_fetch, using="dense", filters=query_filters)
+        sparse_all = search_batch(client, dataset_id, sparse_vecs, top_k=hybrid_fetch, using="sparse", filters=query_filters)
         print(f"  Retrieval done, {'reranking' if rerank else 'fusing'} {n} queries...", flush=True)
         t0 = time.time()
         for i, (query, dense_hits, sparse_hits) in enumerate(zip(answerable, dense_all, sparse_all), 1):
@@ -162,7 +181,7 @@ def run_retrieval_eval(
                 _progress(i, n, t0)
     elif retrieval_mode == "sparse":
         vecs = encode_sparse(texts, cfg.SPARSE_EMBEDDING_MODEL)
-        results_all = search_batch(client, dataset_id, vecs, top_k=rerank_fetch_k, using="sparse")
+        results_all = search_batch(client, dataset_id, vecs, top_k=rerank_fetch_k, using="sparse", filters=query_filters)
         print(f"  Retrieval done, {'reranking' if rerank else 'scoring'} {n} queries...", flush=True)
         t0 = time.time()
         for i, (query, results) in enumerate(zip(answerable, results_all), 1):
@@ -182,7 +201,7 @@ def run_retrieval_eval(
         t_enc = time.time()
         vecs = encode(texts, cfg.EMBEDDING_MODEL, batch_size=cfg.EMBEDDING_BATCH)
         print(f"  Embeddings done in {time.time() - t_enc:.1f}s", flush=True)
-        results_all = search_batch(client, dataset_id, vecs, top_k=rerank_fetch_k, using="dense")
+        results_all = search_batch(client, dataset_id, vecs, top_k=rerank_fetch_k, using="dense", filters=query_filters)
         print(f"  Retrieval done, {'reranking' if rerank else 'scoring'} {n} queries...", flush=True)
         t0 = time.time()
         for i, (query, results) in enumerate(zip(answerable, results_all), 1):
@@ -204,7 +223,7 @@ def run_retrieval_eval(
         run_id=str(uuid.uuid4()),
         timestamp=datetime.now(timezone.utc),
         git_commit=_git_commit(),
-        config_hash=_config_hash(top_k, pipeline_mode, retrieval_mode, rerank, query_rewrite),
+        config_hash=_config_hash(top_k, pipeline_mode, retrieval_mode, rerank, query_rewrite, filter_content_type),
         dataset_id=dataset_id,
         model="retrieval_only",
         quantization="none",

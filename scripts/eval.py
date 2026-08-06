@@ -1,4 +1,4 @@
-"""E-03 / E-06 / R-01 / R-02 / R-03: Run retrieval evaluation and write EvalRun JSON to eval/results/.
+"""E-03 / E-06 / R-01 / R-02 / R-03 / R-04: Run retrieval evaluation and write EvalRun JSON to eval/results/.
 
 Usage:
     python scripts/eval.py [--dataset open_ragbench|ledger|all] [--top-k N] [--limit N]
@@ -8,14 +8,17 @@ Usage:
     python scripts/eval.py --retrieval-mode hybrid --rerank      # hybrid + reranker
     python scripts/eval.py --query-rewrite                       # R-03 query rewriting
     python scripts/eval.py --query-rewrite --rerank              # R-03 + R-02
+    python scripts/eval.py --filter-content-type text            # R-04 text-only filter
+    python scripts/eval.py --filter-content-type auto            # R-04 keyword-inferred filter
 
 Options:
-    --dataset        Which dataset(s) to evaluate (default: all)
-    --top-k          Retrieval depth (default: cfg.TOP_K = 5)
-    --limit          Evaluate only first N answerable queries per dataset (smoke test)
-    --retrieval-mode dense (default) | sparse | hybrid
-    --rerank         Apply cross-encoder reranking after initial retrieval (R-02)
-    --query-rewrite  Rewrite queries with LLM before embedding (R-03)
+    --dataset              Which dataset(s) to evaluate (default: all)
+    --top-k                Retrieval depth (default: cfg.TOP_K = 5)
+    --limit                Evaluate only first N answerable queries per dataset (smoke test)
+    --retrieval-mode       dense (default) | sparse | hybrid
+    --rerank               Apply cross-encoder reranking after initial retrieval (R-02)
+    --query-rewrite        Rewrite queries with LLM before embedding (R-03)
+    --filter-content-type  text | table | mixed | auto (R-04 metadata filter)
 """
 
 from __future__ import annotations
@@ -43,6 +46,7 @@ def run_dataset(
     retrieval_mode: str,
     rerank: bool = False,
     query_rewrite: bool = False,
+    filter_content_type: str | None = None,
 ) -> None:
     golden_path = GOLDEN_DIR / f"{dataset_id}.jsonl"
     if not golden_path.exists():
@@ -56,6 +60,8 @@ def run_dataset(
         suffixes.append("rewritten")
     if rerank:
         suffixes.append("reranked")
+    if filter_content_type:
+        suffixes.append(f"filtered_{filter_content_type}")
     pipeline_mode = "_".join([base_mode] + suffixes) if suffixes else base_mode
 
     n_desc = f"first {limit}" if limit else "all"
@@ -75,6 +81,7 @@ def run_dataset(
         retrieval_mode=retrieval_mode,
         rerank=rerank,
         query_rewrite=query_rewrite,
+        filter_content_type=filter_content_type,
         limit=limit,
     )
 
@@ -101,12 +108,16 @@ def main() -> None:
                         help="Apply cross-encoder reranking after initial retrieval (R-02)")
     parser.add_argument("--query-rewrite", action="store_true",
                         help="Rewrite queries with LLM before embedding (R-03)")
+    parser.add_argument("--filter-content-type",
+                        choices=["text", "table", "mixed", "auto"], default=None,
+                        help="Apply metadata filter: text|table|mixed=static, auto=keyword-inferred (R-04)")
     args = parser.parse_args()
 
     datasets = ["open_ragbench", "ledger"] if args.dataset == "all" else [args.dataset]
     for ds in datasets:
         print(f"=== {ds} ===")
-        run_dataset(ds, args.top_k, args.limit, args.retrieval_mode, args.rerank, args.query_rewrite)
+        run_dataset(ds, args.top_k, args.limit, args.retrieval_mode, args.rerank,
+                    args.query_rewrite, args.filter_content_type)
 
 
 if __name__ == "__main__":
