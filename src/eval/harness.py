@@ -19,6 +19,7 @@ from src.eval.metrics import DEFAULT_MEASURES, build_qrels, build_run, compute_m
 from src.index.embed import encode, encode_sparse
 from src.index.store import get_client, search_batch
 from src.retrieval.hybrid import rrf_fuse
+from src.retrieval.reranker import rerank as cross_encode
 
 
 def _git_commit() -> str:
@@ -30,7 +31,7 @@ def _git_commit() -> str:
         return "unknown"
 
 
-def _config_hash(top_k: int, pipeline_mode: str, retrieval_mode: str) -> str:
+def _config_hash(top_k: int, pipeline_mode: str, retrieval_mode: str, rerank: bool = False) -> str:
     params = {
         "embedding_model": cfg.EMBEDDING_MODEL,
         "top_k": top_k,
@@ -38,6 +39,8 @@ def _config_hash(top_k: int, pipeline_mode: str, retrieval_mode: str) -> str:
         "retrieval_mode": retrieval_mode,
         "qdrant_url": cfg.QDRANT_URL,
     }
+    if rerank:
+        params["reranker_model"] = cfg.RERANKER_MODEL
     return hashlib.md5(
         json.dumps(params, sort_keys=True).encode()
     ).hexdigest()[:8]
@@ -59,6 +62,7 @@ def run_retrieval_eval(
     top_k: int | None = None,
     pipeline_mode: str = "generic",
     retrieval_mode: str = "dense",
+    rerank: bool = False,
     limit: int | None = None,
 ) -> EvalRun:
     """Run retrieval evaluation on answerable golden queries and compute IR metrics.
@@ -67,8 +71,9 @@ def run_retrieval_eval(
         dataset_id: "open_ragbench" | "ledger"
         golden_path: path to eval/golden/{dataset_id}.jsonl
         top_k: number of results per query (default: cfg.TOP_K)
-        pipeline_mode: "generic" | "routed" | "baseline_c" (routing comes in R-06)
-        retrieval_mode: "dense" (E-03) | "sparse" (E-06, lexical-only BM25)
+        pipeline_mode: "generic" | "routed" | "baseline_c" | "dense_reranked" | …
+        retrieval_mode: "dense" | "sparse" | "hybrid"
+        rerank: if True, apply cross-encoder reranking after initial retrieval (R-02)
         limit: evaluate only first N answerable queries (for smoke tests)
 
     Returns:
@@ -76,6 +81,10 @@ def run_retrieval_eval(
     """
     if top_k is None:
         top_k = cfg.TOP_K
+
+    # When reranking, fetch a larger initial candidate pool so the cross-encoder
+    # has more to choose from before truncating to top_k.
+    rerank_fetch_k = max(cfg.RERANK_FETCH_K, top_k) if rerank else top_k
 
     all_queries = _load_golden(golden_path)
     answerable = [q for q in all_queries if q.answerable and q.dataset_id == dataset_id]
@@ -89,32 +98,50 @@ def run_retrieval_eval(
     texts = [q.query_text for q in answerable]
 
     if retrieval_mode == "hybrid":
-        fetch_k = max(cfg.HYBRID_FETCH_K, top_k)
+        hybrid_fetch = max(cfg.HYBRID_FETCH_K, rerank_fetch_k)
         dense_vecs = encode(texts, cfg.EMBEDDING_MODEL, batch_size=cfg.EMBEDDING_BATCH)
         sparse_vecs = encode_sparse(texts, cfg.SPARSE_EMBEDDING_MODEL)
-        dense_all = search_batch(client, dataset_id, dense_vecs, top_k=fetch_k, using="dense")
-        sparse_all = search_batch(client, dataset_id, sparse_vecs, top_k=fetch_k, using="sparse")
+        dense_all = search_batch(client, dataset_id, dense_vecs, top_k=hybrid_fetch, using="dense")
+        sparse_all = search_batch(client, dataset_id, sparse_vecs, top_k=hybrid_fetch, using="sparse")
         for query, dense_hits, sparse_hits in zip(answerable, dense_all, sparse_all):
             payload_map = {h.payload["chunk_id"]: h.payload for h in dense_hits + sparse_hits}
             dense_ids = [h.payload["chunk_id"] for h in dense_hits]
             sparse_ids = [h.payload["chunk_id"] for h in sparse_hits]
-            fused = rrf_fuse([dense_ids, sparse_ids], k=cfg.RRF_K, top_n=top_k)
-            chunk_ids = [cid for cid, _ in fused]
-            scores = [s for _, s in fused]
+            fused = rrf_fuse([dense_ids, sparse_ids], k=cfg.RRF_K, top_n=rerank_fetch_k)
+            if rerank:
+                payloads = [payload_map[cid] for cid, _ in fused]
+                reranked = cross_encode(query.query_text, payloads, cfg.RERANKER_MODEL, top_n=top_k)
+                chunk_ids = [r.payload["chunk_id"] for r in reranked]
+                scores = [r.score for r in reranked]
+            else:
+                chunk_ids = [cid for cid, _ in fused]
+                scores = [s for _, s in fused]
             run.extend(build_run(query.query_id, chunk_ids, scores))
     elif retrieval_mode == "sparse":
         vecs = encode_sparse(texts, cfg.SPARSE_EMBEDDING_MODEL)
-        results_all = search_batch(client, dataset_id, vecs, top_k=top_k, using="sparse")
+        results_all = search_batch(client, dataset_id, vecs, top_k=rerank_fetch_k, using="sparse")
         for query, results in zip(answerable, results_all):
-            chunk_ids = [p.payload["chunk_id"] for p in results]
-            scores = [p.score for p in results]
+            if rerank:
+                payloads = [p.payload for p in results]
+                reranked = cross_encode(query.query_text, payloads, cfg.RERANKER_MODEL, top_n=top_k)
+                chunk_ids = [r.payload["chunk_id"] for r in reranked]
+                scores = [r.score for r in reranked]
+            else:
+                chunk_ids = [p.payload["chunk_id"] for p in results]
+                scores = [p.score for p in results]
             run.extend(build_run(query.query_id, chunk_ids, scores))
-    else:
+    else:  # dense
         vecs = encode(texts, cfg.EMBEDDING_MODEL, batch_size=cfg.EMBEDDING_BATCH)
-        results_all = search_batch(client, dataset_id, vecs, top_k=top_k, using="dense")
+        results_all = search_batch(client, dataset_id, vecs, top_k=rerank_fetch_k, using="dense")
         for query, results in zip(answerable, results_all):
-            chunk_ids = [p.payload["chunk_id"] for p in results]
-            scores = [p.score for p in results]
+            if rerank:
+                payloads = [p.payload for p in results]
+                reranked = cross_encode(query.query_text, payloads, cfg.RERANKER_MODEL, top_n=top_k)
+                chunk_ids = [r.payload["chunk_id"] for r in reranked]
+                scores = [r.score for r in reranked]
+            else:
+                chunk_ids = [p.payload["chunk_id"] for p in results]
+                scores = [p.score for p in results]
             run.extend(build_run(query.query_id, chunk_ids, scores))
 
     metrics = compute_metrics(qrels, run, DEFAULT_MEASURES)
@@ -123,7 +150,7 @@ def run_retrieval_eval(
         run_id=str(uuid.uuid4()),
         timestamp=datetime.now(timezone.utc),
         git_commit=_git_commit(),
-        config_hash=_config_hash(top_k, pipeline_mode, retrieval_mode),
+        config_hash=_config_hash(top_k, pipeline_mode, retrieval_mode, rerank),
         dataset_id=dataset_id,
         model="retrieval_only",
         quantization="none",
