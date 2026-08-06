@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""I-07: Full ingestion — chunk, embed (dense + sparse), upsert to Qdrant.
+"""I-07 / R-06: Full ingestion — chunk, embed (dense + sparse), upsert to Qdrant.
 
 One collection per dataset, named vectors:
   - "dense"  : intfloat/multilingual-e5-large via DirectML (AMD GPU)
@@ -9,13 +9,14 @@ Prerequisites:
     docker compose --profile full up qdrant -d
 
 Usage:
-    python scripts/ingest.py                        # both datasets
+    python scripts/ingest.py                        # both datasets, original chunking
     python scripts/ingest.py --dataset open_ragbench
     python scripts/ingest.py --dataset ledger
     python scripts/ingest.py --skip-download        # use cached corpus
     python scripts/ingest.py --drop                 # recreate collections from scratch
     python scripts/ingest.py --limit 500            # quick smoke test
     python scripts/ingest.py --batch-size 64        # override embed batch size
+    python scripts/ingest.py --pipeline-mode routed # R-06: genre-appropriate pipeline
 """
 
 import argparse
@@ -45,21 +46,33 @@ def _check_qdrant(url: str) -> None:
         sys.exit(1)
 
 
-def _load_chunks(dataset_id: str, data_dir: Path, skip_download: bool, limit: int | None) -> list[Chunk]:
+def _load_chunks(
+    dataset_id: str,
+    data_dir: Path,
+    skip_download: bool,
+    limit: int | None,
+    pipeline_mode: str = "original",
+) -> list[Chunk]:
     if dataset_id == "open_ragbench":
         dataset_dir = data_dir / open_ragbench.DATASET_ID
         corpus_dir = dataset_dir / "pdf" / "arxiv" / "corpus"
         if not skip_download or not corpus_dir.exists():
             print(f"  Downloading {open_ragbench.REPO_ID} ...")
             open_ragbench.download(data_dir)
-        chunks = list(open_ragbench.iter_chunks(dataset_dir))
+        if pipeline_mode == "routed":
+            chunks = list(open_ragbench.iter_chunks_routed(dataset_dir))
+        else:
+            chunks = list(open_ragbench.iter_chunks(dataset_dir))
     elif dataset_id == "ledger":
         dataset_dir = data_dir / ledger.DATASET_ID
         mmd_dir = dataset_dir / "eval" / "mmd"
         if not skip_download or not mmd_dir.exists():
             print(f"  Downloading {ledger.REPO_ID} ...")
             ledger.download(data_dir)
-        chunks = list(ledger.iter_chunks(dataset_dir))
+        if pipeline_mode == "routed":
+            chunks = list(ledger.iter_chunks_routed(dataset_dir))
+        else:
+            chunks = list(ledger.iter_chunks(dataset_dir))
     else:
         raise ValueError(f"Unknown dataset: {dataset_id}")
 
@@ -115,13 +128,14 @@ def _ingest_dataset(
     dense_model: str,
     sparse_model: str,
     dim: int,
+    pipeline_mode: str = "original",
 ) -> None:
-    print(f"\n=== {dataset_id} ===")
+    print(f"\n=== {dataset_id} (pipeline_mode={pipeline_mode}) ===")
 
     # Load chunks
     print("  Caricamento chunk ...", end=" ", flush=True)
     t0 = time.time()
-    chunks = _load_chunks(dataset_id, data_dir, skip_download, limit)
+    chunks = _load_chunks(dataset_id, data_dir, skip_download, limit, pipeline_mode)
     n_docs = len({c.doc_id for c in chunks})
     print(f"{len(chunks)} chunk da {n_docs} documenti ({time.time()-t0:.1f}s)")
 
@@ -161,6 +175,15 @@ def main() -> None:
         default=cfg.EMBEDDING_BATCH,
         help=f"Dense embedding batch size (default: {cfg.EMBEDDING_BATCH})",
     )
+    parser.add_argument(
+        "--pipeline-mode",
+        choices=["original", "routed"],
+        default="original",
+        help=(
+            "original: one chunk per section/page (current default); "
+            "routed: genre-appropriate pipeline (R-06, for R-07 ablation)"
+        ),
+    )
     args = parser.parse_args()
 
     _check_qdrant(cfg.QDRANT_URL)
@@ -189,6 +212,7 @@ def main() -> None:
             dense_model=cfg.EMBEDDING_MODEL,
             sparse_model=cfg.SPARSE_EMBEDDING_MODEL,
             dim=dim,
+            pipeline_mode=args.pipeline_mode,
         )
 
     total = time.time() - t_total
