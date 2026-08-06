@@ -1,4 +1,4 @@
-"""E-03 / E-06 / R-01 / R-02 / R-03 / R-04: Run retrieval evaluation and write EvalRun JSON to eval/results/.
+"""E-03 / E-06 / R-01–R-05: Run retrieval evaluation and write EvalRun JSON to eval/results/.
 
 Usage:
     python scripts/eval.py [--dataset open_ragbench|ledger|all] [--top-k N] [--limit N]
@@ -10,6 +10,7 @@ Usage:
     python scripts/eval.py --query-rewrite --rerank              # R-03 + R-02
     python scripts/eval.py --filter-content-type text            # R-04 text-only filter
     python scripts/eval.py --filter-content-type auto            # R-04 keyword-inferred filter
+    python scripts/eval.py --doc-aggregate                       # R-05 doc-level file list
 
 Options:
     --dataset              Which dataset(s) to evaluate (default: all)
@@ -19,6 +20,7 @@ Options:
     --rerank               Apply cross-encoder reranking after initial retrieval (R-02)
     --query-rewrite        Rewrite queries with LLM before embedding (R-03)
     --filter-content-type  text | table | mixed | auto (R-04 metadata filter)
+    --doc-aggregate        Aggregate chunks to doc-level and report doc_R@5/doc_R@10 (R-05)
 """
 
 from __future__ import annotations
@@ -47,6 +49,7 @@ def run_dataset(
     rerank: bool = False,
     query_rewrite: bool = False,
     filter_content_type: str | None = None,
+    doc_aggregate: bool = False,
 ) -> None:
     golden_path = GOLDEN_DIR / f"{dataset_id}.jsonl"
     if not golden_path.exists():
@@ -62,6 +65,8 @@ def run_dataset(
         suffixes.append("reranked")
     if filter_content_type:
         suffixes.append(f"filtered_{filter_content_type}")
+    if doc_aggregate:
+        suffixes.append("docagg")
     pipeline_mode = "_".join([base_mode] + suffixes) if suffixes else base_mode
 
     n_desc = f"first {limit}" if limit else "all"
@@ -82,6 +87,7 @@ def run_dataset(
         rerank=rerank,
         query_rewrite=query_rewrite,
         filter_content_type=filter_content_type,
+        doc_aggregate=doc_aggregate,
         limit=limit,
     )
 
@@ -111,13 +117,15 @@ def main() -> None:
     parser.add_argument("--filter-content-type",
                         choices=["text", "table", "mixed", "auto"], default=None,
                         help="Apply metadata filter: text|table|mixed=static, auto=keyword-inferred (R-04)")
+    parser.add_argument("--doc-aggregate", action="store_true",
+                        help="Aggregate chunk results to doc-level; adds doc_R@5/doc_R@10 to metrics (R-05)")
     args = parser.parse_args()
 
     datasets = ["open_ragbench", "ledger"] if args.dataset == "all" else [args.dataset]
     for ds in datasets:
         print(f"=== {ds} ===")
         run_dataset(ds, args.top_k, args.limit, args.retrieval_mode, args.rerank,
-                    args.query_rewrite, args.filter_content_type)
+                    args.query_rewrite, args.filter_content_type, args.doc_aggregate)
 
 
 if __name__ == "__main__":

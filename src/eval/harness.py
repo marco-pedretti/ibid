@@ -19,6 +19,9 @@ from src.datasets.schema import EvalRun
 from src.eval.metrics import DEFAULT_MEASURES, build_qrels, build_run, compute_metrics
 from src.index.embed import encode, encode_sparse
 from src.index.store import get_client, search_batch
+import ir_measures
+
+from src.retrieval.doc_aggregation import doc_id_from_chunk_id
 from src.retrieval.hybrid import rrf_fuse
 from src.retrieval.metadata_filter import build_content_type_filter, infer_content_type
 from src.retrieval.query_rewrite import rewrite_batch
@@ -34,6 +37,51 @@ def _git_commit() -> str:
         return "unknown"
 
 
+def _build_doc_qrels(answerable: list[GoldenQuery]) -> list[ir_measures.Qrel]:
+    """Derive document-level qrels from chunk-level qrels.
+
+    A document is relevant at the max relevance of any of its chunks.
+    """
+    best: dict[tuple[str, str], int] = {}  # (query_id, doc_id) -> max relevance
+    for q in answerable:
+        for qr in q.qrels:
+            if qr.relevance > 0:
+                doc_id = doc_id_from_chunk_id(qr.chunk_id)
+                key = (q.query_id, doc_id)
+                best[key] = max(best.get(key, 0), qr.relevance)
+    return [
+        ir_measures.Qrel(query_id=qid, doc_id=did, relevance=rel)
+        for (qid, did), rel in best.items()
+    ]
+
+
+def _build_doc_run(chunk_run: list[ir_measures.ScoredDoc]) -> list[ir_measures.ScoredDoc]:
+    """Aggregate chunk-level ScoredDoc run to document-level via max-pooling.
+
+    Multiple chunks from the same document in the same query are collapsed to
+    the one with the highest score.  Result is sorted by score within each query.
+    """
+    from collections import defaultdict
+
+    best: dict[tuple[str, str], float] = {}  # (query_id, doc_id) -> max score
+    for sd in chunk_run:
+        doc_id = doc_id_from_chunk_id(sd.doc_id)
+        key = (sd.query_id, doc_id)
+        if key not in best or sd.score > best[key]:
+            best[key] = sd.score
+
+    by_query: dict[str, list[tuple[str, float]]] = defaultdict(list)
+    for (qid, did), score in best.items():
+        by_query[qid].append((did, score))
+
+    doc_run: list[ir_measures.ScoredDoc] = []
+    for qid, items in by_query.items():
+        items.sort(key=lambda x: x[1], reverse=True)
+        for did, score in items:
+            doc_run.append(ir_measures.ScoredDoc(query_id=qid, doc_id=did, score=score))
+    return doc_run
+
+
 def _config_hash(
     top_k: int,
     pipeline_mode: str,
@@ -41,6 +89,7 @@ def _config_hash(
     rerank: bool = False,
     query_rewrite: bool = False,
     filter_content_type: str | None = None,
+    doc_aggregate: bool = False,
 ) -> str:
     params = {
         "embedding_model": cfg.EMBEDDING_MODEL,
@@ -55,6 +104,8 @@ def _config_hash(
         params["query_rewrite_model"] = cfg.QUERY_REWRITE_MODEL or cfg.LLM_MODEL
     if filter_content_type:
         params["filter_content_type"] = filter_content_type
+    if doc_aggregate:
+        params["doc_aggregate"] = True
     return hashlib.md5(
         json.dumps(params, sort_keys=True).encode()
     ).hexdigest()[:8]
@@ -90,6 +141,7 @@ def run_retrieval_eval(
     rerank: bool = False,
     query_rewrite: bool = False,
     filter_content_type: str | None = None,
+    doc_aggregate: bool = False,
     limit: int | None = None,
 ) -> EvalRun:
     """Run retrieval evaluation on answerable golden queries and compute IR metrics.
@@ -104,10 +156,13 @@ def run_retrieval_eval(
         query_rewrite: if True, rewrite queries with LLM before embedding (R-03)
         filter_content_type: "text" | "table" | "mixed" | "auto" | None.
             "auto" infers the filter per query from keywords (R-04).
+        doc_aggregate: if True, additionally aggregate chunk results to document
+            level and report doc_R@5 / doc_R@10 in the metrics dict (R-05).
         limit: evaluate only first N answerable queries (for smoke tests)
 
     Returns:
-        EvalRun with metrics dict.
+        EvalRun with metrics dict.  When doc_aggregate=True the dict also
+        contains "doc_R@5" and "doc_R@10" keys alongside the chunk-level metrics.
     """
     if top_k is None:
         top_k = cfg.TOP_K
@@ -219,11 +274,19 @@ def run_retrieval_eval(
 
     metrics = compute_metrics(qrels, run, DEFAULT_MEASURES)
 
+    if doc_aggregate:
+        doc_run = _build_doc_run(run)
+        doc_qrels = _build_doc_qrels(answerable)
+        from ir_measures import Recall
+        doc_metrics = compute_metrics(doc_qrels, doc_run, [Recall @ 5, Recall @ 10])
+        for k, v in doc_metrics.items():
+            metrics[f"doc_{k}"] = v
+
     return EvalRun(
         run_id=str(uuid.uuid4()),
         timestamp=datetime.now(timezone.utc),
         git_commit=_git_commit(),
-        config_hash=_config_hash(top_k, pipeline_mode, retrieval_mode, rerank, query_rewrite, filter_content_type),
+        config_hash=_config_hash(top_k, pipeline_mode, retrieval_mode, rerank, query_rewrite, filter_content_type, doc_aggregate),
         dataset_id=dataset_id,
         model="retrieval_only",
         quantization="none",
