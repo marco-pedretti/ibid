@@ -90,6 +90,8 @@ def _config_hash(
     query_rewrite: bool = False,
     filter_content_type: str | None = None,
     doc_aggregate: bool = False,
+    collection: str | None = None,
+    dataset_id: str | None = None,
 ) -> str:
     params = {
         "embedding_model": cfg.EMBEDDING_MODEL,
@@ -106,6 +108,8 @@ def _config_hash(
         params["filter_content_type"] = filter_content_type
     if doc_aggregate:
         params["doc_aggregate"] = True
+    if collection and collection != dataset_id:
+        params["collection"] = collection
     return hashlib.md5(
         json.dumps(params, sort_keys=True).encode()
     ).hexdigest()[:8]
@@ -143,6 +147,7 @@ def run_retrieval_eval(
     filter_content_type: str | None = None,
     doc_aggregate: bool = False,
     limit: int | None = None,
+    collection: str | None = None,
 ) -> EvalRun:
     """Run retrieval evaluation on answerable golden queries and compute IR metrics.
 
@@ -159,6 +164,9 @@ def run_retrieval_eval(
         doc_aggregate: if True, additionally aggregate chunk results to document
             level and report doc_R@5 / doc_R@10 in the metrics dict (R-05).
         limit: evaluate only first N answerable queries (for smoke tests)
+        collection: Qdrant collection name to query. Defaults to dataset_id.
+            Use a non-default name to evaluate against an alternative index
+            (e.g. "open_ragbench_routed" for the R-07 routing ablation).
 
     Returns:
         EvalRun with metrics dict.  When doc_aggregate=True the dict also
@@ -166,6 +174,7 @@ def run_retrieval_eval(
     """
     if top_k is None:
         top_k = cfg.TOP_K
+    qdrant_collection = collection if collection else dataset_id
 
     # When reranking, fetch a larger initial candidate pool so the cross-encoder
     # has more to choose from before truncating to top_k.
@@ -214,8 +223,8 @@ def run_retrieval_eval(
         dense_vecs = encode(texts, cfg.EMBEDDING_MODEL, batch_size=cfg.EMBEDDING_BATCH)
         print(f"  Dense embeddings done in {time.time() - t_enc:.1f}s", flush=True)
         sparse_vecs = encode_sparse(texts, cfg.SPARSE_EMBEDDING_MODEL)
-        dense_all = search_batch(client, dataset_id, dense_vecs, top_k=hybrid_fetch, using="dense", filters=query_filters)
-        sparse_all = search_batch(client, dataset_id, sparse_vecs, top_k=hybrid_fetch, using="sparse", filters=query_filters)
+        dense_all = search_batch(client, qdrant_collection, dense_vecs, top_k=hybrid_fetch, using="dense", filters=query_filters)
+        sparse_all = search_batch(client, qdrant_collection, sparse_vecs, top_k=hybrid_fetch, using="sparse", filters=query_filters)
         print(f"  Retrieval done, {'reranking' if rerank else 'fusing'} {n} queries...", flush=True)
         t0 = time.time()
         for i, (query, dense_hits, sparse_hits) in enumerate(zip(answerable, dense_all, sparse_all), 1):
@@ -236,7 +245,7 @@ def run_retrieval_eval(
                 _progress(i, n, t0)
     elif retrieval_mode == "sparse":
         vecs = encode_sparse(texts, cfg.SPARSE_EMBEDDING_MODEL)
-        results_all = search_batch(client, dataset_id, vecs, top_k=rerank_fetch_k, using="sparse", filters=query_filters)
+        results_all = search_batch(client, qdrant_collection, vecs, top_k=rerank_fetch_k, using="sparse", filters=query_filters)
         print(f"  Retrieval done, {'reranking' if rerank else 'scoring'} {n} queries...", flush=True)
         t0 = time.time()
         for i, (query, results) in enumerate(zip(answerable, results_all), 1):
@@ -256,7 +265,7 @@ def run_retrieval_eval(
         t_enc = time.time()
         vecs = encode(texts, cfg.EMBEDDING_MODEL, batch_size=cfg.EMBEDDING_BATCH)
         print(f"  Embeddings done in {time.time() - t_enc:.1f}s", flush=True)
-        results_all = search_batch(client, dataset_id, vecs, top_k=rerank_fetch_k, using="dense", filters=query_filters)
+        results_all = search_batch(client, qdrant_collection, vecs, top_k=rerank_fetch_k, using="dense", filters=query_filters)
         print(f"  Retrieval done, {'reranking' if rerank else 'scoring'} {n} queries...", flush=True)
         t0 = time.time()
         for i, (query, results) in enumerate(zip(answerable, results_all), 1):
@@ -286,7 +295,7 @@ def run_retrieval_eval(
         run_id=str(uuid.uuid4()),
         timestamp=datetime.now(timezone.utc),
         git_commit=_git_commit(),
-        config_hash=_config_hash(top_k, pipeline_mode, retrieval_mode, rerank, query_rewrite, filter_content_type, doc_aggregate),
+        config_hash=_config_hash(top_k, pipeline_mode, retrieval_mode, rerank, query_rewrite, filter_content_type, doc_aggregate, qdrant_collection, dataset_id),
         dataset_id=dataset_id,
         model="retrieval_only",
         quantization="none",
