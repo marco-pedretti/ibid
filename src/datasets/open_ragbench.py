@@ -9,6 +9,7 @@ from typing import Iterator
 from huggingface_hub import snapshot_download
 
 from src.profiling.genre import assign_genre
+from src.ingestion.router import route_sections
 from .schema import Chunk
 
 REPO_ID = "vectara/open_ragbench"
@@ -25,6 +26,40 @@ def download(data_dir: Path) -> Path:
         allow_patterns=["pdf/arxiv/*.json", "pdf/arxiv/corpus/*.json"],
     )
     return local_dir
+
+
+def iter_chunks_routed(dataset_dir: Path) -> Iterator[Chunk]:
+    """Yield Chunk objects using genre-appropriate pipeline routing (R-06).
+
+    Dispatches each document through the pipeline selected by its doc_genre:
+      academic_pdf    → structured_hierarchical (section_path populated, body sub-chunked)
+      table_heavy     → continuous_text (Markdown tables; HTML not present in ORB)
+      continuous_text → continuous_text (paragraph overlap)
+
+    chunk_id uses 4-digit zero-padded sequential numbers; section_ids from the
+    original JSON are not preserved. Use doc_id_from_chunk_id() for doc-level eval.
+    """
+    corpus_dir = dataset_dir / "pdf" / "arxiv" / "corpus"
+    for corpus_file in sorted(corpus_dir.glob("*.json")):
+        doc_id = corpus_file.stem
+        with open(corpus_file, encoding="utf-8") as f:
+            doc = json.load(f)
+
+        arxiv_base = doc_id.split("v")[0]
+        sections = doc.get("sections", [])
+
+        n = len(sections)
+        n_table_sec = sum(1 for s in sections if s.get("tables"))
+        n_chars = sum(len(s.get("text", "")) for s in sections)
+        td = n_table_sec / n if n > 0 else 0.0
+        asl = n_chars / n if n > 0 else 0.0
+        doc_genre = assign_genre(td, asl)
+
+        source_uri = f"https://arxiv.org/abs/{arxiv_base}"
+        yield from route_sections(
+            sections, doc_genre,
+            doc_id=doc_id, dataset_id=DATASET_ID, source_uri=source_uri,
+        )
 
 
 def iter_chunks(dataset_dir: Path) -> Iterator[Chunk]:

@@ -20,6 +20,7 @@ from typing import Iterator
 from huggingface_hub import snapshot_download
 
 from src.profiling.genre import assign_genre
+from src.ingestion.router import route_text
 from .schema import Chunk
 
 REPO_ID = "artefactory/ledger-long-context-KPI-QA"
@@ -75,6 +76,47 @@ def _parse_doc_id(mmd_file: Path) -> tuple[str, str, str]:
     year = parts[-1]
     ticker = "_".join(parts[1:-1])
     return exchange, ticker, year
+
+
+def iter_chunks_routed(dataset_dir: Path) -> Iterator[Chunk]:
+    """Yield Chunk objects using genre-appropriate pipeline routing (R-06).
+
+    Dispatches each page through the pipeline selected by the document's doc_genre:
+      table_heavy     → table_heavy pipeline (HTML <table> blocks never split)
+      academic_pdf    → continuous_text (page-level text without section dicts)
+      continuous_text → continuous_text (paragraph overlap)
+
+    seq_offset is accumulated across pages so chunk_ids are unique within a document.
+    chunk_id format: "ledger:{doc_id}:{seq:04d}" (sequential, not page-based).
+    """
+    mmd_dir = dataset_dir / "eval" / "mmd"
+    for mmd_file in sorted(mmd_dir.glob("*.mmd")):
+        exchange, ticker, year = _parse_doc_id(mmd_file)
+        doc_id = mmd_file.stem
+        text = mmd_file.read_text(encoding="utf-8")
+        pages = [p.strip() for p in text.split(PAGE_SEP)]
+        non_empty = [p for p in pages if p]
+
+        n = len(non_empty)
+        n_table_pages = sum(1 for p in non_empty if _TABLE_RE.search(p))
+        n_chars = sum(len(p) for p in non_empty)
+        td = n_table_pages / n if n > 0 else 0.0
+        asl = n_chars / n if n > 0 else 0.0
+        doc_genre = assign_genre(td, asl)
+        source_uri = f"ledger:{exchange}:{ticker}:{year}"
+
+        seq_offset = 0
+        for page_num, page_text in enumerate(pages):
+            page_text = page_text.strip()
+            if not page_text:
+                continue
+            page_chunks = route_text(
+                page_text, doc_genre,
+                doc_id=doc_id, dataset_id=DATASET_ID,
+                source_uri=source_uri, page=page_num, seq_offset=seq_offset,
+            )
+            seq_offset += len(page_chunks)
+            yield from page_chunks
 
 
 def iter_chunks(dataset_dir: Path) -> Iterator[Chunk]:
