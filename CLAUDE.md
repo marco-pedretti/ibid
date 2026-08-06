@@ -94,3 +94,29 @@ This rule has been violated on E-01 and E-03 (committed directly to main). It mu
 - No metric without `dataset_id`; never aggregate across document genres.
 - The abstention threshold and the citation format are decided in code, never left to the model.
 - Don't declare an improvement without comparing it against the noise baseline (task E-07).
+
+## Eval procedure during active development (agreed 2026-08-06)
+
+Full eval runs (3045 queries × N configs) take 1–2 hours each and block development. Use this procedure instead:
+
+**During a phase (R-xx / C-xx tasks):**
+- After each merged task, run a **smoke test** (`--limit 50`) to verify no regression and that the delta direction is correct:
+  ```
+  python scripts/eval.py --retrieval-mode dense --rerank --limit 50 --dataset open_ragbench
+  ```
+- A smoke test is sufficient to gate the next task — no full run required mid-phase.
+
+**End of phase (all tasks merged):**
+- Run a **full eval session** covering all flag combinations that have been implemented, per dataset:
+  ```
+  python scripts/eval.py --retrieval-mode dense                           # baseline
+  python scripts/eval.py --retrieval-mode sparse                          # E-06
+  python scripts/eval.py --retrieval-mode hybrid                          # R-01
+  python scripts/eval.py --retrieval-mode dense  --rerank                 # R-02
+  python scripts/eval.py --retrieval-mode hybrid --rerank                 # R-01+R-02
+  # add flags for R-03, R-04, R-06 as they are implemented
+  ```
+- Each run produces a JSON in `eval/results/` with its own `config_hash` and `pipeline_mode`; the Streamlit dashboard compares them.
+- Run for both `--dataset open_ragbench` and `--dataset ledger` — never aggregate across datasets.
+
+**Rationale:** every feature is behind a flag, so individual contributions are isolable at any time by combining flags. Deferring full runs to end-of-phase preserves §12 ("never measure two changes at once") without blocking daily progress.
