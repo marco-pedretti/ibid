@@ -1,0 +1,22 @@
+{
+  "run_id": "c26aa151-a5e8-439e-bd30-8da432e0785f",
+  "timestamp": "2026-08-06T20:41:27.089423Z",
+  "git_commit": "c4ee4c0cee958e1c00de3d5aa5486f2501ceec09",
+  "config_hash": "ea5fa285",
+  "dataset_id": "ledger",
+  "model": "retrieval_only",
+  "quantization": "none",
+  "context_window": 0,
+  "temperature": 0.0,
+  "reasoning_enabled": false,
+  "pipeline_mode": "routed_docagg",
+  "metrics": {
+    "RR@10": 0.0,
+    "R@10": 0.0,
+    "nDCG@10": 0.0,
+    "Success@1": 0.0,
+    "R@5": 0.0,
+    "doc_R@5": 0.6033333333333332,
+    "doc_R@10": 0.6033333333333332
+  }
+}
