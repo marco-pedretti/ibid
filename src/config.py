@@ -47,6 +47,12 @@ TOP_K: int = 5
 RRF_K: int = 60
 HYBRID_FETCH_K: int = 20
 
+# Cross-encoder reranker (R-02): model and candidate pool fed into the reranker.
+# RERANK_FETCH_K candidates are fetched from initial retrieval; the reranker
+# then scores all of them and returns the top_k best.
+RERANKER_MODEL: str = "BAAI/bge-reranker-v2-m3"
+RERANK_FETCH_K: int = 20
+
 # ---------------------------------------------------------------------------
 # Paths
 # ---------------------------------------------------------------------------
