@@ -12,6 +12,7 @@ from __future__ import annotations
 from qdrant_client import QdrantClient
 from qdrant_client.models import (
     Distance,
+    Filter,
     PointStruct,
     QueryRequest,
     QueryResponse,
@@ -85,12 +86,14 @@ def search(
     vector: list[float] | SparseVector,
     top_k: int,
     using: str = "dense",
+    query_filter: Filter | None = None,
 ) -> list[QueryResponse]:
     return client.query_points(
         collection_name=collection,
         query=vector,
         using=using,
         limit=top_k,
+        query_filter=query_filter,
     ).points
 
 
@@ -100,18 +103,25 @@ def search_batch(
     vectors: list[list[float]] | list[SparseVector],
     top_k: int,
     using: str = "dense",
+    filters: list[Filter | None] | None = None,
 ) -> list[list[QueryResponse]]:
     """Batch search: sends vectors in chunks of _SEARCH_BATCH per HTTP request.
 
     Avoids Windows socket exhaustion (WinError 10048) when evaluating thousands
     of queries sequentially — each chunk becomes one round-trip instead of N.
+
+    Args:
+        filters: optional per-query Filter list (same length as vectors). When
+            provided, each query uses its corresponding filter; None entries in
+            the list mean no filter for that query.
     """
     all_results: list[list[QueryResponse]] = []
     for start in range(0, len(vectors), _SEARCH_BATCH):
         batch = vectors[start : start + _SEARCH_BATCH]
+        batch_filters = filters[start : start + _SEARCH_BATCH] if filters else [None] * len(batch)
         requests = [
-            QueryRequest(query=vec, using=using, limit=top_k, with_payload=True)
-            for vec in batch
+            QueryRequest(query=vec, using=using, limit=top_k, with_payload=True, filter=f)
+            for vec, f in zip(batch, batch_filters)
         ]
         responses = client.query_batch_points(
             collection_name=collection,
