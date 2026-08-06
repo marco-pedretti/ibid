@@ -8,6 +8,7 @@ from __future__ import annotations
 import hashlib
 import json
 import subprocess
+import time
 import uuid
 from datetime import datetime, timezone
 from pathlib import Path
@@ -44,6 +45,17 @@ def _config_hash(top_k: int, pipeline_mode: str, retrieval_mode: str, rerank: bo
     return hashlib.md5(
         json.dumps(params, sort_keys=True).encode()
     ).hexdigest()[:8]
+
+
+def _progress(i: int, total: int, t0: float, label: str = "") -> None:
+    elapsed = time.time() - t0
+    rate = i / elapsed if elapsed > 0 else 0
+    eta = (total - i) / rate if rate > 0 else 0
+    suffix = f"  {label}" if label else ""
+    print(
+        f"  [{i}/{total}] elapsed {elapsed:.0f}s  ETA {eta:.0f}s{suffix}",
+        flush=True,
+    )
 
 
 def _load_golden(path: Path) -> list[GoldenQuery]:
@@ -94,16 +106,23 @@ def run_retrieval_eval(
     client = get_client(cfg.QDRANT_URL)
     qrels = build_qrels(answerable)
     run: list = []
+    n = len(answerable)
+    report_every = max(1, n // 10)
 
     texts = [q.query_text for q in answerable]
 
     if retrieval_mode == "hybrid":
         hybrid_fetch = max(cfg.HYBRID_FETCH_K, rerank_fetch_k)
+        print(f"  Embedding {n} queries (dense)...", flush=True)
+        t_enc = time.time()
         dense_vecs = encode(texts, cfg.EMBEDDING_MODEL, batch_size=cfg.EMBEDDING_BATCH)
+        print(f"  Dense embeddings done in {time.time() - t_enc:.1f}s", flush=True)
         sparse_vecs = encode_sparse(texts, cfg.SPARSE_EMBEDDING_MODEL)
         dense_all = search_batch(client, dataset_id, dense_vecs, top_k=hybrid_fetch, using="dense")
         sparse_all = search_batch(client, dataset_id, sparse_vecs, top_k=hybrid_fetch, using="sparse")
-        for query, dense_hits, sparse_hits in zip(answerable, dense_all, sparse_all):
+        print(f"  Retrieval done, {'reranking' if rerank else 'fusing'} {n} queries...", flush=True)
+        t0 = time.time()
+        for i, (query, dense_hits, sparse_hits) in enumerate(zip(answerable, dense_all, sparse_all), 1):
             payload_map = {h.payload["chunk_id"]: h.payload for h in dense_hits + sparse_hits}
             dense_ids = [h.payload["chunk_id"] for h in dense_hits]
             sparse_ids = [h.payload["chunk_id"] for h in sparse_hits]
@@ -117,10 +136,14 @@ def run_retrieval_eval(
                 chunk_ids = [cid for cid, _ in fused]
                 scores = [s for _, s in fused]
             run.extend(build_run(query.query_id, chunk_ids, scores))
+            if i % report_every == 0 or i == n:
+                _progress(i, n, t0)
     elif retrieval_mode == "sparse":
         vecs = encode_sparse(texts, cfg.SPARSE_EMBEDDING_MODEL)
         results_all = search_batch(client, dataset_id, vecs, top_k=rerank_fetch_k, using="sparse")
-        for query, results in zip(answerable, results_all):
+        print(f"  Retrieval done, {'reranking' if rerank else 'scoring'} {n} queries...", flush=True)
+        t0 = time.time()
+        for i, (query, results) in enumerate(zip(answerable, results_all), 1):
             if rerank:
                 payloads = [p.payload for p in results]
                 reranked = cross_encode(query.query_text, payloads, cfg.RERANKER_MODEL, top_n=top_k)
@@ -130,10 +153,17 @@ def run_retrieval_eval(
                 chunk_ids = [p.payload["chunk_id"] for p in results]
                 scores = [p.score for p in results]
             run.extend(build_run(query.query_id, chunk_ids, scores))
+            if i % report_every == 0 or i == n:
+                _progress(i, n, t0)
     else:  # dense
+        print(f"  Embedding {n} queries...", flush=True)
+        t_enc = time.time()
         vecs = encode(texts, cfg.EMBEDDING_MODEL, batch_size=cfg.EMBEDDING_BATCH)
+        print(f"  Embeddings done in {time.time() - t_enc:.1f}s", flush=True)
         results_all = search_batch(client, dataset_id, vecs, top_k=rerank_fetch_k, using="dense")
-        for query, results in zip(answerable, results_all):
+        print(f"  Retrieval done, {'reranking' if rerank else 'scoring'} {n} queries...", flush=True)
+        t0 = time.time()
+        for i, (query, results) in enumerate(zip(answerable, results_all), 1):
             if rerank:
                 payloads = [p.payload for p in results]
                 reranked = cross_encode(query.query_text, payloads, cfg.RERANKER_MODEL, top_n=top_k)
@@ -143,6 +173,8 @@ def run_retrieval_eval(
                 chunk_ids = [p.payload["chunk_id"] for p in results]
                 scores = [p.score for p in results]
             run.extend(build_run(query.query_id, chunk_ids, scores))
+            if i % report_every == 0 or i == n:
+                _progress(i, n, t0)
 
     metrics = compute_metrics(qrels, run, DEFAULT_MEASURES)
 

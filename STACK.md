@@ -48,7 +48,7 @@ Tutto il resto è dettaglio. Queste quattro determinano com'è il progetto.
 | Embedding sparso | **`Qdrant/bm25`** | fastembed `SparseTextEmbedding`. Statistico (no GPU), multilingual (18 lingue con stopword list), Apache 2.0, ~1 MB. Entra in R-01 (ibrido RRF) |
 | Embedding target | **BAAI/bge-m3** | Dense+sparse+multi-vector in un unico passaggio, MIT. Quando disponibile in fastembed (PR #602 aperto a luglio 2026): cambiare `EMBEDDING_MODEL` in `config.py` e re-ingest. Non blocca R-01 |
 | GPU backend | **onnxruntime-directml** | DirectML in maintenance mode (nessuna nuova feature, patch sicurezza garantite). Windows ML non applicabile per la RX 6750 XT: l'EP AMD per GPU discrete (MIGraphX) richiede un driver esatto e non supporta ancora scenari GenAI; VitisAI è solo per NPU Ryzen AI. DirectML rimane la scelta corretta ed è incluso in Windows ML come legacy EP |
-| Reranker | **bge-reranker-v2-m3** | Cross-encoder multilingue. Sul retrieval con modelli piccoli vale più di qualsiasi prompt |
+| Reranker | **BAAI/bge-reranker-base** | Cross-encoder multilingue (XLM-RoBERTa), MIT, 1.04GB. Attivo in fastembed 0.8.0. Target: bge-reranker-v2-m3 quando disponibile |
 | Fusione | RRF, scritto da voi | Venti righe |
 
 > **Decisioni fissate in Fase 1 (agosto 2026):** modello denso scelto (`multilingual-e5-large`), sparso scelto (`Qdrant/bm25`), GPU backend confermato (DirectML). Non cambiare modello dopo aver iniziato a misurare: le righe della tabella non sono più confrontabili. La sostituzione con BGE-M3 è pianificata ma avverrà come ablation separata con re-ingestion completa, non come patch incrementale.
@@ -189,7 +189,7 @@ Alternative permissive già in tabella: **pypdfium2** per rendering e bbox, **pd
 | intfloat/multilingual-e5-large | Apache 2.0 | sì — modello denso attivo; 1024-dim, 100+ lingue |
 | Qdrant/bm25 | Apache 2.0 | sì — modello sparso attivo; statistico, multilingual |
 | BAAI/bge-m3 | MIT | sì — modello target (non ancora in fastembed, PR #602 aperto) |
-| bge-reranker-v2-m3 | Apache 2.0 | sì |
+| BAAI/bge-reranker-base | MIT | sì — reranker attivo; bge-reranker-v2-m3 non ancora disponibile in fastembed 0.8.0 |
 | llama.cpp / Ollama | MIT | sì |
 | pandas | BSD-3-Clause | sì — lettura parquet LEDGER e manipolazione dati |
 | ir_measures 0.4.3 | MIT | sì — nDCG, Recall@k, MRR, Success@1 per E-03 |
