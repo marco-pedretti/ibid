@@ -21,7 +21,7 @@ Options:
     --rerank               Apply cross-encoder reranking after initial retrieval (R-02)
     --query-rewrite        Rewrite queries with LLM before embedding (R-03)
     --filter-content-type  text | table | mixed | auto (R-04 metadata filter)
-    --doc-aggregate        Aggregate chunks to doc-level and report doc_R@5/doc_R@10 (R-05)
+    --doc-aggregate        No-op: doc_R@5/doc_R@10 sono ora sempre riportate (R-05)
     --collection           Override Qdrant collection name (R-07: e.g. open_ragbench_routed)
     --pipeline-mode        Ingestion routing axis: generic | routed (R-07)
 
@@ -131,7 +131,8 @@ def main() -> None:
                         choices=["text", "table", "mixed", "auto"], default=None,
                         help="Apply metadata filter: text|table|mixed=static, auto=keyword-inferred (R-04)")
     parser.add_argument("--doc-aggregate", action="store_true",
-                        help="Aggregate chunk results to doc-level; adds doc_R@5/doc_R@10 to metrics (R-05)")
+                        help="Accettato per compatibilita: le metriche doc_R@5/doc_R@10 "
+                             "sono ora sempre calcolate, cosi ogni run e confrontabile (R-05)")
     parser.add_argument("--collection", default=None, metavar="NAME",
                         help=(
                             "Qdrant collection to query instead of dataset_id "

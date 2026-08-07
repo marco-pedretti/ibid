@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import math
 import statistics
 import uuid
 from datetime import datetime, timezone

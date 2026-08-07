@@ -14,9 +14,16 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 import src.config as cfg
+from ir_measures import Recall
 from src.datasets.golden import GoldenQuery
 from src.datasets.schema import EvalRun
-from src.eval.metrics import DEFAULT_MEASURES, build_qrels, build_run, compute_metrics
+from src.eval.metrics import (
+    DEFAULT_MEASURES,
+    METRIC_DEPTH,
+    build_qrels,
+    build_run,
+    compute_metrics,
+)
 from src.eval.provenance import git_commit, load_golden
 from src.eval.run_config import build_config
 from src.index.embed import encode, encode_sparse
@@ -85,13 +92,22 @@ def _config_hash(
     doc_aggregate: bool = False,
     collection: str | None = None,
     dataset_id: str | None = None,
+    eval_depth: int | None = None,
 ) -> str:
-    """Stable identity of a config.
+    """Stable identity of a config: same hash means directly comparable numbers.
 
-    Deliberately kept byte-identical since E-03: changing what goes in here (or
-    in what order) would silently make every already-measured run
-    non-comparable.  The human-readable flag dict lives in `EvalRun.config`
-    instead — see `src/eval/run_config.py`.
+    Changed once, on 2026-08-07, by adding `eval_depth`.  The rule against
+    touching this function exists so that a silent change cannot make old and
+    new runs look comparable when they are not — and that is exactly why this
+    change was required rather than forbidden: fixing the retrieval depth
+    altered R@10/nDCG@10/RR@10, so pre-fix runs must *not* share a hash with
+    post-fix ones.  Archived runs keep their original hashes; the archive is
+    read-only (see eval/results/archive/README.md).
+
+    The human-readable flag dict lives in `EvalRun.config` — see
+    `src/eval/run_config.py`.  Sample size (`n_queries`) is deliberately NOT
+    here: it is not a configuration, and the dashboard already flags it as a
+    differing parameter when two runs used different query counts.
     """
     params = {
         "embedding_model": cfg.EMBEDDING_MODEL,
@@ -100,6 +116,8 @@ def _config_hash(
         "retrieval_mode": retrieval_mode,
         "qdrant_url": cfg.QDRANT_URL,
     }
+    if eval_depth is not None:
+        params["eval_depth"] = eval_depth
     if rerank:
         params["reranker_model"] = cfg.RERANKER_MODEL
     if query_rewrite:
@@ -232,24 +250,32 @@ def run_retrieval_eval(
         query_rewrite: if True, rewrite queries with LLM before embedding (R-03)
         filter_content_type: "text" | "table" | "mixed" | "auto" | None.
             "auto" infers the filter per query from keywords (R-04).
-        doc_aggregate: if True, additionally aggregate chunk results to document
-            level and report doc_R@5 / doc_R@10 in the metrics dict (R-05).
+        doc_aggregate: kept for API compatibility; document-level metrics are
+            now always reported (see below).
         limit: evaluate only first N answerable queries (for smoke tests)
         collection: Qdrant collection name to query. Defaults to dataset_id.
             Use a non-default name to evaluate against an alternative index
             (e.g. "open_ragbench_routed" for the R-07 routing ablation).
 
     Returns:
-        EvalRun with metrics dict.  When doc_aggregate=True the dict also
-        contains "doc_R@5" and "doc_R@10" keys alongside the chunk-level metrics.
+        EvalRun whose metrics dict always contains the same keys: the chunk-level
+        DEFAULT_MEASURES plus doc_R@5 / doc_R@10.  Every run reports every
+        metric, so any two runs are comparable without checking which flags were
+        on when they were produced.
     """
     if top_k is None:
         top_k = cfg.TOP_K
     qdrant_collection = collection if collection else dataset_id
 
+    # Evaluation depth is decoupled from serving depth. `top_k` is what the
+    # system would return to a user; METRIC_DEPTH is what the reported measures
+    # need to mean what their names say. Tying the two together is what made
+    # every run before 2026-08-07 report R@10 over a 5-document ranking.
+    eval_depth = max(top_k, METRIC_DEPTH)
+
     # When reranking, fetch a larger initial candidate pool so the cross-encoder
-    # has more to choose from before truncating to top_k.
-    rerank_fetch_k = max(cfg.RERANK_FETCH_K, top_k) if rerank else top_k
+    # has more to choose from before truncating.
+    fetch_k = max(cfg.RERANK_FETCH_K, eval_depth) if rerank else eval_depth
 
     all_queries = load_golden(golden_path)
     answerable = [q for q in all_queries if q.answerable and q.dataset_id == dataset_id]
@@ -288,39 +314,45 @@ def run_retrieval_eval(
         query_filters = None
 
     retrieve = _RETRIEVERS[retrieval_mode]
-    all_candidates = retrieve(client, qdrant_collection, texts, rerank_fetch_k, query_filters)
+    all_candidates = retrieve(client, qdrant_collection, texts, fetch_k, query_filters)
 
     print(f"  Retrieval done, {'reranking' if rerank else 'scoring'} {n} queries...", flush=True)
     t0 = time.time()
     for i, (query, cand) in enumerate(zip(answerable, all_candidates), 1):
         if rerank:
             reranked = cross_encode(
-                query.query_text, cand.payloads, cfg.RERANKER_MODEL, top_n=top_k
+                query.query_text, cand.payloads, cfg.RERANKER_MODEL, top_n=eval_depth
             )
             chunk_ids = [r.payload["chunk_id"] for r in reranked]
             scores = [r.score for r in reranked]
         else:
-            chunk_ids = cand.chunk_ids[:top_k]
-            scores = cand.scores[:top_k]
+            chunk_ids = cand.chunk_ids[:eval_depth]
+            scores = cand.scores[:eval_depth]
         run.extend(build_run(query.query_id, chunk_ids, scores))
         if i % report_every == 0 or i == n:
             _progress(i, n, t0)
 
     metrics = compute_metrics(qrels, run, DEFAULT_MEASURES)
 
-    if doc_aggregate:
-        doc_run = _build_doc_run(run)
-        doc_qrels = _build_doc_qrels(answerable)
-        from ir_measures import Recall
-        doc_metrics = compute_metrics(doc_qrels, doc_run, [Recall @ 5, Recall @ 10])
-        for k, v in doc_metrics.items():
-            metrics[f"doc_{k}"] = v
+    # Document-level metrics are pure post-processing of the same run: no extra
+    # retrieval, no extra embedding, no measurable cost. Gating them behind a
+    # flag meant most runs lacked doc_R@5 — the metric the routing claim (§0.2)
+    # actually rests on — and so could not be compared with the ones that had it.
+    doc_run = _build_doc_run(run)
+    doc_qrels = _build_doc_qrels(answerable)
+    doc_metrics = compute_metrics(doc_qrels, doc_run, [Recall @ 5, Recall @ 10])
+    for k, v in doc_metrics.items():
+        metrics[f"doc_{k}"] = v
 
     return EvalRun(
         run_id=str(uuid.uuid4()),
         timestamp=datetime.now(timezone.utc),
         git_commit=git_commit(),
-        config_hash=_config_hash(top_k, pipeline_mode, retrieval_mode, rerank, query_rewrite, filter_content_type, doc_aggregate, qdrant_collection, dataset_id),
+        config_hash=_config_hash(
+            top_k, pipeline_mode, retrieval_mode, rerank, query_rewrite,
+            filter_content_type, doc_aggregate, qdrant_collection, dataset_id,
+            eval_depth,
+        ),
         dataset_id=dataset_id,
         model="retrieval_only",
         quantization="none",
@@ -336,6 +368,8 @@ def run_retrieval_eval(
             filter_content_type=filter_content_type,
             doc_aggregate=doc_aggregate,
             collection=qdrant_collection,
+            eval_depth=eval_depth,
+            n_queries=n,
         ),
         metrics=metrics,
     )

@@ -194,13 +194,10 @@ class TestConfigHash:
 
         if retrieval_mode == "sparse":
             embed_patch = patch("src.eval.harness.encode_sparse", return_value=[sparse_vec])
-            extra = {}
         elif retrieval_mode == "hybrid":
             embed_patch = patch("src.eval.harness.encode", return_value=[[0.1] * 1024])
-            extra = {"encode_sparse": patch("src.eval.harness.encode_sparse", return_value=[sparse_vec])}
         else:
             embed_patch = patch("src.eval.harness.encode", return_value=[[0.1] * 1024])
-            extra = {}
 
         if retrieval_mode == "hybrid":
             with patch("src.eval.harness.get_client"), \

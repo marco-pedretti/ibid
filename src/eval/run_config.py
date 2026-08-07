@@ -25,11 +25,13 @@ import src.config as cfg
 CONFIG_KEYS: tuple[str, ...] = (
     "retrieval_mode",
     "top_k",
+    "eval_depth",
     "rerank",
     "query_rewrite",
     "filter_content_type",
     "doc_aggregate",
     "collection",
+    "n_queries",
 )
 
 
@@ -42,20 +44,29 @@ def build_config(
     filter_content_type: str | None = None,
     doc_aggregate: bool = False,
     collection: str,
+    eval_depth: int | None = None,
+    n_queries: int | None = None,
 ) -> dict[str, Any]:
     """Build the descriptive config dict stored in EvalRun.config.
 
     Every key is always present (unlike the hash input, which omits inactive
     flags) so the dashboard can render runs as a dense flag matrix.
+
+    `n_queries` is the count actually evaluated, not the requested `--limit`.
+    Runs before 2026-08-07 recorded neither, which made a 50-query smoke test
+    indistinguishable from a 3045-query full run in the result file — the R-07
+    numbers came from smoke tests and nothing said so.
     """
     return {
         "retrieval_mode": retrieval_mode,
         "top_k": top_k,
+        "eval_depth": eval_depth,
         "rerank": rerank,
         "query_rewrite": query_rewrite,
         "filter_content_type": filter_content_type,
         "doc_aggregate": doc_aggregate,
         "collection": collection,
+        "n_queries": n_queries,
         "embedding_model": cfg.EMBEDDING_MODEL,
         "reranker_model": cfg.RERANKER_MODEL if rerank else None,
         "query_rewrite_model": (

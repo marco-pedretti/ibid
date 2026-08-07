@@ -2,11 +2,9 @@
 
 from __future__ import annotations
 
-import re
 import tempfile
 from pathlib import Path
 
-import pytest
 
 from src.datasets.ledger import PAGE_SEP, _content_type, _parse_doc_id, iter_chunks, qrel_doc_id
 from src.datasets.schema import Chunk

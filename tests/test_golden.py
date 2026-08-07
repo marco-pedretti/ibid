@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import json
-import textwrap
 from pathlib import Path
 
 import pytest
@@ -142,7 +141,6 @@ class TestLoadOpenRagbenchGolden:
 # ---------------------------------------------------------------------------
 
 def _write_ledger_fixtures(base: Path) -> Path:
-    import numpy as np
     import pandas as pd
 
     d = base / "ledger" / "eval"
@@ -245,7 +243,7 @@ class TestSaveAndValidate:
         out = tmp_path / "test.jsonl"
         qs = self._sample_queries()
         save_golden(qs, out)
-        lines = [l for l in out.read_text(encoding="utf-8").splitlines() if l.strip()]
+        lines = [ln for ln in out.read_text(encoding="utf-8").splitlines() if ln.strip()]
         assert len(lines) == 5
 
     def test_each_line_valid_json(self, tmp_path):

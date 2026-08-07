@@ -7,7 +7,6 @@ from __future__ import annotations
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
-import pytest
 from qdrant_client.models import FieldCondition, Filter, MatchValue
 
 from src.retrieval.metadata_filter import build_content_type_filter, infer_content_type

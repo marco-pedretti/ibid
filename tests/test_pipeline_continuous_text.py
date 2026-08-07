@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import pytest
 
 from src.datasets.schema import Chunk
 from src.ingestion.pipeline_continuous_text import (
