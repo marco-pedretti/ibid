@@ -14,6 +14,7 @@ import pandas as pd
 import streamlit as st
 
 from dashboard.components import (
+    color_keyed_table,
     dataframe,
     grouped_bar_chart,
     render_noise_caption,
@@ -30,6 +31,7 @@ from dashboard.eval_store import (
     short_run_label,
     significance_label,
 )
+from dashboard.palette import MAX_SERIES
 from dashboard.state import RESULTS_DIR, ROOT, load_floors, load_runs
 
 
@@ -105,7 +107,11 @@ def _render_delta(sel, table, floor) -> None:
 
 def _render_multi(sel, table, floors) -> None:
     st.subheader("Run a confronto")
-    dataframe(pd.DataFrame(run_rows(sel)).set_index("#"))
+    st.caption(
+        "Il colore della pastiglia è quello della serie nel grafico più in basso: "
+        "`#1` è la prima riga qui e la prima voce in legenda."
+    )
+    color_keyed_table(run_rows(sel))
 
     changed = config_matrix(sel)
     varying = [k for k in changed if k != "pipeline_mode"]
@@ -170,6 +176,15 @@ def render() -> None:
         st.stop()
 
     sel = [label_to_run[lbl] for lbl in selected]
+    if len(sel) > MAX_SERIES:
+        # Oltre gli slot disponibili i colori si ripeterebbero, e due run dello
+        # stesso colore sono peggio di nessun colore: l'identità sparisce.
+        st.warning(
+            f"Selezionati {len(sel)} run: il grafico ne distingue al massimo "
+            f"{MAX_SERIES} per colore. Mostro i primi {MAX_SERIES}."
+        )
+        sel = sel[:MAX_SERIES]
+
     if len(sel) == 1:
         _render_single(sel[0], floors)
     else:

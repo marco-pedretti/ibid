@@ -10,6 +10,7 @@ import altair as alt
 import pandas as pd
 import streamlit as st
 
+from dashboard import palette
 from dashboard.retrieval_probe import ProbeHit
 
 #: Streamlit's `width` values.  "content" sizes columns to their contents;
@@ -23,6 +24,28 @@ def dataframe(df: pd.DataFrame, **kwargs) -> None:
     """st.dataframe that hugs its content instead of stretching to the page."""
     kwargs.setdefault("width", FIT)
     st.dataframe(df, **kwargs)
+
+
+def color_keyed_table(rows: list[dict], index: str = "#") -> None:
+    """Run table whose first column is the run's colour in the chart.
+
+    This is the link between "#1" in a table header and a bar in the chart.
+    Without it the reader has to count legend entries and hope the order
+    matches; with it the association is read directly, and it survives
+    reordering because both sides come from `palette.series_colors`.
+
+    Colour is a second encoding here, never the only one: the "#" index and the
+    label carry the identity on their own, which is what keeps the table usable
+    for a colour-blind reader and in print.
+    """
+    df = pd.DataFrame(rows).set_index(index)
+    colors = palette.series_colors(len(df))
+    df.insert(0, "●", ["●"] * len(df))
+
+    def _swatch(col: pd.Series) -> list[str]:
+        return [f"color: {c}; font-size: 1.4em" for c in colors[: len(col)]]
+
+    st.dataframe(df.style.apply(_swatch, subset=["●"]), width=FIT)
 
 
 def render_noise_caption(floor) -> None:
@@ -86,11 +109,21 @@ def grouped_bar_chart(
         .rename(columns={"index": "Metric"})
         .melt(id_vars="Metric", var_name="Run", value_name="Score")
     )
-    bars = alt.Chart(melted).mark_bar().encode(
+    mode = palette.theme_mode()
+    # Explicit domain->range: without it Vega assigns colours by the order it
+    # happens to encounter values, so adding a run could repaint the others.
+    # Colour follows the run, never its rank.
+    labels = list(df.columns)
+    scale = alt.Scale(domain=labels, range=palette.series_colors(len(labels), mode))
+
+    bars = alt.Chart(melted).mark_bar(cornerRadiusEnd=3).encode(
         x=alt.X("Metric:N", sort=None, axis=alt.Axis(labelAngle=-30, title="")),
-        y=alt.Y("Score:Q", axis=alt.Axis(title="Score")),
-        color=alt.Color("Run:N", legend=alt.Legend(orient="bottom", columns=2)),
-        xOffset="Run:N",
+        y=alt.Y("Score:Q", axis=alt.Axis(title="Score", grid=True,
+                                         gridColor=palette.GRID[mode],
+                                         domainColor=palette.AXIS[mode])),
+        color=alt.Color("Run:N", scale=scale,
+                        legend=alt.Legend(orient="bottom", columns=2, title=None)),
+        xOffset=alt.XOffset("Run:N", sort=labels),
         tooltip=["Metric:N", "Run:N", alt.Tooltip("Score:Q", format=".4f")],
     )
     layers = bars
@@ -100,12 +133,12 @@ def grouped_bar_chart(
         melted["hi"] = melted.apply(lambda r: r["Score"] + stds.get(r["Metric"], 0.0), axis=1)
         whiskers = (
             alt.Chart(melted)
-            .mark_rule(strokeWidth=1.5, color="#888")
+            .mark_rule(strokeWidth=1.5, color=palette.WHISKER[mode])
             .encode(
                 x=alt.X("Metric:N", sort=None),
                 y=alt.Y("lo:Q"),
                 y2=alt.Y2("hi:Q"),
-                xOffset="Run:N",
+                xOffset=alt.XOffset("Run:N", sort=labels),
             )
         )
         layers = bars + whiskers
