@@ -77,4 +77,6 @@ Non è un task di `ROADMAP.md` (che si ferma a D-01): è un intervento su D-01 g
 
 Verifica: 684 test passati (142 nuovi in `test_eval_run_config.py`, `test_dashboard_noise.py`, `test_dashboard_probe.py`, `test_dashboard_failures.py`); tutte e quattro le pagine eseguite contro Qdrant reale con le 4 collection presenti.
 
+**5. Modularizzazione (stesso branch).** `app.py` era arrivato a ~750 righe con quattro pagine dentro. Ora è un dispatcher di 60 righe e i livelli sono espliciti: `*_store.py` / `retrieval_probe.py` (logica pura, senza Streamlit, testata), `state.py` (loader cache e client Qdrant condivisi), `components.py` (render usati da più pagine), `views/*.py` (una pagina ciascuna, con `render()`). La cartella si chiama `views/` e non `pages/` di proposito: Streamlit tratta `pages/` come multipagina automatica e costruirebbe una sua navigazione sopra il selettore in sidebar. Refactor a comportamento invariato.
+
 **Rimasto fuori di proposito** (proposti, non implementati): pagina **Claims** con le tre affermazioni del §0 per dataset — ha senso quando la Fase 4 popola le affermazioni 1 e 3; **Corpus Profile** che unisce le statistiche Qdrant a `src/profiling/profiler.py` (un istogramma delle lunghezze chunk avrebbe previsto il risultato di R-07 senza spendere 10h di GPU); **Citation Inspector** per C-01→C-04.
