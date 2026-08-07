@@ -11,6 +11,7 @@ import pandas as pd
 import streamlit as st
 
 import src.config as cfg
+from dashboard.chunk_render import render_chunk
 from dashboard.components import render_hits
 from dashboard.failure_store import (
     chunk_id_mismatch,
@@ -93,7 +94,9 @@ def _render_detail(outcome, collection: str) -> None:
                         f"{payload.get('content_type', '?')} · "
                         f"{len(payload.get('text', ''))} caratteri"
                     )
-                    st.markdown(payload.get("text", "")[:2000])
+                    # Il cap va per segmento, non sulla stringa intera: tagliare
+                    # a 2000 caratteri secchi cadeva dentro un tag <table>.
+                    render_chunk(payload.get("text", ""), max_chars=2000)
                 else:
                     st.warning(
                         f"Questo `chunk_id` non esiste in `{collection}`: il qrel è "

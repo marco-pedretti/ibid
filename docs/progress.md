@@ -87,4 +87,19 @@ Validata (OKLab ΔE ×100, simulazione Machado-Oliveira-Fernandes 2009 severita 
 
 L'associazione fra `#1` e il run corrispondente e risolta col colore: la tabella "Run a confronto" ha una pastiglia colorata come la serie nel grafico, entrambe da `palette.series_colors`, quindi non serve contare le voci in legenda. Il colore resta **secondo** encoding — l'indice `#N` e l'etichetta portano l'identita da soli, cosi la tabella funziona anche per un lettore daltonico e in stampa. `domain`/`range` espliciti nella scala Vega: senza, aggiungere un run ricolorerebbe gli altri. Oltre 8 run selezionati il comparator avvisa e tronca, perche ciclare le tinte farebbe condividere un colore a due run — peggio che non averlo.
 
+**7. Rendering delle tabelle nei chunk (stesso branch).** I chunk LEDGER sono OCR Mathpix: prosa con blocchi `<table>` inline. `st.markdown` scappa l'HTML, quindi arrivavano a schermo come un muro di `</td><td>` — illeggibili, e per giunta nascondevano proprio la cosa che si era aperto il chunk per guardare. Scartato `unsafe_allow_html=True`: il corpus e dato di terze parti oggi e documenti caricati dall'utente con X-01, quindi sarebbe una via di script injection in uno strumento interno. `dashboard/chunk_render.py` invece **parsa** la tabella e passa i valori a `st.dataframe`: il markup non raggiunge mai il browser come markup. Parser con `html.parser` della stdlib, non lxml/bs4 — le tabelle sono `<tr><td>` piatti da OCR e STACK.md impone una revisione di licenza per ogni nuova dipendenza. Lo split riusa `_split_segments` della pipeline table_heavy, cosi cio che la dashboard mostra come una tabella e esattamente cio che l'ingestion ha trattato come chunk atomico. Corretto anche il taglio a `[:2000]` nel Failure Explorer, che cadeva dentro un tag: ora il cap e per segmento.
+
+**Ipotesi sul −20% di LEDGER, da verificare.** Guardando i chunk renderizzati e emersa una spiegazione piu precisa di "chunk piccoli embeddano male". Confronto sullo stesso contenuto:
+
+| | `ledger` | `ledger_routed` |
+|---|---|---|
+| chunk | `AMEX_BRN_2017:0001` | `AMEX_BRN_2017:0002` |
+| `content_type` | mixed | table |
+| testo embeddato inizia con | `## FINANCIAL AND OPERATING HIGHLIGHTS` | `<table><tr><td rowspan=...` |
+| `section_path` | `''` | `'FINANCIAL AND OPERATING HIGHLIGHTS'` |
+
+Il routing **estrae correttamente** l'heading in `section_path`, ma l'embedding vede solo `Chunk.text`, dove l'heading non c'e piu. Su 3000 chunk `content_type="table"` campionati da `ledger_routed`: 1960 hanno `section_path` valorizzato, e di questi solo 96 hanno l'heading anche nel testo — **1864 chunk conoscono il proprio titolo di sezione ma non lo embeddano**.
+
+E un'ipotesi, non una causa accertata: spiegherebbe perche i fallimenti routed hanno score alto ma documento sbagliato (annotato al punto sopra), ma la verifica richiede un'ablation vera — concatenare `section_path` al testo embeddato per i chunk tabella e re-ingestare. Costo stimato: la sola LEDGER routed, ~4h GPU. Da fare come task a se, con la sua misura, non come fix incidentale (§12).
+
 **Rimasto fuori di proposito** (proposti, non implementati): pagina **Claims** con le tre affermazioni del §0 per dataset — ha senso quando la Fase 4 popola le affermazioni 1 e 3; **Corpus Profile** che unisce le statistiche Qdrant a `src/profiling/profiler.py` (un istogramma delle lunghezze chunk avrebbe previsto il risultato di R-07 senza spendere 10h di GPU); **Citation Inspector** per C-01→C-04.

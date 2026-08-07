@@ -11,6 +11,7 @@ import pandas as pd
 import streamlit as st
 
 from dashboard import palette
+from dashboard.chunk_render import render_chunk
 from dashboard.retrieval_probe import ProbeHit
 
 #: Streamlit's `width` values.  "content" sizes columns to their contents;
@@ -197,4 +198,4 @@ def render_hits(
             if p.get("section_path"):
                 st.caption(f"Sezione: {p['section_path']}")
             st.divider()
-            st.markdown(p.get("text", "*(testo assente)*"))
+            render_chunk(p.get("text", ""))
