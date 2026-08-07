@@ -75,3 +75,63 @@ Il re-ingest è necessario al cambio modello perché le collection Qdrant conten
 - Il 12B a 2.4 tok/s è lento per uso interattivo (~50s per 120 token) ma accettabile per run di valutazione automatizzata notturna.
 - Per verificare il backend GPU effettivo usato da Ollama: `%LOCALAPPDATA%\Ollama\logs\server.log`.
 - I dati grezzi JSON sono in `eval/contamination/smoke_20260804_103814.json`.
+
+---
+
+## Cosa gira senza GPU (misurato 2026-08-07)
+
+Domanda pratica: un secondo sviluppatore **senza GPU** cosa può fare del progetto?
+Misure su `intfloat/multilingual-e5-large` via fastembed, forzando
+`CPUExecutionProvider`.
+
+| operazione | CPU | verdetto |
+|---|---|---|
+| embedding **query** (testi corti) | **35.9 embed/s** | ✅ nessun problema |
+| embedding **chunk** (mediana 3182 char, chunk reali dall'indice) | **2.38 embed/s** | ❌ vedi sotto |
+| sparse BM25 | statistico | ✅ già su CPU anche con GPU presente |
+
+**Conseguenze concrete:**
+
+- **Gli eval completi si eseguono su CPU.** Le query sono corte: open_ragbench
+  (3045 query) ≈ 85 s, LEDGER (10000) ≈ 4.6 min. Non è un ripiego, è la stessa
+  misura.
+- **L'ingestion no.** Le due collection generic (65.950 chunk) sono **7.7 ore**
+  di CPU contro ~1.8 ore su DirectML. Il rapporto GPU/CPU è ~4×.
+- **Il 167× di T-05 non vale più**: quel numero confrontava PyTorch CPU con
+  fastembed/DirectML, cioè due stack diversi. A parità di stack (ONNX) il
+  divario è 4×.
+- **La generazione richiede comunque una GPU.** Gemma 12B su CPU è
+  inutilizzabile; `LLM_BASE_URL` esiste apposta — si punta a un endpoint
+  remoto. **C-06** (curva di scaling con latenza e VRAM) è irriducibilmente
+  legata alla macchina con GPU.
+
+### Dimensioni dell'indice
+
+| collection | punti | quota del volume |
+|---|---|---|
+| `open_ragbench` | 18.840 | 5% |
+| `ledger` | 47.110 | 12% |
+| `open_ragbench_routed` | 98.312 | 25% |
+| `ledger_routed` | 228.331 | 58% |
+
+Volume Docker totale: **4.97 GB**. Uno snapshot Qdrant di `open_ragbench` pesa
+**222 MB** e si crea in ~1 s: circa **11.8 KB per punto**.
+
+Nota: le due collection `*_routed` sono l'83% del volume ed esistono solo per
+l'ablation R-07, **chiusa**. Chi non lavora su OQ-01 non ne ha bisogno: servono
+le due generic, ~780 MB di snapshot.
+
+### Da fare, quando serve (non ancora fatto)
+
+1. **`scripts/snapshot.py`** (`--export` / `--restore`). Senza GPU l'indice non
+   è ricostruibile in tempi ragionevoli, quindi lo snapshot non è una comodità
+   ma l'unico canale di distribuzione. Oggi si farebbe a mano via API Qdrant.
+2. **`data/README.md`** con licenza e attribuzione per dataset — già richiesto
+   da STACK.md e oggi mancante. È il **prerequisito legale** per distribuire
+   qualunque indice. Entrambi i dataset lo permettono: `vectara/open_ragbench`
+   Apache 2.0, `artefactory/ledger-long-context-KPI-QA` CC-BY-4.0. Il divieto di
+   ROADMAP §11 (*"niente snapshot Qdrant con il testo nel payload"*) riguarda i
+   **corpus con licenza restrittiva**, non questi.
+3. **U-08**, profilo `demo` con indice committato. A 11.8 KB/punto, un indice
+   sotto i 20 MB significa ~1.700 chunk, cioè 40-60 documenti open_ragbench —
+   committabile senza problemi. Oggi `data/demo/` contiene solo `.gitkeep`.
