@@ -6,7 +6,7 @@ Non è `progress.md` (che registra cosa è stato fatto) né `ROADMAP.md` (che de
 
 ---
 
-## OQ-01 — Perché il routing peggiora LEDGER del 20%
+## OQ-01 — Perché il routing peggiora LEDGER di 17 punti
 
 **Aperta.** Osservata il 2026-08-07 durante la riscrittura della dashboard. Riferimento: R-07.
 
@@ -87,7 +87,7 @@ H1 e H3 sono quasi la stessa cosa vista da due lati; H2 è indipendente. Un sing
 
 ### ⚠️ Due trappole nei dati esistenti
 
-**1. `doc_R@10` nei run già in `eval/results/` non significa niente.** Entrambi i run LEDGER riportano `doc_R@10 == doc_R@5` (0.8033 e 0.6033). Non è un risultato: il retrieval ha girato con `top_k=5`, quindi ci sono solo 5 chunk per query e `@10` non può eccedere `@5`. Vedi `harness.py:189` — `rerank_fetch_k = top_k` quando `rerank=False`. **Non leggere quei numeri come "andare più in profondità non aiuta".**
+**1. `doc_R@10` nei run di `eval/results/archive/` non significa niente.** Tutti riportano `doc_R@10 == doc_R@5`. Non è un risultato: il retrieval girava con `top_k=5`, quindi c'erano solo 5 chunk per query e `@10` non poteva eccedere `@5`. **Non leggere quei numeri come "andare più in profondità non aiuta"** — dice il contrario, vedi il passo 1 qui sotto. Corretto il 2026-08-07: la profondità di valutazione è ora separata da quella di servizio (`harness.py`, `eval_depth = max(top_k, METRIC_DEPTH)`), e i run in `eval/results/` non hanno più il problema.
 
 **2. Il rumore di fondo per il retrieval è esattamente zero, e questo NON significa che ogni delta conti.** Misurato il 2026-08-07 (E-07, 5 esecuzioni, 200 query, entrambi i dataset): σ = 0.000000 su ogni metrica. La pipeline di retrieval è deterministica — embedding ONNX senza campionamento, indice Qdrant fisso — quindi due esecuzioni identiche danno risultati identici bit per bit. La premessa di E-07 (*"lo stesso modello sulla stessa domanda cambia risposta tra esecuzioni"*) vale per la **generazione**, non per il retrieval.
 
@@ -187,6 +187,7 @@ python scripts/eval.py --dataset ledger --collection ledger_routed_ctx \
 | heading già estratto | `_first_heading()`, stesso file (I-05) |
 | cosa viene embeddato | `src/index/embed.py` → riceve `Chunk.text` |
 | routing per genere | `src/ingestion/router.py` → `route_text()` |
-| trappola del `top_k` | `src/eval/harness.py:189` |
+| profondità di valutazione | `src/eval/harness.py`, `eval_depth` |
+| test appaiato | `src/eval/paired.py`, `scripts/compare_runs.py` |
 | misure di questa nota | riprodotte con `client.scroll` su Qdrant; nessuno script committato — sono usa e getta |
 | esplorazione interattiva | dashboard → Failure Explorer e Retrieval Playground (tab A/B) |
