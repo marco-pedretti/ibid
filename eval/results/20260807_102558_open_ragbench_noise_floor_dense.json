@@ -1,0 +1,52 @@
+{
+  "timestamp": "2026-08-07T10:25:58.515389Z",
+  "git_commit": "9cc8b32b0120ce1a9fdc9536a516fd59b486c99b",
+  "n_runs": 5,
+  "dataset_id": "open_ragbench",
+  "pipeline_mode": "generic",
+  "retrieval_mode": "dense",
+  "metric_stats": {
+    "R@10": {
+      "mean": 0.87,
+      "std": 0.0,
+      "min_val": 0.87,
+      "max_val": 0.87
+    },
+    "R@5": {
+      "mean": 0.81,
+      "std": 0.0,
+      "min_val": 0.81,
+      "max_val": 0.81
+    },
+    "RR@10": {
+      "mean": 0.6879940476190477,
+      "std": 0.0,
+      "min_val": 0.6879940476190477,
+      "max_val": 0.6879940476190477
+    },
+    "Success@1": {
+      "mean": 0.6,
+      "std": 0.0,
+      "min_val": 0.6,
+      "max_val": 0.6
+    },
+    "doc_R@10": {
+      "mean": 0.97,
+      "std": 0.0,
+      "min_val": 0.97,
+      "max_val": 0.97
+    },
+    "doc_R@5": {
+      "mean": 0.965,
+      "std": 0.0,
+      "min_val": 0.965,
+      "max_val": 0.965
+    },
+    "nDCG@10": {
+      "mean": 0.7319021125457178,
+      "std": 0.0,
+      "min_val": 0.7319021125457178,
+      "max_val": 0.7319021125457178
+    }
+  }
+}

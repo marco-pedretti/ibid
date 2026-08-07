@@ -29,16 +29,41 @@ In tutti e 16 i file `R@10 == R@5` esattamente — non è una proprietà dei dat
 |---|---|---|
 | `R@5` | ✅ valida | bastano 5 risultati, identica a ogni profondità |
 | `Success@1` | ✅ valida | idem |
-| `doc_R@5` | ✅ valida | aggrega gli stessi 5 chunk |
 | `R@10` | ❌ sottostimata | non può vedere oltre la 5ª posizione |
 | `nDCG@10` | ❌ sottostimata | idem |
 | `RR@10` | ❌ sottostimata | idem |
+| `doc_R@5` | ❌ **sottostimata** | vedi sotto |
 | `doc_R@10` | ❌ priva di significato | identica per costruzione a `doc_R@5` |
 
-Conseguenze sulle conclusioni già scritte in `progress.md`:
+### Perché anche `doc_R@5` è sottostimata
 
-- **R-07** (+4% ORB / −20% LEDGER) — **regge**, è basata su `doc_R@5`
-- **R-05** (chunk R@5 0.80 vs doc R@5 0.96) — **regge**, entrambe `@5`
+Questa era stata inizialmente classificata come valida, per errore. `doc_R@5` è
+Recall@5 sui **documenti**, ma i documenti si ottengono aggregando i chunk
+recuperati: se i 5 chunk provengono da 3 documenti soli, la lista di documenti
+candidati ne contiene 3, non 5. Recuperare più in profondità produce più
+documenti distinti e quindi una lista top-5 più piena.
+
+Misurato sulle stesse 200 query, `doc_R@5` a profondità 5 contro 10:
+
+| collection | profondità 5 | profondità 10 | delta |
+|---|---|---|---|
+| `ledger` | 0.8383 | 0.9367 | **+0.098** |
+| `ledger_routed` | 0.7517 | 0.8225 | **+0.071** |
+| `open_ragbench` | 0.9600 | 0.9650 | +0.005 |
+| `open_ragbench_routed` | 0.9900 | 0.9900 | 0.000 |
+
+L'effetto è grande su LEDGER e trascurabile su open_ragbench, come atteso: i
+chunk LEDGER sono pagine intere, quindi più chunk recuperati cadono nello stesso
+documento; quelli ORB sono sezioni sparse su documenti diversi.
+
+### Conseguenze sulle conclusioni già scritte in `progress.md`
+
+- **R-07** (+4% ORB / −20% LEDGER) — **numeri da sostituire**. La direzione
+  regge (ORB su, LEDGER giù) ed è stabile su tutte le varianti provate, ma
+  entrambe le magnitudini erano gonfiate. Valori corretti in `progress.md`.
+- **R-05** (chunk R@5 0.80 vs doc R@5 0.96) — il confronto **regge come
+  direzione** (doc-recall ≫ chunk-recall), la magnitudine no: `doc_R@5` era
+  sottostimata, quindi il divario reale è più ampio, non più stretto.
 - **R-03** (query rewrite, −10.4% su nDCG@10) — direzione plausibile,
   **magnitudine inaffidabile**
 - **R-04** (filtri metadata) — la parte `R@5 −5.0%` regge, la parte

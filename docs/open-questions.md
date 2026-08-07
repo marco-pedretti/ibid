@@ -12,14 +12,14 @@ Non è `progress.md` (che registra cosa è stato fatto) né `ROADMAP.md` (che de
 
 ### Il fatto da spiegare
 
-R-07 ha misurato, su `doc_R@5` con `top_k=5`:
+Misura corretta (2026-08-07, 200 query, profondità 10 — i numeri originali di R-07 erano affetti dai difetti descritti in `eval/results/archive/README.md`):
 
-| dataset | generic | routed | delta |
-|---|---|---|---|
-| open_ragbench | 0.9600 | 1.0000 | **+4%** |
-| ledger | 0.8033 | 0.6033 | **−20%** |
+| dataset | generic | routed | delta | McNemar appaiato |
+|---|---|---|---|---|
+| open_ragbench | 0.9650 | 0.9900 | +2.5% | p=0.125 — **non dimostrato** |
+| ledger | 0.9367 | 0.8225 | **−12.2%** | p=0.0034 — **reale** |
 
-La domanda è solo la seconda riga. In `progress.md` la causa era annotata come *"sub-chunking aggressivo → chunk troppo piccoli, IDF diluito"*. È una congettura scritta senza misura: va verificata o sostituita.
+La domanda è solo la seconda riga, ed è l'unica delle due statisticamente stabilita. In `progress.md` la causa era annotata come *"sub-chunking aggressivo → chunk troppo piccoli, IDF diluito"*. È una congettura scritta senza misura: va verificata o sostituita.
 
 ### Cosa è stato misurato finora
 
@@ -87,7 +87,9 @@ H1 e H3 sono quasi la stessa cosa vista da due lati; H2 è indipendente. Un sing
 
 **1. `doc_R@10` nei run già in `eval/results/` non significa niente.** Entrambi i run LEDGER riportano `doc_R@10 == doc_R@5` (0.8033 e 0.6033). Non è un risultato: il retrieval ha girato con `top_k=5`, quindi ci sono solo 5 chunk per query e `@10` non può eccedere `@5`. Vedi `harness.py:189` — `rerank_fetch_k = top_k` quando `rerank=False`. **Non leggere quei numeri come "andare più in profondità non aiuta".**
 
-**2. Non esiste un rumore di fondo per LEDGER.** `eval/results/` non contiene nessun `NoiseFloorResult`. Finché non c'è, §12 vieta di dichiarare un miglioramento: la dashboard lo dice esplicitamente ("rumore non misurato"). **È il passo 0, non un optional.**
+**2. Il rumore di fondo per il retrieval è esattamente zero, e questo NON significa che ogni delta conti.** Misurato il 2026-08-07 (E-07, 5 esecuzioni, 200 query, entrambi i dataset): σ = 0.000000 su ogni metrica. La pipeline di retrieval è deterministica — embedding ONNX senza campionamento, indice Qdrant fisso — quindi due esecuzioni identiche danno risultati identici bit per bit. La premessa di E-07 (*"lo stesso modello sulla stessa domanda cambia risposta tra esecuzioni"*) vale per la **generazione**, non per il retrieval.
+
+Conseguenza pratica: per gli eval di retrieval il rumore di fondo E-07 non cattura l'incertezza rilevante, e un σ=0 letto distrattamente fa sembrare significativo qualunque delta. L'incertezza che conta è quella di **campionamento sul set di query**, e va stimata con un test appaiato sulle stesse query — McNemar sulle discordanti, non un confronto fra due medie. È così che si è scoperto che il +2.5% su open_ragbench non è distinguibile dal caso (7 query discordanti su 200).
 
 ---
 
@@ -95,15 +97,11 @@ H1 e H3 sono quasi la stessa cosa vista da due lati; H2 è indipendente. Un sing
 
 A stadi, dal più economico. Ogni stadio può chiudere la questione senza pagare quello dopo.
 
-### Passo 0 — Rumore di fondo per LEDGER *(~15 min, obbligatorio)*
+### Passo 0 — Rumore di fondo *(fatto, non ripetere)*
 
-```bash
-python scripts/eval_noise.py --mode retrieval --n-runs 5 --dataset ledger --limit 200
-```
+**Già fatto il 2026-08-07**: `eval/results/` contiene i `NoiseFloorResult` per entrambi i dataset. Risultato: **σ = 0.000000 ovunque** — il retrieval è deterministico.
 
-Produce un `NoiseFloorResult` in `eval/results/`. Da qui in poi la dashboard disegna i whisker ±σ e giudica i delta.
-
-**Cosa guardare:** la σ di `doc_R@5`. Se è ≳ 0.02, qualunque delta sotto quella soglia negli stadi seguenti è rumore e non va interpretato. Annotare il valore, serve a leggere tutto il resto.
+Non rifarlo, e soprattutto **non leggerlo come "ogni delta è significativo"**. Per giudicare i delta degli stadi seguenti usa il test appaiato di McNemar sulle stesse query (vedi trappola 2 sopra), non la σ di E-07.
 
 ### Passo 1 — H2a, profondità di ranking *(~10 min, nessuna re-ingestione)*
 
