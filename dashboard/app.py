@@ -1,12 +1,18 @@
 """D-01: Internal Streamlit dashboard.
 
 Four pages:
-  1. EvalRun Comparator — compare ≥2 EvalRun JSONs from eval/results/ within a
-                          single dataset, with E-07 noise floor as error bars
-  2. Chunk Inspector    — free-form query against open_ragbench or ledger;
-                          dense, sparse, or side-by-side comparison
-  3. Golden Query Browser — browse golden JSONL, filter, live retrieval + recall@k
-  4. Collection Stats   — Qdrant collection point counts and vector config
+  1. EvalRun Comparator   — compare EvalRun JSONs within a single dataset, with
+                            the E-07 noise floor drawn as ±σ whiskers and deltas
+                            below it refused the colour green (ROADMAP §12)
+  2. Retrieval Playground — free-form query against any Qdrant collection, in
+                            dense / sparse / hybrid, with or without reranking;
+                            A/B tab compares two configs on the same query
+  3. Failure Explorer     — batch a slice of the golden set, rank worst-first,
+                            and put the expected chunk next to what came back
+  4. Collection Stats     — Qdrant point counts and vector config
+
+The pages are ordered by how the tool is actually used: measure, then probe,
+then explain.
 
 Usage:
     streamlit run dashboard/app.py
@@ -37,21 +43,38 @@ from dashboard.eval_store import (
     run_label,
     significance_label,
 )
-from dashboard.golden_store import (
-    example_queries,
-    filter_queries,
-    load_golden_queries,
-    recall_at_k,
+from dashboard.failure_store import (
+    chunk_id_mismatch,
+    evaluate_queries,
+    failure_summary,
+    sort_by_failure,
+)
+from dashboard.golden_store import example_queries, load_golden_queries
+from dashboard.retrieval_probe import (
+    RETRIEVAL_MODES,
+    ProbeConfig,
+    ProbeHit,
+    compare_hits,
+    dataset_of_collection,
+    fetch_chunks_by_id,
+    list_collections,
+    probe,
 )
 
 RESULTS_DIR = ROOT / "eval" / "results"
 GOLDEN_DIR = ROOT / "eval" / "golden"
+KNOWN_DATASETS = ("open_ragbench", "ledger")
 
 st.set_page_config(page_title="ibid — dashboard interna", layout="wide")
 st.sidebar.title("ibid")
 page = st.sidebar.selectbox(
     "Pagina",
-    ["EvalRun Comparator", "Chunk Inspector", "Golden Query Browser", "Collection Stats"],
+    [
+        "EvalRun Comparator",
+        "Retrieval Playground",
+        "Failure Explorer",
+        "Collection Stats",
+    ],
 )
 
 # ---------------------------------------------------------------------------
@@ -81,57 +104,77 @@ if st.sidebar.button("↻ Ricarica risultati", width='stretch'):
 
 
 # ---------------------------------------------------------------------------
-# Shared retrieval helper
+# Shared retrieval helpers
 # ---------------------------------------------------------------------------
 
-def _retrieve(query_text: str, dataset: str, mode: str, top_k: int) -> list:
-    """Embed query and search Qdrant. Returns list of QueryResponse."""
-    from src.index.embed import encode, encode_sparse
-    from src.index.store import get_client, search
+@st.cache_resource(show_spinner=False)
+def _client():
+    """One Qdrant client for the session, not one per query."""
+    from src.index.store import get_client
 
-    client = get_client(cfg.QDRANT_URL)
-    if mode == "dense":
-        vec = encode([query_text], cfg.EMBEDDING_MODEL, batch_size=1)[0]
-    else:
-        vec = encode_sparse([query_text], cfg.SPARSE_EMBEDDING_MODEL)[0]
-    return search(client, dataset, vec, top_k=top_k, using=mode)
+    return get_client(cfg.QDRANT_URL)
 
 
-def _render_results(results: list, show_scores_chart: bool = True) -> None:
-    """Render retrieved chunks as expandable cards with full metadata."""
-    if not results:
+@st.cache_data(show_spinner=False, ttl=30)
+def _collections() -> list[str]:
+    try:
+        return list_collections(_client())
+    except Exception:
+        return []
+
+
+def _probe(query_text: str, conf: ProbeConfig) -> list[ProbeHit]:
+    return probe(_client(), query_text, conf)
+
+
+def _render_hits(
+    hits: list[ProbeHit],
+    show_scores_chart: bool = True,
+    highlight: set[str] | None = None,
+    golden_ids: set[str] | None = None,
+) -> None:
+    """Render ranked hits as expandable cards with full metadata.
+
+    `highlight` marks chunks shared with another probe; `golden_ids` marks the
+    chunks the qrels say are relevant.
+    """
+    if not hits:
         st.warning("Nessun risultato.")
         return
 
-    # --- summary metrics row ---
-    doc_ids = [r.payload.get("doc_id", "") for r in results]
-    scores = [r.score for r in results]
+    doc_ids = [h.payload.get("doc_id", "") for h in hits]
+    scores = [h.score for h in hits]
     c1, c2, c3, c4 = st.columns(4)
-    c1.metric("Chunk", len(results))
+    c1.metric("Chunk", len(hits))
     c2.metric("Documenti unici", len(set(doc_ids)))
     c3.metric("Score max", f"{max(scores):.4f}")
     c4.metric("Score min", f"{min(scores):.4f}")
 
-    # --- score decay chart ---
-    if show_scores_chart and len(results) > 1:
-        scores_df = pd.DataFrame(
-            {"Score": scores},
-            index=[f"#{i + 1}" for i in range(len(results))],
+    if show_scores_chart and len(hits) > 1:
+        st.bar_chart(
+            pd.DataFrame({"Score": scores}, index=[f"#{h.rank}" for h in hits]),
+            height=140,
         )
-        st.bar_chart(scores_df, height=140)
 
-    # --- chunk cards ---
-    for i, r in enumerate(results):
-        p = r.payload or {}
+    for h in hits:
+        p = h.payload
+        badges = ""
+        if golden_ids and h.chunk_id in golden_ids:
+            badges += " 🎯 GOLDEN"
+        if highlight and h.chunk_id in highlight:
+            badges += " 🔗 in comune"
         header = (
-            f"#{i + 1}  score={r.score:.4f}  ·  {p.get('doc_id', '?')} "
+            f"#{h.rank}{badges}  score={h.score:.4f}  ·  {p.get('doc_id', '?')} "
             f"·  {p.get('content_type', '?')}  ·  {p.get('doc_genre', '?')}"
         )
-        with st.expander(header, expanded=(i == 0)):
-            meta_cols = st.columns(3)
+        is_notable = bool(golden_ids and h.chunk_id in golden_ids)
+        with st.expander(header, expanded=is_notable or h.rank == 1):
+            meta_cols = st.columns(4)
             meta_cols[0].write(f"**Pipeline:** {p.get('pipeline', '—')}")
             meta_cols[1].write(f"**Pagina:** {p.get('page', '—')}")
             meta_cols[2].write(f"**content_type:** {p.get('content_type', '—')}")
+            meta_cols[3].write(f"**Caratteri:** {len(p.get('text', ''))}")
+            st.caption(f"`{h.chunk_id}`")
             if p.get("section_path"):
                 st.caption(f"Sezione: {p['section_path']}")
             st.divider()
@@ -377,179 +420,288 @@ if page == "EvalRun Comparator":
             )
 
 # =============================================================================
-# PAGE 2 — Chunk Inspector
+# PAGE 2 — Retrieval Playground
 # =============================================================================
-elif page == "Chunk Inspector":
-    st.title("Chunk Inspector")
+elif page == "Retrieval Playground":
+    st.title("Retrieval Playground")
 
-    dataset = st.sidebar.selectbox("Dataset", ["open_ragbench", "ledger"])
+    collections = _collections()
+    if not collections:
+        st.error(
+            f"Nessuna collection su `{cfg.QDRANT_URL}`. "
+            "Avvia Qdrant e lancia `make ingest`."
+        )
+        st.stop()
+
     top_k = st.sidebar.slider("Top-k", min_value=1, max_value=20, value=cfg.TOP_K)
 
-    # Example queries from golden set
+    # Esempi dal golden set del dataset a cui la collection appartiene.
+    default_coll = collections[0]
+    dataset = dataset_of_collection(default_coll, KNOWN_DATASETS)
     with st.spinner("Carico esempi dal golden set…"):
         golden = _load_golden(dataset)
     examples = example_queries(golden, n=6)
 
+    FREE = "— inserisci query libera —"
     example_choice = st.selectbox(
-        "Esempio (golden set):",
-        ["— inserisci query libera —"] + examples,
-        format_func=lambda x: x[:110] if x != "— inserisci query libera —" else x,
+        f"Esempio (golden set {dataset}):",
+        [FREE] + examples,
+        format_func=lambda x: x[:110] if x != FREE else x,
     )
-    preset = example_choice if example_choice != "— inserisci query libera —" else ""
-    query_text = st.text_input("Query libera:", value=preset)
+    query_text = st.text_input(
+        "Query libera:", value=example_choice if example_choice != FREE else ""
+    )
 
     if not query_text:
         st.info("Seleziona un esempio o scrivi una query.")
         st.stop()
 
-    # Retrieval tabs
-    tab_dense, tab_sparse, tab_compare = st.tabs(["Dense", "Sparse", "Dense vs Sparse"])
+    tab_single, tab_ab = st.tabs(["Config singola", "A/B fra due config"])
 
-    with tab_dense:
-        with st.spinner("Ricerca dense…"):
+    with tab_single:
+        c1, c2, c3 = st.columns([2, 1, 1])
+        coll = c1.selectbox("Collection", collections, key="single_coll")
+        mode = c2.selectbox("Modalità", RETRIEVAL_MODES, key="single_mode")
+        do_rerank = c3.checkbox("Rerank (R-02)", key="single_rerank")
+
+        conf = ProbeConfig(collection=coll, retrieval_mode=mode,
+                           rerank=do_rerank, top_k=top_k)
+        with st.spinner(f"Retrieval — {conf.label()}…"):
             try:
-                res_dense = _retrieve(query_text, dataset, "dense", top_k)
-                _render_results(res_dense)
+                _render_hits(_probe(query_text, conf))
             except Exception as e:
                 st.error(f"Errore: {e}\n\nQdrant su `{cfg.QDRANT_URL}`?")
 
-    with tab_sparse:
-        with st.spinner("Ricerca sparse (BM25)…"):
+    with tab_ab:
+        st.caption(
+            "Due configurazioni qualsiasi sulla stessa query — per esempio "
+            "`ledger` contro `ledger_routed`, che è l'ablation R-07."
+        )
+        col_a, col_b = st.columns(2)
+        with col_a:
+            st.markdown("#### A")
+            conf_a = ProbeConfig(
+                collection=st.selectbox("Collection", collections, key="a_coll"),
+                retrieval_mode=st.selectbox("Modalità", RETRIEVAL_MODES, key="a_mode"),
+                rerank=st.checkbox("Rerank", key="a_rerank"),
+                top_k=top_k,
+            )
+        with col_b:
+            st.markdown("#### B")
+            conf_b = ProbeConfig(
+                collection=st.selectbox(
+                    "Collection", collections,
+                    index=min(1, len(collections) - 1), key="b_coll",
+                ),
+                retrieval_mode=st.selectbox("Modalità", RETRIEVAL_MODES, key="b_mode"),
+                rerank=st.checkbox("Rerank", key="b_rerank"),
+                top_k=top_k,
+            )
+
+        if st.button("Confronta", type="primary"):
             try:
-                res_sparse = _retrieve(query_text, dataset, "sparse", top_k)
-                _render_results(res_sparse)
+                with st.spinner("Retrieval A…"):
+                    hits_a = _probe(query_text, conf_a)
+                with st.spinner("Retrieval B…"):
+                    hits_b = _probe(query_text, conf_b)
             except Exception as e:
                 st.error(f"Errore: {e}")
+                st.stop()
 
-    with tab_compare:
-        st.caption("I risultati sono calcolati indipendentemente per ogni modalità.")
-        col_d, col_s = st.columns(2)
+            cmp = compare_hits(hits_a, hits_b)
+            st.divider()
+            m1, m2, m3 = st.columns(3)
+            m1.metric("Chunk in comune", f"{len(cmp.shared)}/{len(hits_a)}")
+            m2.metric("Jaccard chunk", f"{cmp.jaccard:.2f}")
+            m3.metric("Jaccard documento", f"{cmp.doc_jaccard:.2f}")
 
-        with col_d:
-            st.markdown("### Dense")
-            with st.spinner("…"):
-                try:
-                    if "res_dense" not in dir():
-                        res_dense = _retrieve(query_text, dataset, "dense", top_k)
-                    _render_results(res_dense, show_scores_chart=False)
-                except Exception as e:
-                    st.error(str(e))
-
-        with col_s:
-            st.markdown("### Sparse (BM25)")
-            with st.spinner("…"):
-                try:
-                    if "res_sparse" not in dir():
-                        res_sparse = _retrieve(query_text, dataset, "sparse", top_k)
-                    _render_results(res_sparse, show_scores_chart=False)
-                except Exception as e:
-                    st.error(str(e))
-
-# =============================================================================
-# PAGE 3 — Golden Query Browser
-# =============================================================================
-elif page == "Golden Query Browser":
-    st.title("Golden Query Browser")
-
-    dataset = st.sidebar.selectbox("Dataset", ["open_ragbench", "ledger"])
-    answerable_filter = st.sidebar.radio(
-        "Rispondibilità", ["Tutte", "Solo rispondibili", "Solo non rispondibili"]
-    )
-    top_k = st.sidebar.slider("Top-k per retrieval", min_value=1, max_value=20, value=cfg.TOP_K)
-
-    with st.spinner(f"Carico {dataset}…"):
-        golden = _load_golden(dataset)
-
-    if not golden:
-        st.warning(f"Nessuna query trovata per {dataset}. Esegui `python scripts/build_golden.py --dataset {dataset}`.")
-        st.stop()
-
-    # Filter
-    ans_map = {"Tutte": None, "Solo rispondibili": True, "Solo non rispondibili": False}
-    search_text = st.text_input("Cerca nel testo della query:", placeholder="filtro libero…")
-    filtered = filter_queries(golden, answerable=ans_map[answerable_filter], search=search_text)
-
-    st.caption(f"{len(filtered):,} query su {len(golden):,} totali")
-
-    if not filtered:
-        st.info("Nessuna query corrisponde ai filtri.")
-        st.stop()
-
-    # Build display DataFrame (cap at 500 rows for performance)
-    display = filtered[:500]
-    table_data = {
-        "query_text": [q.query_text[:90] for q in display],
-        "answerable": ["✅" if q.answerable else "❌" for q in display],
-        "n_qrels": [len(q.qrels) for q in display],
-        "reference_answer": [(q.reference_answer or "")[:50] for q in display],
-    }
-    df_browse = pd.DataFrame(table_data)
-    df_browse.index.name = "#"
-
-    if len(filtered) > 500:
-        st.caption(f"Mostrando i primi 500 risultati su {len(filtered):,}.")
-
-    # Row selection
-    event = st.dataframe(
-        df_browse,
-        width='stretch',
-        selection_mode="single-row",
-        on_select="rerun",
-        height=300,
-    )
-
-    selected_rows = event.selection.rows if event.selection else []
-    if not selected_rows:
-        st.info("Clicca una riga per ispezionarla.")
-        st.stop()
-
-    selected_query = display[selected_rows[0]]
-    st.divider()
-    st.subheader("Query selezionata")
-
-    st.markdown(f"**{selected_query.query_text}**")
-    info_cols = st.columns(3)
-    info_cols[0].write(f"Rispondibile: {'✅' if selected_query.answerable else '❌'}")
-    info_cols[1].write(f"Qrel count: {len(selected_query.qrels)}")
-    info_cols[2].write(f"ID: `{selected_query.query_id}`")
-
-    if selected_query.reference_answer:
-        st.info(f"**Risposta attesa:** {selected_query.reference_answer}")
-
-    if selected_query.qrels:
-        with st.expander("Chunk rilevanti (golden qrels)", expanded=False):
-            for qr in selected_query.qrels:
-                st.write(f"- `{qr.chunk_id}` (relevance={qr.relevance})")
-
-    # Live retrieval + recall
-    if st.button("Retrieva live (dense)"):
-        try:
-            with st.spinner("Retrieval…"):
-                results = _retrieve(selected_query.query_text, dataset, "dense", top_k)
-            retrieved_ids = [r.payload.get("chunk_id", "") for r in results]
-            r_at_1 = recall_at_k(selected_query, retrieved_ids, k=1)
-            r_at_k = recall_at_k(selected_query, retrieved_ids, k=top_k)
-
-            col_r1, col_rk = st.columns(2)
-            col_r1.metric("Recall@1", f"{r_at_1:.2f}", delta=None)
-            col_rk.metric(f"Recall@{top_k}", f"{r_at_k:.2f}", delta=None)
-
-            # Highlight golden chunks in results
-            golden_ids = {qr.chunk_id for qr in selected_query.qrels if qr.relevance >= 1}
-            for i, r in enumerate(results):
-                p = r.payload or {}
-                chunk_id = p.get("chunk_id", "")
-                is_golden = chunk_id in golden_ids
-                badge = "🎯 GOLDEN" if is_golden else ""
-                header = (
-                    f"#{i + 1}  {badge}  score={r.score:.4f}  ·  {p.get('doc_id', '?')}"
+            if cmp.jaccard == 0.0 and cmp.doc_jaccard > 0:
+                st.info(
+                    "Zero chunk in comune ma documenti condivisi: le due collection "
+                    "usano pipeline di chunking diverse, quindi i `chunk_id` non "
+                    "coincidono per costruzione. Solo il livello documento è "
+                    "confrontabile — è la ragione per cui R-07 si legge su doc_R@5.",
+                    icon="ℹ️",
                 )
-                with st.expander(header, expanded=is_golden):
-                    if p.get("section_path"):
-                        st.caption(f"Sezione: {p['section_path']}")
-                    st.markdown(p.get("text", "*(testo assente)*"))
+            if cmp.shared_docs:
+                st.caption("Documenti trovati da entrambe: " +
+                           ", ".join(f"`{d}`" for d in cmp.shared_docs))
+
+            res_a, res_b = st.columns(2)
+            with res_a:
+                st.markdown(f"### A — {conf_a.label()}")
+                _render_hits(hits_a, show_scores_chart=False, highlight=set(cmp.shared))
+            with res_b:
+                st.markdown(f"### B — {conf_b.label()}")
+                _render_hits(hits_b, show_scores_chart=False, highlight=set(cmp.shared))
+
+# =============================================================================
+# PAGE 3 — Failure Explorer
+# =============================================================================
+elif page == "Failure Explorer":
+    st.title("Failure Explorer")
+    st.caption(
+        "Esegue un batch di query golden e le ordina dalla peggiore. "
+        "Le query che funzionano non spiegano niente."
+    )
+
+    collections = _collections()
+    if not collections:
+        st.error(f"Nessuna collection su `{cfg.QDRANT_URL}`.")
+        st.stop()
+
+    coll = st.sidebar.selectbox("Collection", collections)
+    dataset = dataset_of_collection(coll, KNOWN_DATASETS)
+    st.sidebar.caption(f"Golden set: `{dataset}`")
+    mode = st.sidebar.selectbox("Modalità", RETRIEVAL_MODES)
+    do_rerank = st.sidebar.checkbox("Rerank (R-02)")
+    top_k = st.sidebar.slider("Top-k", min_value=1, max_value=20, value=cfg.TOP_K)
+    n_queries = st.sidebar.slider(
+        "Query da eseguire", min_value=10, max_value=500, value=50, step=10,
+        help="Un batch, non l'intero golden set: la dashboard e uno strumento di "
+             "debug, la misura ufficiale la fa scripts/eval.py.",
+    )
+
+    with st.spinner(f"Carico golden {dataset}…"):
+        golden = _load_golden(dataset)
+    if not golden:
+        st.warning(
+            f"Nessuna query per {dataset}. "
+            f"Esegui `python scripts/build_golden.py --dataset {dataset}`."
+        )
+        st.stop()
+
+    answerable = [q for q in golden if q.answerable and q.qrels]
+    st.caption(
+        f"{len(answerable):,} query rispondibili su {len(golden):,} totali "
+        f"nel golden set."
+    )
+
+    conf = ProbeConfig(collection=coll, retrieval_mode=mode,
+                       rerank=do_rerank, top_k=top_k)
+
+    if st.button(f"Esegui {n_queries} query — {conf.label()}", type="primary"):
+        subset = answerable[:n_queries]
+        bar = st.progress(0.0, text="Retrieval…")
+        try:
+            outcomes = evaluate_queries(
+                _client(), subset, conf,
+                on_progress=lambda i, n: bar.progress(i / n, text=f"Scoring {i}/{n}"),
+            )
         except Exception as e:
-            st.error(f"Errore retrieval: {e}\n\nQdrant su `{cfg.QDRANT_URL}`?")
+            bar.empty()
+            st.error(f"Errore: {e}\n\nQdrant su `{cfg.QDRANT_URL}`?")
+            st.stop()
+        bar.empty()
+        # Un solo oggetto: le tre informazioni descrivono lo stesso batch e
+        # tenerle in chiavi separate le lascia divergere.
+        st.session_state["batch"] = {
+            "outcomes": outcomes, "label": conf.label(), "dataset": dataset,
+        }
+
+    batch = st.session_state.get("batch") or {}
+    outcomes = batch.get("outcomes")
+    if not outcomes:
+        st.info("Premi il bottone per eseguire il batch.")
+        st.stop()
+
+    st.divider()
+    st.subheader(f"Risultati — {batch['label']}")
+
+    summary = failure_summary(outcomes)
+    s1, s2, s3, s4 = st.columns(4)
+    s1.metric("Query", int(summary["n"]))
+    s2.metric("Recall chunk medio", f"{summary['mean_recall']:.3f}")
+    s3.metric("Recall doc medio", f"{summary['mean_doc_recall']:.3f}")
+    s4.metric(
+        "Fallimenti totali", int(summary["n_failures"]),
+        delta=f"{summary['failure_rate']:.0%}", delta_color="inverse",
+    )
+
+    if chunk_id_mismatch(outcomes):
+        st.info(
+            "Recall chunk 0 su tutte le query ma documenti trovati: i `chunk_id` "
+            "di questa collection non coincidono con quelli dei qrels, perche e "
+            "stata costruita con una pipeline di chunking diversa. Leggi il "
+            "**recall documento**, non quello chunk — e la stessa ragione per cui "
+            "R-07 si misura su doc_R@5.",
+            icon="ℹ️",
+        )
+
+    ranked = sort_by_failure(outcomes)
+    only_failures = st.checkbox("Mostra solo i fallimenti (recall doc = 0)", value=True)
+    shown = [o for o in ranked if o.is_failure] if only_failures else ranked
+
+    if not shown:
+        st.success("Nessun fallimento in questo batch.")
+        st.stop()
+
+    df_fail = pd.DataFrame({
+        "query": [o.query.query_text[:100] for o in shown],
+        "recall_chunk": [o.recall for o in shown],
+        "recall_doc": [o.doc_recall for o in shown],
+        "top_score": [o.top_score for o in shown],
+        "n_qrels": [len(o.query.qrels) for o in shown],
+    })
+    df_fail.index.name = "#"
+    event = st.dataframe(
+        df_fail, width='stretch', selection_mode="single-row",
+        on_select="rerun", height=300,
+    )
+
+    rows = event.selection.rows if event.selection else []
+    if not rows:
+        st.info("Clicca una riga per confrontare atteso e recuperato.")
+        st.stop()
+
+    o = shown[rows[0]]
+    st.divider()
+    st.markdown(f"### {o.query.query_text}")
+    i1, i2, i3 = st.columns(3)
+    i1.metric("Recall chunk", f"{o.recall:.2f}")
+    i2.metric("Recall doc", f"{o.doc_recall:.2f}")
+    i3.metric("Query ID", o.query.query_id)
+    if o.query.reference_answer:
+        st.info(f"**Risposta attesa:** {o.query.reference_answer}")
+
+    col_exp, col_got = st.columns(2)
+
+    with col_exp:
+        st.markdown("#### Atteso (golden qrels)")
+        golden_ids = sorted(o.golden_ids)
+        try:
+            texts = fetch_chunks_by_id(_client(), coll, golden_ids)
+        except Exception as e:
+            texts = {}
+            st.caption(f"(testo non recuperabile: {e})")
+        for cid in golden_ids:
+            payload = texts.get(cid)
+            with st.expander(f"`{cid}`" + ("" if payload else "  ⚠️ assente"),
+                             expanded=True):
+                if payload:
+                    st.caption(
+                        f"{payload.get('doc_id', '?')} · "
+                        f"{payload.get('content_type', '?')} · "
+                        f"{len(payload.get('text', ''))} caratteri"
+                    )
+                    st.markdown(payload.get("text", "")[:2000])
+                else:
+                    st.warning(
+                        "Questo `chunk_id` non esiste in `" + coll + "`: il qrel "
+                        "e stato scritto contro una collection con chunking diverso. "
+                        "Non e un errore di retrieval.",
+                        icon="⚠️",
+                    )
+
+    with col_got:
+        st.markdown("#### Recuperato")
+        hits = [
+            ProbeHit(rank=i, chunk_id=cid, score=sc, payload=pl)
+            for i, (cid, sc, pl) in enumerate(
+                zip(o.retrieved_ids, o.scores, o.payloads), 1
+            )
+        ]
+        _render_hits(hits, show_scores_chart=False, golden_ids=o.golden_ids)
 
 # =============================================================================
 # PAGE 4 — Collection Stats
