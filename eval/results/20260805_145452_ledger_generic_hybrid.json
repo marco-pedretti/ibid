@@ -9,12 +9,26 @@
   "context_window": 0,
   "temperature": 0.0,
   "reasoning_enabled": false,
-  "pipeline_mode": "hybrid_rrf",
+  "pipeline_mode": "generic",
   "metrics": {
     "R@5": 0.15003257181779683,
     "Success@1": 0.1153,
     "nDCG@10": 0.12883676754816337,
     "RR@10": 0.22717333333333317,
     "R@10": 0.15003257181779683
+  },
+  "config": {
+    "retrieval_mode": "hybrid",
+    "top_k": 5,
+    "rerank": false,
+    "query_rewrite": false,
+    "filter_content_type": null,
+    "doc_aggregate": false,
+    "collection": "ledger",
+    "embedding_model": "intfloat/multilingual-e5-large",
+    "reranker_model": null,
+    "query_rewrite_model": null,
+    "legacy_pipeline_mode": "hybrid_rrf",
+    "_migrated": true
   }
 }

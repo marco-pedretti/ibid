@@ -79,6 +79,16 @@ Rules:
 - Delete the branch immediately after merging with `git branch -d`.
 - Small fixes or enhancements to an already-merged task (not a new ROADMAP task) may go directly to main without a branch.
 
+### Commit granularity: one decision per commit
+
+A task does not land as one block. Split it into commits that can each be **reviewed and reverted on their own**:
+
+- **Never mix a refactor with a behaviour change.** Move the code in one commit, change what it does in the next. A pure refactor leaves the test count unchanged — that is the check that it really was one.
+- **Separate risky from safe.** Data-contract changes, migrations of already-measured results, anything touching `config_hash` or a schema: their own commit, so that reverting them does not drag an unrelated fix along.
+- **Every commit must pass the suite on its own.** Otherwise `git bisect` and per-commit revert stop working, which is the only reason splitting has value.
+
+Do not split further than that: a commit that doesn't build is worse than a large one. The unit is the smallest change that stands alone, not the smallest diff.
+
 Every commit must include:
 ```
 Co-Authored-By: Elia Dallanoce <eliadallanoce@gmail.com>

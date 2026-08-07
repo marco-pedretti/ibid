@@ -9,12 +9,26 @@
   "context_window": 0,
   "temperature": 0.0,
   "reasoning_enabled": false,
-  "pipeline_mode": "generic_reranked",
+  "pipeline_mode": "generic",
   "metrics": {
     "R@5": 0.86,
     "RR@10": 0.7393333333333334,
     "Success@1": 0.66,
     "nDCG@10": 0.7696213882713642,
     "R@10": 0.86
+  },
+  "config": {
+    "retrieval_mode": "dense",
+    "top_k": 5,
+    "rerank": true,
+    "query_rewrite": false,
+    "filter_content_type": null,
+    "doc_aggregate": false,
+    "collection": "open_ragbench",
+    "embedding_model": "intfloat/multilingual-e5-large",
+    "reranker_model": "BAAI/bge-reranker-base",
+    "query_rewrite_model": null,
+    "legacy_pipeline_mode": "generic_reranked",
+    "_migrated": true
   }
 }

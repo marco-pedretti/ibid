@@ -17,6 +17,7 @@ import src.config as cfg
 from src.datasets.golden import GoldenQuery
 from src.datasets.schema import EvalRun
 from src.eval.metrics import DEFAULT_MEASURES, build_qrels, build_run, compute_metrics
+from src.eval.run_config import build_config
 from src.index.embed import encode, encode_sparse
 from src.index.store import get_client, search_batch
 import ir_measures
@@ -93,6 +94,13 @@ def _config_hash(
     collection: str | None = None,
     dataset_id: str | None = None,
 ) -> str:
+    """Stable identity of a config.
+
+    Deliberately kept byte-identical since E-03: changing what goes in here (or
+    in what order) would silently make every already-measured run
+    non-comparable.  The human-readable flag dict lives in `EvalRun.config`
+    instead — see `src/eval/run_config.py`.
+    """
     params = {
         "embedding_model": cfg.EMBEDDING_MODEL,
         "top_k": top_k,
@@ -303,5 +311,14 @@ def run_retrieval_eval(
         temperature=0.0,
         reasoning_enabled=False,
         pipeline_mode=pipeline_mode,
+        config=build_config(
+            top_k=top_k,
+            retrieval_mode=retrieval_mode,
+            rerank=rerank,
+            query_rewrite=query_rewrite,
+            filter_content_type=filter_content_type,
+            doc_aggregate=doc_aggregate,
+            collection=qdrant_collection,
+        ),
         metrics=metrics,
     )
