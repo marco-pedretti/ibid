@@ -1,7 +1,8 @@
 """D-01: Internal Streamlit dashboard.
 
 Four pages:
-  1. EvalRun Comparator — compare ≥2 EvalRun JSONs from eval/results/
+  1. EvalRun Comparator — compare ≥2 EvalRun JSONs from eval/results/ within a
+                          single dataset, with E-07 noise floor as error bars
   2. Chunk Inspector    — free-form query against open_ragbench or ledger;
                           dense, sparse, or side-by-side comparison
   3. Golden Query Browser — browse golden JSONL, filter, live retrieval + recall@k
@@ -25,7 +26,17 @@ import pandas as pd
 import streamlit as st
 
 import src.config as cfg
-from dashboard.eval_store import compare_table, load_eval_runs, run_label
+from dashboard.eval_store import (
+    compare_table,
+    config_diff,
+    config_matrix,
+    load_eval_runs,
+    load_noise_floors,
+    match_noise_floor,
+    noise_std,
+    run_label,
+    significance_label,
+)
 from dashboard.golden_store import (
     example_queries,
     filter_queries,
@@ -57,6 +68,18 @@ def _load_runs() -> list:
     return load_eval_runs(RESULTS_DIR)
 
 
+@st.cache_data(show_spinner=False)
+def _load_floors() -> list:
+    return load_noise_floors(RESULTS_DIR)
+
+
+if st.sidebar.button("↻ Ricarica risultati", width='stretch'):
+    # Without this, a run written while the dashboard is open stays invisible
+    # until the process is restarted.
+    st.cache_data.clear()
+    st.rerun()
+
+
 # ---------------------------------------------------------------------------
 # Shared retrieval helper
 # ---------------------------------------------------------------------------
@@ -82,7 +105,6 @@ def _render_results(results: list, show_scores_chart: bool = True) -> None:
 
     # --- summary metrics row ---
     doc_ids = [r.payload.get("doc_id", "") for r in results]
-    genres = [r.payload.get("doc_genre", "") for r in results]
     scores = [r.score for r in results]
     c1, c2, c3, c4 = st.columns(4)
     c1.metric("Chunk", len(results))
@@ -116,6 +138,23 @@ def _render_results(results: list, show_scores_chart: bool = True) -> None:
             st.markdown(p.get("text", "*(testo assente)*"))
 
 
+def _render_noise_caption(floor) -> None:
+    """State plainly whether a noise floor backs the chart, or that none exists."""
+    if floor is None:
+        st.warning(
+            "Nessun rumore di fondo misurato per questo dataset: le barre non hanno "
+            "intervallo e nessun delta può essere dichiarato un miglioramento "
+            "(ROADMAP §12). Esegui `make noise-floor`.",
+            icon="⚠️",
+        )
+    else:
+        st.caption(
+            f"Whisker = ±σ dal rumore di fondo E-07 "
+            f"({floor.n_runs} run, {floor.retrieval_mode}, "
+            f"`{floor.git_commit[:7]}`, {floor.timestamp.strftime('%d %b')})."
+        )
+
+
 def _render_run_meta(run) -> None:
     """Show EvalRun metadata as structured fields, not raw JSON."""
     r1c1, r1c2, r1c3 = st.columns(3)
@@ -130,28 +169,65 @@ def _render_run_meta(run) -> None:
     r3c1.metric("Temperatura", run.temperature)
     r3c2.metric("Context window", run.context_window if run.context_window else "—")
     r3c3.metric("Reasoning", "✅" if run.reasoning_enabled else "❌")
+    if run.config:
+        r4c1, r4c2, r4c3 = st.columns(3)
+        r4c1.metric("Retrieval", run.config.get("retrieval_mode", "—"))
+        r4c2.metric("Collection", run.config.get("collection", "—"))
+        r4c3.metric("top_k", run.config.get("top_k", "—"))
+        active = [
+            k for k in ("rerank", "query_rewrite", "doc_aggregate") if run.config.get(k)
+        ]
+        if run.config.get("filter_content_type"):
+            active.append(f"filter={run.config['filter_content_type']}")
+        st.caption("Flag attivi: " + (", ".join(active) if active else "nessuno"))
 
 
-def _grouped_bar_chart(df: pd.DataFrame, height: int = 300) -> None:
-    """Altair grouped bar chart. df: index=metrics, columns=run labels."""
+def _grouped_bar_chart(
+    df: pd.DataFrame,
+    height: int = 300,
+    stds: dict[str, float] | None = None,
+) -> None:
+    """Altair grouped bar chart. df: index=metrics, columns=run labels.
+
+    When `stds` is given (metric -> noise-floor std from E-07), each bar carries
+    a ±σ whisker.  Bars whose difference is visually smaller than the whisker
+    are not a result — that is the whole point of showing it.
+    """
     melted = (
         df.reset_index()
         .rename(columns={"index": "Metric"})
         .melt(id_vars="Metric", var_name="Run", value_name="Score")
     )
-    chart = (
-        alt.Chart(melted)
-        .mark_bar()
-        .encode(
-            x=alt.X("Metric:N", sort=None, axis=alt.Axis(labelAngle=-30, title="")),
-            y=alt.Y("Score:Q", axis=alt.Axis(title="Score")),
-            color=alt.Color("Run:N", legend=alt.Legend(orient="bottom")),
-            xOffset="Run:N",
-            tooltip=["Metric:N", "Run:N", alt.Tooltip("Score:Q", format=".4f")],
-        )
-        .properties(height=height)
+    base = alt.Chart(melted)
+    bars = base.mark_bar().encode(
+        x=alt.X("Metric:N", sort=None, axis=alt.Axis(labelAngle=-30, title="")),
+        y=alt.Y("Score:Q", axis=alt.Axis(title="Score")),
+        color=alt.Color("Run:N", legend=alt.Legend(orient="bottom")),
+        xOffset="Run:N",
+        tooltip=["Metric:N", "Run:N", alt.Tooltip("Score:Q", format=".4f")],
     )
-    st.altair_chart(chart, use_container_width=True)
+    layers = bars
+
+    if stds:
+        melted["lo"] = melted.apply(
+            lambda r: r["Score"] - stds.get(r["Metric"], 0.0), axis=1
+        )
+        melted["hi"] = melted.apply(
+            lambda r: r["Score"] + stds.get(r["Metric"], 0.0), axis=1
+        )
+        whiskers = (
+            alt.Chart(melted)
+            .mark_rule(strokeWidth=1.5, color="#444")
+            .encode(
+                x=alt.X("Metric:N", sort=None),
+                y=alt.Y("lo:Q"),
+                y2=alt.Y2("hi:Q"),
+                xOffset="Run:N",
+            )
+        )
+        layers = bars + whiskers
+
+    st.altair_chart(layers.properties(height=height), width='stretch')
 
 
 # =============================================================================
@@ -159,23 +235,26 @@ def _grouped_bar_chart(df: pd.DataFrame, height: int = 300) -> None:
 # =============================================================================
 if page == "EvalRun Comparator":
     st.title("EvalRun Comparator")
-    st.caption(f"`{RESULTS_DIR.relative_to(ROOT)}`")
 
     runs = _load_runs()
+    floors = _load_floors()
     if not runs:
         st.warning("Nessun EvalRun trovato in `eval/results/`. Esegui `make eval` o `make eval-generation`.")
         st.stop()
 
-    # Sidebar filters
+    # ROADMAP §11 vieta le metriche aggregate su dataset diversi: il dataset è
+    # una scelta singola, non un filtro multiplo, così un delta cross-dataset
+    # non è nemmeno esprimibile.
     datasets_available = sorted({r.dataset_id for r in runs})
-    selected_datasets = st.sidebar.multiselect("Filtra dataset", datasets_available, default=datasets_available)
-    filtered_runs = [r for r in runs if r.dataset_id in selected_datasets]
+    dataset = st.sidebar.selectbox("Dataset", datasets_available)
+    st.caption(f"`{RESULTS_DIR.relative_to(ROOT)}` · dataset **{dataset}**")
+    filtered_runs = [r for r in runs if r.dataset_id == dataset]
 
     if not filtered_runs:
-        st.info("Nessun run corrisponde al filtro.")
+        st.info("Nessun run per questo dataset.")
         st.stop()
 
-    labels = [run_label(r) for r in filtered_runs]
+    labels = [run_label(r, include_dataset=False) for r in filtered_runs]
     label_to_run = dict(zip(labels, filtered_runs))
 
     selected_labels: list[str] = st.multiselect(
@@ -187,7 +266,7 @@ if page == "EvalRun Comparator":
         st.info("Seleziona almeno un run.")
         st.stop()
 
-    sel = [label_to_run[l] for l in selected_labels]
+    sel = [label_to_run[lbl] for lbl in selected_labels]
 
     # --- Single run: detail view ---
     if len(sel) == 1:
@@ -205,8 +284,14 @@ if page == "EvalRun Comparator":
         st.subheader("Metriche")
         metrics_df = pd.DataFrame({"Valore": run.metrics}).sort_index()
         metrics_df.index.name = "Metric"
-        st.dataframe(metrics_df, use_container_width=True)
-        _grouped_bar_chart(metrics_df.rename(columns={"Valore": run_label(run)}))
+        st.dataframe(metrics_df, width='stretch')
+        floor = match_noise_floor(run, floors)
+        stds = {m: s for m in run.metrics if (s := noise_std(floor, m)) is not None}
+        _grouped_bar_chart(
+            metrics_df.rename(columns={"Valore": run_label(run, include_dataset=False)}),
+            stds=stds,
+        )
+        _render_noise_caption(floor)
 
     # --- Multi-run: comparison view ---
     else:
@@ -224,33 +309,71 @@ if page == "EvalRun Comparator":
                     _render_run_meta(run)
 
         st.divider()
-        st.subheader("Metriche")
+        st.subheader("Configurazioni a confronto")
+        st.caption("Solo i parametri che differiscono fra i run selezionati.")
+        matrix = config_matrix(sel)
+        short_labels = [run_label(r, include_dataset=False) for r in sel]
+        if len(matrix) <= 1 and not matrix.get("pipeline_mode"):
+            st.info("I run selezionati hanno configurazione identica.")
+        else:
+            st.dataframe(
+                pd.DataFrame(matrix, index=short_labels).T.rename_axis("Parametro"),
+                width='stretch',
+            )
 
+        st.subheader("Metriche")
         table = compare_table(sel)
-        short_labels = [run_label(r) for r in sel]
         df = pd.DataFrame(table, index=short_labels).T
         df.index.name = "Metric"
-        st.dataframe(df, use_container_width=True)
+        st.dataframe(df, width='stretch')
 
         st.subheader("Grafico")
-        _grouped_bar_chart(df)
+        floor = match_noise_floor(sel[0], floors)
+        stds = {m: s for m in table if (s := noise_std(floor, m)) is not None}
+        _grouped_bar_chart(df, stds=stds)
+        _render_noise_caption(floor)
 
         if len(sel) == 2:
             st.subheader("Delta (run 2 − run 1)")
-            delta = {
-                m: vals[1] - vals[0]
-                for m, vals in table.items()
-                if not any(math.isnan(v) for v in vals)
-            }
-            delta_df = pd.DataFrame(
-                {"Metric": list(delta.keys()), "Δ": list(delta.values())}
-            ).set_index("Metric")
+
+            # ROADMAP §12: un delta è attribuibile solo se cambia una cosa sola.
+            changed = config_diff(sel[0], sel[1])
+            if len(changed) == 0:
+                st.info("Stessa configurazione: il delta è puro rumore di esecuzione.")
+            elif len(changed) == 1:
+                st.success(f"Cambia un parametro solo: **{changed[0]}** — delta attribuibile.")
+            else:
+                st.warning(
+                    "Cambiano **" + str(len(changed)) + "** parametri "
+                    f"({', '.join(changed)}): il delta non è attribuibile a nessuno "
+                    "di essi in particolare (ROADMAP §12)."
+                )
+
+            rows = []
+            for metric, vals in table.items():
+                if any(math.isnan(v) for v in vals):
+                    continue
+                d = vals[1] - vals[0]
+                std = noise_std(floor, metric)
+                rows.append(
+                    {
+                        "Metric": metric,
+                        "Δ": d,
+                        "Verdetto": significance_label(d, std),
+                    }
+                )
+            delta_df = pd.DataFrame(rows).set_index("Metric")
+
+            def _color(row: pd.Series) -> list[str]:
+                """Green/red only when the delta clears the noise floor."""
+                if not row["Verdetto"].startswith("significativo"):
+                    return ["color: gray"] * len(row)
+                tint = "green" if row["Δ"] > 0 else "red"
+                return [f"color: {tint}"] * len(row)
+
             st.dataframe(
-                delta_df.style.map(
-                    lambda v: "color: green" if v > 0 else ("color: red" if v < 0 else ""),
-                    subset=["Δ"],
-                ),
-                use_container_width=True,
+                delta_df.style.apply(_color, axis=1).format({"Δ": "{:+.4f}"}),
+                width='stretch',
             )
 
 # =============================================================================
@@ -369,7 +492,7 @@ elif page == "Golden Query Browser":
     # Row selection
     event = st.dataframe(
         df_browse,
-        use_container_width=True,
+        width='stretch',
         selection_mode="single-row",
         on_select="rerun",
         height=300,
@@ -468,7 +591,7 @@ elif page == "Collection Stats":
                         dist = getattr(vparams, "distance", "—")
                         rows.append({"nome": vname, "dimensione": size, "distanza": str(dist)})
                     if rows:
-                        st.dataframe(pd.DataFrame(rows), use_container_width=True, hide_index=True)
+                        st.dataframe(pd.DataFrame(rows), width='stretch', hide_index=True)
 
                 # Sparse vector config
                 svconf = getattr(info.config.params, "sparse_vectors", None)
