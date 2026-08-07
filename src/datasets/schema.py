@@ -1,8 +1,9 @@
 """Data contracts from ROADMAP §3 — do not rename or add fields without updating ROADMAP.md."""
 
 from datetime import datetime
+from typing import Any
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 
 class Chunk(BaseModel):
@@ -31,4 +32,5 @@ class EvalRun(BaseModel):
     temperature: float
     reasoning_enabled: bool
     pipeline_mode: str  # "generic" | "routed"
+    config: dict[str, Any] = Field(default_factory=dict)  # retrieval flags, see eval/run_config.py
     metrics: dict[str, float]

@@ -23,7 +23,11 @@ Options:
     --filter-content-type  text | table | mixed | auto (R-04 metadata filter)
     --doc-aggregate        Aggregate chunks to doc-level and report doc_R@5/doc_R@10 (R-05)
     --collection           Override Qdrant collection name (R-07: e.g. open_ragbench_routed)
-    --pipeline-mode        Label stored in EvalRun.pipeline_mode (R-07: generic | routed)
+    --pipeline-mode        Ingestion routing axis: generic | routed (R-07)
+
+Result files are named {ts}_{dataset}_{pipeline_mode}_{config_slug}.json.
+The retrieval flags are stored structurally in EvalRun.config — pipeline_mode
+stays binary per ROADMAP §3.3.
 """
 
 from __future__ import annotations
@@ -39,6 +43,7 @@ sys.path.insert(0, str(ROOT))
 
 import src.config as cfg
 from src.eval.harness import run_retrieval_eval
+from src.eval.run_config import build_config, config_slug
 
 GOLDEN_DIR = ROOT / "eval" / "golden"
 RESULTS_DIR = ROOT / "eval" / "results"
@@ -61,25 +66,27 @@ def run_dataset(
         print(f"  ERROR: {golden_path} not found — run build_golden.py first.")
         return
 
-    base_mode_map = {"sparse": "baseline_c", "hybrid": "hybrid_rrf"}
-    base_mode = pipeline_mode_override or base_mode_map.get(retrieval_mode, "generic")
-    suffixes = []
-    if query_rewrite:
-        suffixes.append("rewritten")
-    if rerank:
-        suffixes.append("reranked")
-    if filter_content_type:
-        suffixes.append(f"filtered_{filter_content_type}")
-    if doc_aggregate:
-        suffixes.append("docagg")
-    pipeline_mode = "_".join([base_mode] + suffixes) if suffixes else base_mode
+    # pipeline_mode stays binary per ROADMAP §3.3 — the retrieval flags live in
+    # EvalRun.config, so two runs differing by one flag stay comparable.
+    pipeline_mode = pipeline_mode_override or "generic"
 
     eff_collection = collection or dataset_id
+    slug = config_slug(
+        build_config(
+            top_k=top_k,
+            retrieval_mode=retrieval_mode,
+            rerank=rerank,
+            query_rewrite=query_rewrite,
+            filter_content_type=filter_content_type,
+            doc_aggregate=doc_aggregate,
+            collection=eff_collection,
+        )
+    )
     n_desc = f"first {limit}" if limit else "all"
-    extras = "".join(f" + {s}" for s in suffixes)
     print(
         f"  Evaluating {n_desc} queries against {dataset_id} "
-        f"(collection={eff_collection}, top_k={top_k}, retrieval={retrieval_mode}{extras})...",
+        f"(collection={eff_collection}, top_k={top_k}, "
+        f"pipeline={pipeline_mode}, config={slug})...",
         flush=True,
     )
     t0 = time.time()
@@ -101,7 +108,7 @@ def run_dataset(
     elapsed = time.time() - t0
     RESULTS_DIR.mkdir(parents=True, exist_ok=True)
     ts = eval_run.timestamp.strftime("%Y%m%d_%H%M%S")
-    out = RESULTS_DIR / f"{ts}_{dataset_id}_{eval_run.pipeline_mode}.json"
+    out = RESULTS_DIR / f"{ts}_{dataset_id}_{eval_run.pipeline_mode}_{slug}.json"
     out.write_text(eval_run.model_dump_json(indent=2), encoding="utf-8")
 
     print(f"  Done in {elapsed:.1f}s -> {out.name}")
@@ -131,10 +138,11 @@ def main() -> None:
                             "Qdrant collection to query instead of dataset_id "
                             "(R-07: e.g. open_ragbench_routed). Use per-dataset when --dataset=all."
                         ))
-    parser.add_argument("--pipeline-mode", default=None, metavar="MODE",
+    parser.add_argument("--pipeline-mode", choices=["generic", "routed"], default=None,
                         help=(
-                            "Override pipeline_mode label in EvalRun "
-                            "(R-07: 'routed' | 'generic'; default derived from retrieval flags)"
+                            "Ingestion routing axis stored in EvalRun.pipeline_mode "
+                            "(R-07; default: generic). Retrieval flags are recorded "
+                            "separately in EvalRun.config, not in this label."
                         ))
     args = parser.parse_args()
 

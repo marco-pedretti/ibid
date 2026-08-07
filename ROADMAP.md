@@ -118,8 +118,11 @@ class EvalRun(BaseModel):
     temperature: float     # 0.0
     reasoning_enabled: bool
     pipeline_mode: str     # "generic" | "routed"
+    config: dict[str, Any] # flag di retrieval attivi — vedi src/eval/run_config.py
     metrics: dict[str, float]
 ```
+
+`config` è additivo (default `{}`) e **non** entra nel calcolo di `config_hash`: i run misurati prima della sua introduzione restano confrontabili. Serve a tenere `pipeline_mode` binario come dichiarato qui sopra, invece di usarlo come etichetta libera in cui infilare `rerank`, `filtered_text`, `docagg` e simili — cosa che rende impossibile selezionare due run che differiscono per un flag solo (§12).
 
 ### 3.4 Configurazione
 

@@ -9,12 +9,26 @@
   "context_window": 0,
   "temperature": 0.0,
   "reasoning_enabled": false,
-  "pipeline_mode": "hybrid_rrf",
+  "pipeline_mode": "generic",
   "metrics": {
     "R@10": 0.8919540229885058,
     "nDCG@10": 0.7714256919962393,
     "R@5": 0.8919540229885058,
     "RR@10": 0.7303284072249586,
     "Success@1": 0.6213464696223316
+  },
+  "config": {
+    "retrieval_mode": "hybrid",
+    "top_k": 5,
+    "rerank": false,
+    "query_rewrite": false,
+    "filter_content_type": null,
+    "doc_aggregate": false,
+    "collection": "open_ragbench",
+    "embedding_model": "intfloat/multilingual-e5-large",
+    "reranker_model": null,
+    "query_rewrite_model": null,
+    "legacy_pipeline_mode": "hybrid_rrf",
+    "_migrated": true
   }
 }

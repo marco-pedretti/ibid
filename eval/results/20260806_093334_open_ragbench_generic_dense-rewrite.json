@@ -9,12 +9,26 @@
   "context_window": 0,
   "temperature": 0.0,
   "reasoning_enabled": false,
-  "pipeline_mode": "generic_rewritten",
+  "pipeline_mode": "generic",
   "metrics": {
     "R@5": 0.72,
     "Success@1": 0.48,
     "RR@10": 0.5700000000000001,
     "R@10": 0.72,
     "nDCG@10": 0.6077014426086523
+  },
+  "config": {
+    "retrieval_mode": "dense",
+    "top_k": 5,
+    "rerank": false,
+    "query_rewrite": true,
+    "filter_content_type": null,
+    "doc_aggregate": false,
+    "collection": "open_ragbench",
+    "embedding_model": "intfloat/multilingual-e5-large",
+    "reranker_model": null,
+    "query_rewrite_model": "gemma4:latest",
+    "legacy_pipeline_mode": "generic_rewritten",
+    "_migrated": true
   }
 }

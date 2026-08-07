@@ -9,7 +9,7 @@
   "context_window": 0,
   "temperature": 0.0,
   "reasoning_enabled": false,
-  "pipeline_mode": "generic_docagg",
+  "pipeline_mode": "generic",
   "metrics": {
     "R@10": 0.8,
     "RR@10": 0.638,
@@ -18,5 +18,19 @@
     "R@5": 0.8,
     "doc_R@10": 0.96,
     "doc_R@5": 0.96
+  },
+  "config": {
+    "retrieval_mode": "dense",
+    "top_k": 5,
+    "rerank": false,
+    "query_rewrite": false,
+    "filter_content_type": null,
+    "doc_aggregate": true,
+    "collection": "open_ragbench",
+    "embedding_model": "intfloat/multilingual-e5-large",
+    "reranker_model": null,
+    "query_rewrite_model": null,
+    "legacy_pipeline_mode": "generic_docagg",
+    "_migrated": true
   }
 }

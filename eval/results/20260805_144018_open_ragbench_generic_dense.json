@@ -16,5 +16,19 @@
     "R@10": 0.8279146141215107,
     "nDCG@10": 0.7005455940366581,
     "RR@10": 0.658100711548986
+  },
+  "config": {
+    "retrieval_mode": "dense",
+    "top_k": 5,
+    "rerank": false,
+    "query_rewrite": false,
+    "filter_content_type": null,
+    "doc_aggregate": false,
+    "collection": "open_ragbench",
+    "embedding_model": "intfloat/multilingual-e5-large",
+    "reranker_model": null,
+    "query_rewrite_model": null,
+    "legacy_pipeline_mode": "generic",
+    "_migrated": true
   }
 }
