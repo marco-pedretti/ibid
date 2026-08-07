@@ -11,7 +11,7 @@ Features that require raw PDF analysis (populated by I-06):
 from __future__ import annotations
 
 from collections import defaultdict
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import Iterable
 
 from src.datasets.schema import Chunk
@@ -96,7 +96,9 @@ def format_report(profiles: list[DocProfile]) -> str:
     from itertools import groupby
 
     lines: list[str] = []
-    key = lambda p: p.dataset_id
+    def key(p):
+        return p.dataset_id
+
     sorted_profiles = sorted(profiles, key=key)
 
     for dataset_id, group in groupby(sorted_profiles, key=key):

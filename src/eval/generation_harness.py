@@ -8,14 +8,13 @@ from __future__ import annotations
 
 import hashlib
 import json
-import subprocess
 import uuid
 from datetime import datetime, timezone
 from pathlib import Path
 
 import src.config as cfg
-from src.datasets.golden import GoldenQuery
 from src.datasets.schema import EvalRun
+from src.eval.provenance import git_commit, load_golden
 from src.generation.baseline_prompts import (
     ABSTENTION_PHRASES,
     BASELINE_A_SYSTEM,
@@ -35,15 +34,6 @@ _PIPELINE_MODES: dict[str, str] = {
 }
 
 
-def _git_commit() -> str:
-    try:
-        return subprocess.check_output(
-            ["git", "rev-parse", "HEAD"], stderr=subprocess.DEVNULL
-        ).decode().strip()
-    except Exception:
-        return "unknown"
-
-
 def _config_hash(baseline: str, model: str) -> str:
     params = {
         "baseline": baseline,
@@ -51,16 +41,6 @@ def _config_hash(baseline: str, model: str) -> str:
         "temperature": cfg.TEMPERATURE,
     }
     return hashlib.md5(json.dumps(params, sort_keys=True).encode()).hexdigest()[:8]
-
-
-def _load_golden(path: Path) -> list[GoldenQuery]:
-    queries: list[GoldenQuery] = []
-    with open(path, encoding="utf-8") as f:
-        for line in f:
-            line = line.strip()
-            if line:
-                queries.append(GoldenQuery.model_validate_json(line))
-    return queries
 
 
 def is_abstained(response: str) -> bool:
@@ -96,7 +76,7 @@ def run_generation_eval(
 
     system_prompt = _PROMPTS[baseline]
 
-    all_queries = _load_golden(golden_path)
+    all_queries = load_golden(golden_path)
     candidates = [
         q
         for q in all_queries
@@ -143,7 +123,7 @@ def run_generation_eval(
     return EvalRun(
         run_id=str(uuid.uuid4()),
         timestamp=datetime.now(timezone.utc),
-        git_commit=_git_commit(),
+        git_commit=git_commit(),
         config_hash=_config_hash(baseline, model),
         dataset_id=dataset_id,
         model=model,

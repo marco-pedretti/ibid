@@ -52,7 +52,7 @@ _HANDWRITTEN_LEDGER: list[str] = [
 # ---------------------------------------------------------------------------
 
 def _load_lines(path: Path) -> list[str]:
-    return [l for l in path.read_text(encoding="utf-8").splitlines() if l.strip()]
+    return [line for line in path.read_text(encoding="utf-8").splitlines() if line.strip()]
 
 
 def build_unanswerable_for_open_ragbench(

@@ -10,13 +10,12 @@ objects already produced by the caller. The script handles actually running eval
 from __future__ import annotations
 
 import statistics
-import subprocess
 from datetime import datetime, timezone
-from typing import Any
 
 from pydantic import BaseModel
 
 from src.datasets.schema import EvalRun
+from src.eval.provenance import git_commit
 
 
 class MetricStats(BaseModel):
@@ -70,15 +69,6 @@ def compute_noise_floor(runs: list[EvalRun]) -> dict[str, MetricStats]:
     return stats
 
 
-def _git_commit() -> str:
-    try:
-        return subprocess.check_output(
-            ["git", "rev-parse", "HEAD"], stderr=subprocess.DEVNULL
-        ).decode().strip()
-    except Exception:
-        return "unknown"
-
-
 def build_noise_floor_result(
     runs: list[EvalRun],
     retrieval_mode: str,
@@ -89,7 +79,7 @@ def build_noise_floor_result(
     first = runs[0]
     return NoiseFloorResult(
         timestamp=datetime.now(timezone.utc),
-        git_commit=_git_commit(),
+        git_commit=git_commit(),
         n_runs=len(runs),
         dataset_id=first.dataset_id,
         pipeline_mode=first.pipeline_mode,
