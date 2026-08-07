@@ -12,6 +12,19 @@ import streamlit as st
 
 from dashboard.retrieval_probe import ProbeHit
 
+#: Streamlit's `width` values.  "content" sizes columns to their contents;
+#: "stretch" fills the page.  Comparison tables have few columns, so stretching
+#: them pushes each value far from its row label and makes the table harder to
+#: read, not easier — default to content and stretch only wide tables.
+FIT = "content"
+
+
+def dataframe(df: pd.DataFrame, **kwargs) -> None:
+    """st.dataframe that hugs its content instead of stretching to the page."""
+    kwargs.setdefault("width", FIT)
+    st.dataframe(df, **kwargs)
+
+
 def render_noise_caption(floor) -> None:
     """State plainly whether a noise floor backs the chart, or that none exists."""
     if floor is None:
@@ -30,7 +43,11 @@ def render_noise_caption(floor) -> None:
 
 
 def render_run_detail(run) -> None:
-    """Full metadata for a run, as metric tiles."""
+    """Full metadata for a single run, as metric tiles.
+
+    Only used in the one-run view: with several runs the tiles get too narrow
+    and clip their values, so the multi-run view uses a table instead.
+    """
     r1 = st.columns(3)
     r1[0].metric("Dataset", run.dataset_id)
     r1[1].metric("Pipeline", run.pipeline_mode)
@@ -48,12 +65,9 @@ def render_run_detail(run) -> None:
         r4[0].metric("Retrieval", run.config.get("retrieval_mode", "—"))
         r4[1].metric("Collection", run.config.get("collection", "—"))
         r4[2].metric("top_k", run.config.get("top_k", "—"))
-        active = [
-            k for k in ("rerank", "query_rewrite", "doc_aggregate") if run.config.get(k)
-        ]
-        if run.config.get("filter_content_type"):
-            active.append(f"filter={run.config['filter_content_type']}")
-        st.caption("Flag attivi: " + (", ".join(active) if active else "nessuno"))
+        from dashboard.eval_store import active_flags
+
+        st.caption(f"Flag attivi: {active_flags(run.config)}")
 
 
 def grouped_bar_chart(
@@ -75,7 +89,7 @@ def grouped_bar_chart(
     bars = alt.Chart(melted).mark_bar().encode(
         x=alt.X("Metric:N", sort=None, axis=alt.Axis(labelAngle=-30, title="")),
         y=alt.Y("Score:Q", axis=alt.Axis(title="Score")),
-        color=alt.Color("Run:N", legend=alt.Legend(orient="bottom")),
+        color=alt.Color("Run:N", legend=alt.Legend(orient="bottom", columns=2)),
         xOffset="Run:N",
         tooltip=["Metric:N", "Run:N", alt.Tooltip("Score:Q", format=".4f")],
     )
@@ -86,7 +100,7 @@ def grouped_bar_chart(
         melted["hi"] = melted.apply(lambda r: r["Score"] + stds.get(r["Metric"], 0.0), axis=1)
         whiskers = (
             alt.Chart(melted)
-            .mark_rule(strokeWidth=1.5, color="#444")
+            .mark_rule(strokeWidth=1.5, color="#888")
             .encode(
                 x=alt.X("Metric:N", sort=None),
                 y=alt.Y("lo:Q"),
@@ -96,7 +110,7 @@ def grouped_bar_chart(
         )
         layers = bars + whiskers
 
-    st.altair_chart(layers.properties(height=height), width='stretch')
+    st.altair_chart(layers.properties(height=height), width="stretch")
 
 
 def render_hits(

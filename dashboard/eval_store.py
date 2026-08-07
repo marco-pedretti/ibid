@@ -116,6 +116,48 @@ def run_label(run: EvalRun, include_dataset: bool = True) -> str:
     return f"{head}{run.pipeline_mode} · {slug} · {run.git_commit[:7]}  [{ts}]"
 
 
+def short_run_label(run: EvalRun, index: int) -> str:
+    """Compact label for chart legends and table headers: "#1 routed·dense-docagg".
+
+    The full identity (commit, timestamp, config hash) is shown once in the run
+    table instead of being repeated in every column header, where it was long
+    enough to force Streamlit to truncate mid-word.
+    """
+    return f"#{index} {run.pipeline_mode}·{config_slug(run.config)}"
+
+
+def active_flags(config: dict[str, Any]) -> str:
+    """Human list of the retrieval flags that are on, or "—" when none are."""
+    active = [k for k in ("rerank", "query_rewrite", "doc_aggregate") if config.get(k)]
+    if config.get("filter_content_type"):
+        active.append(f"filter={config['filter_content_type']}")
+    return ", ".join(active) if active else "—"
+
+
+def run_rows(runs: list[EvalRun]) -> list[dict[str, Any]]:
+    """One row per run for the comparison table.
+
+    Rows rather than columns: with five runs side by side every value
+    ("retrieval_only", a commit sha, "ledger_routed") was being clipped to
+    "retri…", and a clipped collection name is exactly the thing you are trying
+    to read in a routing ablation.
+    """
+    rows = []
+    for i, run in enumerate(runs, 1):
+        rows.append({
+            "#": f"#{i}",
+            "pipeline_mode": run.pipeline_mode,
+            "retrieval": run.config.get("retrieval_mode", "—"),
+            "collection": run.config.get("collection", "—"),
+            "top_k": run.config.get("top_k", "—"),
+            "flag attivi": active_flags(run.config),
+            "commit": run.git_commit[:7],
+            "config_hash": run.config_hash,
+            "quando": run.timestamp.strftime("%d %b %H:%M"),
+        })
+    return rows
+
+
 def compare_table(runs: list[EvalRun]) -> dict[str, list[float]]:
     """Build comparison dict: {metric: [value_run0, value_run1, ...]}.
 

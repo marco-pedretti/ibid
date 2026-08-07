@@ -6,6 +6,7 @@ import pandas as pd
 import streamlit as st
 
 import src.config as cfg
+from dashboard.components import dataframe
 from dashboard.state import GOLDEN_DIR, client
 
 
@@ -34,7 +35,7 @@ def _render_collection(qc, name: str) -> None:
                 for vname, vparams in vconf.items()
             ]
             if rows:
-                st.dataframe(pd.DataFrame(rows), width='stretch', hide_index=True)
+                dataframe(pd.DataFrame(rows), hide_index=True)
 
         sparse = getattr(info.config.params, "sparse_vectors", None)
         if sparse:

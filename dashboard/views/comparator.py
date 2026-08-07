@@ -14,6 +14,7 @@ import pandas as pd
 import streamlit as st
 
 from dashboard.components import (
+    dataframe,
     grouped_bar_chart,
     render_noise_caption,
     render_run_detail,
@@ -25,12 +26,23 @@ from dashboard.eval_store import (
     match_noise_floor,
     noise_std,
     run_label,
+    run_rows,
+    short_run_label,
     significance_label,
 )
 from dashboard.state import RESULTS_DIR, ROOT, load_floors, load_runs
 
 
-def _render_run_card(run) -> None:
+def _format_metrics(df: pd.DataFrame) -> pd.DataFrame:
+    """Fixed 4-decimal strings, em dash for metrics a run never computed.
+
+    Raw floats render at wildly different widths (0 next to 0.6033333333333332),
+    which is most of why the metrics table was hard to scan.
+    """
+    return df.map(lambda v: "—" if isinstance(v, float) and math.isnan(v) else f"{v:.4f}")
+
+
+def _render_single(run, floors) -> None:
     with st.container(border=True):
         st.markdown(f"### {run.pipeline_mode}")
         st.caption(
@@ -40,18 +52,15 @@ def _render_run_card(run) -> None:
         st.divider()
         render_run_detail(run)
 
-
-def _render_single(run, floors) -> None:
-    _render_run_card(run)
     st.divider()
     st.subheader("Metriche")
     metrics_df = pd.DataFrame({"Valore": run.metrics}).sort_index()
     metrics_df.index.name = "Metric"
-    st.dataframe(metrics_df, width='stretch')
+    dataframe(_format_metrics(metrics_df))
 
     floor = match_noise_floor(run, floors)
     stds = {m: s for m in run.metrics if (s := noise_std(floor, m)) is not None}
-    grouped_bar_chart(metrics_df.rename(columns={"Valore": run_label(run)}), stds=stds)
+    grouped_bar_chart(metrics_df.rename(columns={"Valore": short_run_label(run, 1)}), stds=stds)
     render_noise_caption(floor)
 
 
@@ -91,34 +100,28 @@ def _render_delta(sel, table, floor) -> None:
             return ["color: gray"] * len(row)
         return [f"color: {'green' if row['Δ'] > 0 else 'red'}"] * len(row)
 
-    st.dataframe(
-        delta_df.style.apply(_color, axis=1).format({"Δ": "{:+.4f}"}),
-        width='stretch',
-    )
+    dataframe(delta_df.style.apply(_color, axis=1).format({"Δ": "{:+.4f}"}))
 
 
 def _render_multi(sel, table, floors) -> None:
-    for col, run in zip(st.columns(len(sel)), sel):
-        with col:
-            _render_run_card(run)
+    st.subheader("Run a confronto")
+    dataframe(pd.DataFrame(run_rows(sel)).set_index("#"))
 
-    st.divider()
-    st.subheader("Configurazioni a confronto")
-    st.caption("Solo i parametri che differiscono fra i run selezionati.")
-    matrix = config_matrix(sel)
-    labels = [run_label(r, include_dataset=False) for r in sel]
-    if len(matrix) <= 1 and not matrix.get("pipeline_mode"):
-        st.info("I run selezionati hanno configurazione identica.")
+    changed = config_matrix(sel)
+    varying = [k for k in changed if k != "pipeline_mode"]
+    if not varying and len({r.pipeline_mode for r in sel}) == 1:
+        st.caption("I run selezionati hanno configurazione identica.")
     else:
-        st.dataframe(
-            pd.DataFrame(matrix, index=labels).T.rename_axis("Parametro"),
-            width='stretch',
+        st.caption(
+            "Parametri che variano fra i run selezionati: "
+            + ", ".join(f"`{k}`" for k in changed)
         )
 
     st.subheader("Metriche")
+    labels = [short_run_label(r, i) for i, r in enumerate(sel, 1)]
     df = pd.DataFrame(table, index=labels).T
     df.index.name = "Metric"
-    st.dataframe(df, width='stretch')
+    dataframe(_format_metrics(df))
 
     st.subheader("Grafico")
     floor = match_noise_floor(sel[0], floors)

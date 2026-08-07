@@ -271,3 +271,76 @@ class TestRunLabel:
 
     def test_dataset_present_by_default(self):
         assert "open_ragbench" in run_label(_run())
+
+
+# ---------------------------------------------------------------------------
+# Comparison-table helpers (leggibilità: niente valori troncati)
+# ---------------------------------------------------------------------------
+
+class TestShortRunLabel:
+    def test_is_indexed(self):
+        from dashboard.eval_store import short_run_label
+        assert short_run_label(_run(), 3).startswith("#3 ")
+
+    def test_carries_pipeline_and_slug(self):
+        from dashboard.eval_store import short_run_label
+        run = _run(pipeline_mode="routed",
+                   config={"retrieval_mode": "dense", "doc_aggregate": True})
+        assert short_run_label(run, 1) == "#1 routed·dense-docagg"
+
+    def test_shorter_than_full_label(self):
+        """Full labels were long enough that Streamlit clipped the headers."""
+        from dashboard.eval_store import run_label, short_run_label
+        run = _run()
+        assert len(short_run_label(run, 1)) < len(run_label(run))
+
+    def test_distinct_for_distinct_configs(self):
+        from dashboard.eval_store import short_run_label
+        a = _run(config={"retrieval_mode": "dense"})
+        b = _run(config={"retrieval_mode": "hybrid"})
+        assert short_run_label(a, 1) != short_run_label(b, 2)
+
+
+class TestActiveFlags:
+    def test_none_active(self):
+        from dashboard.eval_store import active_flags
+        assert active_flags({"rerank": False}) == "—"
+
+    def test_lists_active(self):
+        from dashboard.eval_store import active_flags
+        assert active_flags({"rerank": True, "doc_aggregate": True}) == "rerank, doc_aggregate"
+
+    def test_filter_carries_value(self):
+        from dashboard.eval_store import active_flags
+        assert active_flags({"filter_content_type": "table"}) == "filter=table"
+
+    def test_empty_config(self):
+        from dashboard.eval_store import active_flags
+        assert active_flags({}) == "—"
+
+
+class TestRunRows:
+    def test_one_row_per_run(self):
+        from dashboard.eval_store import run_rows
+        assert len(run_rows([_run(), _run(), _run()])) == 3
+
+    def test_collection_not_truncated(self):
+        """The clipped value that motivated the table: 'ledg…' told you nothing."""
+        from dashboard.eval_store import run_rows
+        run = _run(config={"collection": "ledger_routed"})
+        assert run_rows([run])[0]["collection"] == "ledger_routed"
+
+    def test_rows_are_numbered_to_match_short_label(self):
+        from dashboard.eval_store import run_rows, short_run_label
+        runs = [_run(), _run()]
+        rows = run_rows(runs)
+        assert rows[1]["#"] == "#2"
+        assert short_run_label(runs[1], 2).startswith("#2")
+
+    def test_missing_config_degrades_to_dash(self):
+        from dashboard.eval_store import run_rows
+        assert run_rows([_run(config={})])[0]["retrieval"] == "—"
+
+    def test_commit_is_shortened(self):
+        from dashboard.eval_store import run_rows
+        assert len(run_rows([_run()])[0]["commit"]) == 7
