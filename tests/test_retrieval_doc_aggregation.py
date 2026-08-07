@@ -278,9 +278,17 @@ class TestDocAggregateHarness:
                 **kwargs,
             )
 
-    def test_doc_aggregate_false_no_doc_metrics(self, tmp_path):
+    def test_doc_metrics_present_even_without_the_flag(self, tmp_path):
+        """Since 2026-08-07 document metrics are unconditional.
+
+        They are pure post-processing of the same run — no extra retrieval, no
+        extra embedding. Gating them behind a flag left most runs without
+        doc_R@5, the metric the routing claim (§0.2) rests on, so runs with and
+        without the flag could not be compared.
+        """
         run = self._run(tmp_path, doc_aggregate=False)
-        assert not any(k.startswith("doc_") for k in run.metrics)
+        assert "doc_R@5" in run.metrics
+        assert "doc_R@10" in run.metrics
 
     def test_doc_aggregate_true_adds_doc_r5(self, tmp_path):
         run = self._run(tmp_path, doc_aggregate=True)

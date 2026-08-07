@@ -131,7 +131,6 @@ def _fake_hit(chunk_id: str, score: float = 0.9, text: str = "chunk text") -> Ma
 
 class TestRerankerHarness:
     def _run(self, tmp_path, rerank: bool, **kwargs):
-        from src.datasets.schema import EvalRun
         from src.eval.harness import run_retrieval_eval
 
         path = _write_golden(tmp_path)

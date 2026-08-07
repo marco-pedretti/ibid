@@ -6,10 +6,9 @@ that the correct API calls are made with the right arguments.
 
 from __future__ import annotations
 
-from unittest.mock import MagicMock, call, patch
+from unittest.mock import MagicMock
 
-import pytest
-from qdrant_client.models import Distance, SparseVector, SparseVectorParams, VectorParams
+from qdrant_client.models import Distance, SparseVector
 
 from src.datasets.schema import Chunk
 from src.index.store import delete_collection, ensure_collection, upsert

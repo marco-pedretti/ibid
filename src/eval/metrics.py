@@ -21,6 +21,25 @@ DEFAULT_MEASURES = [
 ]
 
 
+def _required_depth(measures: list) -> int:
+    """Deepest cutoff any measure asks for.
+
+    Derived from the measure list rather than hardcoded, so adding e.g. nDCG@20
+    to DEFAULT_MEASURES automatically deepens retrieval instead of silently
+    producing a truncated number.
+    """
+    depths = [int(str(m).rsplit("@", 1)[1]) for m in measures if "@" in str(m)]
+    return max(depths) if depths else 1
+
+
+#: Retrieval must return at least this many results for DEFAULT_MEASURES to mean
+#: what their names say.  Runs before 2026-08-07 fetched only `top_k` (5), so
+#: their R@10/nDCG@10/RR@10 were computed over 5 documents and could not see
+#: positions 6-10 — measured understatement of R@10: 0.78 vs 0.86.  See
+#: eval/results/archive/README.md.
+METRIC_DEPTH = _required_depth(DEFAULT_MEASURES)
+
+
 def build_qrels(queries: list[GoldenQuery]) -> list[ir_measures.Qrel]:
     """Convert answerable GoldenQuery objects to ir_measures Qrel list.
 

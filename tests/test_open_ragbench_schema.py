@@ -1,12 +1,10 @@
 """T-04: unit tests for schema validation and open_ragbench chunk normalization."""
 
 import json
-import tempfile
 from pathlib import Path
 
-import pytest
 
-from src.datasets.schema import Chunk, EvalRun
+from src.datasets.schema import Chunk
 from src.datasets.open_ragbench import iter_chunks, DATASET_ID
 
 

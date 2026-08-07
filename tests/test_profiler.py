@@ -2,7 +2,6 @@
 
 from src.datasets.schema import Chunk
 from src.profiling.profiler import (
-    DocProfile,
     dataset_summary,
     format_report,
     profile_from_chunks,

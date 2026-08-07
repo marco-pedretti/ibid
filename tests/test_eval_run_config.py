@@ -173,10 +173,16 @@ class TestParseLegacy:
 
 @pytest.fixture(scope="module")
 def runs():
+    """Every committed EvalRun, wherever it lives.
+
+    Archived runs count: the migration's job was to make *all* historical
+    results structurally readable, and archiving them for a different reason
+    (truncated @10 metrics) must not quietly drop that guarantee.
+    """
     import json
-    results = Path(__file__).parent.parent / "eval" / "results"
+    root = Path(__file__).parent.parent / "eval" / "results"
     out = []
-    for p in sorted(results.glob("*.json")):
+    for p in sorted(root.rglob("*.json")):
         data = json.loads(p.read_text(encoding="utf-8"))
         if "metrics" in data:
             out.append(data)

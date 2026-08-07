@@ -12,7 +12,6 @@ import uuid
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
-import pytest
 
 from dashboard.eval_store import (
     config_diff,

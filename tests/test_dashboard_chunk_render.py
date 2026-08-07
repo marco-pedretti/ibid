@@ -8,7 +8,6 @@ something readable" as behaviour, not just the happy path.
 
 from __future__ import annotations
 
-import pytest
 
 from dashboard.chunk_render import parse_html_table, table_density
 

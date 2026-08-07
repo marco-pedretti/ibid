@@ -8,7 +8,6 @@ from __future__ import annotations
 
 import re
 
-import pytest
 
 from src.datasets.schema import Chunk
 from src.ingestion.pipeline_table_heavy import (

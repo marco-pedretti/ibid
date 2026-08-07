@@ -13,7 +13,6 @@ Covers:
 
 from __future__ import annotations
 
-import pytest
 
 from src.ingestion.router import PIPELINE_FOR_GENRE, route_sections, route_text
 

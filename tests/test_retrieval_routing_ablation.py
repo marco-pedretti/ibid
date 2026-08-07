@@ -11,9 +11,8 @@ Covers:
 from __future__ import annotations
 
 from pathlib import Path
-from unittest.mock import MagicMock, call, patch
+from unittest.mock import MagicMock, patch
 
-import pytest
 
 from src.eval.harness import _config_hash, run_retrieval_eval
 

@@ -2,11 +2,9 @@
 
 from __future__ import annotations
 
-import ir_measures
 
 from src.datasets.golden import GoldenQrel, GoldenQuery
 from src.eval.metrics import (
-    DEFAULT_MEASURES,
     build_qrels,
     build_run,
     compute_metrics,

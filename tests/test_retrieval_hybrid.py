@@ -7,7 +7,7 @@ hybrid_search and harness integration use mocks.
 from __future__ import annotations
 
 from pathlib import Path
-from unittest.mock import MagicMock, call, patch
+from unittest.mock import MagicMock, patch
 
 import pytest
 
@@ -172,7 +172,6 @@ def _make_batch_hit(chunk_id: str, score: float = 0.9) -> MagicMock:
 
 class TestHybridHarness:
     def _run_hybrid(self, tmp_path):
-        from src.datasets.schema import EvalRun
         from src.eval.harness import run_retrieval_eval
         from qdrant_client.models import SparseVector
 
