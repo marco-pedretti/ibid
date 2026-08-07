@@ -12,14 +12,16 @@ Non è `progress.md` (che registra cosa è stato fatto) né `ROADMAP.md` (che de
 
 ### Il fatto da spiegare
 
-Misura corretta (2026-08-07, 200 query, profondità 10 — i numeri originali di R-07 erano affetti dai difetti descritti in `eval/results/archive/README.md`):
+Misura definitiva (2026-08-07, golden set **completi**, profondità 10 — i numeri originali di R-07 erano affetti dai difetti descritti in `eval/results/archive/README.md`):
 
-| dataset | generic | routed | delta | McNemar appaiato |
-|---|---|---|---|---|
-| open_ragbench | 0.9650 | 0.9900 | +2.5% | p=0.125 — **non dimostrato** |
-| ledger | 0.9367 | 0.8225 | **−12.2%** | p=0.0034 — **reale** |
+| dataset | n query | generic | routed | delta | McNemar appaiato |
+|---|---|---|---|---|---|
+| open_ragbench | 3045 | 0.9681 | 0.9757 | +0.76 pt | 71 contro 48, p=0.043 — reale ma marginale |
+| ledger | 10000 | 0.9433 | 0.7730 | **−17.03 pt** | **1797 contro 94**, p<0.0001 |
 
-La domanda è solo la seconda riga, ed è l'unica delle due statisticamente stabilita. In `progress.md` la causa era annotata come *"sub-chunking aggressivo → chunk troppo piccoli, IDF diluito"*. È una congettura scritta senza misura: va verificata o sostituita.
+(Tassi sul criterio binario *"almeno un documento rilevante nei primi 5"*, non `doc_R@5`, che è una frazione quando una query ha più documenti rilevanti. Riproducibile con `scripts/compare_runs.py`.)
+
+La domanda è solo la seconda riga. Su LEDGER il routing sbaglia **1797 query su 10000** che la pipeline generica azzeccava, e ne recupera 94: non è rumore né un effetto di soglia, è un regresso sistematico. In `progress.md` la causa era annotata come *"sub-chunking aggressivo → chunk troppo piccoli, IDF diluito"*. È una congettura scritta senza misura: va verificata o sostituita.
 
 ### Cosa è stato misurato finora
 
