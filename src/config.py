@@ -18,6 +18,13 @@ CONTEXT_WINDOW: int = 32768
 TEMPERATURE: float = 0.0
 MAX_NEW_TOKENS: int = 1024
 
+# Gemma 4 is a thinking model. "none" suppresses the reasoning tokens through
+# the OpenAI-compatible contract — see src/generation/chat.py for what does and
+# does not work on Ollama's /v1. Set to "low"/"medium"/"high" for C-07, which
+# measures the effect of extended reasoning. `EvalRun.reasoning_enabled` is
+# derived from this value, so it stops being a hardcoded claim.
+REASONING_EFFORT: str = os.getenv("REASONING_EFFORT", "none")
+
 # ---------------------------------------------------------------------------
 # Vector store
 # ---------------------------------------------------------------------------

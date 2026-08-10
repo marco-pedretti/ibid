@@ -29,7 +29,7 @@ from src.datasets.schema import Chunk, EvalRun
 from src.eval.provenance import git_commit, load_golden
 from src.eval.retrieval_backends import RETRIEVERS
 from src.eval.run_config import build_config
-from src.generation.chat import generate
+from src.generation.chat import generate_detailed
 from src.generation.citation_format import ComplianceSummary, check_format, summarize
 from src.generation.prompt import SYSTEM, build_user_message
 from src.index.store import get_client
@@ -53,6 +53,8 @@ class GenerationRecord:
     markers: list[int]
     violations: list[dict] = field(default_factory=list)
     latency_s: float = 0.0
+    finish_reason: str = ""
+    completion_tokens: int = 0
 
 
 def _payload_to_chunk(p: dict) -> Chunk:
@@ -102,17 +104,27 @@ def _config_hash(
     return hashlib.md5(json.dumps(params, sort_keys=True).encode()).hexdigest()[:8]
 
 
-def build_metrics(summary: ComplianceSummary) -> dict[str, float]:
+def build_metrics(
+    summary: ComplianceSummary, records: list[GenerationRecord]
+) -> dict[str, float]:
     """Flatten a ComplianceSummary into the EvalRun metrics dict.
 
     `format_compliance` is the C-01 acceptance criterion (≥0.95).  It is
     reported next to `abstention_rate` because it is computed over non-abstained
     answers only and cannot be read without knowing how many those were.
+
+    `truncation_rate` is reported for the same reason and is the more dangerous
+    of the two: a cut-off answer has no citation because it never got to write
+    one, and counting that as a format defect blames the prompt for a token
+    budget.  In the first C-01 run it accounted for most of the failures.
     """
+    n = len(records)
     metrics: dict[str, float] = {
         "format_compliance": summary.rate,
         "format_compliance_lower95": summary.rate_lower95,
         "abstention_rate": summary.n_abstained / summary.n_total if summary.n_total else 0.0,
+        "truncation_rate": sum(1 for r in records if r.finish_reason == "length") / n if n else 0.0,
+        "empty_answer_rate": sum(1 for r in records if not r.answer) / n if n else 0.0,
         "markers_per_answer": summary.markers_per_answer,
     }
     for kind, rate in summary.kind_rates.items():
@@ -192,14 +204,16 @@ def run_citation_eval(
     for i, (query, cand) in enumerate(zip(answerable, all_candidates), 1):
         chunks = [_payload_to_chunk(p) for p in cand.payloads[:top_k]]
         t_q = time.time()
-        answer = generate(
+        completion = generate_detailed(
             base_url=cfg.LLM_BASE_URL,
             model=model,
             system=system_prompt,
             user=build_user_message(query.query_text, chunks),
             temperature=cfg.TEMPERATURE,
             max_tokens=cfg.MAX_NEW_TOKENS,
+            reasoning_effort=cfg.REASONING_EFFORT,
         )
+        answer = completion.content
         report = check_format(answer, len(chunks))
         reports.append(report)
         records.append(GenerationRecord(
@@ -213,6 +227,8 @@ def run_citation_eval(
             markers=report.markers,
             violations=[asdict(v) for v in report.violations],
             latency_s=round(time.time() - t_q, 2),
+            finish_reason=completion.finish_reason,
+            completion_tokens=completion.completion_tokens,
         ))
         if i == 1 or i % 10 == 0 or i == n:
             elapsed = time.time() - t0
@@ -231,7 +247,10 @@ def run_citation_eval(
         quantization=cfg.LLM_QUANTIZATION,
         context_window=cfg.CONTEXT_WINDOW,
         temperature=cfg.TEMPERATURE,
-        reasoning_enabled=False,
+        # Derived, not asserted: before this was tied to config, every run
+        # claimed reasoning was off while the model was reasoning through the
+        # whole token budget.
+        reasoning_enabled=cfg.REASONING_EFFORT not in ("none", "", None),
         pipeline_mode=pipeline_mode,
         config={
             **build_config(
@@ -244,7 +263,9 @@ def run_citation_eval(
             "harness": "citation",
             "llm_model": model,
             "prompt_hash": prompt_hash(system_prompt),
+            "reasoning_effort": cfg.REASONING_EFFORT,
+            "max_new_tokens": cfg.MAX_NEW_TOKENS,
         },
-        metrics=build_metrics(summary),
+        metrics=build_metrics(summary, records),
     )
     return run, records

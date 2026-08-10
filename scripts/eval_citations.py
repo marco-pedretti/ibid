@@ -98,6 +98,12 @@ def main() -> None:
               f"(95% CI lower {lower:.4f}) -> {verdict}, target {COMPLIANCE_TARGET}")
         print(f"  answers {len(records)}  abstained {sum(r.abstained for r in records)}"
               f"  markers/answer {run.metrics['markers_per_answer']:.2f}")
+        # Printed unconditionally, including at zero: a truncated answer looks
+        # like a format failure, so the rate has to be read next to the verdict.
+        print(f"  truncated {run.metrics['truncation_rate']:.3f}"
+              f"  empty {run.metrics['empty_answer_rate']:.3f}"
+              f"  reasoning_effort={run.config['reasoning_effort']}"
+              f"  max_new_tokens={run.config['max_new_tokens']}")
         offenders = [
             (k, run.metrics[f"violation_{k}"]) for k in VIOLATION_KINDS
             if run.metrics[f"violation_{k}"] > 0

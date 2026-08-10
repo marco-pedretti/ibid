@@ -23,6 +23,7 @@ from src.eval.citation_harness import (
     write_generations,
 )
 from src.eval.retrieval_backends import Candidates
+from src.generation.chat import Completion
 from src.generation.citation_format import VIOLATION_KINDS, check_format, summarize
 
 
@@ -63,17 +64,30 @@ def golden(tmp_path: Path) -> Path:
     return p
 
 
-def _run(golden_path, answers, **kw):
-    """Run the harness with a canned answer sequence."""
+def _completion(answer, finish_reason="stop", tokens=42):
+    return Completion(content=answer, finish_reason=finish_reason, completion_tokens=tokens)
+
+
+def _run(golden_path, answers, finish_reasons=None, **kw):
+    """Run the harness with a canned answer sequence.
+
+    `answers` may be plain strings (assumed to have finished normally) or
+    Completion objects when the test is about how the generation ended.
+    """
     cands = [Candidates(
         chunk_ids=[_payload(i)["chunk_id"] for i in (1, 2)],
         scores=[0.9, 0.8],
         payloads=[_payload(1), _payload(2)],
     ) for _ in range(3)]
+    reasons = finish_reasons or ["stop"] * len(answers)
+    completions = [
+        a if isinstance(a, Completion) else _completion(a, r)
+        for a, r in zip(answers, reasons)
+    ]
     with patch("src.eval.citation_harness.get_client"), \
          patch("src.eval.citation_harness.RETRIEVERS",
                {"dense": lambda *a, **k: cands}), \
-         patch("src.eval.citation_harness.generate", side_effect=answers):
+         patch("src.eval.citation_harness.generate_detailed", side_effect=completions):
         return run_citation_eval(
             dataset_id="open_ragbench", golden_path=golden_path, top_k=2, **kw
         )
@@ -178,22 +192,82 @@ class TestEvalRunContract:
         assert a.config_hash == b.config_hash
 
 
+class TestTruncation:
+    """A cut-off answer must not be blamed on the prompt.
+
+    In the first C-01 run the model spent its whole token budget on invisible
+    reasoning: 3% of answers came back empty and were scored as `no_citation`,
+    which reads as a prompt defect and is not one.
+    """
+
+    def test_finish_reason_recorded(self, golden):
+        _, records = _run(golden, ["Vero [1].", "Tronc", "Vero [1]."],
+                          finish_reasons=["stop", "length", "stop"])
+        assert [r.finish_reason for r in records] == ["stop", "length", "stop"]
+
+    def test_truncation_rate_reported(self, golden):
+        run, _ = _run(golden, ["Vero [1].", "Tronc", "Vero [1]."],
+                      finish_reasons=["stop", "length", "stop"])
+        assert run.metrics["truncation_rate"] == pytest.approx(1 / 3)
+
+    def test_truncation_rate_is_zero_not_missing_on_a_clean_run(self, golden):
+        run, _ = _run(golden, ["Vero [1]."] * 3)
+        assert run.metrics["truncation_rate"] == 0.0
+
+    def test_empty_answer_rate(self, golden):
+        run, _ = _run(golden, ["", "Vero [1].", "Vero [1]."],
+                      finish_reasons=["length", "stop", "stop"])
+        assert run.metrics["empty_answer_rate"] == pytest.approx(1 / 3)
+
+    def test_completion_tokens_recorded(self, golden):
+        _, records = _run(golden, [_completion("Vero [1].", tokens=267)] * 3)
+        assert records[0].completion_tokens == 267
+
+    def test_reasoning_enabled_follows_config(self, golden, monkeypatch):
+        import src.config as cfg
+        monkeypatch.setattr(cfg, "REASONING_EFFORT", "none")
+        run, _ = _run(golden, ["Vero [1]."] * 3)
+        assert run.reasoning_enabled is False
+        monkeypatch.setattr(cfg, "REASONING_EFFORT", "high")
+        run2, _ = _run(golden, ["Vero [1]."] * 3)
+        assert run2.reasoning_enabled is True
+
+    def test_config_records_the_token_budget(self, golden):
+        run, _ = _run(golden, ["Vero [1]."] * 3)
+        assert "reasoning_effort" in run.config
+        assert "max_new_tokens" in run.config
+
+
 class TestBuildMetrics:
+    @staticmethod
+    def _rec(answer, finish_reason="stop"):
+        return GenerationRecord(
+            query_id="q", query_text="Q?", chunk_ids=["c"], n_chunks=2,
+            answer=answer, compliant=True, abstained=False, markers=[1],
+            finish_reason=finish_reason,
+        )
+
     def test_every_violation_kind_is_a_key(self):
-        m = build_metrics(summarize([check_format("Vero [1].", 2)]))
+        m = build_metrics(summarize([check_format("Vero [1].", 2)]), [self._rec("Vero [1].")])
         for kind in VIOLATION_KINDS:
             assert f"violation_{kind}" in m
 
     def test_compliance_and_abstention_reported_together(self):
-        m = build_metrics(summarize([
-            check_format("Vero [1].", 2), check_format("Insufficient information.", 2),
-        ]))
+        m = build_metrics(
+            summarize([check_format("Vero [1].", 2),
+                       check_format("Insufficient information.", 2)]),
+            [self._rec("Vero [1]."), self._rec("Insufficient information.")],
+        )
         assert m["format_compliance"] == 1.0
         assert m["abstention_rate"] == 0.5
 
     def test_all_metrics_are_floats(self):
-        m = build_metrics(summarize([check_format("Vero [1].", 2)]))
+        m = build_metrics(summarize([check_format("Vero [1].", 2)]), [self._rec("Vero [1].")])
         assert all(isinstance(v, float) for v in m.values())
+
+    def test_no_records_does_not_divide_by_zero(self):
+        m = build_metrics(summarize([]), [])
+        assert m["truncation_rate"] == 0.0 and m["empty_answer_rate"] == 0.0
 
 
 class TestWriteGenerations:
