@@ -17,7 +17,9 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from src.eval.citation_harness import (
     GenerationRecord,
+    GenerationWriter,
     build_metrics,
+    partial_path,
     prompt_hash,
     run_citation_eval,
     write_generations,
@@ -318,3 +320,64 @@ class TestPromptHash:
 
     def test_short(self):
         assert len(prompt_hash("x")) == 8
+
+
+class TestIncrementalWriting:
+    """A run that dies partway must leave its generations behind.
+
+    Before this, nothing reached disk until the last query: a failure at 190 of
+    200 lost forty minutes of GPU and 190 usable answers — the exact material
+    C-02 is built from.
+    """
+
+    def _rec(self, i):
+        return GenerationRecord(
+            query_id=f"q{i}", query_text="Q?", chunk_ids=["c"], n_chunks=1,
+            answer=f"Vero [1]. #{i}", compliant=True, abstained=False, markers=[1],
+        )
+
+    def test_records_are_on_disk_before_the_run_ends(self, tmp_path):
+        w = GenerationWriter(tmp_path / "g.jsonl", "SYS")
+        w.append(self._rec(1))
+        w.append(self._rec(2))
+        lines = w.tmp.read_text(encoding="utf-8").strip().splitlines()
+        assert len(lines) == 2
+
+    def test_partial_name_until_finished(self, tmp_path):
+        p = tmp_path / "g.jsonl"
+        w = GenerationWriter(p, "SYS")
+        w.append(self._rec(1))
+        # The final name must not exist yet: its existence is the proof that the
+        # run reached the end, and rescore_citations.py relies on that.
+        assert not p.exists()
+        assert w.tmp.name.endswith(".jsonl.partial")
+
+    def test_finish_promotes_to_the_final_name(self, tmp_path):
+        p = tmp_path / "g.jsonl"
+        w = GenerationWriter(p, "SYS")
+        w.append(self._rec(1))
+        assert w.finish() == p
+        assert p.exists() and not w.tmp.exists()
+
+    def test_prompt_written_up_front_not_at_the_end(self, tmp_path):
+        # A run that dies still leaves its generations interpretable.
+        GenerationWriter(tmp_path / "g.jsonl", "SYSTEM TEXT")
+        assert (tmp_path / "g.prompt.txt").read_text(encoding="utf-8") == "SYSTEM TEXT"
+
+    def test_partial_path_helper(self, tmp_path):
+        assert partial_path(tmp_path / "g.jsonl").name == "g.jsonl.partial"
+
+    def test_harness_appends_as_it_goes(self, golden, tmp_path):
+        w = GenerationWriter(tmp_path / "g.jsonl", "SYS")
+        _run(golden, ["Vero [1]."] * 3, writer=w)
+        assert len(w.tmp.read_text(encoding="utf-8").strip().splitlines()) == 3
+
+    def test_harness_works_without_a_writer(self, golden):
+        run, records = _run(golden, ["Vero [1]."] * 3)
+        assert len(records) == 3 and run.metrics["format_compliance"] == 1.0
+
+    def test_write_generations_still_produces_a_finished_file(self, tmp_path):
+        p = tmp_path / "g.jsonl"
+        write_generations(p, [self._rec(1), self._rec(2)], "SYS")
+        assert p.exists() and not partial_path(p).exists()
+        assert len(p.read_text(encoding="utf-8").strip().splitlines()) == 2

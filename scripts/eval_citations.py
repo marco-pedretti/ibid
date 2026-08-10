@@ -33,7 +33,7 @@ ROOT = Path(__file__).parent.parent
 sys.path.insert(0, str(ROOT))
 
 import src.config as cfg
-from src.eval.citation_harness import run_citation_eval, write_generations
+from src.eval.citation_harness import GenerationWriter, run_citation_eval
 from src.generation.citation_format import COMPLIANCE_TARGET, VIOLATION_KINDS
 from src.generation.prompt import SYSTEM
 
@@ -67,7 +67,14 @@ def main() -> None:
             print(f"[ERROR] {golden_path} not found. Run build_golden.py first.")
             sys.exit(1)
 
+        # The timestamp is taken before the run, not after: it names the file
+        # the generations are streaming into while the run is still going.
+        ts = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
+        gen_path = GENERATIONS_DIR / f"{ts}_{dataset_id}.jsonl"
+        writer = GenerationWriter(gen_path, SYSTEM)
+
         print(f"\n=== C-01 citation format — {dataset_id} ===", flush=True)
+        print(f"  generazioni in {writer.tmp.relative_to(ROOT)}", flush=True)
         run, records = run_citation_eval(
             dataset_id=dataset_id,
             golden_path=golden_path,
@@ -78,16 +85,15 @@ def main() -> None:
             model=args.model,
             pipeline_mode=args.pipeline_mode,
             system_prompt=SYSTEM,
+            writer=writer,
         )
+        writer.finish()
 
-        ts = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
         out_path = RESULTS_DIR / f"{ts}_{dataset_id}_citations.json"
         out_path.write_text(
             json.dumps(run.model_dump(mode="json"), indent=2, ensure_ascii=False),
             encoding="utf-8",
         )
-        gen_path = GENERATIONS_DIR / f"{ts}_{dataset_id}.jsonl"
-        write_generations(gen_path, records, SYSTEM)
 
         compliance = run.metrics["format_compliance"]
         lower = run.metrics["format_compliance_lower95"]

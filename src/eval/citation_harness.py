@@ -132,18 +132,60 @@ def build_metrics(
     return metrics
 
 
+def partial_path(path: Path) -> Path:
+    """Where generations accumulate while the run is still going."""
+    return path.with_suffix(path.suffix + ".partial")
+
+
+class GenerationWriter:
+    """Appends each generation as it is produced, under a `.partial` name.
+
+    Two problems, one mechanism.
+
+    A run that dies at query 190 of 200 used to lose everything: nothing was
+    written until the end, so forty minutes of GPU and 190 usable generations
+    went with it — and those generations are exactly the material C-02 needs.
+    Appending as we go keeps them.
+
+    The `.partial` suffix is not cosmetic.  A truncated file that looks like a
+    finished one is worse than no file: `scripts/rescore_citations.py` would
+    score 190 answers as if they were the whole run and report a rate computed
+    on a different denominator than it claims.  The rename happens only after
+    the last record, so **the existence of the final name is the proof that the
+    run reached the end.**
+    """
+
+    def __init__(self, path: Path, system_prompt: str):
+        self.path = path
+        self.tmp = partial_path(path)
+        self.path.parent.mkdir(parents=True, exist_ok=True)
+        self.tmp.write_text("", encoding="utf-8")
+        # The prompt is written up front, next to the partial file: a run that
+        # dies still leaves its generations interpretable.
+        self.path.with_suffix(".prompt.txt").write_text(system_prompt, encoding="utf-8")
+
+    def append(self, record: GenerationRecord) -> None:
+        with self.tmp.open("a", encoding="utf-8") as fh:
+            fh.write(json.dumps(asdict(record), ensure_ascii=False) + "\n")
+            fh.flush()
+
+    def finish(self) -> Path:
+        """Promote the partial file to its final name."""
+        self.tmp.replace(self.path)
+        return self.path
+
+
 def write_generations(path: Path, records: list[GenerationRecord], system_prompt: str) -> None:
-    """Write the raw generations (JSONL) and the prompt that produced them.
+    """Write generations in one shot — used by tests and by re-scoring tools.
 
     The prompt goes in a sibling `.prompt.txt` rather than into every record:
     the JSONL is read line by line by C-02, and repeating a 600-character system
     prompt on every line would bury the outputs it exists to show.
     """
-    path.parent.mkdir(parents=True, exist_ok=True)
-    with path.open("w", encoding="utf-8") as fh:
-        for r in records:
-            fh.write(json.dumps(asdict(r), ensure_ascii=False) + "\n")
-    path.with_suffix(".prompt.txt").write_text(system_prompt, encoding="utf-8")
+    writer = GenerationWriter(path, system_prompt)
+    for r in records:
+        writer.append(r)
+    writer.finish()
 
 
 def run_citation_eval(
@@ -156,6 +198,7 @@ def run_citation_eval(
     model: str | None = None,
     pipeline_mode: str = "generic",
     system_prompt: str = SYSTEM,
+    writer: GenerationWriter | None = None,
 ) -> tuple[EvalRun, list[GenerationRecord]]:
     """Generate cited answers over golden queries and measure format compliance.
 
@@ -172,6 +215,8 @@ def run_citation_eval(
         model: LLM name (default cfg.LLM_MODEL)
         pipeline_mode: "generic" | "routed" — the ingestion axis, per §3.3
         system_prompt: the prompt under test; its hash enters config_hash
+        writer: when given, each generation is appended to disk as it is
+            produced, so a run that dies partway still leaves its answers.
 
     Returns:
         (EvalRun, records).  The caller persists both — the records are C-02's
@@ -222,7 +267,7 @@ def run_citation_eval(
         answer = completion.content
         report = check_format(answer, len(chunks))
         reports.append(report)
-        records.append(GenerationRecord(
+        record = GenerationRecord(
             query_id=query.query_id,
             query_text=query.query_text,
             chunk_ids=[c.chunk_id for c in chunks],
@@ -235,7 +280,10 @@ def run_citation_eval(
             latency_s=round(time.time() - t_q, 2),
             finish_reason=completion.finish_reason,
             completion_tokens=completion.completion_tokens,
-        ))
+        )
+        records.append(record)
+        if writer is not None:
+            writer.append(record)
         if i == 1 or i % 10 == 0 or i == n:
             elapsed = time.time() - t0
             eta = (n - i) * elapsed / i
