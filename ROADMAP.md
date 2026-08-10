@@ -239,6 +239,18 @@ Per ogni dataset candidato: 16 domande costruite con lo stesso schema dei test p
 
 **Gate:** confronto sulle non rispondibili tra baseline A e sistema completo, e curva delle metriche in funzione della taglia del modello.
 
+### Ordine di esecuzione (deciso il 2026-08-10, dopo C-03)
+
+L'ordine non è quello della tabella, per la regola del §12. Il vincolo che lo determina: **C-06 rilancia l'intero sistema per ogni taglia di modello**, quindi ogni modifica al comportamento fatta dopo lo invalida.
+
+1. **C-05** — cambia il prompt, e `prompt_hash` entra in `config_hash`: farlo dopo C-04 obbligherebbe a rimisurare C-04. Verificabile in gran parte sulle 891 generazioni già salvate, dove le risposte in lingua mista sono ≤1 su 189 — entrambi i corpus sono inglesi, quindi è più una verifica che una correzione.
+2. **C-04** — l'ultima modifica alla pipeline. C-03 gli ha già fornito i dati: `uncited_claim_rate` 0,106 e 0,156, astensione al 26,5% su LEDGER contro 5,5% su ORB.
+3. **E-04/E-05** — **mai eseguiti** (nessun risultato con `harness: generation` in `eval/results/`), e il gate di questa fase li richiede. Indipendenti dagli altri: si possono lanciare in parallelo.
+4. **C-07** — una misura sola; l'interruttore `REASONING_EFFORT` esiste in `config.py` da C-01.
+5. **C-06** — per ultimo, quando sotto non si muove più niente.
+
+**Da decidere prima di C-06, non dopo:** su LEDGER `citation_precision` non è interpretabile come proprietà del generatore — il verificatore NLI è fuori distribuzione su claim numerici contro tabelle OCR (vedi `docs/progress.md`, C-03 §8). Se C-06 gira così, la curva per taglia del modello avrà una riga muta su quel dataset, e la cosa emergerà a run finite.
+
 ---
 
 ## 9. Fase 5 — Interfaccia
@@ -297,6 +309,7 @@ Solo se avanza tempo. Nessuno di questi è necessario perché il progetto sia co
 
 - Ogni fase finisce con numeri committati in `eval/results/`, con hash del commit.
 - Mai due modifiche senza misurare in mezzo.
+- **L'ordine dei task dentro una fase non è quello della tabella.** Ciò che cambia il comportamento va prima di ciò che lo misura, e una misura costosa ripetuta per N configurazioni va per ultima: qualsiasi modifica al comportamento fatta dopo la invalida, e ce ne si accorge a GPU spesa. Prima di iniziare una fase, ordinare i suoi task su questo criterio e scriverlo nella sezione della fase.
 - Temperatura 0 e finestra 32k su ogni run di valutazione, annotate nel risultato.
 - README aggiornato a ogni fase.
 - Gate non superato → non si avanza.
