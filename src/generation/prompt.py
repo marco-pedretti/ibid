@@ -57,15 +57,6 @@ def build_user_message(query: str, chunks: list[Chunk]) -> str:
     The chunk number is stated twice — once as a delimiter line and once as the
     valid range at the top — because the alternative was a bare `[1]` prefix
     sitting flush against text that may itself open with `[12]`.
-
-    The contiguity rule is repeated immediately before the question, thousands
-    of tokens after the system prompt where it was first stated.  It is the last
-    remaining defect: `[1] [2]` in 8 answers of 188, against 2 for out-of-range
-    markers and 1 for comma lists.  It is not imitation of the corpus — only
-    0.5% of open_ragbench chunks contain a spaced pair, while 13.1% contain the
-    comma form that the model almost never reproduces (0.5% of answers).  The
-    prohibition works when it is seen; this one has to compete with 8,000 tokens
-    of context for attention.
     """
     n = len(chunks)
     parts = [f"--- CHUNK [{i + 1}] ---\n{c.text}" for i, c in enumerate(chunks)]
@@ -73,8 +64,5 @@ def build_user_message(query: str, chunks: list[Chunk]) -> str:
     valid = "[1]" if n == 1 else f"[1] to [{n}]"
     return (
         f"You are given {n} context chunks. The only valid citation markers are {valid}.\n\n"
-        f"Context:\n{context}\n\n"
-        f"Reminder: markers must touch, with no space between them. "
-        f"Write [1][2], never [1] [2].\n\n"
-        f"Question: {query}"
+        f"Context:\n{context}\n\nQuestion: {query}"
     )
