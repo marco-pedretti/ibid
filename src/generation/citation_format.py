@@ -70,6 +70,22 @@ _PATTERNS: tuple[tuple[str, re.Pattern[str]], ...] = (
 )
 
 _MARKER = re.compile(r"\[(\d+)\]")
+_DIGITS = re.compile(r"\d+")
+
+
+def _is_citation_attempt(snippet: str) -> bool:
+    """False for bracketed numbers that cannot be citations at all.
+
+    §3.2 numbers chunks from 1, so any construct containing a 0 is something
+    else — in practice a mathematical interval.  Measured on the C-01 run:
+    `$\\Psi_{r} \\subseteq[0,1]^{p}$ [1]` was scored as a malformed comma list
+    while the sentence cites `[1]` correctly right after it.
+
+    The rule is definitional, not a tuned exception: it excuses no construct
+    whose numbers are all valid chunk indices, so `[16,17,18,19]` — a genuine
+    malformed list pointing at chunks that do not exist — is still a violation.
+    """
+    return all(int(d) != 0 for d in _DIGITS.findall(snippet))
 
 
 @dataclass(frozen=True)
@@ -135,13 +151,17 @@ def find_violations(text: str, n_chunks: int) -> list[Violation]:
     """Every §3.2 violation in raw output, one entry per occurrence."""
     out: list[Violation] = []
     for kind, pattern in _PATTERNS:
-        out.extend(Violation(kind, m.group(0)) for m in pattern.finditer(text))
+        out.extend(
+            Violation(kind, m.group(0))
+            for m in pattern.finditer(text)
+            if _is_citation_attempt(m.group(0))
+        )
 
     # Markers pointing outside the context. §3.2 requires the parser to discard
     # them; producing them is still a prompt failure, so they are counted here.
     for m in _MARKER.finditer(text):
         n = int(m.group(1))
-        if not 1 <= n <= n_chunks:
+        if n != 0 and not 1 <= n <= n_chunks:
             out.append(Violation("out_of_range", m.group(0)))
 
     if not _MARKER.search(text):

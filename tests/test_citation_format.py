@@ -98,8 +98,9 @@ class TestViolations:
     def test_out_of_range_above(self):
         assert "out_of_range" in self._kinds("Vero [9].", n=5)
 
-    def test_out_of_range_zero(self):
-        assert "out_of_range" in self._kinds("Vero [0].", n=5)
+    def test_out_of_range_one_below_the_floor(self):
+        # [0] itself is excluded on purpose — see TestMathIsNotACitation.
+        assert "out_of_range" in self._kinds("Vero [6].", n=5)
 
     def test_no_citation(self):
         assert "no_citation" in self._kinds("Il valore massimo è 400ms.")
@@ -253,3 +254,31 @@ class TestWilsonLower:
     def test_meets_target_true_on_a_large_clean_sample(self):
         s = summarize([check_format("Vero [1].", 5) for _ in range(200)])
         assert s.meets_target
+
+
+class TestMathIsNotACitation:
+    """§3.2 numbers chunks from 1, so a construct containing 0 is something else.
+
+    Found in the C-01 run: an interval `[0,1]` in a LaTeX expression scored as a
+    malformed comma list while the same sentence cited `[1]` correctly.
+    """
+
+    def test_interval_zero_one_is_not_a_comma_list(self):
+        text = r"functions within each box $\Psi_{r} \subseteq[0,1]^{p}$ [1]."
+        assert check_format(text, 5).compliant
+
+    def test_bare_zero_marker_is_not_out_of_range(self):
+        assert "out_of_range" not in check_format("Il dominio è [0] per costruzione [1].", 5).kinds
+
+    def test_zero_range_is_not_a_range_violation(self):
+        assert check_format(r"su $[0-1]$ vale la stima [1].", 5).compliant
+
+    def test_a_real_malformed_list_is_still_caught(self):
+        # The rule must not excuse [16,17,18,19]: no zero, and the numbers point
+        # at chunks that do not exist.
+        r = check_format("Vero [16,17,18,19].", 5)
+        assert not r.compliant
+        assert "comma_list" in r.kinds
+
+    def test_valid_comma_list_still_violates(self):
+        assert "comma_list" in check_format("Vero [1,2].", 5).kinds
