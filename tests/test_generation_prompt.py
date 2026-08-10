@@ -92,3 +92,25 @@ class TestUserMessage:
     def test_empty_chunks(self):
         msg = build_user_message("Q?", [])
         assert "Q?" in msg
+
+
+class TestContiguityReminder:
+    """The rule is repeated next to the question, not only in the system prompt.
+
+    Measured on 188 answers: `[1] [2]` was the last remaining defect (8 cases)
+    while the comma form the corpus actually uses — 13.1% of open_ragbench
+    chunks contain `[1,2]` — appeared in 1.  The prohibition works when it is
+    read; the contiguity one had to compete with 8,000 tokens of context.
+    """
+
+    def test_reminder_sits_after_the_context(self):
+        msg = build_user_message("Q?", [_chunk(0, "T")])
+        assert msg.index("Reminder:") > msg.index("Context:")
+
+    def test_reminder_sits_before_the_question(self):
+        msg = build_user_message("Q?", [_chunk(0, "T")])
+        assert msg.index("Reminder:") < msg.index("Question:")
+
+    def test_reminder_shows_both_forms(self):
+        msg = build_user_message("Q?", [_chunk(0, "T")])
+        assert "[1][2]" in msg and "never [1] [2]" in msg
