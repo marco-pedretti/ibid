@@ -101,7 +101,7 @@ L'associazione fra `#1` e il run corrispondente e risolta col colore: la tabella
 |---|---|---|
 | C-01 | ✅ fatto (2026-08-10) | **PASS su ledger, non dimostrato su open_ragbench.** Vedi sotto: il risultato è la differenza fra i due, non la media. |
 | C-02 | ✅ fatto (2026-08-10) | Parser ricostruito sugli output reali. Ribaltata una regola del T-06 che **fabbricava** citazioni 16 volte su 16. |
-| C-03 | 🔄 in corso (2026-08-10) | Sospeso e **riaperto** in giornata: il verificatore di STACK.md è stato misurato prima di costruirci sopra, non reggeva, ed è stato sostituito con la misura a supporto. Vedi sotto. |
+| C-03 | ✅ fatto (2026-08-10) | `citation_precision` **0,657 su open_ragbench, 0,366 su ledger** — e i due non si leggono allo stesso modo. Sospeso e riaperto in giornata: il verificatore di STACK.md è stato misurato prima di costruirci sopra, non reggeva, ed è stato sostituito. Vedi sotto. |
 
 ### C-01 — Prompt con chunk numerati e formato citazione
 
@@ -265,6 +265,35 @@ Tre vincoli operativi che ne derivano, tutti misurati e tutti finiti in STACK.md
 - **Il costo dipende dal genere, non è un moltiplicatore costante.** Sulle stesse 120 valutazioni: 312 s contro 93 s su open_ragbench, ma **37 s contro 43 s su LEDGER** — dove i chunk stanno in una finestra, il modello grande è più veloce di quello piccolo.
 
 **Cosa questo non dimostra.** Il floor test usa claim copiati alla lettera: vincere lì non garantisce di vincere sulle parafrasi, che è il compito vero, e la sonda per parafrasi si costruisce solo su ORB (§4). E la soglia **non va scelta sugli stessi dati su cui si misura l'accuratezza**, o il numero esce ottimista per costruzione: serve una partizione separata.
+
+#### 7. Il risultato: `citation_precision` per dataset
+
+Calcolato **senza rigenerare**: l'harness di C-01 aveva salvato ogni risposta con i `chunk_ids` che aveva in contesto, quindi bastano quei dump più i testi da Qdrant. Non è una scorciatoia — significa che la metrica di citazione e quella di formato sono misurate **sulle stesse risposte**, quindi una differenza nell'una non si confonde con un campione diverso nell'altra. Le risposte passano prima da `citations.parse`: C-01 misura il grezzo di proposito, C-03 misura ciò che un lettore vedrebbe davvero.
+
+L'unità è la coppia **(affermazione, chunk citato)**, come il §8 formula il task. Più severo che valutare l'unione delle citazioni di una frase, di proposito: un modello che affianca a una citazione giusta due irrilevanti sta facendo ciò che il progetto vuole scoprire, e un punteggio sull'unione gli darebbe il massimo.
+
+| dataset | `citation_precision` | Wilson 95% | `citation_recall` | `uncited_claim_rate` |
+|---|---|---|---|---|
+| **open_ragbench** | **0,6573** (326/496) | [0,6144 – 0,6977] | 0,6250 | 0,1062 |
+| **ledger** | **0,3656** (121/331) | [0,3155 – 0,4187] | 0,2815 | 0,1556 |
+
+`uncited_claim_rate` sta accanto alla precisione perché **la precisione si alza citando di meno**: una citazione sicura e nient'altro farebbe 1,0. Senza quel secondo numero il primo non è leggibile.
+
+**La scelta del modello ha retto in esercizio.** `windowed_premise_rate` è **0,048** su open_ragbench e **0,0000** su LEDGER: il 95% e il 100% delle premesse arrivano intere, quindi l'artefatto dei confronti multipli del §2 — quello che avrebbe reso `citation_precision` in parte una misura della lunghezza dei chunk — non si è presentato. Era la previsione del §6, verificata sui dati veri.
+
+#### 8. Come vanno letti quei due numeri, e perché non allo stesso modo
+
+**Su open_ragbench 0,6573 è un limite inferiore.** Misurato: delle citazioni che puntano al chunk che **i qrels marcano rilevante**, il verificatore ne accetta solo **32 su 47 = 68,1%**. Citare il chunk d'oro non garantisce che *quella specifica frase* ne sia implicata, quindi il 68,1% è a sua volta un limite inferiore sull'accuratezza del verificatore — ma la direzione è certa: una quota consistente dei 170 fallimenti è il verificatore, non il modello. Coerente col floor test, dove a soglia 0,5 si perdeva un terzo dei claim copiati alla lettera.
+
+**Su LEDGER 0,3656 non è interpretabile come proprietà del generatore.** Guardando i casi veri: le premesse sono **markup HTML di tabelle OCR** (`<table><tr><td rowspan="2">`) e le affermazioni sono valori numerici estratti da quelle tabelle. Un modello NLI addestrato su prosa è fuori distribuzione su entrambi i lati. Lo stesso controllo dei qrels lì produce **3 sole coppie**, quindi non si può nemmeno quantificare l'errore dello strumento.
+
+> **È un risultato per dataset, non un fallimento del task.** L'attribuzione verificata a livello di frase è misurabile sulla prosa continua; sui documenti a tabelle, con questo verificatore, **non lo è ancora**. È la stessa struttura trovata in C-01 e C-02 — il comportamento dipende dal genere documentale — e una media fra 0,66 e 0,37 la cancellerebbe.
+
+**Una correzione plausibile provata e scartata.** L'ipotesi ovvia era che il markup delle tabelle disturbasse il modello. Misurato su 24 coppie LEDGER, premessa con tag rimossi contro premessa grezza: mediana 0,263 → 0,283, sopra soglia 5/24 → 4/24, **0 migliorate e 1 peggiorata**. Non è il markup: è che il modello non sa verificare claim numerici contro tabelle. La pulizia non è stata spedita.
+
+Confondente minore, misurato per escluderlo: le affermazioni che parlano *del contesto* invece che del fatto («the context does not provide a specific figure…») non possono essere implicate da niente. Sono lo **0,2%** su ORB e il **6,1%** su LEDGER — reali ma non sono ciò che muove i numeri.
+
+**La soglia non è tarata.** 0,5 è il confine naturale della testa binaria, scelto a priori: una soglia adattata sulle stesse risposte su cui si riporta la metrica la gonfia per costruzione. Calibrarla richiede una partizione separata ed è un task a sé. A 0,5 il verificatore è pessimista, quindi entrambi i numeri sopra sono conservativi — la direzione sicura per una metrica che deve mostrare che il sistema è affidabile.
 
 #### Errori di metodo commessi qui
 
