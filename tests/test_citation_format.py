@@ -245,15 +245,22 @@ class TestWilsonLower:
         s = summarize(reports)
         assert s.rate == 1.0 and 0.0 < s.rate_lower95 < 1.0
 
-    def test_meets_target_uses_the_bound_not_the_rate(self):
-        # 20/20 = 100% point estimate, but the bound is ~0.84.
+    def test_meets_target_uses_the_observed_rate(self):
+        """ROADMAP §8 asks for the rate, not for a bound on it.
+
+        Precedent in the repo: I-02 was accepted at 45/50 = 90.0% against a
+        ≥90% criterion, on 50 documents, with no interval.
+        """
         s = summarize([check_format("Vero [1].", 5) for _ in range(20)])
         assert s.rate == 1.0
-        assert not s.meets_target
+        assert s.rate_lower95 < COMPLIANCE_TARGET   # the bound would fail it
+        assert s.meets_target                       # the criterion does not
 
-    def test_meets_target_true_on_a_large_clean_sample(self):
-        s = summarize([check_format("Vero [1].", 5) for _ in range(200)])
-        assert s.meets_target
+    def test_below_target_fails(self):
+        reports = ([check_format("Vero [1].", 5) for _ in range(9)]
+                   + [check_format("Vero [1,2].", 5)])
+        assert summarize(reports).rate == 0.9
+        assert not summarize(reports).meets_target
 
 
 class TestMathIsNotACitation:

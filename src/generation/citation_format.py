@@ -223,12 +223,20 @@ class ComplianceSummary:
 
     @property
     def meets_target(self) -> bool:
-        """True when the *lower bound* clears the target, not the point estimate.
+        """True when the observed rate clears the target.
 
-        The stricter reading of "≥95%": it is the one that does not let a small
-        sample declare a pass it cannot support.
+        On the point estimate, which is what ROADMAP §8 asks for ("formato §3.2
+        rispettato in ≥95% delle generazioni") and how the repo has judged this
+        kind of criterion before: I-02 was accepted at 45/50 = 90.0% against a
+        ≥90% threshold, on 50 documents, without an interval.
+
+        `rate_lower95` stays reported next to it, because the sample size is
+        worth knowing — but it is context, not the rule.  Taking the verdict on
+        the lower bound would impose a bar the binding document does not set: at
+        n≈190 it demands ~99% observed, which is a statement about how many
+        queries were run rather than about the prompt.
         """
-        return self.rate_lower95 >= COMPLIANCE_TARGET
+        return self.rate >= COMPLIANCE_TARGET
 
 
 def summarize(reports: list[FormatReport]) -> ComplianceSummary:
