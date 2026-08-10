@@ -61,7 +61,33 @@ Tutto il resto è dettaglio. Queste quattro determinano com'è il progetto.
 | Alternativa | Ollama | Più comodo, meno controllo sui parametri. Va benissimo |
 | Interfaccia | Endpoint **OpenAI-compatibile** dietro `LLM_BASE_URL` | Il vincolo architetturale più importante: il repo resta eseguibile da chiunque, non solo sulla tua macchina |
 | Modelli | Gemma 4 E2B / E4B / 12B / 26B MoE | Il 26B MoE (3.8B attivi) è il candidato migliore per 12 GB. Verificate in Fase 0 |
-| Entailment | **mDeBERTa-v3 NLI** multilingue | Per la verifica delle citazioni. Preferitelo all'LLM: più veloce, deterministico, e la metrica non dipende dal modello che state valutando |
+| Entailment | **`MoritzLaurer/bge-m3-zeroshot-v2.0`** (MIT, multilingue) | Per la verifica delle citazioni. Preferitelo all'LLM: più veloce, deterministico, e la metrica non dipende dal modello che state valutando. Sostituisce mDeBERTa-v3 NLI a seguito della misura in C-03 — vedi sotto |
+
+#### Perché non più mDeBERTa-v3 NLI (misurato in C-03, 2026-08-10)
+
+La scelta originale era **mDeBERTa-v3 NLI multilingue**. È stata misurata prima di costruirci sopra `citation_precision`, e non regge su questo corpus. Il vincolo che contava — **multilingue, licenza permissiva, nessuna dipendenza nuova** — resta rispettato: non si sta relitigando la decisione, si sta cambiando il modello dentro il vincolo che la decisione poneva.
+
+La ragione è strutturale, non una questione di qualità del modello. mDeBERTa ha una finestra di **512 token**; i nostri chunk hanno mediana ~730 e p90 ~2900. La premessa va spezzata in finestre e si prende il massimo — e il massimo su N finestre è un problema di **confronti multipli**: ogni finestra in più è un'altra occasione di falso positivo. Misurata su claim che nessun chunk campionato supporta, la correlazione fra numero di finestre e P(entailment) massima è **0,46–0,54**: `citation_precision` avrebbe misurato in parte la lunghezza del chunk citato.
+
+`bge-m3-zeroshot-v2.0` ha una finestra di **8194 token**, quindi il **99% dei nostri chunk entra in un passaggio solo** e l'artefatto non si presenta — eliminato per costruzione, non calibrato via.
+
+Floor test appaiato (stesse identiche coppie per i due modelli, claim copiato alla lettera dal chunk, negativo appaiato per lunghezza in token, 60 coppie per dataset):
+
+| dataset | mDeBERTa-v3 (512) | bge-m3-zeroshot (8192) | McNemar esatto |
+|---|---|---|---|
+| open_ragbench | AUC 0,661 [0,564–0,758] | **AUC 0,939** [0,894–0,984] | **p = 0,0001** |
+| ledger | AUC 0,742 [0,654–0,831] | **AUC 0,910** [0,856–0,964] | **p = 0,0094** |
+
+Il guadagno non è nel riconoscere meglio le attribuzioni vere: è nel **non approvarne di false**. Chunk estranei sopra soglia 0,5: da **23/60 a 2/60** su open_ragbench, da 13/60 a **0/60** su ledger. È il fallimento che conta, perché un verificatore che approva citazioni sbagliate gonfia la metrica, il che è molto peggio di uno pessimista.
+
+Riproducibile con `python scripts/probe_entailment.py compare {open_ragbench|ledger}`.
+
+**Cosa cambia in pratica** (vincoli operativi, non preferenze):
+
+- Premessa = **chunk intero fino a ~4096 token** (96% dei casi, un passaggio, nessun artefatto); finestre solo per la coda. Sopra i ~4000 token l'attenzione quadratica costa più del windowing: misurati 123 ms a 758 token, 762 ms a 2951, **19,7 s a 7693**.
+- **Batch 1** per questo modello. L'attenzione è quadratica e il padding riempie il batch fino al suo elemento più lungo: 8 sequenze da 4096 chiedono ~8 GB di sole matrici di attenzione e l'allocatore DirectML rifiuta.
+- La testa è **binaria** (`entailment` / `not_entailment`) invece che a tre classi. È quella giusta: serve *supportato / non supportato*, e la distinzione fra `neutral` e `contradiction` non viene usata.
+- Il costo dipende dal genere, non è un moltiplicatore costante: sulle stesse 120 valutazioni, 312 s contro 93 s su open_ragbench ma **37 s contro 43 s su ledger**, dove i chunk stanno in una finestra.
 
 ## Valutazione
 
@@ -190,6 +216,8 @@ Alternative permissive già in tabella: **pypdfium2** per rendering e bbox, **pd
 | Qdrant/bm25 | Apache 2.0 | sì — modello sparso attivo; statistico, multilingual |
 | BAAI/bge-m3 | MIT | sì — modello target (non ancora in fastembed, PR #602 aperto) |
 | BAAI/bge-reranker-base | MIT | sì — reranker attivo; bge-reranker-v2-m3 non ancora disponibile in fastembed 0.8.0 |
+| MoritzLaurer/bge-m3-zeroshot-v2.0 | MIT | sì — verificatore di entailment attivo (C-03); multilingue, finestra 8194 token, ONNX nel repo del modello stesso |
+| ~~MoritzLaurer/mDeBERTa-v3-...-xnli-2mil7~~ | ~~MIT~~ | sostituito — finestra 512 token contro chunk con p90 ~2900: vedi §Modelli e inferenza |
 | llama.cpp / Ollama | MIT | sì |
 | pandas | BSD-3-Clause | sì — lettura parquet LEDGER e manipolazione dati |
 | ir_measures 0.4.3 | MIT | sì — nDCG, Recall@k, MRR, Success@1 per E-03 |

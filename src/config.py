@@ -60,6 +60,31 @@ HYBRID_FETCH_K: int = 20
 RERANKER_MODEL: str = "BAAI/bge-reranker-base"
 RERANK_FETCH_K: int = 20
 
+# ---------------------------------------------------------------------------
+# Entailment verification (C-03)
+# ---------------------------------------------------------------------------
+# The verifier behind citation_precision. Replaced mDeBERTa-v3 NLI after the
+# measurement in scripts/probe_entailment.py — see STACK.md. MIT, multilingual,
+# ships its own ONNX export, binary entailment/not_entailment head.
+ENTAILMENT_MODEL: str = "MoritzLaurer/bge-m3-zeroshot-v2.0"
+
+# The model's window is 8194 tokens. Truncation is set just under it.
+ENTAILMENT_MAX_LEN: int = 8192
+
+# Premise cap. Below it a chunk is one premise and there is no max-over-windows
+# artefact; 96% of chunks are under it. Above it, windowing is cheaper than one
+# quadratic pass: 123 ms at 758 tokens, 762 ms at 2951, 19.7 s at 7693.
+ENTAILMENT_PREMISE_CAP: int = 4096
+
+# Decision boundary for "supported". Deliberately the model's own natural
+# boundary for a binary head, NOT tuned on our data: a threshold fitted on the
+# same answers the metric is reported over inflates that metric by construction.
+# Calibrating it needs a held-out split and is its own task. At 0.5 the verifier
+# is pessimistic — it missed a third of verbatim-copied claims in the floor test
+# — so citation_precision reported with it is a lower bound, which is the safe
+# direction for a number meant to show the system can be trusted.
+ENTAILMENT_THRESHOLD: float = 0.5
+
 # Query rewriting (R-03): LLM rewrites the query before embedding.
 # Uses LLM_BASE_URL / LLM_MODEL; override here for a dedicated smaller model.
 QUERY_REWRITE_MODEL: str = os.getenv("QUERY_REWRITE_MODEL", "")  # "" = use LLM_MODEL
