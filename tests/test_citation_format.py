@@ -210,7 +210,7 @@ class TestMeasuredBeforeRepair:
         raw = "Il valore massimo è 400ms [2, 3]."
         assert not check_format(raw, 5).compliant
         # The parser can repair it — which is C-02's result, not C-01's.
-        assert check_format(normalize(raw), 5).compliant
+        assert check_format(normalize(raw, 5), 5).compliant
 
     def test_report_has_no_repair_path(self):
         # A FormatReport carries the verdict and the evidence, never a fixed
