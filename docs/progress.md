@@ -100,6 +100,7 @@ L'associazione fra `#1` e il run corrispondente e risolta col colore: la tabella
 | Task | Stato | Note |
 |---|---|---|
 | C-01 | ✅ fatto (2026-08-10) | **PASS su ledger, non dimostrato su open_ragbench.** Vedi sotto: il risultato è la differenza fra i due, non la media. |
+| C-02 | ✅ fatto (2026-08-10) | Parser ricostruito sugli output reali. Ribaltata una regola del T-06 che **fabbricava** citazioni 16 volte su 16. |
 
 ### C-01 — Prompt con chunk numerati e formato citazione
 
@@ -154,3 +155,30 @@ Le risposte che copiavano i riferimenti del documento sono passate da 19 a 4.
 **Per C-02**, dai dati raccolti: le varianti da riparare, in ordine di frequenza reale su open_ragbench, sono `[1] [2]` (spazio, 8 risposte su 188), i marcatori fuori contesto, `[1,2]` e `[1-3]`. Le generazioni grezze sono in `eval/results/generations/`. Nota che `[1,2]` compare nel **13,1%** dei chunk del corpus e il modello lo riproduce in 1 risposta su 188: il divieto nel prompt funziona quando viene letto.
 
 **Aperto**: l'astensione su LEDGER è al **26,5%** contro il 5,5% di ORB, quindi la conformità là è calcolata sul 73,5% di query in cui il retrieval ha portato la risposta in contesto. È un dato sul retrieval, non sul formato, ma va letto accanto al numero e riguarda **C-04**.
+
+### C-02 — Parser, validazione e riparazione delle varianti note
+
+Il criterio è «test sugli output malformati **reali**». Il parser esisteva dal T-06 ma era stato scritto contro varianti immaginate alla scrivania, prima che esistesse una singola generazione. C-02 lo ha ricostruito contro le 897 risposte valutate dei cinque dump di C-01.
+
+**Il numero, per dataset** (`scripts/measure_repair.py`, run dello stesso dataset messe insieme):
+
+| dataset | conformità grezza | dopo `parse()` | non conformi recuperate |
+|---|---|---|---|
+| **ledger** | 1,0000 (147/147) | 1,0000 | — (niente da riparare) |
+| **open_ragbench** | 0,9093 (682/750) | **0,9587** | 37/68 (**54,4%**) |
+
+Sulle due run col prompt corrente, singolarmente: 0,9309 → **0,9787** e 0,8942 → **0,9788**.
+
+**Il risultato vero non è il +5 punti, è cosa il parser ha smesso di fare.** Il T-06 espandeva `[1-7]` in `[1][2][3][4][5]` e poi scartava l'eccedenza. Misurato sul corpus: delle **16 occorrenze reali** di costrutti multi-numero — `[1-7]`, `[16,17,18,19]`, `[1]-[21]`, `[102-109]` — **zero** stanno dentro il contesto che dovrebbero citare. Sono la bibliografia del documento sorgente, la stessa causa dominante trovata in C-01. Espanderle non è una riparazione ma una **fabbricazione**: cinque citazioni sicure di sé che il modello non ha mai fatto, e dopo l'espansione lo scarto non può più distinguerle da quelle vere. Su questo corpus la regola T-06 non ha riparato nulla e ha inventato citazioni 16 volte su 16.
+
+Ora l'espansione è condizionata: si applica solo se **ogni** numero è un indice di chunk valido. Le regole restano — `[1,2]` contro 5 chunk *è* una citazione nostra malformata, è solo che il corpus non ne contiene — ma la condizione costa zero quando il costrutto è genuino. Due conseguenze non previste: `[0,1]` sopravvive (zero non è un indice di chunk, quindi l'intervallo matematico non diventa più una citazione dentro una formula), e `filter_valid` deve scavalcare le coppie unite dal trattino invece di smontarle, perché togliere solo `[21]` da `[1]-[21]` lascia `[1]-`, cioè la stessa fabbricazione presa dal lato opposto.
+
+**La riparazione che mancava del tutto**: `[1] [3]`, 40 occorrenze, il difetto riparabile più frequente, e il parser non aveva alcuna regola. Da sola vale 27 delle 37 risposte recuperate.
+
+**Il tetto è sotto il 100%, di proposito.** Dei 31 residui su ORB: **25 sono `no_citation`** — il modello non ha citato affatto, e nessun parser può inventare la citazione mancante; gli altri sono i costrutti fuori contesto che il parser si rifiuta di toccare, e restano segnalati come violazioni proprio perché non ha finto di ripararli.
+
+**La previsione scritta a fine C-01 era in parte sbagliata.** Diceva che le varianti da riparare erano `[1] [2]`, i marcatori fuori contesto, `[1,2]` e `[1-3]`. Le prime due sì. Le ultime due esistono nel corpus ma **mai come citazioni nostre**: sempre come riferimenti del documento. La differenza non si vedeva dal conteggio delle occorrenze, solo guardando i numeri dentro il contesto di ciascuna risposta.
+
+**Materiale e strumenti:** `tests/fixtures/malformed_citations.jsonl` (49 costrutti distinti, 124 occorrenze, con provenienza run + query_id), generato da `scripts/extract_malformed.py` così da essere riderivabile quando arrivano run nuove invece di divergere. La fixture raccoglie anche i costrutti che il checker **scagiona** (gli intervalli matematici): una fixture che contiene solo le cose da aggiustare non può accorgersi di un aggiustamento che eccede. `scripts/measure_repair.py` tiene separate le due misure — far girare la riparazione prima del checker di C-01 darebbe ~100% per costruzione e non direbbe niente né sul prompt né sul parser. **1112 test.**
+
+**Aperto**: `parse()` è chiamato solo da `scripts/query.py`. Il percorso di servizio vero non esiste ancora (Fase 5); quando l'API arriva, la riparazione va agganciata lì e il testo grezzo va comunque conservato, perché è quello che C-01 misura.
