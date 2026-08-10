@@ -114,3 +114,39 @@ class TestRepair:
         `citation_format` does not flag them, so repairing them would silently
         merge what the model deliberately kept apart."""
         assert parse("- punto [1]\n- punto [2]", 5) == "- punto [1]\n- punto [2]"
+
+    @pytest.mark.parametrize("case", _of_kind(*_MULTI_NUMBER_KINDS), ids=lambda c: c["snippet"])
+    def test_overflowing_constructs_are_not_expanded_into_citations(self, case):
+        """The failure this prevents: `[1-7]` with 5 chunks becoming
+        `[1][2][3][4][5]` — five confident citations the model never made."""
+        out = parse(case["text"], case["n_chunks"])
+        invented = set(re.findall(r"\[(\d+)\]", out)) - set(re.findall(r"\[(\d+)\]", case["text"]))
+        assert not invented, f"{case['snippet']} -> {out!r}"
+
+    @pytest.mark.parametrize("case", _of_kind("not_a_citation"), ids=lambda c: c["snippet"])
+    def test_benign_constructs_survive_untouched(self, case):
+        assert parse(case["text"], case["n_chunks"]) == case["text"]
+
+    @pytest.mark.parametrize("case", CASES, ids=lambda c: f"{c['kind']}:{c['snippet']}")
+    def test_parse_is_idempotent(self, case):
+        """Repair applied twice equals repair applied once — otherwise the
+        output depends on how many times it passed through the pipeline."""
+        once = parse(case["text"], case["n_chunks"])
+        assert parse(once, case["n_chunks"]) == once
+
+    @pytest.mark.parametrize("case", CASES, ids=lambda c: f"{c['kind']}:{c['snippet']}")
+    def test_repair_never_introduces_a_new_violation_kind(self, case):
+        """Repairing one defect must not create another. `no_citation` is
+        excluded: discarding every out-of-range marker legitimately leaves an
+        answer with none, and §3.2 requires the discard."""
+        before = check_format(case["text"], case["n_chunks"]).kinds
+        after = check_format(parse(case["text"], case["n_chunks"]), case["n_chunks"]).kinds
+        assert not (after - before - {"no_citation"}), f"{before} -> {after}"
+
+    @pytest.mark.parametrize("case", CASES, ids=lambda c: f"{c['kind']}:{c['snippet']}")
+    def test_repair_never_removes_prose(self, case):
+        """Only citation constructs may disappear. The words around them are the
+        answer, and a repair that eats them is a worse defect than the one it
+        fixed."""
+        strip = lambda s: re.sub(r"[\[\]\d\s,–—-]", "", s)  # noqa: E731
+        assert strip(parse(case["text"], case["n_chunks"])) == strip(case["text"])
