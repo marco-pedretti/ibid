@@ -1,0 +1,176 @@
+"""Does a cited chunk support a claim?  (C-03)
+
+The verifier behind `citation_precision`.  STACK.md picks an NLI model over an
+LLM judge deliberately: it is deterministic, and the metric must not depend on
+the model being evaluated.
+
+**Why this model.**  The original choice, mDeBERTa-v3 NLI, was measured before
+anything was built on it and replaced — see STACK.md and `docs/progress.md` §C-03.
+The deciding property is not accuracy in the abstract, it is the **window**:
+mDeBERTa reads 512 tokens against chunks whose p90 is ~2900, so the premise had
+to be split and the score taken as a max over N windows.  A max over N is a
+multiple-comparison problem — every extra window is another chance at a false
+positive — and it was measured: correlation 0.46-0.54 between window count and
+peak P(entailment) on claims that *no* sampled chunk supports.  `citation_precision`
+would have partly measured the length of the cited chunk.
+
+`bge-m3-zeroshot-v2.0` reads 8194 tokens, so 99% of our chunks arrive whole and
+N is 1.  The artefact does not get calibrated away; it does not arise.  Paired
+floor test, same cases for both models: AUC 0.661 -> 0.939 on open_ragbench and
+0.742 -> 0.910 on ledger, with unrelated chunks passing threshold falling from
+23/60 to 2/60 and from 13/60 to 0/60.  That second number is the one that
+matters — a verifier which *approves* wrong citations inflates the metric, which
+is far worse than one that is pessimistic.
+
+Reproduce with `python scripts/probe_entailment.py compare {dataset}`.
+"""
+
+from __future__ import annotations
+
+import re
+from dataclasses import dataclass
+from functools import lru_cache
+
+import numpy as np
+import onnxruntime
+from huggingface_hub import hf_hub_download
+from tokenizers import Tokenizer
+
+import src.config as cfg
+
+# Same policy as the reranker (R-02): DirectML on AMD/Intel/NVIDIA via DX12 when
+# present, CPU otherwise, so the verifier runs on any machine.
+_PROVIDERS = (
+    ["DmlExecutionProvider", "CPUExecutionProvider"]
+    if "DmlExecutionProvider" in onnxruntime.get_available_providers()
+    else ["CPUExecutionProvider"]
+)
+
+#: Index of the entailment logit.  The head is binary — entailment /
+#: not_entailment — which is the distinction the metric needs; a three-way NLI
+#: head would spend capacity separating neutral from contradiction, and nothing
+#: here reads that difference.
+_ENTAILMENT = 0
+
+
+@dataclass(frozen=True)
+class Verdict:
+    """One (chunk, claim) judgement, with the evidence behind it.
+
+    `n_premises` is carried because it is the artefact the model choice exists
+    to avoid: any run where it is routinely above 1 is a run whose scores are
+    inflated by chunk length, and that has to be visible rather than inferred.
+    """
+
+    supported: bool
+    score: float
+    n_premises: int
+
+    @property
+    def windowed(self) -> bool:
+        return self.n_premises > 1
+
+
+@lru_cache(maxsize=4)
+def _load(model_name: str) -> tuple[Tokenizer, onnxruntime.InferenceSession]:
+    """Tokenizer and ONNX session, loaded once per process.
+
+    The ONNX export is shipped by the model repository itself, so no third-party
+    conversion enters the trust path and no dependency is added — `onnxruntime`
+    and `tokenizers` are already in the tree via fastembed.
+    """
+    path = hf_hub_download(model_name, "onnx/model.onnx")
+    try:
+        # Exports above 2 GB keep their weights beside the graph; onnxruntime
+        # resolves the sibling by name when the session is created.
+        hf_hub_download(model_name, "onnx/model.onnx_data")
+    except Exception:
+        pass
+    tok = Tokenizer.from_file(hf_hub_download(model_name, "tokenizer.json"))
+    sess = onnxruntime.InferenceSession(path, providers=_PROVIDERS)
+    return tok, sess
+
+
+def build_premises(
+    text: str,
+    model_name: str | None = None,
+    cap: int | None = None,
+) -> list[str]:
+    """The chunk as one premise when it fits, overlapping windows when it does not.
+
+    The cap is a cost boundary, not a capability one: the model reads 8194 tokens,
+    but attention is quadratic and measured cost runs 123 ms at 758 tokens, 762 ms
+    at 2951 and **19.7 s at 7693**.  Above the cap, windowing is cheaper than one
+    long pass — and it reintroduces the multiple-comparison artefact, which is why
+    the cap is set where it leaves 96% of chunks in a single window.
+    """
+    model_name = model_name or cfg.ENTAILMENT_MODEL
+    cap = cap or cfg.ENTAILMENT_PREMISE_CAP
+    tok, _ = _load(model_name)
+    tok.no_truncation()
+    ids = tok.encode(text).ids
+    if len(ids) <= cap:
+        return [text]
+    stride = max(1, cap // 2)
+    return [tok.decode(ids[i:i + cap]) for i in range(0, len(ids), stride)]
+
+
+def p_entailment(
+    pairs: list[tuple[str, str]],
+    model_name: str | None = None,
+) -> list[float]:
+    """P(entailment) for each (premise, hypothesis) pair.
+
+    One pair per forward pass.  Batching would pad every sequence up to the
+    longest in the batch and attention is quadratic in that length, so a batch of
+    8 at the premise cap asks for roughly 8 GB of attention matrices and the
+    DirectML allocator refuses outright — measured, not feared.  At batch 1 there
+    is also no padding to pay for, and the whole comparison run on ledger came in
+    *faster* than the 512-token model it replaced.
+    """
+    model_name = model_name or cfg.ENTAILMENT_MODEL
+    tok, sess = _load(model_name)
+    tok.enable_truncation(cfg.ENTAILMENT_MAX_LEN)
+    tok.no_padding()
+    out: list[float] = []
+    for premise, hypothesis in pairs:
+        enc = tok.encode(premise, hypothesis)
+        logits = sess.run(None, {
+            "input_ids": np.array([enc.ids], dtype=np.int64),
+            "attention_mask": np.array([enc.attention_mask], dtype=np.int64),
+        })[0][0]
+        e = np.exp(logits - logits.max())
+        out.append(float((e / e.sum())[_ENTAILMENT]))
+    return out
+
+
+def verify(
+    chunk_text: str,
+    claim: str,
+    model_name: str | None = None,
+    threshold: float | None = None,
+) -> Verdict:
+    """Does `chunk_text` support `claim`?
+
+    The score is the maximum over premises: if any part of the chunk entails the
+    claim, the chunk does.  For 96% of chunks there is exactly one premise and
+    the max is not a max at all.
+    """
+    threshold = cfg.ENTAILMENT_THRESHOLD if threshold is None else threshold
+    premises = build_premises(chunk_text, model_name)
+    scores = p_entailment([(p, claim) for p in premises], model_name)
+    best = max(scores) if scores else 0.0
+    return Verdict(supported=best >= threshold, score=best, n_premises=len(premises))
+
+
+_WHITESPACE = re.compile(r"\s+")
+
+
+def normalize_premise(text: str) -> str:
+    """Collapse whitespace so a chunk's formatting does not eat its token budget.
+
+    LEDGER chunks are OCR output with runs of newlines and spaces inside table
+    markup.  Those tokens count against the premise cap while carrying nothing a
+    claim could be entailed by.
+    """
+    return _WHITESPACE.sub(" ", text).strip()
