@@ -101,6 +101,7 @@ L'associazione fra `#1` e il run corrispondente e risolta col colore: la tabella
 |---|---|---|
 | C-01 | ✅ fatto (2026-08-10) | **PASS su ledger, non dimostrato su open_ragbench.** Vedi sotto: il risultato è la differenza fra i due, non la media. |
 | C-02 | ✅ fatto (2026-08-10) | Parser ricostruito sugli output reali. Ribaltata una regola del T-06 che **fabbricava** citazioni 16 volte su 16. |
+| C-03 | ⏸️ **sospeso (2026-08-10)** | Nessuna riga di pipeline scritta. Il verificatore imposto da STACK.md è stato misurato **prima** di costruirci sopra e non regge: vedi sotto. Decisione da prendere. |
 
 ### C-01 — Prompt con chunk numerati e formato citazione
 
@@ -182,3 +183,65 @@ Ora l'espansione è condizionata: si applica solo se **ogni** numero è un indic
 **Materiale e strumenti:** `tests/fixtures/malformed_citations.jsonl` (49 costrutti distinti, 124 occorrenze, con provenienza run + query_id), generato da `scripts/extract_malformed.py` così da essere riderivabile quando arrivano run nuove invece di divergere. La fixture raccoglie anche i costrutti che il checker **scagiona** (gli intervalli matematici): una fixture che contiene solo le cose da aggiustare non può accorgersi di un aggiustamento che eccede. `scripts/measure_repair.py` tiene separate le due misure — far girare la riparazione prima del checker di C-01 darebbe ~100% per costruzione e non direbbe niente né sul prompt né sul parser. **1112 test.**
 
 **Aperto**: `parse()` è chiamato solo da `scripts/query.py`. Il percorso di servizio vero non esiste ancora (Fase 5); quando l'API arriva, la riparazione va agganciata lì e il testo grezzo va comunque conservato, perché è quello che C-01 misura.
+
+### C-03 — Verifica di entailment: **sospeso dopo la misura dello strumento**
+
+**Nessuna riga della pipeline è stata scritta.** Prima di costruire `citation_precision` sopra mDeBERTa-XNLI — il verificatore che STACK.md impone — lo strumento è stato misurato. Non regge abbastanza da poterci appoggiare la metrica distintiva del progetto, e la decisione su come procedere è aperta.
+
+Le misure sono riproducibili con `scripts/probe_entailment.py {backend|length|separation}`.
+
+#### 1. Il backend è risolto, e non serve nessuna dipendenza nuova
+
+| via | ms/coppia |
+|---|---|
+| torch CPU (`transformers`) | **4262** |
+| onnxruntime + DirectML | **61** |
+
+**~70×.** Il repo `MoritzLaurer/...-2mil7` spedisce lui stesso `onnx/model.onnx` (MIT), quindi niente conversione di terze parti nel percorso di fiducia, e `onnxruntime` + `tokenizers` sono già in albero via fastembed. Verificato che l'export coincida col riferimento torch: **max |Δ P(entail)| = 8,8e-03, verdetti concordi 9/9**. Su torch la strada era comunque chiusa — PyTorch non usa la GPU AMD su Windows, e 4,3 s per coppia rende infattibile qualsiasi run.
+
+#### 2. Il difetto sta nella metrica, non nel modello: il max su N finestre gonfia coi chunk lunghi
+
+mDeBERTa ha una finestra di **512 token**; i nostri chunk hanno mediana **714** e p90 **2582**. La premessa va spezzata in finestre e si prende il massimo — ed è lì che nasce un problema di confronti multipli: ogni finestra in più è un'altra occasione di falso positivo.
+
+Misurato su un claim che **nessuno** dei chunk campionati supporta, quindi ogni punteggio alto è per costruzione un errore:
+
+| finestre del chunk | P(entail) max, mediana | sopra 0,5 |
+|---|---|---|
+| 1 | 0,002 | 0/6 |
+| 2–3 | 0,005 | 0/6 |
+| 4–8 | 0,006 | 1/9 |
+| 9+ | 0,046 | 1/19 |
+
+**Correlazione fra numero di finestre e P(entail) massima: 0,46–0,54.** Senza controllo, `citation_precision` misurerebbe in parte la lunghezza del chunk citato. È lo stesso tipo di artefatto del troncamento in C-01: una variabile di comodo che entra nel numero e si fa passare per il fenomeno.
+
+#### 3. Con la lunghezza appaiata il segnale c'è, ma è troppo debole
+
+Floor test: il claim è **copiato alla lettera** dal chunk, quindi implicato per costruzione; il negativo è un chunk di un altro documento **con lo stesso numero di finestre**, così il confronto non si può vincere con la lunghezza. 60 coppie per dataset.
+
+| dataset | AUC | IC95 | claim vero sopra 0,5 | chunk estraneo sopra 0,5 |
+|---|---|---|---|---|
+| **open_ragbench** | 0,664 | [0,567 – 0,760] | 24/60 | **18/60** |
+| **ledger** | 0,785 | [0,703 – 0,867] | 29/60 | 5/60 |
+
+Due letture, entrambe scomode:
+
+- **Su un compito in cui il claim è copiato alla lettera, alla soglia naturale di 0,5 il verificatore dichiara non supportate più della metà delle attribuzioni vere** (24/60 e 29/60). Non è una soglia da calibrare: è che le due distribuzioni si sovrappongono.
+- **L'errore è di nuovo dipendente dal genere.** Su open_ragbench il 30% dei chunk *estranei* supera 0,5 contro l'8% di LEDGER: sono paper sullo stesso argomento, e un claim tratto da uno sembra implicato dall'abstract di un altro. I bilanci sono specifici per azienda e non si confondono.
+
+#### 4. Su LEDGER il set di validazione per parafrasi non è costruibile
+
+Le `reference_answer` di LEDGER sono **numeri nudi** (`'2104600000'`), non frasi. Il protocollo usato su open_ragbench — frase della risposta di riferimento contro il chunk rilevante — lì non esiste. Il floor test verbatim è stato scelto proprio perché è l'unica costruzione identica sui due generi; qualsiasi confronto fra i due dataset fatto con protocolli diversi non sarebbe stato un confronto.
+
+#### 5. Una porta aperta, e un vincolo da rimettere in discussione
+
+STACK.md impone il modello **multilingue** — ma **entrambi i corpus sono in inglese** (paper arXiv, filing SEC). Il vincolo era una precauzione e qui costa accuratezza senza comprare niente: modelli NLI monolingui addestrati su FEVER/ANLI, cioè proprio su verifica di fatti con premesse lunghe, sono l'alternativa ovvia da misurare col protocollo già scritto. Non è stato fatto perché tocca un documento vincolante e la decisione non è mia.
+
+#### Errori di metodo commessi qui
+
+**1. La prima sonda dava AUC 0,53 e sarebbe stata un risultato falso.** Il tetto di 12 finestre copriva 2600 token di un chunk da 4810: la frase sotto esame cadeva **fuori** da ogni finestra, e stavo chiedendo al modello di implicare un claim da un testo che non lo conteneva. Controllato prima di scriverlo da qualche parte — `claim dentro qualche finestra: False` — e con la finestra giusta lo stesso caso dà 0,94.
+
+**2. Una sonda ha dato AUC 0,41, sotto il caso puro.** Impossibile, e per questo utile: era il segnale che i negativi erano sistematicamente più lunghi dei positivi. È così che è stato trovato l'artefatto del §2. Un risultato assurdo va inseguito, non arrotondato.
+
+**3. A n=25 l'AUC oscillava fra 0,66 e 0,74 fra due campionamenti.** Le cifre riportate sopra sono a n=60 e con l'intervallo accanto, che è largo comunque.
+
+**Rischio pre-esistente trovato per caso:** `scripts/profile.py` fa ombra al modulo stdlib `profile`, che torch importa. Qualsiasi script in `scripts/` che tocchi torch fallisce con un `ModuleNotFoundError: GenerationMixin` che non c'entra niente. `probe_entailment.py` si toglie da solo la propria directory da `sys.path`; la causa resta.
