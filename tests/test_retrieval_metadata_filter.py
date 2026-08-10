@@ -180,8 +180,8 @@ class TestFilterContentTypeHarness:
         hit = _fake_hit("open_ragbench:doc1:0")
 
         with patch("src.eval.harness.get_client"), \
-             patch("src.eval.harness.encode", return_value=[[0.1] * 1024]), \
-             patch("src.eval.harness.search_batch", return_value=[[hit]]) as mock_sb:
+             patch("src.eval.retrieval_backends.encode", return_value=[[0.1] * 1024]), \
+             patch("src.eval.retrieval_backends.search_batch", return_value=[[hit]]) as mock_sb:
             run = run_retrieval_eval(
                 "open_ragbench", path,
                 retrieval_mode="dense",

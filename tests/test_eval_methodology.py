@@ -47,9 +47,9 @@ def _run(tmp_path: Path, n_hits: int = 30, **kwargs):
     """Run the harness against a mocked Qdrant, returning (EvalRun, search mock)."""
     hits = [_hit(f"open_ragbench:doc{i}:0", 0.9 - i / 100) for i in range(n_hits)]
     with patch("src.eval.harness.get_client"), \
-         patch("src.eval.harness.encode", return_value=[[0.1] * 1024]), \
-         patch("src.eval.harness.encode_sparse", return_value=[MagicMock()]), \
-         patch("src.eval.harness.search_batch", return_value=[hits]) as sb, \
+         patch("src.eval.retrieval_backends.encode", return_value=[[0.1] * 1024]), \
+         patch("src.eval.retrieval_backends.encode_sparse", return_value=[MagicMock()]), \
+         patch("src.eval.retrieval_backends.search_batch", return_value=[hits]) as sb, \
          patch("src.eval.harness.cross_encode", side_effect=lambda q, p, m, top_n: [
              _hit(x["chunk_id"]) for x in p[:top_n]
          ]):
@@ -101,8 +101,8 @@ class TestMetricDepth:
         hits = [_hit(f"open_ragbench:other{i}:0", 0.9 - i / 100) for i in range(7)]
         hits.append(_hit("open_ragbench:doc1:0", 0.1))  # rank 8, the relevant one
         with patch("src.eval.harness.get_client"), \
-             patch("src.eval.harness.encode", return_value=[[0.1] * 1024]), \
-             patch("src.eval.harness.search_batch", return_value=[hits]):
+             patch("src.eval.retrieval_backends.encode", return_value=[[0.1] * 1024]), \
+             patch("src.eval.retrieval_backends.search_batch", return_value=[hits]):
             run = run_retrieval_eval("open_ragbench", _golden(tmp_path), top_k=5)
         assert run.metrics["R@5"] == 0.0
         assert run.metrics["R@10"] == 1.0

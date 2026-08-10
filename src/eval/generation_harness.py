@@ -76,6 +76,9 @@ def run_generation_eval(
 
     system_prompt = _PROMPTS[baseline]
 
+    # See citation_harness.run_citation_eval: captured before the run.
+    commit = git_commit()
+
     all_queries = load_golden(golden_path)
     candidates = [
         q
@@ -123,7 +126,7 @@ def run_generation_eval(
     return EvalRun(
         run_id=str(uuid.uuid4()),
         timestamp=datetime.now(timezone.utc),
-        git_commit=git_commit(),
+        git_commit=commit,
         config_hash=_config_hash(baseline, model),
         dataset_id=dataset_id,
         model=model,
