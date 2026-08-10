@@ -231,7 +231,7 @@ Per ogni dataset candidato: 16 domande costruite con lo stesso schema dei test p
 |---|---|---|
 | C-01 | Prompt con chunk numerati ed esempio del formato citazione | Formato §3.2 rispettato in ≥95% delle generazioni |
 | C-02 | Parser + validazione + **riparazione** delle varianti note | Test sugli output malformati reali |
-| C-03 | Verifica di entailment (mDeBERTa NLI) affermazione ↔ chunk citato | `citation_precision` in tabella |
+| C-03 | Verifica di entailment affermazione ↔ chunk citato (modello NLI in `STACK.md`) | `citation_precision` in tabella |
 | C-04 | Astensione: soglia sui punteggi di retrieval **decisa dal codice** | Tasso di astensione corretta su E-02 |
 | C-05 | Istruzione esplicita sulla lingua di output | Nessuna risposta mista incoerente su 20 campioni |
 | C-06 | **Scaling**: stesso sistema su E2B, E4B, 12B, tutte le metriche + latenza + VRAM | È l'affermazione 3 del §0 |
