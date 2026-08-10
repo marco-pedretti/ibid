@@ -17,12 +17,14 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from src.generation.citation_format import (
+    COMPLIANCE_TARGET,
     VIOLATION_KINDS,
     FormatReport,
     check_format,
     find_violations,
     is_abstention,
     summarize,
+    wilson_lower,
 )
 
 
@@ -213,3 +215,41 @@ class TestMeasuredBeforeRepair:
         # A FormatReport carries the verdict and the evidence, never a fixed
         # string: nothing downstream can mistake it for repaired output.
         assert not hasattr(FormatReport(compliant=True, abstained=False), "repaired")
+
+
+class TestWilsonLower:
+    """The interval is what turns a sample rate into a claim about the model."""
+
+    def test_perfect_small_sample_does_not_reach_the_target(self):
+        # 10/10 is 100%, but ten answers cannot support ">= 95%".
+        assert wilson_lower(10, 10) < COMPLIANCE_TARGET
+
+    def test_perfect_large_sample_does(self):
+        assert wilson_lower(200, 200) >= COMPLIANCE_TARGET
+
+    def test_bound_is_below_the_point_estimate(self):
+        assert wilson_lower(95, 100) < 0.95
+
+    def test_bound_never_negative(self):
+        assert wilson_lower(0, 5) == 0.0
+
+    def test_empty_sample(self):
+        assert wilson_lower(0, 0) == 0.0
+
+    def test_tightens_as_n_grows(self):
+        assert wilson_lower(98, 100) < wilson_lower(980, 1000)
+
+    def test_summary_exposes_the_bound(self):
+        reports = [check_format("Vero [1].", 5) for _ in range(50)]
+        s = summarize(reports)
+        assert s.rate == 1.0 and 0.0 < s.rate_lower95 < 1.0
+
+    def test_meets_target_uses_the_bound_not_the_rate(self):
+        # 20/20 = 100% point estimate, but the bound is ~0.84.
+        s = summarize([check_format("Vero [1].", 5) for _ in range(20)])
+        assert s.rate == 1.0
+        assert not s.meets_target
+
+    def test_meets_target_true_on_a_large_clean_sample(self):
+        s = summarize([check_format("Vero [1].", 5) for _ in range(200)])
+        assert s.meets_target

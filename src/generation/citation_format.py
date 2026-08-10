@@ -25,10 +25,14 @@ is expected to report both — one without the other is not interpretable.
 
 from __future__ import annotations
 
+import math
 import re
 from dataclasses import dataclass, field
 
 from src.generation.baseline_prompts import ABSTENTION_PHRASES
+
+#: C-01 is accepted at ≥95% compliance.
+COMPLIANCE_TARGET = 0.95
 
 #: Every violation kind, in reporting order.  Exposed so callers can emit a
 #: metric key per kind on every run, including the kinds that did not occur —
@@ -158,6 +162,28 @@ def check_format(text: str, n_chunks: int) -> FormatReport:
     )
 
 
+def wilson_lower(k: int, n: int, z: float = 1.96) -> float:
+    """Lower bound of the 95% Wilson interval for a proportion k/n.
+
+    C-01 asks for "≥95%", and a point estimate cannot answer that on a sample.
+    39/40 is 97.5% with a lower bound of 87% — the same point estimate that
+    passes on 400 answers fails on 40.  Wilson rather than the normal
+    approximation because the interval sits near 1, where the normal one
+    produces bounds above 100%.
+
+    Full-population runs are not affordable here (one answer costs ~20s of GPU
+    against ~10ms for a retrieval query), so the sample is all there is and its
+    width has to be reported with it.
+    """
+    if n == 0:
+        return 0.0
+    p = k / n
+    denom = 1 + z * z / n
+    centre = p + z * z / (2 * n)
+    margin = z * math.sqrt(p * (1 - p) / n + z * z / (4 * n * n))
+    return max(0.0, (centre - margin) / denom)
+
+
 @dataclass(frozen=True)
 class ComplianceSummary:
     """Aggregate over a set of generations.
@@ -171,8 +197,18 @@ class ComplianceSummary:
     n_scored: int
     n_compliant: int
     rate: float
+    rate_lower95: float
     kind_rates: dict[str, float]
     markers_per_answer: float
+
+    @property
+    def meets_target(self) -> bool:
+        """True when the *lower bound* clears the target, not the point estimate.
+
+        The stricter reading of "≥95%": it is the one that does not let a small
+        sample declare a pass it cannot support.
+        """
+        return self.rate_lower95 >= COMPLIANCE_TARGET
 
 
 def summarize(reports: list[FormatReport]) -> ComplianceSummary:
@@ -197,6 +233,7 @@ def summarize(reports: list[FormatReport]) -> ComplianceSummary:
         n_scored=n_scored,
         n_compliant=n_compliant,
         rate=n_compliant / n_scored if n_scored else 0.0,
+        rate_lower95=wilson_lower(n_compliant, n_scored),
         kind_rates=kind_rates,
         markers_per_answer=(
             sum(len(r.markers) for r in scored) / n_scored if n_scored else 0.0
