@@ -60,8 +60,8 @@ class TestDenseRetrieval:
         fake_vec = [0.1] * 1024
 
         with patch("src.eval.harness.get_client"), \
-             patch("src.eval.harness.encode", return_value=[fake_vec]), \
-             patch("src.eval.harness.search_batch",
+             patch("src.eval.retrieval_backends.encode", return_value=[fake_vec]), \
+             patch("src.eval.retrieval_backends.search_batch",
                    return_value=[[ _fake_hit("open_ragbench:doc1:0")]]):
             run = run_retrieval_eval("open_ragbench", path, top_k=5, limit=1)
 
@@ -72,9 +72,9 @@ class TestDenseRetrieval:
         fake_vec = [0.1] * 1024
 
         with patch("src.eval.harness.get_client"), \
-             patch("src.eval.harness.encode", return_value=[fake_vec]) as mock_enc, \
-             patch("src.eval.harness.encode_sparse") as mock_sparse, \
-             patch("src.eval.harness.search_batch", return_value=[[]]):
+             patch("src.eval.retrieval_backends.encode", return_value=[fake_vec]) as mock_enc, \
+             patch("src.eval.retrieval_backends.encode_sparse") as mock_sparse, \
+             patch("src.eval.retrieval_backends.search_batch", return_value=[[]]):
             run_retrieval_eval("open_ragbench", path, retrieval_mode="dense", limit=1)
 
         mock_enc.assert_called_once()
@@ -85,8 +85,8 @@ class TestDenseRetrieval:
         fake_vec = [0.1] * 1024
 
         with patch("src.eval.harness.get_client"), \
-             patch("src.eval.harness.encode", return_value=[fake_vec]), \
-             patch("src.eval.harness.search_batch", return_value=[[]]) as mock_batch:
+             patch("src.eval.retrieval_backends.encode", return_value=[fake_vec]), \
+             patch("src.eval.retrieval_backends.search_batch", return_value=[[]]) as mock_batch:
             run_retrieval_eval("open_ragbench", path, retrieval_mode="dense", limit=1)
 
         _, kwargs = mock_batch.call_args
@@ -96,8 +96,8 @@ class TestDenseRetrieval:
         path = _write_golden(tmp_path, [_answerable()])
 
         with patch("src.eval.harness.get_client"), \
-             patch("src.eval.harness.encode", return_value=[[0.1] * 1024]), \
-             patch("src.eval.harness.search_batch", return_value=[[]]):
+             patch("src.eval.retrieval_backends.encode", return_value=[[0.1] * 1024]), \
+             patch("src.eval.retrieval_backends.search_batch", return_value=[[]]):
             run = run_retrieval_eval("open_ragbench", path, pipeline_mode="generic", limit=1)
 
         assert run.pipeline_mode == "generic"
@@ -106,8 +106,8 @@ class TestDenseRetrieval:
         path = _write_golden(tmp_path, [_answerable(chunk_id="open_ragbench:doc1:0")])
 
         with patch("src.eval.harness.get_client"), \
-             patch("src.eval.harness.encode", return_value=[[0.1] * 1024]), \
-             patch("src.eval.harness.search_batch",
+             patch("src.eval.retrieval_backends.encode", return_value=[[0.1] * 1024]), \
+             patch("src.eval.retrieval_backends.search_batch",
                    return_value=[[_fake_hit("open_ragbench:doc1:0", 0.95)]]):
             run = run_retrieval_eval("open_ragbench", path, limit=1)
 
@@ -129,10 +129,10 @@ class TestSparseRetrieval:
         sparse_vec = self._fake_sparse_vec()
 
         with patch("src.eval.harness.get_client"), \
-             patch("src.eval.harness.encode") as mock_dense, \
-             patch("src.eval.harness.encode_sparse",
+             patch("src.eval.retrieval_backends.encode") as mock_dense, \
+             patch("src.eval.retrieval_backends.encode_sparse",
                    return_value=[sparse_vec]) as mock_sparse, \
-             patch("src.eval.harness.search_batch", return_value=[[]]):
+             patch("src.eval.retrieval_backends.search_batch", return_value=[[]]):
             run_retrieval_eval("open_ragbench", path, retrieval_mode="sparse", limit=1)
 
         mock_sparse.assert_called_once()
@@ -143,8 +143,8 @@ class TestSparseRetrieval:
         sparse_vec = self._fake_sparse_vec()
 
         with patch("src.eval.harness.get_client"), \
-             patch("src.eval.harness.encode_sparse", return_value=[sparse_vec]), \
-             patch("src.eval.harness.search_batch", return_value=[[]]) as mock_batch:
+             patch("src.eval.retrieval_backends.encode_sparse", return_value=[sparse_vec]), \
+             patch("src.eval.retrieval_backends.search_batch", return_value=[[]]) as mock_batch:
             run_retrieval_eval("open_ragbench", path, retrieval_mode="sparse", limit=1)
 
         _, kwargs = mock_batch.call_args
@@ -155,8 +155,8 @@ class TestSparseRetrieval:
         sparse_vec = self._fake_sparse_vec()
 
         with patch("src.eval.harness.get_client"), \
-             patch("src.eval.harness.encode_sparse", return_value=[sparse_vec]), \
-             patch("src.eval.harness.search_batch", return_value=[[]]):
+             patch("src.eval.retrieval_backends.encode_sparse", return_value=[sparse_vec]), \
+             patch("src.eval.retrieval_backends.search_batch", return_value=[[]]):
             run = run_retrieval_eval(
                 "open_ragbench", path,
                 retrieval_mode="sparse",
@@ -171,8 +171,8 @@ class TestSparseRetrieval:
         sparse_vec = self._fake_sparse_vec()
 
         with patch("src.eval.harness.get_client"), \
-             patch("src.eval.harness.encode_sparse", return_value=[sparse_vec]), \
-             patch("src.eval.harness.search_batch", return_value=[[]]):
+             patch("src.eval.retrieval_backends.encode_sparse", return_value=[sparse_vec]), \
+             patch("src.eval.retrieval_backends.search_batch", return_value=[[]]):
             run = run_retrieval_eval("open_ragbench", path, retrieval_mode="sparse", limit=1)
 
         assert isinstance(run, EvalRun)
@@ -193,22 +193,22 @@ class TestConfigHash:
         retrieval_mode = kwargs.get("retrieval_mode", "dense")
 
         if retrieval_mode == "sparse":
-            embed_patch = patch("src.eval.harness.encode_sparse", return_value=[sparse_vec])
+            embed_patch = patch("src.eval.retrieval_backends.encode_sparse", return_value=[sparse_vec])
         elif retrieval_mode == "hybrid":
-            embed_patch = patch("src.eval.harness.encode", return_value=[[0.1] * 1024])
+            embed_patch = patch("src.eval.retrieval_backends.encode", return_value=[[0.1] * 1024])
         else:
-            embed_patch = patch("src.eval.harness.encode", return_value=[[0.1] * 1024])
+            embed_patch = patch("src.eval.retrieval_backends.encode", return_value=[[0.1] * 1024])
 
         if retrieval_mode == "hybrid":
             with patch("src.eval.harness.get_client"), \
                  embed_patch, \
-                 patch("src.eval.harness.encode_sparse", return_value=[sparse_vec]), \
-                 patch("src.eval.harness.search_batch", return_value=[[]]):
+                 patch("src.eval.retrieval_backends.encode_sparse", return_value=[sparse_vec]), \
+                 patch("src.eval.retrieval_backends.search_batch", return_value=[[]]):
                 return run_retrieval_eval("open_ragbench", path, limit=1, **kwargs)
         else:
             with patch("src.eval.harness.get_client"), \
                  embed_patch, \
-                 patch("src.eval.harness.search_batch", return_value=[[]]):
+                 patch("src.eval.retrieval_backends.search_batch", return_value=[[]]):
                 return run_retrieval_eval("open_ragbench", path, limit=1, **kwargs)
 
     def test_dense_and_sparse_have_different_hash(self, tmp_path):

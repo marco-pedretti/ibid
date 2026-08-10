@@ -30,7 +30,8 @@ ROOT = Path(__file__).parent.parent
 sys.path.insert(0, str(ROOT))
 
 import src.config as cfg
-from src.eval.harness import _RETRIEVERS, load_golden
+from src.eval.harness import load_golden
+from src.eval.retrieval_backends import RETRIEVERS
 from src.eval.metrics import METRIC_DEPTH
 from src.eval.paired import compare_paired
 from src.index.store import get_client
@@ -56,7 +57,7 @@ def _top_docs(chunk_ids: list[str], k: int) -> list[str]:
 def per_query_hits(client, dataset_id, collection, queries, mode, depth, k):
     """One boolean per query: was a relevant document retrieved in the top k."""
     texts = [q.query_text for q in queries]
-    candidates = _RETRIEVERS[mode](client, collection, texts, depth, None)
+    candidates = RETRIEVERS[mode](client, collection, texts, depth, None)
     hits = []
     for query, cand in zip(queries, candidates):
         gold = {doc_id_from_chunk_id(qr.chunk_id) for qr in query.qrels if qr.relevance > 0}
