@@ -101,7 +101,7 @@ L'associazione fra `#1` e il run corrispondente e risolta col colore: la tabella
 |---|---|---|
 | C-01 | ✅ fatto (2026-08-10) | **PASS su ledger, non dimostrato su open_ragbench.** Vedi sotto: il risultato è la differenza fra i due, non la media. |
 | C-02 | ✅ fatto (2026-08-10) | Parser ricostruito sugli output reali. Ribaltata una regola del T-06 che **fabbricava** citazioni 16 volte su 16. |
-| C-03 | ⏸️ **sospeso (2026-08-10)** | Nessuna riga di pipeline scritta. Il verificatore imposto da STACK.md è stato misurato **prima** di costruirci sopra e non regge: vedi sotto. Decisione da prendere. |
+| C-03 | 🔄 in corso (2026-08-10) | Sospeso e **riaperto** in giornata: il verificatore di STACK.md è stato misurato prima di costruirci sopra, non reggeva, ed è stato sostituito con la misura a supporto. Vedi sotto. |
 
 ### C-01 — Prompt con chunk numerati e formato citazione
 
@@ -184,11 +184,11 @@ Ora l'espansione è condizionata: si applica solo se **ogni** numero è un indic
 
 **Aperto**: `parse()` è chiamato solo da `scripts/query.py`. Il percorso di servizio vero non esiste ancora (Fase 5); quando l'API arriva, la riparazione va agganciata lì e il testo grezzo va comunque conservato, perché è quello che C-01 misura.
 
-### C-03 — Verifica di entailment: **sospeso dopo la misura dello strumento**
+### C-03 — Verifica di entailment: lo strumento misurato prima di usarlo
 
-**Nessuna riga della pipeline è stata scritta.** Prima di costruire `citation_precision` sopra mDeBERTa-XNLI — il verificatore che STACK.md impone — lo strumento è stato misurato. Non regge abbastanza da poterci appoggiare la metrica distintiva del progetto, e la decisione su come procedere è aperta.
+Prima di costruire `citation_precision` sopra mDeBERTa-XNLI — il verificatore che STACK.md imponeva — lo strumento è stato misurato. Non reggeva. Il task è stato **sospeso**, e riaperto solo dopo aver sostituito il modello con una misura a supporto (§6 qui sotto, e la voce nuova in STACK.md).
 
-Le misure sono riproducibili con `scripts/probe_entailment.py {backend|length|separation}`.
+Le misure sono riproducibili con `scripts/probe_entailment.py {backend|length|separation|compare}`.
 
 #### 1. Il backend è risolto, e non serve nessuna dipendenza nuova
 
@@ -235,6 +235,36 @@ Le `reference_answer` di LEDGER sono **numeri nudi** (`'2104600000'`), non frasi
 #### 5. Una porta aperta, e un vincolo da rimettere in discussione
 
 STACK.md impone il modello **multilingue** — ma **entrambi i corpus sono in inglese** (paper arXiv, filing SEC). Il vincolo era una precauzione e qui costa accuratezza senza comprare niente: modelli NLI monolingui addestrati su FEVER/ANLI, cioè proprio su verifica di fatti con premesse lunghe, sono l'alternativa ovvia da misurare col protocollo già scritto. Non è stato fatto perché tocca un documento vincolante e la decisione non è mia.
+
+#### 6. La sostituzione, e perché la leva vera era la finestra
+
+Il vincolo multilingue è rimasto in piedi: la sostituzione è avvenuta **dentro** di esso, quindi non si è relitigata la scelta di STACK.md ma si è cambiato il modello all'interno del vincolo che quella scelta poneva.
+
+Il candidato non è "un modello più bravo", ed è la parte che conta: **`MoritzLaurer/bge-m3-zeroshot-v2.0`** ha una finestra di **8194 token** invece di 512. Sui nostri chunk questo significa che **il 99% entra in un passaggio solo** — quindi N=1, quindi l'artefatto dei confronti multipli del §2 **non si presenta**. Non viene calibrato via: sparisce per costruzione. È MIT, multilingue, e spedisce il proprio `onnx/model.onnx` nel repo del modello, quindi nessuna conversione di terze parti e nessuna dipendenza nuova. La testa è binaria (`entailment` / `not_entailment`), che è esattamente la distinzione che serve.
+
+Confronto appaiato — **le stesse identiche coppie punteggiate dai due modelli**, perché due run indipendenti su due campioni diversi non rispondono alla domanda «l'altro è migliore»:
+
+| dataset | mDeBERTa-v3 (512) | bge-m3-zeroshot (8192) | McNemar esatto |
+|---|---|---|---|
+| **open_ragbench** | AUC 0,661 [0,564–0,758] | **0,939** [0,894–0,984] | **p = 0,0001** |
+| **ledger** | AUC 0,742 [0,654–0,831] | **0,910** [0,856–0,964] | **p = 0,0094** |
+
+**Il guadagno non è nel riconoscere meglio le attribuzioni vere, è nel non approvarne di false:**
+
+| chunk *estranei* sopra 0,5 | prima | dopo |
+|---|---|---|
+| open_ragbench | 23/60 | **2/60** |
+| ledger | 13/60 | **0/60** |
+
+La confusione fra paper diversi del §3 — il difetto peggiore trovato — è scomparsa. Ed è il fallimento che conta: un verificatore che **approva** citazioni sbagliate gonfia `citation_precision`, che è molto peggio di uno pessimista.
+
+Tre vincoli operativi che ne derivano, tutti misurati e tutti finiti in STACK.md:
+
+- **Premessa = chunk intero fino a ~4096 token** (96% dei casi), finestre solo per la coda. Sopra i ~4000 l'attenzione quadratica costa più del windowing: 123 ms a 758 token, 762 ms a 2951, **19,7 s a 7693**.
+- **Batch 1.** Il primo tentativo è morto con «risorse di memoria insufficienti»: il padding riempie il batch fino al suo elemento più lungo, quindi 8 sequenze da 4096 chiedono ~8 GB di sole matrici di attenzione.
+- **Il costo dipende dal genere, non è un moltiplicatore costante.** Sulle stesse 120 valutazioni: 312 s contro 93 s su open_ragbench, ma **37 s contro 43 s su LEDGER** — dove i chunk stanno in una finestra, il modello grande è più veloce di quello piccolo.
+
+**Cosa questo non dimostra.** Il floor test usa claim copiati alla lettera: vincere lì non garantisce di vincere sulle parafrasi, che è il compito vero, e la sonda per parafrasi si costruisce solo su ORB (§4). E la soglia **non va scelta sugli stessi dati su cui si misura l'accuratezza**, o il numero esce ottimista per costruzione: serve una partizione separata.
 
 #### Errori di metodo commessi qui
 
