@@ -92,3 +92,65 @@ L'associazione fra `#1` e il run corrispondente e risolta col colore: la tabella
 **Ipotesi sul −20% di LEDGER → [`docs/open-questions.md`](open-questions.md) (OQ-01).** Guardando i chunk renderizzati sono emersi tre indizi (i chunk tabella non embeddano il proprio `section_path`; sono 12× piu piccoli e per meta non alfabetici; i fallimenti hanno score alto ma documento sbagliato) e una controprova che li complica: `open_ragbench_routed` perde l'heading ancora piu severamente e **migliora**. La causa annotata in R-07 ("IDF diluito") resta una congettura non misurata. OQ-01 contiene le misure, le tre ipotesi ancora in piedi, due trappole nei dati gia raccolti e un protocollo a stadi che parte da due controlli da 10 minuti prima di spendere ore di GPU.
 
 **Rimasto fuori di proposito** (proposti, non implementati): pagina **Claims** con le tre affermazioni del §0 per dataset — ha senso quando la Fase 4 popola le affermazioni 1 e 3; **Corpus Profile** che unisce le statistiche Qdrant a `src/profiling/profiler.py` (un istogramma delle lunghezze chunk avrebbe previsto il risultato di R-07 senza spendere 10h di GPU); **Citation Inspector** per C-01→C-04.
+
+---
+
+## Fase 4 — Citazioni verificate e scaling
+
+| Task | Stato | Note |
+|---|---|---|
+| C-01 | ✅ fatto (2026-08-10) | **PASS su ledger, non dimostrato su open_ragbench.** Vedi sotto: il risultato è la differenza fra i due, non la media. |
+
+### C-01 — Prompt con chunk numerati e formato citazione
+
+**Il numero, per dataset** (gemma4:latest / E4B, Q4_K_M, ctx 32768, T=0, dense top_k=5, 200 query per dataset):
+
+| dataset | conformità | intervallo Wilson 95% | verdetto |
+|---|---|---|---|
+| **ledger** | **1,0000** (147/147) | [0,9745 – 1,0000] | **PASS** |
+| **open_ragbench** | 0,9309 (175/188) | [0,8853 – **0,9591**] | non dimostrato |
+
+Su open_ragbench il criterio 0,95 **cade dentro l'intervallo**: non si può dire che fallisce, solo che non è dimostrato. Servirebbero ~800 query (2,7 h di GPU) perché l'intervallo escluda 0,95; a 400 non basta ancora. Deciso di non spenderle: il residuo è dominato da `[1] [2]`, che è precisamente la variante che il parser di C-02 deve riparare, quindi sapere se il grezzo è 93% o 95% non cambia cosa si costruisce dopo.
+
+**Il risultato è la differenza fra i due dataset, non la media.** Una media darebbe 0,96 e nasconderebbe tutto. Su open_ragbench il **23% dei chunk contiene già marcatori `[n]`** — sono paper accademici, e i paper citano così. Su LEDGER, **zero**: nessun riferimento fra parentesi quadre in 1500 chunk campionati. La causa dominante dei fallimenti su ORB — il modello che cita il sistema di riferimenti del documento invece del nostro — su LEDGER **non può esistere**. Stesso modello, stesso prompt, stessa temperatura: l'errore è sistematico e dipendente dal genere documentale. È l'affermazione 1 del §0.
+
+La previsione era stata scritta **prima** di misurare (commit 4ce5ea0), sulla base del conteggio dei marcatori nel corpus.
+
+**Verificato che l'1,0000 non sia un artefatto**: 54% delle risposte valutate su LEDGER usano 2+ marcatori (22 ne usano 5), quindi la contiguità è stata realmente esercitata; mediana 186 caratteri; astensioni tutte con la frase esatta del prompt.
+
+**Cosa si è misurato e cosa no.** Quattro run su open_ragbench, tutti a 200 query:
+
+| run | prompt | conformità | |
+|---|---|---|---|
+| 1 | originale, ragionamento acceso | 0,9227 | gonfiato: 17% troncate, 3% vuote |
+| 2 | originale, ragionamento spento | 0,8906 | **base onesta** |
+| 3 | riscritto sui fallimenti | 0,9309 | |
+| 4 | + promemoria vicino alla domanda | 0,8942 | revertito |
+
+Sottoposti al test appaiato di McNemar sulle stesse query, **nessuno dei cambi di prompt sposta la conformità complessiva in modo significativo**: run2→run3 p=0,210, run3→run4 p=0,167, run2→run4 p=1,000. Il "+4 punti" del run 3 era rumore ed era stato dichiarato come risultato — violazione del §12 corretta in 2c8cf0c.
+
+**Ciò che invece regge** è l'effetto sul bersaglio dichiarato del prompt:
+
+> `out_of_range` — 10 query migliorate, 0 peggiorate, **p = 0,0020**
+
+Le risposte che copiavano i riferimenti del documento sono passate da 19 a 4.
+
+**Lezione operativa, valida per tutta la Fase 4:** a 200 query il tasso complessivo non ha potenza statistica per guidare l'iterazione sul prompt. Solo effetti grandi e concentrati su un singolo tipo di violazione sono misurabili. Iterare guardando il totale significa spendere 40 minuti di GPU per un numero non interpretabile — è successo due volte.
+
+### Correzioni di metodo emerse da C-01
+
+**1. Il ragionamento invisibile di Gemma 4 non era mai stato soppresso.** `"think": false` veniva inviato a ogni richiesta dal T-05, ma è un campo dell'API *nativa* di Ollama: su `/v1/chat/completions` viene scartato in silenzio. Misurato sullo stesso prompt — `think:false` 1410 token, `chat_template_kwargs` 1410, `enable_thinking` 1410, `reasoning_effort:"low"` 1410, **`reasoning_effort:"none"` 267**. La correzione usa il parametro standard OpenAI, quindi resta dentro il vincolo di STACK.md. Conseguenze: `MAX_NEW_TOKENS=1024` torna sufficiente invece di tagliare il 17% delle risposte, e `reasoning_enabled` di `EvalRun` si deriva da `cfg.REASONING_EFFORT` invece di essere scritto `False` a mano — prima ogni run dichiarava spento un ragionamento acceso. `REASONING_EFFORT` è l'interruttore già pronto per **C-07**.
+
+**2. E-04/E-05 non sono mai stati eseguiti** — nessun file di risultato in `eval/results/`, le voci di Fase 2 marcano fatto il *codice* e riportano il comando da lanciare. Il controllo fatto oggi riproducendo le condizioni di allora: **baseline A troncato 10/10**, baseline B 4/10. Se fossero stati lanciati prima di stamattina, il 100% delle risposte del baseline permissivo sarebbe stato tagliato e il giudice avrebbe classificato frasi mozzate — e il gate della Fase 4 poggia proprio su quel confronto. Problema chiuso prima di manifestarsi.
+
+**3. R-03 non è coinvolto**: verificato che il rewrite, con prompt corti, non innesca reasoning e restituisce query sensate. Il suo risultato negativo resta valido.
+
+**4. `git_commit()` poteva mentire in due modi.** Ora marca `-dirty` quando ci sono modifiche a file tracciati (i non tracciati sono ignorati di proposito: ogni run scrive i propri risultati, e una spia sempre accesa non informa), e si legge **all'inizio** del run invece che alla fine — un commit fatto durante i quaranta minuti di generazione veniva registrato come quello che aveva prodotto le risposte. Nessun risultato esistente è invalidato: `git_commit` non entra in `config_hash`.
+
+**5. Le generazioni si scrivono man mano**, sotto un nome `.partial` rinominato solo al termine. Un run morto a 190/200 lasciava zero record; ora ne lascia 190, che sono il materiale di C-02. L'esistenza del nome finale è la prova che il run è arrivato in fondo — senza quella distinzione `rescore_citations.py` valuterebbe un run troncato come intero.
+
+**Strumenti nuovi:** `src/generation/citation_format.py` (validatore §3.2 sul testo **grezzo**, prima di `normalize()`: C-01 misura il prompt, C-02 misurerà il parser), `src/eval/citation_harness.py`, `scripts/eval_citations.py`, `scripts/rescore_citations.py` (ricalcola le metriche dalle generazioni salvate a costo zero, così un cambio dello strumento di misura non lascia vecchi e nuovi numeri incomparabili), `src/eval/retrieval_backends.py` (i tre backend estratti da `harness.py`). **921 test.**
+
+**Per C-02**, dai dati raccolti: le varianti da riparare, in ordine di frequenza reale su open_ragbench, sono `[1] [2]` (spazio, 8 risposte su 188), i marcatori fuori contesto, `[1,2]` e `[1-3]`. Le generazioni grezze sono in `eval/results/generations/`. Nota che `[1,2]` compare nel **13,1%** dei chunk del corpus e il modello lo riproduce in 1 risposta su 188: il divieto nel prompt funziona quando viene letto.
+
+**Aperto**: l'astensione su LEDGER è al **26,5%** contro il 5,5% di ORB, quindi la conformità là è calcolata sul 73,5% di query in cui il retrieval ha portato la risposta in contesto. È un dato sul retrieval, non sul formato, ma va letto accanto al numero e riguarda **C-04**.
