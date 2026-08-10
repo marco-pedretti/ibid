@@ -194,6 +194,10 @@ def run_retrieval_eval(
     # has more to choose from before truncating.
     fetch_k = max(cfg.RERANK_FETCH_K, eval_depth) if rerank else eval_depth
 
+    # See citation_harness.run_citation_eval: captured before the run, not
+    # when the EvalRun is built.
+    commit = git_commit()
+
     all_queries = load_golden(golden_path)
     answerable = [q for q in all_queries if q.answerable and q.dataset_id == dataset_id]
     if limit is not None:
@@ -264,7 +268,7 @@ def run_retrieval_eval(
     return EvalRun(
         run_id=str(uuid.uuid4()),
         timestamp=datetime.now(timezone.utc),
-        git_commit=git_commit(),
+        git_commit=commit,
         config_hash=_config_hash(
             top_k, pipeline_mode, retrieval_mode, rerank, query_rewrite,
             filter_content_type, doc_aggregate, qdrant_collection, dataset_id,

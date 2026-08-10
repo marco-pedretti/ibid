@@ -183,6 +183,12 @@ def run_citation_eval(
         model = cfg.LLM_MODEL
     qdrant_collection = collection or dataset_id
 
+    # Captured before anything runs, not when the EvalRun is built: the code
+    # that produces the answers is the code loaded at the start, and a commit
+    # made during the 40 minutes in between would otherwise be recorded as the
+    # one that generated them.
+    commit = git_commit()
+
     all_queries = load_golden(golden_path)
     answerable = [q for q in all_queries if q.answerable and q.dataset_id == dataset_id]
     if limit is not None:
@@ -240,7 +246,7 @@ def run_citation_eval(
     run = EvalRun(
         run_id=str(uuid.uuid4()),
         timestamp=datetime.now(timezone.utc),
-        git_commit=git_commit(),
+        git_commit=commit,
         config_hash=_config_hash(top_k, retrieval_mode, qdrant_collection, model, system_prompt),
         dataset_id=dataset_id,
         model=model,
