@@ -79,7 +79,19 @@ class TestFilterValid:
 
     def test_single_chunk(self):
         assert filter_valid("risposta [1].", 1) == "risposta [1]."
-        assert filter_valid("risposta [2].", 1) == "risposta ."
+        assert filter_valid("risposta [2].", 1) == "risposta."
+
+    def test_a_discarded_marker_takes_its_leading_space_with_it(self):
+        # "…domain [8]." would otherwise become "…domain ." — a visible gap
+        # where a citation was, in text that goes to a reader.
+        assert filter_valid("stable in the frequency domain [8].", 5) == \
+            "stable in the frequency domain."
+
+    def test_a_kept_marker_keeps_its_leading_space(self):
+        assert filter_valid("il valore è 400ms [2][3].", 5) == "il valore è 400ms [2][3]."
+
+    def test_discard_does_not_weld_the_words_around_it(self):
+        assert filter_valid("testo [9] altro", 5) == "testo altro"
 
 
 class TestParse:
@@ -98,7 +110,7 @@ class TestParse:
     def test_all_markers_invalid_text_preserved(self):
         raw = "La risposta è 42 [9][10]."
         result = parse(raw, 5)
-        assert result == "La risposta è 42 ."
+        assert result == "La risposta è 42."
 
     def test_no_markers(self):
         raw = "Non ho informazioni sufficienti."

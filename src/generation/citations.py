@@ -105,6 +105,11 @@ def filter_valid(text: str, n_chunks: int) -> str:
     Stripping only its out-of-range half would leave `[1]-`, turning the source
     document's reference into a citation of our chunk 1: the same fabrication the
     expansion gate exists to prevent, arrived at from the other side.
+
+    A discarded marker takes the space in front of it with it.  Removing `[8]`
+    from "in the frequency domain [8]." used to leave "domain ." — a gap where a
+    citation was, in text that goes to a reader.  The space is part of what the
+    marker occupied, so it goes with the marker; a kept marker keeps its own.
     """
     def _keep(m: re.Match) -> str:
         if m.group("pair"):
@@ -112,7 +117,11 @@ def filter_valid(text: str, n_chunks: int) -> str:
         n = int(m.group("num"))
         return m.group(0) if 1 <= n <= n_chunks else ""
 
-    return re.sub(r"(?P<pair>\[\d+\]\s*[-–—]\s*\[\d+\])|\[(?P<num>\d+)\]", _keep, text)
+    return re.sub(
+        r"(?P<lead>[ \t]*)(?:(?P<pair>\[\d+\]\s*[-–—]\s*\[\d+\])|\[(?P<num>\d+)\])",
+        _keep,
+        text,
+    )
 
 
 def parse(text: str, n_chunks: int) -> str:
