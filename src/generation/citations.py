@@ -3,6 +3,12 @@
 Rules from ROADMAP §3.2:
 - Only contiguous [n][m] markers are valid.
 - Known malformed variants are normalised; markers out of context are discarded.
+
+"Known variants" means known *from the corpus*, not from imagination.  The T-06
+rules here were written before any generation existed; C-02 rebuilt them against
+`tests/fixtures/malformed_citations.jsonl`, cut from 897 real answers.  Where a
+rule and the corpus disagreed, the corpus won — see the comments on the
+individual rules for what each one is actually evidenced by.
 """
 
 from __future__ import annotations
@@ -32,6 +38,22 @@ def normalize(text: str) -> str:
     text = re.sub(r"\[(\d+)\s+(?:e|and)\s+(\d+)\]", r"[\1][\2]", text, flags=re.IGNORECASE)
     # [1-3] / [1–3]  (hyphen or en-dash range, must follow [1]-[2] rule)
     text = re.sub(r"\[(\d+)[-–]\s*(\d+)\]", _expand_range, text)
+    # [1] [3] → [1][3]  (markers separated by whitespace instead of contiguous)
+    #
+    # The most frequent repairable defect in the corpus: 40 occurrences, and
+    # 21 of the answers the T-06 parser left non-compliant were this and
+    # nothing else — it had no rule for it at all.
+    #
+    # Last, because expansion produces spaced pairs of its own: `[1] [2,3]`
+    # becomes `[1] [2][3]` and only then has a gap to close.  The lookahead
+    # rather than a two-marker match is what closes chains of three or more in
+    # a single pass.
+    #
+    # Space and tab only.  A newline between two markers separates lines of a
+    # list, where contiguity was never claimed; joining those would merge two
+    # citations the model kept apart.  `citation_format` draws the boundary in
+    # the same place, so what it flags is exactly what this repairs.
+    text = re.sub(r"\[(\d+)\][ \t]+(?=\[\d+\])", r"[\1]", text)
     return text
 
 

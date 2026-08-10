@@ -23,7 +23,10 @@ import json
 import re
 from pathlib import Path
 
+import pytest
 
+from src.generation.citation_format import check_format
+from src.generation.citations import parse
 
 FIXTURE = Path(__file__).parent / "fixtures" / "malformed_citations.jsonl"
 
@@ -93,3 +96,21 @@ class TestCorpusShape:
         """Mathematical intervals appear in real answers. A repair rule is only
         safe if it leaves them alone, so the corpus has to contain some."""
         assert _of_kind("not_a_citation")
+
+
+class TestRepair:
+    """`parse` on each real construct, in the sentence it appeared in."""
+
+    @pytest.mark.parametrize("case", _of_kind("spaced_markers"), ids=lambda c: c["snippet"])
+    def test_spaced_markers_become_contiguous(self, case):
+        out = parse(case["text"], case["n_chunks"])
+        assert "spaced_markers" not in check_format(out, case["n_chunks"]).kinds
+
+    def test_a_chain_of_three_closes_in_one_pass(self):
+        assert parse("misura [1] [2] [3] fine", 5) == "misura [1][2][3] fine"
+
+    def test_a_newline_between_markers_is_not_a_gap_to_close(self):
+        """Markers on separate lines are separate citations, not a spaced pair.
+        `citation_format` does not flag them, so repairing them would silently
+        merge what the model deliberately kept apart."""
+        assert parse("- punto [1]\n- punto [2]", 5) == "- punto [1]\n- punto [2]"
