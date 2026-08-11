@@ -19,6 +19,21 @@ BASELINE_B_SYSTEM = (
 
 # Heuristic phrases that indicate the model declined to answer.
 # Covers English and Italian; checked case-insensitively.
+#
+# The "access" family was added on 2026-08-11 from real output, after the E-02
+# runs of E-04/E-05 reported that the model invented an answer to 35 of 35
+# unanswerable financial questions.  It had refused all 35 — every single time
+# with a phrasing this list did not contain:
+#
+#     I do not have access to specific, real-time financial data ...
+#     I do not have real-time access to specific, historical financial ...
+#     I do not have access to external databases or ...
+#
+# On the answerable path the mistake was invisible, because a response the
+# heuristic misses still goes to the LLM judge, which returns "abstained".  The
+# unanswerable path has no reference to judge against and counted them as
+# invented instead.  A backstop that hides a hole in the primary check is worth
+# knowing about: the hole is only exposed where the backstop is absent.
 ABSTENTION_PHRASES: tuple[str, ...] = (
     "i cannot answer",
     "cannot answer without",
@@ -29,6 +44,10 @@ ABSTENTION_PHRASES: tuple[str, ...] = (
     "i am not sure",
     "unable to answer",
     "insufficient information",
+    "do not have access",
+    "don't have access",
+    "do not have real-time access",
+    "don't have real-time access",
     "non posso rispondere",
     "non ho informazioni sufficienti",
     "non so rispondere",

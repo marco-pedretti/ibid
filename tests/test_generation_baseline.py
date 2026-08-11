@@ -378,3 +378,40 @@ class TestReasoningProvenance:
                          for line in inspect.getsource(judge.judge_answer).splitlines())
         assert 'reasoning_effort="none"' in code
         assert "cfg.REASONING_EFFORT" not in code
+
+
+class TestAbstentionPhrasesFromRealOutput:
+    """The "access" family, added from output the model actually produced.
+
+    E-04/E-05 on the E-02 set first reported that the model invented an answer to
+    35 of 35 unanswerable financial questions. It had refused all 35, every time
+    with a phrasing the list did not contain. The heuristic had looked fine until
+    then only because on the answerable path a miss still reaches the LLM judge,
+    which returns "abstained" — the hole was invisible exactly where it was
+    covered.
+    """
+
+    @pytest.mark.parametrize("response", [
+        "I do not have access to specific, real-time financial data for individual companies.",
+        "I do not have real-time access to specific, historical financial statements.",
+        "I do not have access to external databases or company filings.",
+        "I don't have access to that information.",
+    ])
+    def test_real_refusals_are_detected(self, response):
+        assert is_abstained(response)
+
+    def test_an_answer_that_merely_mentions_access_is_not_a_refusal(self):
+        """The phrases must not fire on prose about access as a subject."""
+        assert not is_abstained(
+            "Researchers who have access to the full dataset report a 12% gain.")
+
+    def test_the_change_did_not_move_the_c01_numbers(self):
+        """Measured with scripts/rescore_citations.py over the four stored C-01
+        dumps: every one recomputes to its recorded rate, +0.0000. With retrieved
+        context the model uses the exact `Insufficient information.` token, never
+        this phrasing — so extending the list is retroactively inert here."""
+        from src.generation.citation_format import is_abstention
+
+        assert is_abstention("Insufficient information.")
+        # Long prose is not an abstention however it is phrased (200-char bound).
+        assert not is_abstention("I do not have access to it. " + "x" * 250)
