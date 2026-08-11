@@ -20,6 +20,8 @@ Il nome evocativo attira, la descrizione spiega. Chi scorre una lista di reposit
 
 Questo documento è la fonte di verità per l'implementazione. È scritto per essere eseguibile anche da un coding agent: ogni task ha un identificativo, un deliverable e criteri di accettazione verificabili. Le scelte tecnologiche stanno in `STACK.md`.
 
+**Divisione del lavoro fra i documenti.** Qui stanno **decisioni e vincoli**; le **misure** stanno in [`docs/progress.md`](docs/progress.md), che è anche l'unico posto dove si legge cosa è già fatto; le **ipotesi non ancora verificate**, con il protocollo per verificarle, stanno in [`docs/open-questions.md`](docs/open-questions.md). La regola pratica: se un numero cambierebbe rifacendo una misura, non appartiene a questo file — ci appartiene la decisione che quel numero ha motivato. Serve perché il criterio di accettazione di un task deve restare leggibile in una riga: quando ci finisce dentro il resoconto di com'è andata, smette di essere un criterio.
+
 ---
 
 ## 0. Cosa dimostra il progetto
@@ -170,11 +172,11 @@ Per ogni dataset candidato: 16 domande costruite con lo stesso schema dei test p
 | I-04 | Pipeline `structured_hierarchical`: chunking su sezioni, `section_path` popolato | Come I-03, più `section_path` non vuoto dove la struttura esiste |
 | I-05 | Pipeline `table_heavy`: tabella come unità atomica, mai spezzata a metà | Nessun chunk contiene una tabella troncata |
 | I-06 | Estrazione bbox e rendering pagine a PNG dove il formato lo consente | `bbox` e `page` popolati per i dataset con PDF |
-| I-07 | Indicizzazione ~~BGE-M3~~ `multilingual-e5-large` (densi) + `Qdrant/bm25` (sparsi) su Qdrant, una collection per dataset | ~~< 20 minuti~~ **122 minuti misurati** su 65.950 chunk (18.840 ORB + 47.110 LEDGER) con batch=32 su RX 6750 XT. Il criterio era calibrato su BGE-M3 (dense+sparse in un passaggio); con `multilingual-e5-large` il collo di bottiglia è 10 embed/s × 66k chunk ≈ 110 min di GPU. Job one-shot accettabile. Con BGE-M3 (quando disponibile) il tempo scenderà strutturalmente. **Nota:** BGE-M3 sostituirà `multilingual-e5-large` quando fastembed PR #602 sarà mergiato — richiederà re-ingestion e sarà trattato come ablation separata, non patch incrementale |
+| I-07 | Indicizzazione `multilingual-e5-large` (densi) + `Qdrant/bm25` (sparsi) su Qdrant, una collection per dataset | Job one-shot: il tempo è riportato, non vincolato. **BGE-M3 sostituirà `multilingual-e5-large` quando fastembed PR #602 sarà mergiato — re-ingestione obbligata, e va trattata come ablation separata, non come patch** |
 
 **I-01 va fatto per primo** anche se serve al routing solo in Fase 3: è lo strumento con cui decidete cosa entra nel corpus e come, e vi risparmia di scoprire a valle che un dataset non è quello che pensavate.
 
-**Nota su I-06 — rinviato per i dataset correnti.** Nessuno dei due dataset fornisce PDF fisici o coordinate spaziali: open_ragbench è distribuito come JSON pre-processato (coordinate PDF non presenti), LEDGER è distribuito come Mathpix Markdown `.mmd` (PDF sorgente non scaricati per evitare ~3,5 GB; le coordinate OCR sono già perse nella conversione). Il campo `bbox` resta `None` per entrambi; `page` è già popolato dal loader LEDGER via `<--- Page Split --->`. I-06 diventa applicabile solo se si aggiunge un dataset distribuito con PDF nativi e coordinate esportate (es. brevetti, documenti tecnici). La feature UI che dipende da I-06 (U-04/U-05: overlay bbox sulla pagina PNG) non è bloccante per E-01→R-07.
+**I-06 è rinviato**: nessuno dei due dataset correnti distribuisce PDF nativi o coordinate, quindi `bbox` resta `None` e l'overlay di U-06 non ha su cosa poggiare. Diventa applicabile solo aggiungendo un dataset con PDF e coordinate esportate. Motivo per esteso in [`docs/progress.md`](docs/progress.md), I-06.
 
 **Gate:** report del profilatore per i tre dataset, e i due dataset principali risultano di generi diversi.
 
