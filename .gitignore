@@ -7,3 +7,10 @@ data/*
 !data/demo/
 logs/
 .vscode/
+
+# A `.partial` file is a run that did not reach the end — GenerationWriter
+# promotes it to its final name only after the last record, and the whole point
+# of the suffix is that an unfinished run must not look like a finished one.
+# Committing one puts a truncated measurement in history: `git add -A` during a
+# live run swept three into a commit before this line existed.
+*.partial
