@@ -195,12 +195,18 @@ class TestRunGenerationEval:
         with pytest.raises(ValueError, match="Unknown baseline"):
             run_generation_eval("open_ragbench", path, baseline="Z")
 
-    def test_pipeline_mode_baseline_a(self, tmp_path):
+    def test_pipeline_mode_stays_on_the_binary_routing_axis(self, tmp_path):
+        """ROADMAP §3.3: `pipeline_mode` is "generic" | "routed", and `config`
+        exists so it does not become a free-text label. Until 2026-08-11 this
+        harness wrote "baseline_a" there, and the contract test on disk never
+        caught it because E-04/E-05 had never been run — no result file existed
+        to check. Which baseline it is belongs in `config`."""
         path = _write_golden(tmp_path, [_answerable_query()])
         with patch("src.eval.generation_harness.generate", return_value="42."), \
              patch("src.eval.generation_harness.judge_answer", return_value="correct"):
             run = run_generation_eval("open_ragbench", path, baseline="A", limit=1)
-        assert run.pipeline_mode == "baseline_a"
+        assert run.pipeline_mode == "generic"
+        assert run.config["baseline"] == "A"
 
     def test_skips_unanswerable_queries(self, tmp_path):
         unanswerable = GoldenQuery(
@@ -269,12 +275,13 @@ class TestRunGenerationEval:
 # ---------------------------------------------------------------------------
 
 class TestBaselineB:
-    def test_pipeline_mode_is_baseline_b(self, tmp_path):
+    def test_baseline_b_is_identified_by_config_not_pipeline_mode(self, tmp_path):
         path = _write_golden(tmp_path, [_answerable_query()])
         with patch("src.eval.generation_harness.generate", return_value="42."), \
              patch("src.eval.generation_harness.judge_answer", return_value="correct"):
             run = run_generation_eval("open_ragbench", path, baseline="B", limit=1)
-        assert run.pipeline_mode == "baseline_b"
+        assert run.pipeline_mode == "generic"
+        assert run.config["baseline"] == "B"
 
     def test_baseline_b_exact_abstention_phrase_detected(self):
         # The phrase from BASELINE_B_SYSTEM must be detected by is_abstained
