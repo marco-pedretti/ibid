@@ -102,6 +102,7 @@ L'associazione fra `#1` e il run corrispondente e risolta col colore: la tabella
 | C-01 | ✅ fatto (2026-08-10) | **PASS su ledger, non dimostrato su open_ragbench.** Vedi sotto: il risultato è la differenza fra i due, non la media. |
 | C-02 | ✅ fatto (2026-08-10) | Parser ricostruito sugli output reali. Ribaltata una regola del T-06 che **fabbricava** citazioni 16 volte su 16. |
 | C-03 | ✅ fatto (2026-08-10) | `citation_precision` **0,657 su open_ragbench, 0,366 su ledger** — e i due non si leggono allo stesso modo. Sospeso e riaperto in giornata: il verificatore di STACK.md è stato misurato prima di costruirci sopra, non reggeva, ed è stato sostituito. Vedi sotto. |
+| C-04 | ✅ fatto (2026-08-11) | **Astensione corretta 100% su E-02 per entrambi i dataset**, e il gate non causa **nessuna** falsa astensione. Ma il criterio era già al 100% col solo modello: il gate è una garanzia, non una correzione. Vedi sotto. |
 | C-05 | ✅ fatto (2026-08-10) | **Criterio soddisfatto senza toccare il prompt.** L'istruzione c'era dal T-0x e non era mai stata verificata: 14/14 risposte nella lingua della domanda, 0 miste. `prompt_hash` invariato. |
 
 ### C-01 — Prompt con chunk numerati e formato citazione
@@ -338,3 +339,74 @@ Tutte e 6 le astensioni sono tornate `Insufficient information.` qualunque fosse
 Su LEDGER le astensioni sono 5/10 con domanda tradotta contro il 26,5% storico con domanda inglese, **a retrieval identico**. Suggerisce che il modello sia più cauto quando la domanda non è nella lingua dei chunk, ma n=10: è un'osservazione, non un risultato. Riguarda **C-04**.
 
 **Strumenti nuovi:** `src/generation/language.py` (rilevamento per frase su parole funzione pesate, nessuna dipendenza nuova — STACK.md impone una revisione di licenza per ognuna, e `langdetect` sarebbe un pacchetto da mantenere per un controllo su venti campioni), `scripts/probe_language.py`, `tests/fixtures/multilingual_queries.jsonl`. **1201 test.**
+
+### C-04 — Astensione: soglia sui punteggi di retrieval decisa dal codice
+
+**Il criterio era già soddisfatto prima di scrivere una riga.** Misurato per primo, sulle 35 query non rispondibili di E-02 per dataset: il modello da solo si astiene **35/35 su entrambi**. Un gate non può alzare un tasso già al 100%, e può solo abbassarlo rifiutando domande rispondibili — quindi il task è stato ricostruito attorno a cosa il gate *garantisce* invece che a cosa migliora.
+
+#### Il risultato
+
+| | open_ragbench | ledger |
+|---|---|---|
+| **astensione corretta su E-02** | **100%** (35/35) | **100%** (35/35) |
+| — di cui dal **gate** | 13 (37,1%) | **34 (97,1%)** |
+| — di cui dal modello | 22 | 1 |
+| astensione falsa *rispetto al golden* | 8,3% (5/60) | 23,3% (14/60) |
+| — **causate dal gate** | **0** | **0** |
+| secondi di LLM spesi su E-02 | **139 s** (erano 401 s) | **7 s** (erano 176 s) |
+
+**Il gate non ha rifiutato nemmeno una domanda rispondibile**, su 120 query mai viste in calibrazione. La calibrazione all'1% prometteva 0,0% e 0,7% sul suo holdout; su un terzo insieme disgiunto il risultato è 0/60 e 0/60. È l'unica cifra qui che sia una conferma fuori campione — la quota catturata su E-02 (37,1% e 97,1%) coincide con la calibrazione per aritmetica, non per validazione: stessa soglia sugli stessi punteggi.
+
+**E il risparmio è reale**: su LEDGER il gate intercetta 34 non rispondibili su 35 prima di chiamare il modello, e la GPU passa da 176 s a 7 s.
+
+#### La scoperta: le astensioni "false" non sono false
+
+L'8,3% e soprattutto il **23,3%** di LEDGER sembrano un difetto grave — il modello che rifiuta un quarto delle domande legittime. Prima di scriverlo, il controllo: **in quei casi il retrieval aveva davvero portato la risposta?**
+
+> Delle 5 astensioni "false" di open_ragbench, il chunk marcato rilevante dai qrels era fra i 5 recuperati in **1 caso**. Delle 14 di LEDGER, in **1 caso**.
+
+Quindi in 17 casi su 19 **il contesto non conteneva la risposta, e il modello ha detto onestamente di non averla**. Erano astensioni *corrette*, contate come errori perché la metrica confronta con l'etichetta del golden invece che con il contesto realmente ricevuto.
+
+Il tasso di falsa astensione vera — il modello rifiuta **con la risposta in mano** — è **1/60 su entrambi i dataset**.
+
+> **Una metrica costruita sull'etichetta del dato può accusare il componente sbagliato.** Il sistema che si giudicava sull'astensione stava in realtà misurando il recall del retrieval, e il pezzo che sembrava rotto era l'unico a comportarsi bene.
+
+Il vero problema che quei numeri rivelano non riguarda C-04: è che **su LEDGER il retrieval non porta il chunk giusto in una quota consistente di query rispondibili**. Riguarda la Fase 3, non l'astensione.
+
+#### Cosa vuol dire "deciso dal codice"
+
+La lettura ingenua sarebbe: metti un numero in `config.py` invece di lasciar decidere al modello. Ma un numero scelto a occhio in un file di configurazione è ancora una decisione arbitraria, solo spostata di posto. Qui le due cose sono separate:
+
+- **la politica la sceglie un umano**: `ABSTENTION_BUDGET = 1%`, cioè quante domande rispondibili si accetta di rifiutare;
+- **la soglia la deriva il codice dai dati**: `scripts/calibrate_abstention.py` calcola 0,7924 e 0,8289 come percentile dei punteggi reali.
+
+Budget all'1% e non di più perché **non c'è niente da guadagnare**: il modello cattura già tutto, quindi un budget più alto comprerebbe solo domande legittime rifiutate. A titolo di documentazione, il compromesso misurato:
+
+| budget | ORB corretta / falsa | LEDGER corretta / falsa |
+|---|---|---|
+| **1%** | 37,1% / **0,0%** | 97,1% / 0,7% |
+| 2% | 54,3% / 2,0% | 100% / 2,7% |
+| 5% | 77,1% / 4,0% | 100% / 8,0% |
+| 10% | 94,3% / **14,7%** | 100% / 9,3% |
+
+#### Perché un gate che non migliora la metrica esiste comunque
+
+Tre ragioni, nessuna delle quali è il tasso di astensione:
+
+1. **Una garanzia non è un'osservazione.** 35/35 descrive un modello a una temperatura sotto un prompt. **C-06 farà girare lo stesso sistema su E2B ed E4B**, e la disponibilità a dire "non so" è esattamente ciò che degrada con la taglia. Una soglia sui punteggi non sa quale modello viene dopo.
+2. **Costo**, ora quantificato: 401 s → 139 s e 176 s → 7 s su E-02.
+3. **Verificabilità.** Una soglia in `config.py` è una politica dichiarata; la propensione di un modello ad astenersi non lo è.
+
+#### Dettagli di progetto che non sono dettagli
+
+**La separazione dei punteggi, di nuovo dipendente dal genere.** AUC top-1 fra rispondibili e non rispondibili: **0,972 su open_ragbench, 0,9995 su LEDGER**. I bilanci sono formulaici, quindi la distribuzione delle rispondibili è stretta (0,828–0,897) e una query di paper ci cade nettamente sotto; i paper sono eterogenei (0,778–0,923) e si sovrappongono alle intruse. È il motivo per cui il gate cattura il 97% su uno e il 37% sull'altro.
+
+**Top-1 e non la media dei top-5.** Su ORB separa meglio (0,972 contro 0,954), e una media su cinque chunk diluisce un buon risultato con quattro riempitivi — che è il caso che il gate deve lasciar passare.
+
+**Il gate decide prima della chiamata al modello.** Uno che gira dopo non è una garanzia: è un filtro su qualcosa di già inventato, e costa gli 11,5 s che doveva risparmiare.
+
+**Una soglia appartiene alla coppia (collezione, modo di retrieval).** Il coseno denso sta intorno a 0,8, la fusione RRF intorno a 0,02: una coppia non calibrata restituisce *nessuna opinione* e la run lo registra, invece di astenersi su tutto o su niente in silenzio.
+
+**Calibrazione senza fuga.** Le non rispondibili non entrano mai nel calcolo della soglia — è il percentile delle sole rispondibili — e le rispondibili sono divise in tre fette disgiunte: `[0:150]` calibrazione, `[150:300]` holdout, `[300:360]` valutazione. Tre script ricavano le loro fette dallo stesso shuffle con lo stesso seed, e niente nel codice imponeva l'accordo: ora un test verifica la disgiunzione, perché un seed cambiato non darebbe un errore ma un numero plausibile e privo di significato.
+
+**Strumenti nuovi:** `src/retrieval/abstention.py`, `scripts/calibrate_abstention.py`, `scripts/eval_abstention.py`, gate agganciato a `scripts/query.py`. `ABSTENTION_ANSWER` è ora una costante unica in `prompt.py` — il prompt che la chiede al modello e il gate che la emette senza modello devono usare lo stesso identico token (C-05); `prompt_hash` resta `3a50ef63`. **1223 test.**
