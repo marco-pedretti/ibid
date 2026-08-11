@@ -92,3 +92,27 @@ class TestUserMessage:
     def test_empty_chunks(self):
         msg = build_user_message("Q?", [])
         assert "Q?" in msg
+
+
+class TestOutputLanguage:
+    """C-05. The instruction was carried here by an early refactor and was never
+    verified; `scripts/probe_language.py` verified it on 20 translated queries.
+    """
+
+    def test_the_language_instruction_is_present(self):
+        assert "same language as the question" in SYSTEM
+
+    def test_the_abstention_string_is_a_fixed_token(self):
+        """It stays English on purpose. `citation_format.is_abstention` matches
+        it exactly, and a phrase that varied per language would make the
+        abstention rate depend on the language a query was written in.
+        Localising it belongs to the UI, not the prompt."""
+        from src.generation.baseline_prompts import ABSTENTION_PHRASES
+
+        assert "reply exactly: 'Insufficient information.'" in SYSTEM
+        assert "insufficient information" in ABSTENTION_PHRASES
+
+    def test_the_prompt_does_not_name_a_language_to_answer_in(self):
+        """Hardcoding "answer in English" would be a different contract, and one
+        that both corpora being English today would hide until it shipped."""
+        assert "in English" not in SYSTEM
