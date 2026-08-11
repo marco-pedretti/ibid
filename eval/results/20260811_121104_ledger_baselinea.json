@@ -1,0 +1,28 @@
+{
+  "run_id": "b55b7d11-4b3b-46d1-8edc-d599ecf36963",
+  "timestamp": "2026-08-11T12:11:04.839870Z",
+  "git_commit": "ba6bc7e0ec82c2fce286f5450f15fb7667bfffeb",
+  "config_hash": "d1754ae4",
+  "dataset_id": "ledger",
+  "model": "gemma4:latest",
+  "quantization": "Q4_K_M",
+  "context_window": 32768,
+  "temperature": 0.0,
+  "reasoning_enabled": false,
+  "pipeline_mode": "generic",
+  "config": {
+    "harness": "generation_baseline",
+    "baseline": "A",
+    "queries": "answerable",
+    "n_queries": 100,
+    "llm_model": "gemma4:latest",
+    "judge_used": true,
+    "legacy_pipeline_mode": "baseline_a",
+    "_migrated": true
+  },
+  "metrics": {
+    "abstention_rate": 1.0,
+    "correct_rate": 0.0,
+    "wrong_rate": 0.0
+  }
+}
