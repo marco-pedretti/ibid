@@ -39,13 +39,40 @@ def _sparse_model(name: str) -> SparseTextEmbedding:
 
 
 def encode(texts: list[str], model_name: str, batch_size: int = 32) -> list[list[float]]:
-    """Return L2-normalized dense vectors for each text."""
+    """Return dense vectors for each text.
+
+    **Not L2-normalized**, which this docstring used to claim: `PooledEmbedding`
+    (the fastembed class serving multilingual-e5-large) does not normalize, and
+    the vectors come back with a norm around 27.  Nothing is broken by that today
+    — Qdrant normalizes on upsert for a cosine collection, and the stored vectors
+    do have norm 1.0 — but anything computing a similarity on this output
+    directly would have believed the docstring and been wrong.
+
+    **The E5 prefixes are not applied here.**  The model card requires `query: `
+    and `passage: `, fastembed leaves them to the caller, and this function never
+    adds them.  See `docs/open-questions.md` OQ-02: it is a documented deviation
+    with an unmeasured cost, and correcting it means re-ingesting.
+    """
     vecs = list(_dense_model(model_name).embed(texts, batch_size=batch_size))
     return [v.tolist() for v in vecs]
 
 
 def encode_sparse(texts: list[str], model_name: str) -> list[SparseVector]:
-    """Return BM25 sparse vectors for each text."""
+    """Return BM25 sparse vectors for each text, as *documents*.
+
+    Queries go through here too, and should not: fastembed's `Bm25.query_embed`
+    exists because a query must be hashed to weight 1.0 per token, while this
+    path applies the document-length normalization `b · doc_len / avg_len` and so
+    scores the question as if it were a passage of the corpus.
+
+    The other half of the same problem is in `store.ensure_collection`, which
+    creates the sparse index without `modifier=IDF` — and fastembed omits the IDF
+    component on purpose, expecting Qdrant to supply it.
+
+    Both are recorded in `docs/open-questions.md` OQ-03, unfixed on purpose: the
+    correction changes what `--retrieval-mode sparse` and `hybrid` measure, and
+    the two causes have to be separated (§12).
+    """
     results = list(_sparse_model(model_name).embed(texts))
     return [
         SparseVector(indices=r.indices.tolist(), values=r.values.tolist())

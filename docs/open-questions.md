@@ -191,3 +191,109 @@ python scripts/eval.py --dataset ledger --collection ledger_routed_ctx \
 | test appaiato | `src/eval/paired.py`, `scripts/compare_runs.py` |
 | misure di questa nota | riprodotte con `client.scroll` su Qdrant; nessuno script committato — sono usa e getta |
 | esplorazione interattiva | dashboard → Failure Explorer e Retrieval Playground (tab A/B) |
+
+---
+
+## OQ-02 — I prefissi `query:` / `passage:` di E5 non vengono mai aggiunti
+
+**Aperta.** Notata il 2026-08-11 durante l'audit delle librerie contro la loro documentazione ufficiale. Riferimento: I-07, E-03, e per estensione ogni numero dense del progetto.
+
+### Il fatto
+
+La model card ufficiale di `intfloat/multilingual-e5-large` è esplicita:
+
+> *"Each input text should start with `query: ` or `passage: `, even for non-English texts. [...] This is how the model is trained, otherwise you will see a performance degradation."*
+
+`src/index/embed.py` non li aggiunge mai — né sui chunk, né sulle query — e non è un'omissione compensata dalla libreria. Verificato sul sorgente della versione installata (fastembed 0.8.0):
+
+- il modello è servito dalla classe `PooledEmbedding` (`fastembed/text/pooled_embedding.py`);
+- quella classe sovrascrive solo `_get_worker_class`, `mean_pooling`, `_list_supported_models`, `_post_process_onnx_output`;
+- **non** sovrascrive `query_embed` né `passage_embed`, che quindi cadono sulla base in `text_embedding_base.py`, dove entrambi si limitano a chiamare `embed()`.
+
+fastembed sa che il problema esiste: la descrizione dei modelli nomic nel suo stesso registro dice *"Prefixes for queries/documents: necessary"*. Documenta la necessità e lascia il compito al chiamante.
+
+### Cosa NON è dimostrato
+
+Che aggiungerli migliori i nostri numeri. La model card afferma un degrado in generale; su questo corpus non è misurato. È una discrepanza fra uso e documentazione, non ancora un difetto quantificato.
+
+### Perché è grave se lo è
+
+Tocca il percorso dense, cioè **tutto**: R-07 e la conclusione sull'affermazione 2 del §0, le soglie di astensione di C-04 (calibrate su punteggi coseno dense), il contesto su cui poggiano C-01 e C-03. Non invalida i confronti *interni* — ogni ablation ha confrontato configurazioni che condividevano lo stesso difetto — ma sposterebbe il livello assoluto di ogni misura.
+
+Nota anche che i prefissi sono **asimmetrici**: query e passaggi ricevono stringhe diverse. Un difetto simmetrico si semplifica in un confronto, uno asimmetrico no.
+
+### Protocollo per misurarlo — *senza* re-ingestione completa
+
+Una re-ingestione costa 618 minuti di GPU (misurati in R-07) e non serve per rispondere alla domanda.
+
+1. **Indice ridotto, due varianti.** Campionare ~5.000 chunk da un dataset e indicizzarli due volte: `probe_plain` (come oggi) e `probe_prefixed` (`passage: ` su ogni chunk). ~15 min di GPU ciascuno.
+2. **Le query nella forma corrispondente**: nude contro `probe_plain`, con `query: ` contro `probe_prefixed`. Le query golden i cui chunk rilevanti sono nel campione.
+3. **Confronto appaiato** con `scripts/compare_runs.py`, criterio binario "almeno un documento rilevante nei primi 5".
+4. **Non fare la variante mista** (query con prefisso contro indice senza) se non come curiosità: è una terza configurazione, non la correzione.
+
+Se il delta è reale e positivo, la correzione è una re-ingestione completa e una ri-misura di tutta la Fase 3 — cioè un task del ROADMAP, non una patch.
+
+---
+
+## OQ-03 — Il retrieval "BM25" non è BM25
+
+**Aperta.** Notata il 2026-08-11 nello stesso audit. Riferimento: E-06 (baseline C), R-01 (hybrid RRF).
+
+### I due fatti
+
+**1. Il modificatore IDF non è attivo.** La documentazione di Qdrant dice che i modelli BM25 *vanno* usati con `modifier="idf"` sull'indice sparso, perché fastembed **esclude di proposito** la componente IDF dai suoi vettori: la calcola Qdrant, a query time, dalle statistiche dell'indice. `ensure_collection()` crea `SparseVectorParams()` senza argomenti, e le collection in esecuzione lo confermano:
+
+```
+open_ragbench -> SparseVectorParams(index=None, modifier=None)
+ledger        -> SparseVectorParams(index=None, modifier=None)
+```
+
+Senza IDF il punteggio è la sola frequenza di termine: una parola comune pesa quanto una rara. È BM25 privato della metà che discrimina.
+
+**2. Le query vengono codificate come documenti.** `encode_sparse()` chiama `.embed()` anche sulle query. Il docstring di `Bm25.query_embed` in fastembed dice cosa andrebbe fatto invece:
+
+> *"To emulate BM25 behaviour, we don't need to use weights in the query, and it's enough to just hash the tokens and assign a weight of 1.0 to them."*
+
+Passando dalla via `embed()`, alla query viene applicata la normalizzazione per lunghezza del documento (il termine `b · doc_len / avg_len`): la domanda viene trattata come se fosse un documento del corpus.
+
+### Il sospetto, e perché è più di un sospetto
+
+Su LEDGER lo sparse crolla, e trascina l'hybrid **sotto** il dense:
+
+| ledger | doc_R@5 | nDCG@10 |
+|---|---|---|
+| dense | 0.9367 | 0.0937 |
+| sparse | **0.4758** | 0.0174 |
+| hybrid (RRF) | 0.8408 | 0.0754 |
+| dense + rerank | 0.9483 | 0.1276 |
+| hybrid + rerank | 0.8858 | 0.1108 |
+
+Su open_ragbench invece lo sparse regge (0.9700) e l'hybrid aiuta.
+
+La direzione combacia con il difetto: LEDGER è fatto di bilanci, dove a discriminare sono token rari — nomi di voci, sigle, cifre — cioè esattamente ciò che l'IDF pesa e la sola frequenza di termine no. Su paper accademici il vocabolario è più uniforme e l'assenza di IDF costa meno.
+
+**Non è dimostrato** che correggere i due difetti ribalti il risultato. È dimostrato che l'esperimento non ha misurato ciò che dichiarava: E-06 si chiama *"baseline C: retrieval lessicale BM25"* e non era BM25, e R-01 ha fuso quel braccio.
+
+### Perché è molto più economico di OQ-02
+
+Nessuna re-embeddatura dei chunk: i vettori sparsi sono già su disco e sono corretti così com'è (la componente TF è quella giusta). Serve
+
+- ricreare l'indice sparso con `modifier=models.Modifier.IDF` — l'IDF viene dalle statistiche dell'indice, non dai vettori;
+- una riga in `encode_sparse()` per il percorso query.
+
+Poi si rilanciano `--retrieval-mode sparse` e `--retrieval-mode hybrid` sui due dataset.
+
+### Trappola
+
+Non correggere i due difetti insieme e misurare una volta sola (§12: *mai due cambiamenti in una misura*). Sono due cause indipendenti: l'IDF vive nell'indice, la codifica della query nel client.
+
+---
+
+### Dove sono le cose (OQ-02, OQ-03)
+
+| cosa | dove |
+|---|---|
+| prefissi mancanti | `src/index/embed.py` → `encode()`, e il percorso query in `src/eval/retrieval_backends.py` |
+| creazione collection | `src/index/store.py` → `ensure_collection()` |
+| codifica sparsa | `src/index/embed.py` → `encode_sparse()` |
+| verifica dei fatti | model card E5; sorgente fastembed installato; `client.get_collection(name).config.params.sparse_vectors` |
