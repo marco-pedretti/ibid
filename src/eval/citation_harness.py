@@ -156,6 +156,19 @@ def _config_hash(
     return hashlib.md5(json.dumps(params, sort_keys=True).encode()).hexdigest()[:8]
 
 
+def _percentile(sorted_values: list[float], q: float) -> float:
+    """Nearest-rank percentile of an already-sorted list; 0.0 when empty.
+
+    Nearest-rank rather than interpolated: every value it returns is a
+    measurement that actually happened, which is what a latency report should
+    contain.
+    """
+    if not sorted_values:
+        return 0.0
+    idx = min(len(sorted_values) - 1, int(q * len(sorted_values)))
+    return float(sorted_values[idx])
+
+
 def build_metrics(
     summary: ComplianceSummary, records: list[GenerationRecord]
 ) -> dict[str, float]:
@@ -169,8 +182,21 @@ def build_metrics(
     of the two: a cut-off answer has no citation because it never got to write
     one, and counting that as a format defect blames the prompt for a token
     budget.  In the first C-01 run it accounted for most of the failures.
+
+    **Cost is a metric, not a footnote.**  C-07 asks what extended reasoning is
+    worth, and C-06 asks the same of model size; neither question can be
+    answered by quality alone, because both switches buy quality with time.  The
+    median is reported rather than the mean: a single 300-second outlier moves a
+    mean over 200 queries by more than a real regression would.  `p90` is there
+    because the tail is what a user waits through.
+
+    `completion_tokens` counts the reasoning tokens too — they are generated and
+    paid for even though they never reach `message.content`, which is precisely
+    what makes them visible here and invisible in the answer.
     """
     n = len(records)
+    latencies = sorted(r.latency_s for r in records)
+    tokens = sorted(r.completion_tokens for r in records)
     metrics: dict[str, float] = {
         "format_compliance": summary.rate,
         "format_compliance_lower95": summary.rate_lower95,
@@ -178,6 +204,9 @@ def build_metrics(
         "truncation_rate": sum(1 for r in records if r.finish_reason == "length") / n if n else 0.0,
         "empty_answer_rate": sum(1 for r in records if not r.answer) / n if n else 0.0,
         "markers_per_answer": summary.markers_per_answer,
+        "latency_p50_s": _percentile(latencies, 0.50),
+        "latency_p90_s": _percentile(latencies, 0.90),
+        "completion_tokens_p50": _percentile(tokens, 0.50),
     }
     for kind, rate in summary.kind_rates.items():
         metrics[f"violation_{kind}"] = rate

@@ -315,6 +315,50 @@ class TestBuildMetrics:
     def test_no_records_does_not_divide_by_zero(self):
         m = build_metrics(summarize([]), [])
         assert m["truncation_rate"] == 0.0 and m["empty_answer_rate"] == 0.0
+        assert m["latency_p50_s"] == 0.0 and m["completion_tokens_p50"] == 0.0
+
+
+class TestCostMetrics:
+    """What the switch costs, next to what it buys.
+
+    C-07 compares reasoning on against off and C-06 compares model sizes; both
+    trade latency for quality, so a result that reports only quality answers
+    half the question.
+    """
+
+    @staticmethod
+    def _rec(latency: float, tokens: int) -> GenerationRecord:
+        return GenerationRecord(
+            query_id="q", query_text="Q?", chunk_ids=["c"], n_chunks=2,
+            answer="Vero [1].", compliant=True, abstained=False, markers=[1],
+            finish_reason="stop", latency_s=latency, completion_tokens=tokens,
+        )
+
+    def _metrics(self, pairs):
+        records = [self._rec(lat, tok) for lat, tok in pairs]
+        reports = [check_format(r.answer, 2) for r in records]
+        return build_metrics(summarize(reports), records)
+
+    def test_median_ignores_a_single_outlier(self):
+        """A mean over 200 queries moves further on one 300-second stall than on
+        a real regression, which is why the reported figure is the median."""
+        m = self._metrics([(1.0, 10), (1.0, 10), (1.0, 10), (1.0, 10), (300.0, 10)])
+        assert m["latency_p50_s"] == 1.0
+
+    def test_p90_reports_the_tail(self):
+        m = self._metrics([(1.0, 10)] * 9 + [(50.0, 10)])
+        assert m["latency_p90_s"] == 50.0
+
+    def test_reported_values_are_measurements_that_happened(self):
+        """Nearest-rank, not interpolated: 1.5 s is not a latency anybody saw."""
+        m = self._metrics([(1.0, 10), (2.0, 20)])
+        assert m["latency_p50_s"] in (1.0, 2.0)
+
+    def test_completion_tokens_are_reported(self):
+        """They include the reasoning tokens, which are generated and paid for
+        while never reaching the answer — invisible everywhere but here."""
+        m = self._metrics([(1.0, 140), (1.0, 998), (1.0, 998)])
+        assert m["completion_tokens_p50"] == 998
 
 
 class TestWriteGenerations:

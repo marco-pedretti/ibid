@@ -110,6 +110,10 @@ def main() -> None:
               f"  empty {run.metrics['empty_answer_rate']:.3f}"
               f"  reasoning_effort={run.config['reasoning_effort']}"
               f"  max_new_tokens={run.config['max_new_tokens']}")
+        # Cost beside quality: C-07 buys one with the other.
+        print(f"  latency p50 {run.metrics['latency_p50_s']:.1f}s"
+              f"  p90 {run.metrics['latency_p90_s']:.1f}s"
+              f"  completion tokens p50 {run.metrics['completion_tokens_p50']:.0f}")
         offenders = [
             (k, run.metrics[f"violation_{k}"]) for k in VIOLATION_KINDS
             if run.metrics[f"violation_{k}"] > 0
