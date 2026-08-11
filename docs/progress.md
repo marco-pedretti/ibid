@@ -124,24 +124,28 @@ Il piano è sei run da 200 query: due bracci (`REASONING_EFFORT` `none` / `high`
 
 Lo 0,9309 del controllo **riproduce esattamente** la run C-01 del 10 agosto a un `MAX_NEW_TOKENS` diverso (2048 contro 1024), che è ciò che il probe prevedeva: il controllo non tocca mai il tetto, quindi alzarlo non lo cambia.
 
-**Per riprendere**, da un branch che contiene il codice di C-07 (`C-07` o `audit-librerie` — su `main` mancano le 82 righe di `citation_harness.py` che mettono `reasoning_effort` e `max_new_tokens` dentro `config_hash`, e i due bracci finirebbero su disco con lo stesso nome):
+**Per riprendere.** Prerequisiti: Qdrant su (`docker compose up -d`), Ollama raggiungibile su `LLM_BASE_URL`, e un branch che contenga il codice di C-07 — `C-07` o `audit-librerie`. **Non da `main`**: là mancano le 82 righe di `citation_harness.py` che mettono `reasoning_effort` e `max_new_tokens` dentro `config_hash`, e i due bracci finirebbero su disco con lo stesso nome, che è il difetto che C-07 ha corretto per primo.
+
+Un blocco solo, da incollare in Git Bash. Concatena con `&&` così una run fallita ferma la catena invece di lasciarne girare altre quattro sopra un problema, e tiene un log perché ~3,5 ore non si stanno a guardare:
 
 ```bash
-export MAX_NEW_TOKENS=2048
-REASONING_EFFORT=high python scripts/eval_citations.py --dataset open_ragbench --limit 200
-REASONING_EFFORT=none python scripts/eval_citations.py --dataset ledger        --limit 200
-REASONING_EFFORT=high python scripts/eval_citations.py --dataset ledger        --limit 200
-REASONING_EFFORT=none python scripts/eval_citations.py --dataset open_ragbench --limit 200   # replica
-REASONING_EFFORT=none python scripts/eval_citations.py --dataset ledger        --limit 200   # replica
+export MAX_NEW_TOKENS=2048 &&   { REASONING_EFFORT=high python scripts/eval_citations.py --dataset open_ragbench --limit 200 &&     REASONING_EFFORT=none python scripts/eval_citations.py --dataset ledger        --limit 200 &&     REASONING_EFFORT=high python scripts/eval_citations.py --dataset ledger        --limit 200 &&     REASONING_EFFORT=none python scripts/eval_citations.py --dataset open_ragbench --limit 200 &&     REASONING_EFFORT=none python scripts/eval_citations.py --dataset ledger        --limit 200 ; }   2>&1 | tee eval/results/c07_resume.log
 ```
 
-Poi il confronto appaiato, due volte: fra i bracci, e fra controllo e replica — il secondo è il rumore contro cui si legge il primo.
+Le ultime due righe sono le **repliche del controllo**: non sono un doppione, sono il rumore di fondo contro cui si legge il delta fra i bracci. Il §14 le richiede perché la generazione campiona, e a T=0 la stessa configurazione non riproduce se stessa query per query — senza, le discordanze fra i due bracci contengono sia l'effetto sia il jitter e non si distinguono.
+
+**Non rilanciare il controllo `open_ragbench` / `none` come sesta run**: esiste già (`20260811_143623`), e una seconda esecuzione è la replica, non una sostituzione.
+
+Poi il confronto, due volte — fra i bracci, e fra controllo e replica:
 
 ```bash
 python scripts/compare_generations.py --a <none>.jsonl --b <high>.jsonl --label-a none --label-b high
+python scripts/compare_generations.py --a <none>.jsonl --b <replica>.jsonl --label-a run1 --label-b run2
 ```
 
-**Non rilanciare il controllo su open_ragbench**: c'è già, e rifarlo sostituirebbe una misura con un'altra invece di aggiungere la replica.
+**Mentre gira, due cose da non fare** — entrambe già costate GPU in questa sessione. Non cambiare branch: ogni run carica il codice all'avvio, e i bracci devono condividere lo stesso substrato. E non usare `git add -A`, che ha raccolto artefatti di run in commit di documentazione tre volte l'11 agosto.
+
+**Se serve interromperla**: uccidere prima il driver e poi i processi Python. Al contrario, il loop avanza al braccio successivo appena muore il figlio, e restano processi orfani che contendono la GPU alla run successiva.
 
 ### C-01 — Prompt con chunk numerati e formato citazione
 
