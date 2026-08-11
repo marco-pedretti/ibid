@@ -20,12 +20,22 @@ designing a run around it, and neither could be assumed:
            answer at all.  A run flipping only the switch would then measure
            **the token budget**, and report it as a property of reasoning.
 
+  levels   Follow-up, after the documentation was read (see `chat.py`).  Ollama
+           passes the effort *string* down and Gemma 4's thinking is the boolean
+           `enable_thinking`, so `medium == high == max` is what both sources
+           predict — and `effort` confirmed the first two.  `"low"` is the
+           anomaly neither source explains, and this probe asks the only
+           question that separates a real third state from sampling jitter:
+           **does `"low"` reproduce itself?**  It also covers `"max"`, a
+           documented value the first probe never sent.
+
 Both arms of C-07 have to share every parameter but the switch, so the budget
 this probe settles is applied to *both* — including the control.
 
 Usage:
     python scripts/probe_reasoning.py effort  [dataset] [n]
     python scripts/probe_reasoning.py budget  [dataset] [n]
+    python scripts/probe_reasoning.py levels  [dataset] [n]
 """
 
 from __future__ import annotations
@@ -138,8 +148,35 @@ def probe_budget(dataset: str, n: int) -> None:
     _table(rows, f"budget  ({dataset}, n={n}, median)")
 
 
+#: `low` appears twice on purpose.  The endpoint is deterministic at T=0 for an
+#: identical request — `effort` showed medium, high and the omitted field
+#: agreeing token for token — so if the two `low` passes disagree, the axis has
+#: jitter and the `low` anomaly is that jitter rather than a third state.
+LEVELS: list[str | None] = ["none", "low", "low", "medium", "high", "max"]
+
+
+def probe_levels(dataset: str, n: int) -> None:
+    prompts = _prompts(dataset, n)
+    rows = []
+    seen: dict[str, int] = {}
+    for effort in LEVELS:
+        seen[effort] = seen.get(effort, 0) + 1
+        label = f"{effort}#{seen[effort]}" if LEVELS.count(effort) > 1 else str(effort)
+        rs = []
+        for i, (qid, user, k) in enumerate(prompts, 1):
+            rs.append(_run(user, k, effort, 2048))
+            print(f"  {label:<10} [{i}/{len(prompts)}] {qid} {rs[-1]['tokens']}t", flush=True)
+        rows.append((label, rs))
+    _table(rows, f"levels @ max_tokens=2048  ({dataset}, n={n}, median)")
+    # Medians can agree while individual queries differ, and the claim under
+    # test is per-query identity — so the token sequences are compared directly.
+    print("\ntoken per query (l'identita' e' per query, non sulla mediana):")
+    for label, rs in rows:
+        print(f"  {label:<10} {[r['tokens'] for r in rs]}")
+
+
 if __name__ == "__main__":
     probe = sys.argv[1] if len(sys.argv) > 1 else "effort"
     ds = sys.argv[2] if len(sys.argv) > 2 else "open_ragbench"
     count = int(sys.argv[3]) if len(sys.argv) > 3 else 6
-    {"effort": probe_effort, "budget": probe_budget}[probe](ds, count)
+    {"effort": probe_effort, "budget": probe_budget, "levels": probe_levels}[probe](ds, count)

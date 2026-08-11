@@ -12,7 +12,7 @@ RAG prompt, completion tokens for the same answer:
     "think": false            1410   ignored — not an OpenAI field
     "chat_template_kwargs"    1410   ignored
     "enable_thinking": false  1410   ignored
-    "reasoning_effort": "low" 1410   accepted, no effect
+    "reasoning_effort": "low" 1410   accepted
     "reasoning_effort":"none"  267   works
     (native /api/chat, think=false)  325   works, but is not the /v1 contract
 
@@ -21,8 +21,45 @@ verified against Ollama's *native* `/api/chat`.  On `/v1/chat/completions` it is
 an unknown field and is dropped silently, so every generation since T-05 has
 been reasoning invisibly while `EvalRun.reasoning_enabled` recorded False.
 
+**What the documentation says**, checked 2026-08-11 after C-07 turned up
+behaviour the table above did not predict.  Ollama's `/v1` handler
+(`openai/openai.go`, `FromChatRequest`) accepts exactly five values and rejects
+anything else with a 400:
+
+    if !slices.Contains([]string{"high","medium","low","max","none"}, effort) {
+        return nil, fmt.Errorf("invalid reasoning value: ...")
+    }
+    if effort == "none" { think = &api.ThinkValue{Value: false} }
+    else                { think = &api.ThinkValue{Value: effort} }
+
+Three things follow, and all three were previously guesses here:
+
+1. Omitting the field leaves `think` nil, and Ollama then **auto-enables**
+   thinking on a capable model.  The invisible reasoning above was not a bug
+   being worked around — it is the documented default.
+2. `"none"` is a documented value that maps to thinking off, not an
+   undocumented string that happened to work.
+3. The endpoint passes the *level* through as a string.  Whether the level
+   means anything is the model's business — and Google's Gemma 4 docs describe
+   thinking as the boolean `enable_thinking`, with no graded levels.  So on this
+   model the axis is on/off, which is what `scripts/probe_reasoning.py` measured
+   independently: `medium`, `high` and the omitted field return byte-identical
+   token counts query by query.
+
+`"low"` is the one thing neither source explains: it is distinguishable from the
+other three (888 median completion tokens against 993, half the truncations).
+"accepted, no effect" in the table above was measured on a single prompt and is
+not what a six-prompt probe shows.  Unresolved, and out of C-07's way: the arms
+of a binary on/off row are `"none"` and the default-on state, and `"low"` is
+neither.
+
 `reasoning_effort` is a parameter rather than a constant because C-07 measures
 the effect of extended reasoning on and off, and that is the switch.
+
+Sources:
+    https://docs.ollama.com/api/openai-compatibility
+    https://github.com/ollama/ollama/blob/main/openai/openai.go
+    https://ai.google.dev/gemma/docs/capabilities/thinking
 """
 
 from __future__ import annotations
