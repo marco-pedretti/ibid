@@ -133,6 +133,8 @@ La previsione era stata scritta **prima** di misurare (commit 4ce5ea0), sulla ba
 
 Sottoposti al test appaiato di McNemar sulle stesse query, **nessuno dei cambi di prompt sposta la conformità complessiva in modo significativo**: run2→run3 p=0,210, run3→run4 p=0,167, run2→run4 p=1,000. Il "+4 punti" del run 3 era rumore ed era stato dichiarato come risultato — violazione del §12 corretta in 2c8cf0c.
 
+> **Nota sui `config_hash` di questi file** (scoperta durante C-07). I run 3 e 4 sono su disco con lo stesso `config_hash 2878488d` pur avendo due prompt diverse: il promemoria del run 4 è stato aggiunto a `build_user_message`, e `prompt_hash` copriva solo `SYSTEM`. La conclusione qui sopra non ne è toccata — la tabella li ha sempre trattati come due prompt distinte e li ha confrontati appaiati — ma i due file non sono distinguibili dal loro nome. Da C-07 l'hash copre anche il template del messaggio utente; i file già scritti restano come sono, e la presenza del campo `user_template_hash` nel `config` è ciò che distingue le due regole. Il messaggio del commit `da12e50` afferma che i due run erano stati documentati come repliche a parità di configurazione: **non è così**, ed è questa riga a fare fede.
+
 **Ciò che invece regge** è l'effetto sul bersaglio dichiarato del prompt:
 
 > `out_of_range` — 10 query migliorate, 0 peggiorate, **p = 0,0020**
