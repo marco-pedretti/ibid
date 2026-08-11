@@ -195,12 +195,18 @@ class TestRunGenerationEval:
         with pytest.raises(ValueError, match="Unknown baseline"):
             run_generation_eval("open_ragbench", path, baseline="Z")
 
-    def test_pipeline_mode_baseline_a(self, tmp_path):
+    def test_pipeline_mode_stays_on_the_binary_routing_axis(self, tmp_path):
+        """ROADMAP §3.3: `pipeline_mode` is "generic" | "routed", and `config`
+        exists so it does not become a free-text label. Until 2026-08-11 this
+        harness wrote "baseline_a" there, and the contract test on disk never
+        caught it because E-04/E-05 had never been run — no result file existed
+        to check. Which baseline it is belongs in `config`."""
         path = _write_golden(tmp_path, [_answerable_query()])
         with patch("src.eval.generation_harness.generate", return_value="42."), \
              patch("src.eval.generation_harness.judge_answer", return_value="correct"):
             run = run_generation_eval("open_ragbench", path, baseline="A", limit=1)
-        assert run.pipeline_mode == "baseline_a"
+        assert run.pipeline_mode == "generic"
+        assert run.config["baseline"] == "A"
 
     def test_skips_unanswerable_queries(self, tmp_path):
         unanswerable = GoldenQuery(
@@ -269,12 +275,13 @@ class TestRunGenerationEval:
 # ---------------------------------------------------------------------------
 
 class TestBaselineB:
-    def test_pipeline_mode_is_baseline_b(self, tmp_path):
+    def test_baseline_b_is_identified_by_config_not_pipeline_mode(self, tmp_path):
         path = _write_golden(tmp_path, [_answerable_query()])
         with patch("src.eval.generation_harness.generate", return_value="42."), \
              patch("src.eval.generation_harness.judge_answer", return_value="correct"):
             run = run_generation_eval("open_ragbench", path, baseline="B", limit=1)
-        assert run.pipeline_mode == "baseline_b"
+        assert run.pipeline_mode == "generic"
+        assert run.config["baseline"] == "B"
 
     def test_baseline_b_exact_abstention_phrase_detected(self):
         # The phrase from BASELINE_B_SYSTEM must be detected by is_abstained
@@ -326,3 +333,85 @@ class TestBaselineB:
 
     def test_baseline_b_contains_abstention_instruction(self):
         assert "cannot answer without more information" in BASELINE_B_SYSTEM
+
+
+class TestReasoningProvenance:
+    """The system under test follows the config; the measuring instrument does not.
+
+    C-07 varies `REASONING_EFFORT` to measure what extended reasoning does. Two
+    things must be true for that measurement to mean anything: the baselines have
+    to actually change when the switch moves, and the judge must not.
+    """
+
+    def test_the_harness_follows_the_config(self):
+        import inspect
+
+        from src.eval import generation_harness
+
+        src = inspect.getsource(generation_harness.run_generation_eval)
+        assert "reasoning_effort=cfg.REASONING_EFFORT" in src
+
+    def test_reasoning_enabled_is_derived_not_asserted(self):
+        """Written as a literal `False` this was a claim nobody checked — the
+        same defect C-01 found in the citation harness."""
+        import inspect
+
+        from src.eval import generation_harness
+
+        src = inspect.getsource(generation_harness.run_generation_eval)
+        assert "reasoning_enabled=False" not in src
+        assert 'reasoning_enabled=cfg.REASONING_EFFORT not in ("none", "", None)' in src
+
+    def test_the_judge_is_pinned_and_does_not_read_the_config(self):
+        """An instrument that changes with its subject cannot attribute the
+        difference to either. And at max_tokens=16 a reasoning judge returns an
+        empty verdict, which falls through to "wrong" — every judgement would
+        quietly become a failure."""
+        import inspect
+
+        from src.generation import judge
+
+        # Comments are stripped first: the one on that argument names
+        # cfg.REASONING_EFFORT precisely to say it is not used, and a check on
+        # the raw source would fail on its own explanation.
+        code = "\n".join(line.split("#")[0]
+                         for line in inspect.getsource(judge.judge_answer).splitlines())
+        assert 'reasoning_effort="none"' in code
+        assert "cfg.REASONING_EFFORT" not in code
+
+
+class TestAbstentionPhrasesFromRealOutput:
+    """The "access" family, added from output the model actually produced.
+
+    E-04/E-05 on the E-02 set first reported that the model invented an answer to
+    35 of 35 unanswerable financial questions. It had refused all 35, every time
+    with a phrasing the list did not contain. The heuristic had looked fine until
+    then only because on the answerable path a miss still reaches the LLM judge,
+    which returns "abstained" — the hole was invisible exactly where it was
+    covered.
+    """
+
+    @pytest.mark.parametrize("response", [
+        "I do not have access to specific, real-time financial data for individual companies.",
+        "I do not have real-time access to specific, historical financial statements.",
+        "I do not have access to external databases or company filings.",
+        "I don't have access to that information.",
+    ])
+    def test_real_refusals_are_detected(self, response):
+        assert is_abstained(response)
+
+    def test_an_answer_that_merely_mentions_access_is_not_a_refusal(self):
+        """The phrases must not fire on prose about access as a subject."""
+        assert not is_abstained(
+            "Researchers who have access to the full dataset report a 12% gain.")
+
+    def test_the_change_did_not_move_the_c01_numbers(self):
+        """Measured with scripts/rescore_citations.py over the four stored C-01
+        dumps: every one recomputes to its recorded rate, +0.0000. With retrieved
+        context the model uses the exact `Insufficient information.` token, never
+        this phrasing — so extending the list is retroactively inert here."""
+        from src.generation.citation_format import is_abstention
+
+        assert is_abstention("Insufficient information.")
+        # Long prose is not an abstention however it is phrased (200-char bound).
+        assert not is_abstention("I do not have access to it. " + "x" * 250)

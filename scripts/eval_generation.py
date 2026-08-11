@@ -41,6 +41,9 @@ def main() -> None:
                         default="open_ragbench")
     parser.add_argument("--limit", type=int, default=None,
                         help="Evaluate only first N answerable queries (smoke test)")
+    parser.add_argument("--queries", choices=["answerable", "unanswerable"],
+                        default="answerable",
+                        help="unanswerable = E-02, per il gate della Fase 4")
     parser.add_argument("--model", default=None,
                         help=f"LLM model name (default: {cfg.LLM_MODEL})")
     args = parser.parse_args()
@@ -64,10 +67,14 @@ def main() -> None:
             baseline=args.baseline,
             limit=args.limit,
             model=args.model,
+            queries=args.queries,
         )
 
         ts = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
-        out_path = RESULTS_DIR / f"{ts}_{dataset_id}_baseline{args.baseline.lower()}.json"
+        # The population is part of the file's identity: a baseline run over the
+        # unanswerable set measures something else entirely.
+        suffix = "" if args.queries == "answerable" else "_unanswerable"
+        out_path = RESULTS_DIR / f"{ts}_{dataset_id}_baseline{args.baseline.lower()}{suffix}.json"
         out_path.write_text(
             json.dumps(run.model_dump(mode="json"), indent=2, ensure_ascii=False),
             encoding="utf-8",

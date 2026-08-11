@@ -41,8 +41,8 @@ Tracciamento dei task di `ROADMAP.md` man mano che vengono completati. Non sosti
 | E-01 | ✅ fatto (2026-08-05) | Schema `GoldenQuery` + `GoldenQrel` in `src/datasets/golden.py`. Loader `load_open_ragbench_golden()`: 3045 query da `queries.json`/`qrels.json`/`answers.json` — 1 chunk rilevante per query (relevance=2), chunk_id `"open_ragbench:{doc_id}:{section_id}"`. Loader `load_ledger_golden()`: 10000 query dai 10 shard parquet (`eval/data-*-of-*.parquet`) — qrels graduati 0-2, chunk_id `"ledger:{doc_id}:{page:04d}"`. Aggiunto `download_qa()` in `ledger.py`. CLI `scripts/build_golden.py` (supporta `--dataset`). Validazione inline in `validate_golden_file()`. Output: `eval/golden/open_ragbench.jsonl` (3045 righe), `eval/golden/ledger.jsonl` (10000 righe). 26 nuovi test in `tests/test_golden.py`. **224/224 test passati.** |
 | E-02 | ✅ fatto (2026-08-05) | Query non rispondibili: **35 per dataset** (25 cross-dataset + 10 manuali), nel range 30-40 previsto. Strategia: query LEDGER (KPI finanziari) poste contro il corpus open_ragbench → non rispondibili per costruzione; viceversa per ledger. 10 query manuali per dataset su argomenti plausibili ma assenti. Campo `answerable: bool = True` aggiunto a `GoldenQuery`; `validate_golden_file()` aggiornata per accettare `qrels=[]` solo se `answerable=False`. `src/datasets/unanswerable.py`: `build_unanswerable_for_open_ragbench()` + `build_unanswerable_for_ledger()`, seed fisso per riproducibilità. `scripts/build_unanswerable.py`: appende ai golden file esistenti, idempotente. Output: `eval/golden/open_ragbench.jsonl` (3045+35=3080 righe), `eval/golden/ledger.jsonl` (10000+35=10035 righe). 24 nuovi test in `tests/test_unanswerable.py`. **248/248 test passati.** |
 | E-03 | ✅ fatto (2026-08-05) | Harness IR via `ir_measures` 0.4.3. `src/eval/metrics.py`: `build_qrels()`, `build_run()`, `compute_metrics()` — misure: R@5, R@10, nDCG@10, RR@10 (MRR), Success@1. `src/eval/harness.py`: `run_retrieval_eval()` — carica golden, embeda query in batch, ricerca Qdrant, calcola metriche, restituisce `EvalRun` con `git_commit` e `config_hash`. `scripts/eval.py`: CLI `--dataset`, `--top-k`, `--limit`. `Makefile`: target `eval` ora chiama `scripts/eval.py`. Dipendenze aggiunte: `ir_measures>=0.3`, `pandas>=2.0`. Gate verificato: `python scripts/eval.py --dataset open_ragbench --limit 50` → EvalRun valido in 3.3s (R@5=0.80, nDCG@10=0.68, Success@1=0.54). 18 nuovi test in `tests/test_eval_metrics.py`. **266/266 test passati.** |
-| E-04 | ✅ fatto (2026-08-05) | Baseline A: generazione senza retrieval, prompt permissivo. `src/generation/baseline_prompts.py` (BASELINE_A_SYSTEM + BASELINE_B_SYSTEM + ABSTENTION_PHRASES), `src/generation/judge.py` (LLM-as-judge: CORRECT/WRONG/ABSTAINED), `src/eval/generation_harness.py` (`run_generation_eval()` — genera senza contesto, classifica con euristico + judge, EvalRun con abstention_rate/correct_rate/wrong_rate che sommano a 1.0), `scripts/eval_generation.py` (CLI `--baseline A|B --dataset --limit`), `src/config.py` + `LLM_QUANTIZATION`. Il harness è condiviso con E-05 (stessa logica, system prompt diverso). 31 nuovi test, tutti con mock LLM. **297/297 test passati.** Eseguire: `python scripts/eval_generation.py --baseline A --dataset open_ragbench --limit 50` (richiede LLM su LLM_BASE_URL). |
-| E-05 | ✅ fatto (2026-08-05) | Baseline B: nessun retrieval, prompt severo. L'harness `run_generation_eval()` era già condiviso con E-04 — E-05 aggiunge 6 test dedicati al comportamento strict (`TestBaselineB`): `pipeline_mode="baseline_b"`, frase di astensione esatta da `BASELINE_B_SYSTEM` rilevata da `is_abstained()`, `abstention_rate=1.0` con tutti i candidati astenuti, mix rates corretto, hash diverso da baseline A. Eseguire: `python scripts/eval_generation.py --baseline B --dataset open_ragbench --limit 50`. **303/303 test passati.** |
+| E-04 | ✅ **eseguito (2026-08-11)** — codice dal 2026-08-05 | Baseline A: generazione senza retrieval, prompt permissivo. `src/generation/baseline_prompts.py` (BASELINE_A_SYSTEM + BASELINE_B_SYSTEM + ABSTENTION_PHRASES), `src/generation/judge.py` (LLM-as-judge: CORRECT/WRONG/ABSTAINED), `src/eval/generation_harness.py` (`run_generation_eval()` — genera senza contesto, classifica con euristico + judge, EvalRun con abstention_rate/correct_rate/wrong_rate che sommano a 1.0), `scripts/eval_generation.py` (CLI `--baseline A|B --dataset --limit`), `src/config.py` + `LLM_QUANTIZATION`. Il harness è condiviso con E-05 (stessa logica, system prompt diverso). 31 nuovi test, tutti con mock LLM. **297/297 test passati.** Eseguire: `python scripts/eval_generation.py --baseline A --dataset open_ragbench --limit 50` (richiede LLM su LLM_BASE_URL). |
+| E-05 | ✅ **eseguito (2026-08-11)** — codice dal 2026-08-05 | Baseline B: nessun retrieval, prompt severo. L'harness `run_generation_eval()` era già condiviso con E-04 — E-05 aggiunge 6 test dedicati al comportamento strict (`TestBaselineB`): `pipeline_mode="baseline_b"`, frase di astensione esatta da `BASELINE_B_SYSTEM` rilevata da `is_abstained()`, `abstention_rate=1.0` con tutti i candidati astenuti, mix rates corretto, hash diverso da baseline A. Eseguire: `python scripts/eval_generation.py --baseline B --dataset open_ragbench --limit 50`. **303/303 test passati.** |
 | E-06 | ✅ fatto (2026-08-05) | Baseline C: retrieval lessicale BM25. `run_retrieval_eval()` esteso con `retrieval_mode="dense"|"sparse"`: sparse usa `encode_sparse(Qdrant/bm25)`+`using="sparse"` invece di `encode(multilingual-e5-large)`+`using="dense"`. `_config_hash()` include `retrieval_mode`. `scripts/eval.py` ha `--retrieval-mode dense|sparse`; sparse → `pipeline_mode="baseline_c"`. Tipo hint `search()` corretto: `list[float] \| SparseVector`. `tests/test_eval_harness.py`: 12 test (dense path, sparse path, config_hash), tutti con mock Qdrant+embed. Eseguire: `python scripts/eval.py --retrieval-mode sparse --dataset open_ragbench --limit 50`. **315/315 test passati.** |
 | E-07 | ✅ fatto (2026-08-05) | Rumore di fondo: `src/eval/noise_floor.py` — `compute_noise_floor(runs)` calcola mean/std(pstdev)/min/max per ogni metrica su una lista di EvalRun; `MetricStats` + `NoiseFloorResult` Pydantic; `build_noise_floor_result()` produce il JSON salvabile. `scripts/eval_noise.py`: CLI `--mode retrieval\|generation --n-runs 5 --dataset --retrieval-mode --baseline --limit`; stampa tabella mean/std/min/max e salva in `eval/results/`. Makefile: `noise-floor`. 18 nuovi test. **333/333 test passati.** Eseguire: `make noise-floor` (retrieval, 5 runs) o `python scripts/eval_noise.py --mode generation --baseline A --n-runs 5 --limit 30`. Soglia: nessun miglioramento < std può essere dichiarato tale. |
 
@@ -410,3 +410,62 @@ Tre ragioni, nessuna delle quali è il tasso di astensione:
 **Calibrazione senza fuga.** Le non rispondibili non entrano mai nel calcolo della soglia — è il percentile delle sole rispondibili — e le rispondibili sono divise in tre fette disgiunte: `[0:150]` calibrazione, `[150:300]` holdout, `[300:360]` valutazione. Tre script ricavano le loro fette dallo stesso shuffle con lo stesso seed, e niente nel codice imponeva l'accordo: ora un test verifica la disgiunzione, perché un seed cambiato non darebbe un errore ma un numero plausibile e privo di significato.
 
 **Strumenti nuovi:** `src/retrieval/abstention.py`, `scripts/calibrate_abstention.py`, `scripts/eval_abstention.py`, gate agganciato a `scripts/query.py`. `ABSTENTION_ANSWER` è ora una costante unica in `prompt.py` — il prompt che la chiede al modello e il gate che la emette senza modello devono usare lo stesso identico token (C-05); `prompt_hash` resta `3a50ef63`. **1223 test.**
+
+### E-04 / E-05 — Baseline senza retrieval, eseguiti (2026-08-11)
+
+Il codice era pronto dal 5 agosto; **le run non erano mai state lanciate**, e il gate della Fase 4 le richiede. Eseguirle ha prodotto i numeri attesi e, come sempre, tre difetti che solo l'esecuzione poteva far emergere.
+
+#### I criteri: risposte corrette/sbagliate (E-04) e tasso di astensione (E-05)
+
+100 query rispondibili per dataset, `gemma4:latest`, T=0, **nessun contesto recuperato**.
+
+| | astensione | corrette | **sbagliate** |
+|---|---|---|---|
+| **A** (prompt permissivo) / open_ragbench | 0,120 | 0,430 | **0,450** |
+| **B** (prompt severo) / open_ragbench | **0,420** | 0,410 | **0,170** |
+| A / ledger | **1,000** | 0,000 | 0,000 |
+| B / ledger | 1,000 | 0,000 | 0,000 |
+
+**Su open_ragbench il prompt severo taglia le risposte sbagliate da 45% a 17% perdendo 2 punti di corrette.** Le marginali sono *compatibili* con «le astensioni in più vengono quasi tutte da risposte sbagliate», ma l'harness non salva i verdetti per query: è un'inferenza dai totali, non un fatto dimostrato. Per dimostrarlo servirebbe il dump per query, come fa `citation_harness` dal C-01.
+
+**Su LEDGER entrambi i baseline si astengono su tutto.** Senza contesto il modello non tenta nemmeno una domanda su un bilancio.
+
+#### Il gate della Fase 4: baseline A contro sistema completo, sulle non rispondibili
+
+| sulle 35 non rispondibili di E-02 | baseline A (nessun retrieval) | sistema completo (C-04) |
+|---|---|---|
+| open_ragbench | **20,0%** inventate | **0%** |
+| ledger | **97,1%** inventate | **0%** |
+
+Su LEDGER si passa da 97% a zero. È l'affermazione centrale del progetto in numeri: **il grounding non aggiunge conoscenza, sopprime la confabulazione.**
+
+#### L'asimmetria 20% / 97% non è una proprietà dei dataset
+
+Sarebbe facile leggerla come «open_ragbench è più facile». È il **tipo di domanda** a decidere, non l'etichetta del dataset:
+
+| domanda posta senza contesto | comportamento del modello |
+|---|---|
+| **finanziaria** (bilanci) | rifiuta — sa di non poter consultare un filing |
+| **accademica** (paper) | risponde dalla memoria parametrica, e inventa |
+
+Le non rispondibili di ORB sono query finanziarie poste contro i paper; quelle di LEDGER sono query accademiche poste contro i bilanci. Con questa chiave i quattro numeri delle rispondibili tornano insieme agli altri due: ORB (accademiche) 11-12% di astensione e 45% di errori, LEDGER (finanziarie) 100% di astensione.
+
+> Il guadagno del sistema completo è **massimo esattamente dove il modello è più sicuro di sé e più sbagliato.** Dove già rifiutava, il retrieval aggiunge poco; dove confabulava al 97%, lo azzera.
+
+Indizio secondario: il rifiuto sistematico sulle finanziarie è coerente con i controlli di contaminazione di T-03. Non è una prova — è un'assenza di evidenza contraria, e va trattata come tale.
+
+#### Tre difetti trovati eseguendo
+
+**1. Il rilevatore di astensione non riconosceva i rifiuti veri.** La prima misura sulle non rispondibili diceva che il modello inventava 35 risposte su 35. Le aveva rifiutate tutte, ogni volta con una formulazione assente dalla lista: `I do not have access to specific, real-time financial data ...`.
+
+Il difetto era invisibile perché **sul percorso delle rispondibili una risposta che l'euristica manca arriva comunque al giudice LLM**, che restituisce `abstained` — ecco perché LEDGER dava 100% mentre `is_abstained()` non ne riconosceva nemmeno una. Il ramo per le non rispondibili non ha un giudice (non c'è un riferimento con cui confrontare) e le contava come inventate.
+
+> Una rete di sicurezza che nasconde un buco nel controllo primario è una cosa da sapere: **il buco si vede solo dove la rete non c'è.**
+
+Le frasi aggiunte vengono dall'output reale, non dall'immaginazione. Impatto retroattivo **misurato** con `rescore_citations.py` sui quattro dump di C-01: ogni run ricalcola il valore registrato, **+0,0000** — col contesto il modello usa il token esatto, mai questa formulazione. E le due riesecuzioni di controllo su ORB confermano che i numeri non si spostano: A da 0,110/0,440/**0,450** a 0,120/0,430/**0,450** (una query su cento passa dal giudice all'euristica), B **identico** a tre decimali. Il 45% è ora confermato da due strade indipendenti.
+
+**2. `pipeline_mode` violava il §3.3.** L'harness ci scriveva `baseline_a` / `baseline_b`, ma il contratto lo definisce `"generic" | "routed"` e `config` esiste proprio perché quel campo non diventi un'etichetta libera. Il test di contratto su disco non l'aveva mai preso perché **non era mai esistito un file di baseline da controllare**. Corretto, e i quattro file già prodotti migrati con la convenzione di `migrate_eval_results.py`: cambia il campo, non la misura.
+
+**3. `EvalRun.config` non veniva popolato affatto**, e `reasoning_enabled` era scritto come letterale `False` — la stessa dichiarazione non verificata che C-01 aveva trovato altrove. Ora derivato da `cfg.REASONING_EFFORT`, che i baseline finalmente passano davvero al modello: prima l'argomento era omesso e il default lo fissava in silenzio, quindi non avrebbero potuto girare nella condizione di **C-07** nemmeno volendo. Il **giudice** invece resta fissato a `"none"` e non legge la config: è lo strumento di misura, e uno strumento che cambia insieme al proprio soggetto non può attribuire la differenza a nessuno dei due.
+
+**Aperto**: l'harness dei baseline non salva le risposte per query. È il motivo per cui il taglio 45% → 17% resta un'inferenza dai totali invece di un test appaiato, e per cui i tre difetti sopra hanno richiesto di rigenerare le risposte a mano per essere diagnosticati. `citation_harness` ha risolto lo stesso problema in C-01. **1232 test.**

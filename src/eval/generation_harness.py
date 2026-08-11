@@ -28,18 +28,34 @@ _PROMPTS: dict[str, str] = {
     "B": BASELINE_B_SYSTEM,
 }
 
-_PIPELINE_MODES: dict[str, str] = {
-    "A": "baseline_a",
-    "B": "baseline_b",
-}
+#: ROADMAP §3.3 defines `pipeline_mode` as the binary routing axis, and §3 says
+#: `config` exists precisely so it does not become a free-text label.  These
+#: baselines do no retrieval at all, so they are not routed; which baseline they
+#: are lives in `config["baseline"]`.
+#:
+#: This module wrote "baseline_a" / "baseline_b" into that field from E-04 until
+#: 2026-08-11, and the contract test on disk never caught it because E-04/E-05
+#: had never actually been run — no result file existed to check.
+_ROUTING_AXIS = "generic"
 
 
-def _config_hash(baseline: str, model: str) -> str:
+def _config_hash(baseline: str, model: str, queries: str = "answerable") -> str:
+    """Identity of the configuration under test.
+
+    `queries` enters the hash only when it is not the default, so the four
+    E-04/E-05 runs of 2026-08-11 keep the identity they were recorded with.
+    Adding it unconditionally would give the same measurement two names
+    depending on when it was taken, which is the opposite of what a config hash
+    is for — while leaving it out entirely would give two different measurements
+    the same name, which is worse.
+    """
     params = {
         "baseline": baseline,
         "model": model,
         "temperature": cfg.TEMPERATURE,
     }
+    if queries != "answerable":
+        params["queries"] = queries
     return hashlib.md5(json.dumps(params, sort_keys=True).encode()).hexdigest()[:8]
 
 
@@ -55,6 +71,7 @@ def run_generation_eval(
     baseline: str = "A",
     limit: int | None = None,
     model: str | None = None,
+    queries: str = "answerable",
 ) -> EvalRun:
     """Run no-context LLM baseline evaluation and return an EvalRun.
 
@@ -62,12 +79,22 @@ def run_generation_eval(
         dataset_id: "open_ragbench" | "ledger"
         golden_path: path to eval/golden/{dataset_id}.jsonl
         baseline: "A" (permissive) | "B" (strict)
-        limit: evaluate only first N answerable queries that have a reference answer
+        limit: evaluate only first N queries
         model: LLM model name (default: cfg.LLM_MODEL)
+        queries: "answerable" — the E-04/E-05 criteria, judged against the
+            reference answer.  "unanswerable" — the E-02 set, which the Fase 4
+            gate compares against the full system.
 
     Returns:
-        EvalRun with metrics: abstention_rate, correct_rate, wrong_rate.
-        The three rates always sum to 1.0.
+        EvalRun with metrics: abstention_rate, correct_rate, wrong_rate, which
+        always sum to 1.0.
+
+    **On the unanswerable set there is nothing to judge.**  Those queries have no
+    reference answer, and without retrieval the model has no context either — so
+    any answer at all is invented by construction, and `wrong_rate` is exactly
+    `1 - abstention_rate` without an LLM judge being consulted.  Calling the
+    judge there would ask a model to compare a response against a reference that
+    does not exist, and it would return a verdict anyway.
     """
     if baseline not in _PROMPTS:
         raise ValueError(f"Unknown baseline {baseline!r}. Valid: {list(_PROMPTS)}")
@@ -79,12 +106,20 @@ def run_generation_eval(
     # See citation_harness.run_citation_eval: captured before the run.
     commit = git_commit()
 
+    if queries not in ("answerable", "unanswerable"):
+        raise ValueError(f"Unknown queries {queries!r}")
+
     all_queries = load_golden(golden_path)
-    candidates = [
-        q
-        for q in all_queries
-        if q.answerable and q.dataset_id == dataset_id and q.reference_answer
-    ]
+    if queries == "answerable":
+        candidates = [
+            q
+            for q in all_queries
+            if q.answerable and q.dataset_id == dataset_id and q.reference_answer
+        ]
+    else:
+        candidates = [
+            q for q in all_queries if not q.answerable and q.dataset_id == dataset_id
+        ]
     if limit is not None:
         candidates = candidates[:limit]
 
@@ -102,10 +137,21 @@ def run_generation_eval(
             user=q.query_text,
             temperature=cfg.TEMPERATURE,
             max_tokens=cfg.MAX_NEW_TOKENS,
+            # The system under test follows the config. Until now this argument
+            # was omitted and the default silently pinned it to "none", so the
+            # baselines could not have been run under C-07's condition even on
+            # purpose. The judge below deliberately does not follow it.
+            reasoning_effort=cfg.REASONING_EFFORT,
         )
 
         if is_abstained(response):
             counts["abstained"] += 1
+            continue
+
+        if queries == "unanswerable":
+            # No reference to judge against, and no context the answer could have
+            # come from: whatever this is, the model made it up.
+            counts["wrong"] += 1
             continue
 
         verdict = judge_answer(
@@ -127,13 +173,25 @@ def run_generation_eval(
         run_id=str(uuid.uuid4()),
         timestamp=datetime.now(timezone.utc),
         git_commit=commit,
-        config_hash=_config_hash(baseline, model),
+        config_hash=_config_hash(baseline, model, queries),
         dataset_id=dataset_id,
         model=model,
         quantization=cfg.LLM_QUANTIZATION,
         context_window=cfg.CONTEXT_WINDOW,
         temperature=cfg.TEMPERATURE,
-        reasoning_enabled=False,
-        pipeline_mode=_PIPELINE_MODES[baseline],
+        # Derived, not asserted. Written as a literal `False` this field was a
+        # claim nobody checked — the same defect C-01 found in the citation
+        # harness, where every run declared reasoning off while the model was
+        # reasoning through its whole token budget.
+        reasoning_enabled=cfg.REASONING_EFFORT not in ("none", "", None),
+        pipeline_mode=_ROUTING_AXIS,
+        config={
+            "harness": "generation_baseline",
+            "baseline": baseline,
+            "queries": queries,
+            "n_queries": n,
+            "llm_model": model,
+            "judge_used": queries == "answerable",
+        },
         metrics=metrics,
     )

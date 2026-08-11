@@ -45,6 +45,17 @@ def judge_answer(
         user=user_msg,
         temperature=temperature,
         max_tokens=16,
+        # Pinned, and deliberately NOT read from cfg.REASONING_EFFORT: the judge
+        # is the measuring instrument, and C-07 flips that switch to vary the
+        # thing being measured. An instrument that changes with its subject
+        # cannot attribute the difference to either.
+        #
+        # It is also the setting this call depends on to work at all: 16 tokens
+        # is enough for "CORRECT" and nothing else, so a reasoning model would
+        # spend the whole budget thinking and return an empty verdict, which
+        # falls through to "wrong" and would quietly turn every judgement into a
+        # failure.
+        reasoning_effort="none",
     ).strip().upper()
 
     if raw.startswith("CORRECT"):
