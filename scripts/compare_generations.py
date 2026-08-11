@@ -79,9 +79,9 @@ def main() -> None:
         raise SystemExit("The two runs share no query_id — different query sets.")
     if len(shared) != len(a) or len(shared) != len(b):
         # Not fatal, but it changes what the verdict is about, so it is stated.
-        print(f"[warn] {len(a)} vs {len(b)} query, {len(shared)} in comune — confronto sulle comuni")
+        print(f"[warn] {len(a)} vs {len(b)} query, {len(shared)} in comune: confronto sulle comuni")
 
-    print(f"\n=== {args.label_a} vs {args.label_b} — {len(shared)} query appaiate ===")
+    print(f"\n=== {args.label_a} vs {args.label_b} - {len(shared)} query appaiate ===")
     _arm_summary(args.label_a, [a[q] for q in shared])
     _arm_summary(args.label_b, [b[q] for q in shared])
 
