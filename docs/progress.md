@@ -106,6 +106,7 @@ L'associazione fra `#1` e il run corrispondente e risolta col colore: la tabella
 | C-05 | ✅ fatto (2026-08-10) | **Criterio soddisfatto senza toccare il prompt.** L'istruzione c'era dal T-0x e non era mai stata verificata: 14/14 risposte nella lingua della domanda, 0 miste. `prompt_hash` invariato. |
 | C-07 | 🔄 in corso (2026-08-11) | Sei run da 200 query: due bracci × due dataset, più due repliche del controllo per il rumore. Entrambi i bracci a `MAX_NEW_TOKENS=2048` — a 1024 il ragionamento tronca metà delle risposte e si misurerebbe il budget. |
 | I-10 | ⬜ da fare | **Misura** del chunking contro la finestra da 512 token. Gate di C-06, e il più grande dei due: OQ-04. |
+| C-08 | 🔄 codice fatto, misura in attesa di GPU (2026-08-11) | Markup delle tabelle OCR fuori dalla premessa, dietro `ENTAILMENT_RENDER_TABLES`. Premessa mediana da 1.158 a 821 token (−30,6%), ma **nessuna superava il cap**: il guadagno di budget è reale e inutile, resta la sola ragione distribuzionale, ancora da misurare. |
 | I-08 | ⬜ da fare | **Misura** dei prefissi E5 su indice ridotto. Gate di C-06: OQ-02. Dopo I-10, e separatamente. |
 | C-06 | ⬜ da fare | Per ultimo, per la regola d'ordine del §14. |
 
