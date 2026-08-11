@@ -115,6 +115,14 @@ ENTAILMENT_PREMISE_CAP: int = 4096
 # direction for a number meant to show the system can be trusted.
 ENTAILMENT_THRESHOLD: float = 0.5
 
+# Le premesse LEDGER sono OCR Mathpix: prosa con markup `<table>` dentro, fino al
+# 77% dei token della premessa. Con questo attivo il markup diventa righe
+# `cella | cella` prima della verifica. Parametro e non costante perche' il
+# confronto fra le due varianti deve girare sulle stesse generazioni salvate
+# (§3.4: un'ablation e' un ciclo sulla config). Default spento finche' C-08 non
+# ha misurato: cambiarlo cambia `citation_precision` gia' riportata.
+ENTAILMENT_RENDER_TABLES: bool = os.getenv("ENTAILMENT_RENDER_TABLES", "") == "1"
+
 # Query rewriting (R-03): LLM rewrites the query before embedding.
 # Uses LLM_BASE_URL / LLM_MODEL; override here for a dedicated smaller model.
 QUERY_REWRITE_MODEL: str = os.getenv("QUERY_REWRITE_MODEL", "")  # "" = use LLM_MODEL

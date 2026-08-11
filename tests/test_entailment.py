@@ -22,6 +22,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 import src.config as cfg
 from src.generation import entailment
 from src.generation.entailment import (
+    render_tables,
     Verdict,
     build_premises,
     normalize_premise,
@@ -217,3 +218,51 @@ class TestNormalizePremise:
 class TestVerdict:
     def test_single_premise_is_not_windowed(self):
         assert not Verdict(True, 0.9, 1).windowed
+
+
+class TestRenderTables:
+    """C-08: il markup delle tabelle OCR non è una premessa.
+
+    Sulle 117 chunk citati nella run ledger di C-03 la premessa mediana è per il
+    26,5% token di markup, il terzo quartile 62,5%, la peggiore 77,2% — mentre il
+    96,7% dei claim è numerico. Entrambi i lati della coppia sono fuori dalla
+    distribuzione su cui il modello NLI è stato addestrato.
+    """
+
+    def test_prose_is_untouched(self):
+        assert render_tables("Nessuna tabella qui.") == "Nessuna tabella qui."
+
+    def test_markup_becomes_rows(self):
+        out = render_tables("<table><tr><td>Voce</td><td>2017</td></tr></table>")
+        assert "Voce | 2017" in out
+        assert "<td>" not in out
+
+    def test_numbers_survive(self):
+        """Il claim afferma un numero: se il rendering lo perde, la verifica
+        diventa impossibile invece che più facile."""
+        out = render_tables("<table><tr><td>Ricavi</td><td>1.234,56</td></tr></table>")
+        assert "1.234,56" in out
+
+    def test_an_unparseable_table_goes_through_whole(self):
+        """Mai perdere contenuto in silenzio: una premessa che ha perso la
+        propria tabella è peggio di una che contiene tag."""
+        broken = "<table>testo senza celle</table>"
+        assert render_tables(broken) == broken
+
+    def test_prose_around_a_table_is_kept(self):
+        out = render_tables("Prima.\n<table><tr><td>A</td></tr></table>\nDopo.")
+        assert "Prima." in out and "Dopo." in out
+
+    def test_normalize_premise_follows_the_flag(self, monkeypatch):
+        t = "<table><tr><td>A</td><td>1</td></tr></table>"
+        monkeypatch.setattr(cfg, "ENTAILMENT_RENDER_TABLES", False)
+        assert "<td>" in normalize_premise(t)
+        monkeypatch.setattr(cfg, "ENTAILMENT_RENDER_TABLES", True)
+        assert "<td>" not in normalize_premise(t)
+
+    def test_explicit_argument_overrides_the_flag(self, monkeypatch):
+        """Serve a scorere le due varianti sulle stesse generazioni salvate,
+        nello stesso processo (§3.4)."""
+        t = "<table><tr><td>A</td><td>1</td></tr></table>"
+        monkeypatch.setattr(cfg, "ENTAILMENT_RENDER_TABLES", False)
+        assert "<td>" not in normalize_premise(t, render=True)
