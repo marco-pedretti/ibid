@@ -166,8 +166,8 @@ Per ogni dataset candidato: 16 domande costruite con lo stesso schema dei test p
 |---|---|---|
 | I-01 | **Profilatore documenti**: pagine, presenza di strato testuale, densità di tabelle, numero di colonne, profondità della struttura | Produce un report tabellare per dataset. Serve prima come triage, poi per il routing |
 | I-02 | Assegnazione `doc_genre` dal profilo | Classificazione su 50 documenti verificata a mano, ≥90% corretta |
-| I-03 | Pipeline `continuous_text`: chunking su paragrafi con overlap | — |
-| I-04 | Pipeline `structured_hierarchical`: chunking su sezioni, `section_path` popolato | — |
+| I-03 | Pipeline `continuous_text`: chunking su paragrafi con overlap | Distribuzione delle lunghezze in **token** riportata per dataset, contro la finestra dell'embedder. *Aggiunto il 2026-08-11 e attualmente non soddisfatto* — vedi OQ-04 |
+| I-04 | Pipeline `structured_hierarchical`: chunking su sezioni, `section_path` popolato | Come I-03, più `section_path` non vuoto dove la struttura esiste |
 | I-05 | Pipeline `table_heavy`: tabella come unità atomica, mai spezzata a metà | Nessun chunk contiene una tabella troncata |
 | I-06 | Estrazione bbox e rendering pagine a PNG dove il formato lo consente | `bbox` e `page` popolati per i dataset con PDF |
 | I-07 | Indicizzazione ~~BGE-M3~~ `multilingual-e5-large` (densi) + `Qdrant/bm25` (sparsi) su Qdrant, una collection per dataset | ~~< 20 minuti~~ **122 minuti misurati** su 65.950 chunk (18.840 ORB + 47.110 LEDGER) con batch=32 su RX 6750 XT. Il criterio era calibrato su BGE-M3 (dense+sparse in un passaggio); con `multilingual-e5-large` il collo di bottiglia è 10 embed/s × 66k chunk ≈ 110 min di GPU. Job one-shot accettabile. Con BGE-M3 (quando disponibile) il tempo scenderà strutturalmente. **Nota:** BGE-M3 sostituirà `multilingual-e5-large` quando fastembed PR #602 sarà mergiato — richiederà re-ingestion e sarà trattato come ablation separata, non patch incrementale |
@@ -191,7 +191,7 @@ Per ogni dataset candidato: 16 domande costruite con lo stesso schema dei test p
 | E-03 | Metriche IR via `ir_measures`: recall@k, MRR, nDCG, success@1 | `make eval` produce un `EvalRun` valido |
 | E-04 | **Baseline A**: nessun retrieval, prompt permissivo | Risposte corrette / sbagliate / inventate |
 | E-05 | **Baseline B**: nessun retrieval, prompt severo | Tasso di astensione |
-| E-06 | **Baseline C**: solo retrieval lessicale | — |
+| E-06 | **Baseline C**: solo retrieval lessicale | Delta contro il denso **per dataset**, e la configurazione è verificabilmente BM25: modificatore IDF attivo sull'indice, query codificate come query. *Aggiunto il 2026-08-11 e attualmente non soddisfatto* — vedi OQ-03 |
 | E-07 | **Rumore di fondo**: 5 esecuzioni della stessa configurazione | Dispersione riportata. Nessuna differenza inferiore a questa soglia sarà mai dichiarata un miglioramento |
 
 **Nota su E-02 — è l'unica annotazione che dovete davvero fare, ed è quasi gratis.** I benchmark pubblici non contengono domande senza risposta, ma a voi servono per misurare l'astensione. Il trucco: prendete query del dataset A e ponetele contro il corpus del dataset B. Sono automaticamente non rispondibili, non richiedono scrittura manuale, e sono realistiche. Integratele con una decina scritte a mano su argomenti plausibili ma assenti.
@@ -214,7 +214,7 @@ Per ogni dataset candidato: 16 domande costruite con lo stesso schema dei test p
 | R-03 | Riscrittura query | Delta misurato |
 | R-04 | Filtri dalla query verso i metadati (dataset, tipo contenuto) | Delta misurato |
 | R-05 | Aggregazione a livello documento per la lista file | Obiettivo distinto dal ranking dei chunk per il contesto |
-| R-06 | **Routing automatico**: `doc_genre` → pipeline di ingestion | — |
+| R-06 | **Routing automatico**: `doc_genre` → pipeline di ingestion | Ogni chunk porta `pipeline` valorizzato e coerente col proprio `doc_genre`, verificato su un campione. **Il valore non si misura qui ma in R-07** |
 | R-07 | **Ablation del routing**: pipeline generica unica contro routing automatico | Delta **per dataset**, mai aggregato. È l'affermazione 2 del §0 |
 
 **Il valore sta in R-07**, non in R-06. Il routing senza la misura del suo effetto è una funzionalità; con la misura è un risultato.
@@ -316,16 +316,16 @@ Tutte e tre le voci nascono dall'audit del 2026-08-11, in cui le librerie sono s
 | ID | Task | Criterio di accettazione |
 |---|---|---|
 | U-01 | **Selettore dataset**: demo / principale / secondo genere | Cambio dataset senza riavvio |
-| U-02 | Nessun selettore di modalità: lista documenti sempre visibile, risposta sintetica sopra | — |
+| U-02 | Nessun selettore di modalità: lista documenti sempre visibile, risposta sintetica sopra | La lista documenti è visibile senza interazione in ogni stato dell'interfaccia |
 | U-03 | **Toggle RAG on/off**: stessa query, risposta nuda contro risposta con citazioni, affiancate | Generate dalla stessa query nella stessa sessione |
 | U-04 | Toggle del prompt del baseline: permissivo / severo | Mostra la differenza tra invenzione e astensione |
 | U-05 | Indicatore della pipeline usata per il documento recuperato | Rende visibile il routing |
-| U-06 | Link profondi dalle citazioni; dove ci sono i PDF, PNG di pagina con span evidenziato | — |
-| U-07 | Le citazioni non verificate sono marcate visivamente, non nascoste | — |
+| U-06 | Link profondi dalle citazioni; dove ci sono i PDF, PNG di pagina con span evidenziato | Da una citazione si raggiunge la pagina della fonte. L'overlay bbox resta scoperto finché I-06 è rinviato: dichiararlo, non simularlo |
+| U-07 | Le citazioni non verificate sono marcate visivamente, non nascoste | Una citazione non verificata da C-03 è distinguibile da una verificata senza aprire nulla, e nessuna delle due è nascosta |
 | U-08 | Profilo `demo` con indice committato | `docker compose --profile demo up` in < 2 minuti senza download |
 | U-09 | Profili `full` e `eval`, healthcheck, `depends_on: service_healthy` | Primo avvio pulito su macchina vergine |
-| U-10 | GIF o video di 90 secondi nel README | — |
-| U-11 | README: le tre affermazioni del §0, architettura, tabelle per dataset, screenshot, limiti, future work | — |
+| U-10 | GIF o video di 90 secondi nel README | ≤ 90 secondi, mostra query → risposta citata → apertura della fonte, senza tagli che nascondano la latenza reale |
+| U-11 | README: le tre affermazioni del §0, architettura, tabelle per dataset, screenshot, limiti, future work | Le tre affermazioni del §0 compaiono ciascuna con la tabella per dataset che la sostiene, e la sezione limiti nomina i risultati negativi invece di ometterli |
 | U-12 | **Portabilità Linux**: provider ONNX scelto dalla piattaforma, dipendenze GPU come extra opzionali, nessun percorso che assuma Windows | Suite verde e `docker compose --profile demo up` su Linux x86_64, senza modifiche al sorgente |
 
 **U-03 è la feature che fa capire il progetto a chiunque**, ed è quasi gratis: i baseline li state già calcolando in Fase 2.
