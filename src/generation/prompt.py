@@ -20,6 +20,22 @@ document's own reference system instead of ours.**
 academic papers and that is how papers cite.  A prompt that says "cite with [n]"
 without saying which [n] is competing with the document for the same notation.
 This is a property of the `academic_pdf` genre, not of the model.
+
+**The output language (C-05).**  "Respond in the same language as the question"
+was carried here from an early refactor and was never verified until C-05.  It
+works: on 20 golden queries hand-translated into it/es/fr/de and asked against
+the *same* English chunks, 14 of 14 answered questions came back in the language
+asked, none mixed two languages, and all 14 still respected §3.2.  Reproduce
+with `python scripts/probe_language.py`.
+
+**The abstention string stays English on purpose, and is not a bug to fix.**
+The same probe found that all 6 abstentions came back as `Insufficient
+information.` whatever the question's language.  That is a protocol token, not
+prose: `citation_format.is_abstention` matches it exactly, and a phrase that
+varied per language would make the abstention rate depend on which language a
+query happened to be written in — a metric moving for a reason that has nothing
+to do with retrieval.  Localising it belongs to the UI (Fase 5), which renders
+the token; it does not belong in the prompt.
 """
 
 from __future__ import annotations

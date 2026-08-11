@@ -1,0 +1,270 @@
+[
+  {
+    "query_id": "PRTS_operating_cash_flow_2021",
+    "dataset_id": "ledger",
+    "asked": "it",
+    "asked_detected": "it",
+    "answered": "it",
+    "mixed": false,
+    "languages": [
+      "it"
+    ],
+    "compliant": true,
+    "abstained": false,
+    "answer": "Il flusso di cassa operativo per il 2021 (periodo terminato il 2 gennaio 2021) era di $(1,513)$ mila [3]. In alternativa, è riportato come $(1,513)$ mila [1] e $(1,513)$ mila [5]."
+  },
+  {
+    "query_id": "LOOP_accounts_payable_2022",
+    "dataset_id": "ledger",
+    "asked": "it",
+    "asked_detected": "unknown",
+    "answered": "unknown",
+    "mixed": false,
+    "languages": [],
+    "compliant": false,
+    "abstained": true,
+    "answer": "Insufficient information."
+  },
+  {
+    "query_id": "GIS_net_income_2019",
+    "dataset_id": "ledger",
+    "asked": "it",
+    "asked_detected": "unknown",
+    "answered": "it",
+    "mixed": false,
+    "languages": [
+      "it"
+    ],
+    "compliant": true,
+    "abstained": false,
+    "answer": "Il guadagno netto, inclusi i guadagni attribuibili a interessi non controllanti e riscattabili, per General Mills nel 2019 è stato di $1,786.2 milioni [3][5]."
+  },
+  {
+    "query_id": "HAL_net_income_2021",
+    "dataset_id": "ledger",
+    "asked": "it",
+    "asked_detected": "it",
+    "answered": "unknown",
+    "mixed": false,
+    "languages": [],
+    "compliant": false,
+    "abstained": true,
+    "answer": "Insufficient information."
+  },
+  {
+    "query_id": "SD_total_liabilities_2022",
+    "dataset_id": "ledger",
+    "asked": "it",
+    "asked_detected": "unknown",
+    "answered": "unknown",
+    "mixed": false,
+    "languages": [],
+    "compliant": false,
+    "abstained": true,
+    "answer": "Insufficient information."
+  },
+  {
+    "query_id": "BWA_operating_cash_flow_2017",
+    "dataset_id": "ledger",
+    "asked": "it",
+    "asked_detected": "it",
+    "answered": "it",
+    "mixed": false,
+    "languages": [
+      "it"
+    ],
+    "compliant": true,
+    "abstained": false,
+    "answer": "Il flusso di cassa netto fornito dalle attività operative per l'anno 2017 era di $50.2 milioni [4]. In alternativa, un altro documento riporta che il \"Net cash provided by operating activities\" per il 2017 è stato di $600.8 milioni [2] o $832 milioni [3]."
+  },
+  {
+    "query_id": "LW_accounts_payable_2021",
+    "dataset_id": "ledger",
+    "asked": "it",
+    "asked_detected": "it",
+    "answered": "it",
+    "mixed": false,
+    "languages": [
+      "it"
+    ],
+    "compliant": true,
+    "abstained": false,
+    "answer": "L'importo dei crediti verso fornitori (Accounts payable) per la società Lamb Weston Holdings nell'anno 2021 era di $34.9 milioni [5]. In alternativa, è riportato un valore di $104.7 milioni nel contesto relativo ai flussi di cassa operativi [1]."
+  },
+  {
+    "query_id": "SMP_gross_profit_2021",
+    "dataset_id": "ledger",
+    "asked": "es",
+    "asked_detected": "es",
+    "answered": "es",
+    "mixed": false,
+    "languages": [
+      "es"
+    ],
+    "compliant": true,
+    "abstained": false,
+    "answer": "El beneficio bruto (Gross profit) de Standard Motor Products, Inc. en el año 2021 fue de $376,931 mil [1][2]."
+  },
+  {
+    "query_id": "BRN_interest_expense_2020",
+    "dataset_id": "ledger",
+    "asked": "fr",
+    "asked_detected": "fr",
+    "answered": "unknown",
+    "mixed": false,
+    "languages": [],
+    "compliant": false,
+    "abstained": true,
+    "answer": "Insufficient information."
+  },
+  {
+    "query_id": "PLOW_cash_incl_restricted_2019",
+    "dataset_id": "ledger",
+    "asked": "fr",
+    "asked_detected": "fr",
+    "answered": "unknown",
+    "mixed": false,
+    "languages": [],
+    "compliant": false,
+    "abstained": true,
+    "answer": "Insufficient information."
+  },
+  {
+    "query_id": "11f4a5cc-13cc-42cb-8381-cea492f09220",
+    "dataset_id": "open_ragbench",
+    "asked": "it",
+    "asked_detected": "it",
+    "answered": "it",
+    "mixed": false,
+    "languages": [
+      "it"
+    ],
+    "compliant": true,
+    "abstained": false,
+    "answer": "Gli $f$-jump-graph possono essere creati direttamente dal campo dei bacini di attrazione, mentre gli $h$-jump-graph sono derivati statisticamente da un campione di pattern spazio-temporali [1].\n\nDifferenze nella costruzione:\n*   **$f$-jump-graph:** Viene creato direttamente dal campo dei bacini di attrazione e si applica a qualsiasi sistema per cui può essere generato un campo di bacino di attrazione, inclusi CA (per 1d con o senza compressione), RBN o DDN, con aggiornamento sincrono [1].\n*   **$h$-jump-graph:** Viene derivato statisticamente da un campione di pattern spazio-temporali e può essere applicato a sistemi più grandi, specialmente RBN/DDN, che sono troppo grandi per generare il campo dei bacini di attrazione [1].\n\nDifferenze nelle applicazioni e nell'ordine dei nodi:\n*   **$f$-jump-graph:** Il numero e l'ordine dei nodi seguono il campo dei bacini di attrazione. Permette di disegnare i bacini sui nodi, e ci sono opzioni per \"layout-only\" senza collegamenti [1].\n*   **$h$-jump-graph:** Il numero e l'ordine dei nodi seguono i tipi di attrattori scoperti finora (rappresentati dalle barre nell'istogramma degli attrattori) e l'ordine di scoperta, ma può essere ordinato in base a diverse misure: la frequenza di ciascun tipo (che approssima il volume del bacino), al periodo dell'attrattore o alla lunghezza transitoria media [1].\n\nInoltre, è menzionato che gli $h$-jump-graph possono permettere sistemi molto più grandi rispetto agli $f$-jump-graph [1]."
+  },
+  {
+    "query_id": "59077948-368d-49da-9b86-2ae486d1a8fa",
+    "dataset_id": "open_ragbench",
+    "asked": "it",
+    "asked_detected": "unknown",
+    "answered": "it",
+    "mixed": false,
+    "languages": [
+      "it"
+    ],
+    "compliant": true,
+    "abstained": false,
+    "answer": "Negli ultimi anni sono emersi molti lavori che studiano le reti multiplex [1]."
+  },
+  {
+    "query_id": "475c71ba-7e74-4c52-8a10-c056a82aefdd",
+    "dataset_id": "open_ragbench",
+    "asked": "it",
+    "asked_detected": "it",
+    "answered": "it",
+    "mixed": false,
+    "languages": [
+      "it"
+    ],
+    "compliant": true,
+    "abstained": false,
+    "answer": "MDSTFT non fa affidamento sulla velocità di rotazione per estrarre vari *feature* di guasto, ma ottiene lo stesso effetto utilizzando lunghezze di finestra variabili nel corso del tempo sotto la guida del meccanismo di modulazione [1]. Inoltre, MDSTFT non richiede informazioni preliminari come dimensioni dei cuscinetti o velocità per ottenere la frequenza di guasto [1].\n\nIn confronto a DSTFT, MDSTFT incorpora un meccanismo di modulazione del segnale che consente ai segnali grezzi di vedere una porzione delle finestre durante l'FFT, istigando diverse lunghezze di finestra per catturare le frequenze dei guasti [1]."
+  },
+  {
+    "query_id": "a6b1c3b6-fcec-4839-8b4c-9fbe52a8e697",
+    "dataset_id": "open_ragbench",
+    "asked": "it",
+    "asked_detected": "it",
+    "answered": "it",
+    "mixed": false,
+    "languages": [
+      "it"
+    ],
+    "compliant": true,
+    "abstained": false,
+    "answer": "Lo spazio dei predittori viene segmentato da alberi binari utilizzando regole di tipo $\\{x \\in A\\}$ vs $\\{x \\notin A\\}$, dove $A$ è un sottoinsieme del range della variabile $x$ [1]. Ogni tale divisione è definita come un nodo interno, e le partizioni risultanti sono chiamate nodi terminali o \"foglie\" [1]."
+  },
+  {
+    "query_id": "06d5610a-56f6-448b-bc12-90a01e6e182a",
+    "dataset_id": "open_ragbench",
+    "asked": "it",
+    "asked_detected": "it",
+    "answered": "it",
+    "mixed": false,
+    "languages": [
+      "it"
+    ],
+    "compliant": true,
+    "abstained": false,
+    "answer": "Un sistema MIMO massivo cell-free considera un totale di $B$ AP (Access Points) e $U$ UEs (User Equipments) a singola antenna, distribuiti casualmente su un'area ampia [1].\n\n**Come funziona:**\n\n*   **Componenti:** Ogni AP è dotato di un array di antenne planare uniforme con dimensioni $N_{y} \\times N_{z}$ [1].\n*   **Connessione:** Si assume che ogni AP sia connesso alla CPU tramite fronthaul, consentendo un'interazione dati senza perdite [1].\n*   **UE Attivi e Silenziosi:** Gli UEs si muovono nell'area; solo una piccola porzione di UEs trasmette dati uplink agli AP in uno slot di trasmissione specifico, questi sono chiamati UEs attivi ($\\mathcal{K}_{\\mathcal{A}}$), mentre gli altri sono silenziosi [1].\n*   **Canali:** I canali degli UEs attivi e degli AP subiscono un fading doppiamente selettivo [1]. Si assume che i segnali che superano un massimo ritardo $\\tau_{\\max}$ al ricevitore vengano considerati rumore [1].\n*   **Velocità:** Il range di velocità degli UEs è $\\left[-v_{\\max }, v_{\\max }\\right]$, e per semplicità, si imposta lo zero della velocità a $-v_{\\max }$, trasformando il range di velocità in $\\left[0,2 v_{\\max }\\right]$ [1].\n*   **Segnale Uplink:** Il segnale uplink trasmesso da un UE consiste in sequenze di preambolo e simboli dati; ogni AP rileva l'attività dell'UE ed esegue la CE (Channel Estimation) basandosi sulle sequenze di preambolo ricevute [1]."
+  },
+  {
+    "query_id": "43eefd4e-015b-4cab-9d83-9a9ecd5b3ab6",
+    "dataset_id": "open_ragbench",
+    "asked": "it",
+    "asked_detected": "it",
+    "answered": "unknown",
+    "mixed": false,
+    "languages": [],
+    "compliant": false,
+    "abstained": true,
+    "answer": "Insufficient information."
+  },
+  {
+    "query_id": "12c98955-b6c0-4014-a467-8f39f6922d40",
+    "dataset_id": "open_ragbench",
+    "asked": "it",
+    "asked_detected": "unknown",
+    "answered": "it",
+    "mixed": false,
+    "languages": [
+      "it"
+    ],
+    "compliant": true,
+    "abstained": false,
+    "answer": "Sì, i cluster di HyperVQVAE sono più compatti e disaggregati rispetto a quelli di VQVAE [1]. Questo fenomeno è dovuto al fatto che la formulazione MLR iperbolica incoraggia gli embedding ad essere altamente localizzati all'interno delle regioni racchiuse dagli iperpiani decisionali, inducendo così un disaggregamento implicito dello spazio latente [1]."
+  },
+  {
+    "query_id": "e54ce51d-6f89-44f8-95c7-cce7aa3505d8",
+    "dataset_id": "open_ragbench",
+    "asked": "es",
+    "asked_detected": "es",
+    "answered": "es",
+    "mixed": false,
+    "languages": [
+      "es"
+    ],
+    "compliant": true,
+    "abstained": false,
+    "answer": "Para las numerosidades de muchas sucesiones, la fórmula propuesta no proporciona una expresión en forma cerrada, por lo que es necesario desarrollar ciertas técnicas de aproximación [1]. Además, aún falta encontrar una fórmula para las sucesiones con puntos de acumulación [1]."
+  },
+  {
+    "query_id": "6f7d72ea-028f-4fee-b82d-9904f439ce3e",
+    "dataset_id": "open_ragbench",
+    "asked": "de",
+    "asked_detected": "de",
+    "answered": "de",
+    "mixed": false,
+    "languages": [
+      "de"
+    ],
+    "compliant": true,
+    "abstained": false,
+    "answer": "Umbrella Sampling wird verwendet, um Zustände $s_{i}$ aus einer verallgemeinerten Markov-Kette mit einer unnormalisierten Wahrscheinlichkeit zu sampeln, die durch $\\omega_{i} \\exp \\left(-\\beta U\\left(s_{i}\\right)\\right)$ gegeben ist [3]. Durch diese Methode kann man erwartete beobachtbare Werte auf einen Bereich von Temperaturwerten extrapolieren, was alles über DiffTRE differenzierbar macht [3]. Die Bestimmung der Schmelztemperatur ($T_m$) wird durch die Berechnung des erwarteten Verhältnisses gebundener zu ungebundener Zustände über einen Bereich von Temperaturen erreicht und anschließend eine Schmelzkurve erstellt, um $T_m$ zu extrahieren [3]."
+  },
+  {
+    "query_id": "37e267c7-f836-468f-8f82-69ace5ac7e55",
+    "dataset_id": "open_ragbench",
+    "asked": "it",
+    "asked_detected": "it",
+    "answered": "it",
+    "mixed": false,
+    "languages": [
+      "it"
+    ],
+    "compliant": true,
+    "abstained": false,
+    "answer": "Per il caso di bilanciamento complesso, la sensibilità assoluta per $X_{4}$ può essere data analiticamente dalla formula $\\alpha_{4}=\\frac{1}{1+r}$ [1].\n\nDove $r$ è dato dal rapporto:\n$$\nr=\\frac{\\left(x_{2}+x_{5}\\right)\\left(x_{1}+x_{3}\\right)+x_{1}\\left(x_{3}+3 x_{5}\\right)+x_{2} x_{5}}{x_{4}\\left(x_{1}+x_{3}+x_{5}\\right)}\n$$ [1]."
+  }
+]
