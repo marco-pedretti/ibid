@@ -122,3 +122,39 @@ class TestDecisionShape:
 
     def test_margin_is_none_without_a_threshold(self):
         assert AbstentionDecision(False, False, 0.5, None).margin is None
+
+
+class TestNoLeakageBetweenSplits:
+    """The calibration set, its holdout and the evaluation set must not overlap.
+
+    Three scripts derive their slices from the same shuffle with the same seed:
+    `calibrate_abstention.py` takes [0:150] and [150:300], `eval_abstention.py`
+    takes [300:...]. The arrangement is only correct as long as all three agree
+    on the seed and the reserved size, and nothing in the code enforces that
+    agreement — a changed seed would silently measure the false-abstention rate
+    on the queries that set the threshold, which is not a measurement.
+    """
+
+    def _slices(self, dataset: str):
+        import json
+        import random
+
+        rows = [json.loads(x) for x in
+                (Path(__file__).parent.parent / "eval" / "golden" / f"{dataset}.jsonl")
+                .read_text(encoding="utf-8").splitlines() if x.strip()]
+        answerable = [r for r in rows if r.get("answerable") is not False]
+        random.Random(1).shuffle(answerable)
+        ids = [r["query_id"] for r in answerable]
+        return set(ids[:150]), set(ids[150:300]), set(ids[300:360])
+
+    @pytest.mark.parametrize("dataset", ["open_ragbench", "ledger"])
+    def test_splits_are_disjoint(self, dataset):
+        cal, holdout, evaluation = self._slices(dataset)
+        assert not (cal & holdout)
+        assert not (cal & evaluation)
+        assert not (holdout & evaluation)
+
+    def test_eval_starts_after_everything_calibration_uses(self):
+        from scripts.eval_abstention import CALIBRATION_RESERVED
+
+        assert CALIBRATION_RESERVED >= 300
