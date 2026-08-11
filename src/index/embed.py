@@ -71,7 +71,7 @@ def encode_sparse(texts: list[str], model_name: str) -> list[SparseVector]:
 
     Both are recorded in `docs/open-questions.md` OQ-03, unfixed on purpose: the
     correction changes what `--retrieval-mode sparse` and `hybrid` measure, and
-    the two causes have to be separated (§12).
+    the two causes have to be separated (§14).
     """
     results = list(_sparse_model(model_name).embed(texts))
     return [

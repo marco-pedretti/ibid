@@ -1,6 +1,6 @@
 """Tests for the noise-floor-aware comparator (dashboard-rework, point 2).
 
-The behaviour under test is a ROADMAP §12 guard: the dashboard must not present
+The behaviour under test is a ROADMAP §14 guard: the dashboard must not present
 a delta as an improvement unless it clears the E-07 run-to-run dispersion, and
 must say "not measured" rather than imply significance when no noise floor
 exists for that dataset.
@@ -107,7 +107,7 @@ class TestMatchNoiseFloor:
         assert match_noise_floor(_run(), []) is None
 
     def test_never_matches_across_datasets(self):
-        """§11: dispersion measured on ledger says nothing about open_ragbench."""
+        """§13: dispersion measured on ledger says nothing about open_ragbench."""
         assert match_noise_floor(_run(dataset="open_ragbench"), [_floor(dataset="ledger")]) is None
 
     def test_prefers_same_retrieval_mode(self):
@@ -173,7 +173,7 @@ class TestSignificance:
 
 
 # ---------------------------------------------------------------------------
-# config_diff — ROADMAP §12 single-change attribution
+# config_diff — ROADMAP §14 single-change attribution
 # ---------------------------------------------------------------------------
 
 class TestConfigDiff:

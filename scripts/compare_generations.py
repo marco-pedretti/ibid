@@ -14,7 +14,7 @@ configuration run twice does not reproduce itself query by query.
 
 **Hence the two comparisons this script is meant to be run for.**  One between
 the arms, and one between a run and a replicate of itself.  The second is not
-optional: ROADMAP §12 forbids declaring an improvement without comparing it
+optional: ROADMAP §14 forbids declaring an improvement without comparing it
 against the noise baseline, and for generation that baseline has to be measured,
 not assumed to be zero.
 

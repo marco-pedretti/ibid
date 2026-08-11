@@ -166,7 +166,7 @@ def sort_by_failure(outcomes: list[QueryOutcome]) -> list[QueryOutcome]:
 
 
 def failure_summary(outcomes: list[QueryOutcome]) -> dict[str, float]:
-    """Aggregate over one dataset only — never mix datasets here (§11)."""
+    """Aggregate over one dataset only — never mix datasets here (§13)."""
     n = len(outcomes)
     if n == 0:
         return {"n": 0, "mean_recall": 0.0, "mean_doc_recall": 0.0,

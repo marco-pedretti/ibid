@@ -71,7 +71,7 @@ RERANK_FETCH_K: int = 20
 # What a human chooses is the budget: how many *answerable* questions the system
 # may refuse. The thresholds below are then derived from data by
 # scripts/calibrate_abstention.py — that derivation is what makes the gate
-# "decided by code" (ROADMAP §12) rather than a number somebody liked.
+# "decided by code" (ROADMAP §14) rather than a number somebody liked.
 #
 # 1% and not more, because the gate cannot improve the metric it is measured on:
 # on E-02 the model already abstains 35/35 on both datasets. The gate exists as a

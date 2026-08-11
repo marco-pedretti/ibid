@@ -1,6 +1,6 @@
 """Abstain before generating, on the retrieval scores alone (C-04).
 
-ROADMAP §12: *l'astensione e il formato citazione sono decisi in codice, mai
+ROADMAP §14: *l'astensione e il formato citazione sono decisi in codice, mai
 lasciati al modello.*  This is that decision for abstention.
 
 **What this is not.**  It is not a fix for a model that answers when it should

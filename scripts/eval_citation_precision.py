@@ -12,7 +12,7 @@ text on purpose; C-03 measures what a reader would actually be shown, which is
 the repaired text — verifying markers the parser would have discarded would
 score the model for citations the system never serves.
 
-Reported per `dataset_id`, never pooled (§12).
+Reported per `dataset_id`, never pooled (§14).
 
 Usage:
     python scripts/eval_citation_precision.py                      # latest dump per dataset

@@ -50,7 +50,7 @@ Tutto il resto (interfaccia, toggle, upload) serve a rendere queste tre cose vis
 - Temperatura **0** su ogni esecuzione di valutazione, annotata nel risultato.
 - GPU: AMD RX 6750 XT, 12 GB. Backend Vulkan preferito a ROCm.
 - Due persone in pair programming sulla stessa parte.
-- **~7 settimane.** Le fasi 0-5 sono il progetto completo. La Fase 6 è extra.
+- **~8 settimane.** Le fasi 0-7 sono il progetto completo. La Fase 8 è extra.
 
 ---
 
@@ -85,7 +85,7 @@ class Chunk(BaseModel):
     pipeline: str          # pipeline di ingestion effettivamente usata
     section_path: str      # gerarchia se disponibile, altrimenti ""
     page: int
-    bbox: tuple[float, float, float, float] | None   # per l'highlight (Fase 5)
+    bbox: tuple[float, float, float, float] | None   # per l'highlight (Fase 7)
     content_type: str      # "text" | "table" | "figure_caption" | "mixed"
     text: str
     source_uri: str        # con deep link quando possibile, es. "...#page=12"
@@ -122,7 +122,7 @@ class EvalRun(BaseModel):
     metrics: dict[str, float]
 ```
 
-`config` è additivo (default `{}`) e **non** entra nel calcolo di `config_hash`: i run misurati prima della sua introduzione restano confrontabili. Serve a tenere `pipeline_mode` binario come dichiarato qui sopra, invece di usarlo come etichetta libera in cui infilare `rerank`, `filtered_text`, `docagg` e simili — cosa che rende impossibile selezionare due run che differiscono per un flag solo (§12).
+`config` è additivo (default `{}`) e **non** entra nel calcolo di `config_hash`: i run misurati prima della sua introduzione restano confrontabili. Serve a tenere `pipeline_mode` binario come dichiarato qui sopra, invece di usarlo come etichetta libera in cui infilare `rerank`, `filtered_text`, `docagg` e simili — cosa che rende impossibile selezionare due run che differiscono per un flag solo (§14).
 
 ### 3.4 Configurazione
 
@@ -236,24 +236,74 @@ Per ogni dataset candidato: 16 domande costruite con lo stesso schema dei test p
 | C-05 | Istruzione esplicita sulla lingua di output | Nessuna risposta mista incoerente su 20 campioni |
 | C-06 | **Scaling**: stesso sistema su E2B, E4B, 12B, tutte le metriche + latenza + VRAM | È l'affermazione 3 del §0 |
 | C-07 | Riga dedicata all'effetto del ragionamento esteso on/off | Misurato una volta sola, non per ogni configurazione |
+| I-08 | **Misura** dei prefissi `query:`/`passage:` di E5 su un indice ridotto, senza re-ingestione | Delta appaiato su doc_R@5 — o la sua assenza |
+
+**Perché un task `I-` in questa fase.** Il prefisso indica di cosa parla il task, non in che fase sta (precedente: `D-01` in Fase 3). Il difetto di I-08 è nell'ingestione, ma sta qui perché **decide se C-06 può partire**: C-06 è la misura più cara del progetto e l'affermazione 3 del §0 dice *«con un buon retrieval»*. Misurare costa 30 minuti, correggere ne costa 618 più tutta la Fase 3 — e lanciare C-06 su una premessa non verificata significa rischiare di rifarlo. I-08 **misura e basta**: la correzione è I-09, in Fase 5. Protocollo in `docs/open-questions.md`, OQ-02.
 
 **Gate:** confronto sulle non rispondibili tra baseline A e sistema completo, e curva delle metriche in funzione della taglia del modello.
 
 ### Ordine di esecuzione (deciso il 2026-08-10, dopo C-03)
 
-L'ordine non è quello della tabella, per la regola del §12. Il vincolo che lo determina: **C-06 rilancia l'intero sistema per ogni taglia di modello**, quindi ogni modifica al comportamento fatta dopo lo invalida.
+L'ordine non è quello della tabella, per la regola del §14. Il vincolo che lo determina: **C-06 rilancia l'intero sistema per ogni taglia di modello**, quindi ogni modifica al comportamento fatta dopo lo invalida.
 
 1. **C-05** — cambia il prompt, e `prompt_hash` entra in `config_hash`: farlo dopo C-04 obbligherebbe a rimisurare C-04. Verificabile in gran parte sulle 891 generazioni già salvate, dove le risposte in lingua mista sono ≤1 su 189 — entrambi i corpus sono inglesi, quindi è più una verifica che una correzione.
 2. **C-04** — l'ultima modifica alla pipeline. C-03 gli ha già fornito i dati: `uncited_claim_rate` 0,106 e 0,156, astensione al 26,5% su LEDGER contro 5,5% su ORB.
 3. **E-04/E-05** — **mai eseguiti** (nessun risultato con `harness: generation` in `eval/results/`), e il gate di questa fase li richiede. Indipendenti dagli altri: si possono lanciare in parallelo.
 4. **C-07** — una misura sola; l'interruttore `REASONING_EFFORT` esiste in `config.py` da C-01.
-5. **C-06** — per ultimo, quando sotto non si muove più niente.
+5. **I-08** — 30 minuti, e non cambia niente sotto: misura soltanto. Va prima di C-06 perché è ciò che dice se C-06 andrà rifatto.
+6. **C-06** — per ultimo, quando sotto non si muove più niente.
 
 **Da decidere prima di C-06, non dopo:** su LEDGER `citation_precision` non è interpretabile come proprietà del generatore — il verificatore NLI è fuori distribuzione su claim numerici contro tabelle OCR (vedi `docs/progress.md`, C-03 §8). Se C-06 gira così, la curva per taglia del modello avrà una riga muta su quel dataset, e la cosa emergerà a run finite.
 
 ---
 
-## 9. Fase 5 — Interfaccia
+## 9. Fase 5 — Correttezza delle misure
+
+**Durata: 2–3 giorni** (I-09 esclusa: se scatta, è una settimana).
+
+**Questa fase non contiene miglioramenti.** Il §7 dice che i risultati negativi restano in tabella, e resta vero. Qui c'è la categoria che quella regola non copre: **misure la cui etichetta si è rivelata falsa.** Una riga della Fase 2 si chiama *«E-06 — baseline C: retrieval lessicale BM25»* e quella misura non è BM25 — non è un risultato negativo da conservare, è il risultato di un'altra cosa, e va rifatto.
+
+Tutte e tre le voci nascono dall'audit del 2026-08-11, in cui le librerie sono state confrontate con la loro documentazione ufficiale. Il fatto, il protocollo e ciò che **non** è dimostrato stanno in [`docs/open-questions.md`](docs/open-questions.md).
+
+| ID | Task | Criterio di accettazione |
+|---|---|---|
+| I-09 | **Solo se I-08 è positivo**: prefissi E5 in `encode()`, re-ingestione, rimisura di Fase 3 e Fase 4 | Ogni numero dense rifatto sotto la ricetta corretta, vecchi e nuovi affiancati |
+| R-08 | `modifier=IDF` sull'indice sparso (Qdrant lo richiede: fastembed esclude l'IDF di proposito) | E-06 e R-01 rimisurati — **una sola causa cambiata** |
+| R-09 | Query BM25 codificate con `query_embed` invece che come documenti | Rimisura **separata** da R-08 |
+| R-10 | OQ-01, passi 1–2: perché il routing peggiora LEDGER di 17 punti | Il passo 3 (6–7 h GPU) solo se il 2 è positivo |
+
+**R-08 e R-09 non si fanno in un commit solo.** Sono due cause indipendenti — l'IDF vive nell'indice, la codifica della query nel client — e correggerle insieme misurando una volta viola il §14. Costa una rimisura in più: dieci minuti.
+
+**Ordine:** R-08, R-09, R-10 sono indipendenti da I-09 e si possono fare prima. I-09 è la sola che obbliga a rifare tutto ciò che sta sopra, quindi va per ultima.
+
+**Gate:** ogni numero rifatto è affiancato al vecchio in `progress.md`, con detto **quale** delle due misure descriveva cosa. Nessuna riga sostituita in silenzio.
+
+---
+
+## 10. Fase 6 — Qualità del codice
+
+**Durata: 2–3 giorni.** Prima della Fase 7, perché l'interfaccia si costruisce **sopra** questi moduli: rifattorizzarli dopo significa farlo due volte.
+
+**Un refactor senza criterio di accettazione è illimitato**, ed è l'unica cosa in questo repo che non avrebbe un numero accanto. Quindi la fase non è "leggibilità e pulizia": è una lista chiusa di difetti già osservati, ognuno con la prova che esiste.
+
+| ID | Task | Criterio di accettazione |
+|---|---|---|
+| Q-01 | Costruzione di `EvalRun` unificata: oggi sono **5 siti**, `reasoning_enabled` è derivato in 4 e ancora scritto `False` a mano in `src/eval/harness.py` | Un solo posto lo costruisce; il campo non è più scrivibile a mano |
+| Q-02 | L'harness dei baseline salva le risposte per query, come già fa quello delle citazioni | Il taglio 45%→17% di E-04/E-05 diventa un test appaiato invece di un'inferenza dai totali |
+| Q-03 | `scripts/profile.py` non adombra più il modulo `profile` della standard library | `import transformers` da dentro `scripts/` smette di fallire |
+| Q-04 | Igiene di import e lint su `scripts/` | `ruff check` pulito sul repo |
+
+**Ogni voce è un difetto che ha già morso**, non un'ipotesi di stile:
+
+- **Q-01** — è la stessa duplicazione che ha lasciato `reasoning_enabled=False` scritto a mano mentre il modello ragionava, difetto che C-01 ha corretto in due harness su tre. Il terzo è ancora così, e non è cosmetico: con `--query-rewrite` quell'harness *usa* il modello (R-03).
+- **Q-02** — durante E-04/E-05 la diagnosi dei tre difetti ha richiesto di rigenerare a mano le risposte, perché quelle delle run non esistevano più. C-01 aveva risolto lo stesso problema, e quella decisione ha poi permesso a C-02 e C-03 di lavorare senza rigenerare nulla.
+- **Q-03** — ha già rotto un import durante C-03.
+
+**Gate, e non è negoziabile: nessuna metrica cambia.** Un refactor puro lascia invariato il conteggio dei test (§14) e lascia invariati i numeri: `scripts/rescore_citations.py` ricalcola le metriche di C-01 dai dump salvati a costo zero, e alla fine della fase deve restituire **gli stessi valori** già registrati. Se cambia un decimale, non era un refactor.
+
+---
+
+## 11. Fase 7 — Interfaccia
 
 **Durata: 1 settimana.** Da qui il progetto è completo e presentabile.
 
@@ -274,11 +324,11 @@ L'ordine non è quello della tabella, per la regola del §12. Il vincolo che lo 
 
 **U-03 è la feature che fa capire il progetto a chiunque**, ed è quasi gratis: i baseline li state già calcolando in Fase 2.
 
-**U-12 sta in Fase 5 e non in Fase 6** perché il criterio di U-09 è "primo avvio pulito su macchina vergine", e una macchina Linux è una macchina vergine: un progetto MIT pensato per essere provato da altri non è presentabile se gira su un sistema operativo solo. Non è però un lavoro grande, ed è più piccolo di quanto sembri: `src/index/embed.py` sceglie già `DmlExecutionProvider` solo se disponibile e ripiega su CPU, quindi su Linux il codice **gira già**. Mancano due cose, misurate il 2026-08-10: la lista provider non contiene `ROCMExecutionProvider`/`CUDAExecutionProvider`, quindi su Linux si finisce su CPU anche con GPU capace (2,38 embed/s contro ~10: l'ingestion passa da ~2 a ~8 ore); e `onnxruntime-directml` non è dichiarato in `pyproject.toml`, quindi la dipendenza GPU esiste solo nella tabella di `STACK.md`. L'inferenza LLM non è coinvolta: Ollama gira su Vulkan, che è lo stesso codice llama.cpp sui due sistemi.
+**U-12 sta in Fase 7 e non in Fase 8** perché il criterio di U-09 è "primo avvio pulito su macchina vergine", e una macchina Linux è una macchina vergine: un progetto MIT pensato per essere provato da altri non è presentabile se gira su un sistema operativo solo. Non è però un lavoro grande, ed è più piccolo di quanto sembri: `src/index/embed.py` sceglie già `DmlExecutionProvider` solo se disponibile e ripiega su CPU, quindi su Linux il codice **gira già**. Mancano due cose, misurate il 2026-08-10: la lista provider non contiene `ROCMExecutionProvider`/`CUDAExecutionProvider`, quindi su Linux si finisce su CPU anche con GPU capace (2,38 embed/s contro ~10: l'ingestion passa da ~2 a ~8 ore); e `onnxruntime-directml` non è dichiarato in `pyproject.toml`, quindi la dipendenza GPU esiste solo nella tabella di `STACK.md`. L'inferenza LLM non è coinvolta: Ollama gira su Vulkan, che è lo stesso codice llama.cpp sui due sistemi.
 
 ---
 
-## 10. Fase 6 — Extra, in ordine di priorità
+## 12. Fase 8 — Extra, in ordine di priorità
 
 Solo se avanza tempo. Nessuno di questi è necessario perché il progetto sia completo.
 
@@ -291,7 +341,7 @@ Solo se avanza tempo. Nessuno di questi è necessario perché il progetto sia co
 
 ---
 
-## 11. Cosa NON fare
+## 13. Cosa NON fare
 
 - **Costruire un corpus a mano o fare scraping.** Era la voce di costo più grande ed è stata eliminata di proposito.
 - **Corpus con licenza restrittiva** (regolamenti FIA, specifiche 3GPP e simili): niente PDF nel repo, niente immagini Docker con documenti dentro, niente snapshot Qdrant con il testo nel payload.
@@ -303,12 +353,13 @@ Solo se avanza tempo. Nessuno di questi è necessario perché il progetto sia co
 
 ---
 
-## 12. Regole di lavoro
+## 14. Regole di lavoro
 
 **Per entrambi**
 
 - Ogni fase finisce con numeri committati in `eval/results/`, con hash del commit.
 - Mai due modifiche senza misurare in mezzo.
+- **Una misura la cui etichetta si rivela falsa non è un risultato negativo da conservare: è un risultato da rifare.** Il §7 dice che i risultati negativi restano in tabella, e vale per una misura che ha risposto *male* alla domanda giusta. Non copre il caso in cui la domanda era un'altra — `E-06` si chiamava *«retrieval lessicale BM25»* e misurava qualcos'altro. La riga non si cancella: si rifà, e le due misure restano affiancate con detto quale descriveva cosa. Distinguere i due casi è il motivo per cui esiste la Fase 5.
 - **L'ordine dei task dentro una fase non è quello della tabella.** Ciò che cambia il comportamento va prima di ciò che lo misura, e una misura costosa ripetuta per N configurazioni va per ultima: qualsiasi modifica al comportamento fatta dopo la invalida, e ce ne si accorge a GPU spesa. Prima di iniziare una fase, ordinare i suoi task su questo criterio e scriverlo nella sezione della fase.
 - Temperatura 0 e finestra 32k su ogni run di valutazione, annotate nel risultato.
 - README aggiornato a ogni fase.
@@ -329,7 +380,7 @@ Solo se avanza tempo. Nessuno di questi è necessario perché il progetto sia co
 
 ---
 
-## 13. Struttura del repo
+## 15. Struttura del repo
 
 ```
 ├── compose.yml              # profili demo / full / eval
@@ -359,7 +410,7 @@ Solo se avanza tempo. Nessuno di questi è necessario perché il progetto sia co
 
 ---
 
-## 14. Rischi
+## 16. Rischi
 
 | Rischio | Quando lo scoprite | Mitigazione |
 |---|---|---|
@@ -368,4 +419,4 @@ Solo se avanza tempo. Nessuno di questi è necessario perché il progetto sia co
 | Il routing non produce delta misurabili | R-07 | Resta una funzionalità documentata; l'affermazione 2 cade, le altre due reggono |
 | Il rumore di fondo è più grande dei delta | E-07 | Più esecuzioni, golden set più ampio, metriche più discriminanti (success@1 invece di recall@10) |
 | 26B inutilizzabile sulla GPU | T-02 | Si scala a 12B, la curva regge |
-| Tempo che finisce | Sempre | Fase 6 è tutta tagliabile; entro la Fase 5 il progetto è completo |
+| Tempo che finisce | Sempre | Fase 8 è tutta tagliabile; entro la Fase 7 il progetto è completo |

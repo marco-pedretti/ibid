@@ -75,7 +75,7 @@ Se la perdita dell'heading fosse sufficiente a causare un crollo, ORB dovrebbe c
 
 ### Le tre ipotesi, e perché non sono separabili così come stanno
 
-Il routing su LEDGER ha cambiato **tre cose insieme**, il che viola §12 se le si vuole attribuire:
+Il routing su LEDGER ha cambiato **tre cose insieme**, il che viola §14 se le si vuole attribuire:
 
 - **H1 — perdita del contesto di sezione.** Il chunk tabella non embedda il proprio heading (misura 1).
 - **H2 — dimensione.** I chunk sono 3–12× più piccoli (misura 2). Due sotto-varianti, che vanno distinte:
@@ -165,7 +165,7 @@ python scripts/eval.py --dataset ledger --collection ledger_routed_ctx \
   --pipeline-mode routed --doc-aggregate --limit 200
 ```
 
-**Il confronto è `ledger_routed_ctx` contro `ledger_routed`** — *non* contro `ledger` generic. Fra routed_ctx e routed cambia una cosa sola (§12). Fra routed_ctx e generic ne cambiano tre, e il delta non sarebbe attribuibile. Il comparator della dashboard lo dice da solo: selezionando i due run deve comparire *"Cambia un parametro solo"*.
+**Il confronto è `ledger_routed_ctx` contro `ledger_routed`** — *non* contro `ledger` generic. Fra routed_ctx e routed cambia una cosa sola (§14). Fra routed_ctx e generic ne cambiano tre, e il delta non sarebbe attribuibile. Il comparator della dashboard lo dice da solo: selezionando i due run deve comparire *"Cambia un parametro solo"*.
 
 **Cosa guardare, in ordine:**
 
@@ -285,7 +285,7 @@ Poi si rilanciano `--retrieval-mode sparse` e `--retrieval-mode hybrid` sui due 
 
 ### Trappola
 
-Non correggere i due difetti insieme e misurare una volta sola (§12: *mai due cambiamenti in una misura*). Sono due cause indipendenti: l'IDF vive nell'indice, la codifica della query nel client.
+Non correggere i due difetti insieme e misurare una volta sola (§14: *mai due cambiamenti in una misura*). Sono due cause indipendenti: l'IDF vive nell'indice, la codifica della query nel client.
 
 ---
 

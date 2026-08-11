@@ -20,7 +20,7 @@ E-02, so the gate cannot improve the rate — what it changes is that the refusa
 becomes a property of the code rather than a habit of one model, and costs no
 GPU.  A run that cannot tell the two apart cannot show that.
 
-Per `dataset_id`, never pooled (§12).
+Per `dataset_id`, never pooled (§14).
 
 Usage:
     python scripts/eval_abstention.py

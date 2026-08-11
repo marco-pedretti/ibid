@@ -6,7 +6,7 @@ metadata filter, doc aggregation, collection override) was squashed into the
 and "routed_docagg".  That broke the ROADMAP §3.3 contract, which defines
 `pipeline_mode` as the binary routing axis ("generic" | "routed"), and made it
 impossible to answer "show me every routed run" or "which two runs differ by
-exactly one flag" (ROADMAP §12: never measure two changes at once).
+exactly one flag" (ROADMAP §14: never measure two changes at once).
 
 `build_config()` returns the flags as data.  `EvalRun.config` carries it.
 
@@ -98,7 +98,7 @@ def config_slug(config: dict[str, Any]) -> str:
 def differing_keys(a: dict[str, Any], b: dict[str, Any]) -> list[str]:
     """Config keys whose values differ between two runs.
 
-    The dashboard uses this to enforce ROADMAP §12: a delta between two runs is
+    The dashboard uses this to enforce ROADMAP §14: a delta between two runs is
     only attributable to a single change when exactly one key differs.
     """
     keys = set(a) | set(b)
