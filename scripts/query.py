@@ -22,9 +22,10 @@ import src.config as cfg
 from src.datasets.schema import Chunk
 from src.generation.chat import generate
 from src.generation.citations import extract_cited, parse
-from src.generation.prompt import SYSTEM, build_user_message
+from src.generation.prompt import ABSTENTION_ANSWER, SYSTEM, build_user_message
 from src.index.embed import encode
 from src.index.store import get_client, search
+from src.retrieval.abstention import decide
 
 
 def _payload_to_chunk(p: dict) -> Chunk:
@@ -65,7 +66,22 @@ def main() -> None:
         preview = chunk.text[:80].replace("\n", " ")
         print(f"  [{i+1}] {chunk.doc_id} (score={hit.score:.3f}): {preview}...")
 
-    # 3. Generate
+    # 3. Abstain before generating, on the retrieval scores alone (C-04).
+    # Before the LLM call, not after: an answer that is going to be refused
+    # anyway costs ~11s of GPU to produce, and a gate that runs afterwards is
+    # not a guarantee, it is a filter on something already invented.
+    gate = decide([h.score for h in hits], args.dataset, "dense")
+    if gate.abstain:
+        print(f"\nASTENSIONE (C-04): punteggio massimo {gate.score:.4f} sotto la soglia "
+              f"{gate.threshold:.4f} per '{args.dataset}'.")
+        print("=" * 60)
+        print(ABSTENTION_ANSWER)
+        print("=" * 60)
+        return
+    if not gate.active:
+        print(f"\n[gate di astensione non calibrato per ({args.dataset}, dense): non applicato]")
+
+    # 4. Generate
     print(f"\nGenerazione risposta con {args.model} ...")
     user_msg = build_user_message(args.query, chunks)
     answer = generate(

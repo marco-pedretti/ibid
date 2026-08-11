@@ -42,6 +42,12 @@ from __future__ import annotations
 
 from src.datasets.schema import Chunk
 
+#: The exact string the prompt asks for when the context is insufficient, and
+#: the one the C-04 gate emits when it refuses before generating.  It is a
+#: protocol token, not prose — see the note on the output language above — so it
+#: lives in one place and both paths use it.
+ABSTENTION_ANSWER = "Insufficient information."
+
 SYSTEM = (
     "You are a precise research assistant. Answer the question using ONLY the provided context chunks.\n"
     "After each claim, immediately cite the source chunk(s) with [n] markers.\n\n"
@@ -62,7 +68,7 @@ SYSTEM = (
     "  As shown in [Corollary 4.5], ...       <- the document's own label\n"
     "  As shown in [17], ...                  <- the document's own bibliography\n\n"
     "If the context does not contain sufficient information, reply exactly: "
-    "'Insufficient information.'\n\n"
+    f"'{ABSTENTION_ANSWER}'\n\n"
     "Respond in the same language as the question."
 )
 

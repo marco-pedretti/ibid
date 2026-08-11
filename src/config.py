@@ -61,6 +61,31 @@ RERANKER_MODEL: str = "BAAI/bge-reranker-base"
 RERANK_FETCH_K: int = 20
 
 # ---------------------------------------------------------------------------
+# Abstention gate (C-04)
+# ---------------------------------------------------------------------------
+# What a human chooses is the budget: how many *answerable* questions the system
+# may refuse. The thresholds below are then derived from data by
+# scripts/calibrate_abstention.py — that derivation is what makes the gate
+# "decided by code" (ROADMAP §12) rather than a number somebody liked.
+#
+# 1% and not more, because the gate cannot improve the metric it is measured on:
+# on E-02 the model already abstains 35/35 on both datasets. The gate exists as a
+# guarantee for models that will not (C-06 runs E2B and E4B), and a guarantee
+# should cost as little as possible.
+ABSTENTION_BUDGET: float = 0.01
+
+# Derived, per Qdrant collection. Only valid for the retrieval mode below and
+# for the embedding model that produced the index: dense cosine scores sit
+# around 0.8, RRF fusion scores around 0.02, and one threshold applied to the
+# other abstains on everything or on nothing. Re-run the calibration after any
+# re-ingestion or embedding change.
+ABSTENTION_CALIBRATED_MODE: str = "dense"
+ABSTENTION_THRESHOLDS: dict[str, float] = {
+    "open_ragbench": 0.7924,
+    "ledger": 0.8289,
+}
+
+# ---------------------------------------------------------------------------
 # Entailment verification (C-03)
 # ---------------------------------------------------------------------------
 # The verifier behind citation_precision. Replaced mDeBERTa-v3 NLI after the
