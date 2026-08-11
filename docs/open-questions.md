@@ -325,6 +325,23 @@ OQ-02 è un prefisso mancante su un input per il resto integro. Qui l'input è m
 
 Verificato sui contesti reali di C-01 (200 query, dump `20260810_102617`): 10 chunk su 920 recuperati superano i 32.000 caratteri, e **1 query su 200** produce un contesto che eccede la finestra da 32k token del modello. Sulle risposte già misurate il danno è quindi marginale. Sul **retrieval** no: lì il difetto agisce su due terzi del corpus.
 
+### Il difetto morde? Sì su open_ragbench, non visibile su LEDGER
+
+Misurato senza spendere GPU, su dati già su disco: i chunk recuperati stanno nei dump di C-01, i chunk giusti nei qrels, i testi in Qdrant. Riproducibile con `scripts/probe_truncation.py`.
+
+Per ogni query si guarda la lunghezza del chunk **giusto** (quello dei qrels), separando le query in cui il retrieval l'ha trovato da quelle in cui l'ha mancato:
+
+| | trovato | mancato | oltre 512 token | Fisher esatto |
+|---|---|---|---|---|
+| **open_ragbench** | mediana **564** tok (n=162) | mediana **1.525** tok (n=38) | 51,2% contro **81,6%** | **p = 0,00087** |
+| ledger | mediana 1.356 tok (n=70) | mediana 1.061 tok (n=130) | 95,7% contro 90,8% | p = 0,267 |
+
+Su open_ragbench **il chunk giusto mancato è quasi tre volte più lungo di quello trovato.** La direzione è ciò che rende la lettura non banale: a parità di tutto il resto un chunk più lungo contiene *più* testo, quindi dovrebbe essere più facile da trovare. Se viene mancato di più, la spiegazione più semplice è che quel testo in più nell'indice non c'è.
+
+Su LEDGER non si vede niente, e non è la stessa cosa che non esserci: là **il 90-96% dei chunk giusti supera i 512 token in entrambi i gruppi**. Il confronto è fra troncato e troncato, quindi la variabile è quasi costante e il test non ha nulla da separare. Assenza di potenza, non evidenza di assenza.
+
+**Resta descrittivo.** La lunghezza correla con altro — genere della sezione, posizione nel documento, quanto è specifica la domanda — e da qui non si separa. È il motivo per cui I-10 esiste comunque: questo dice che vale la pena di misurarlo, non lo sostituisce.
+
 ### Il dato che tocca OQ-01
 
 | collection | mediana | oltre 512 token |
