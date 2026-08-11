@@ -102,6 +102,11 @@ def run_generation_eval(
             user=q.query_text,
             temperature=cfg.TEMPERATURE,
             max_tokens=cfg.MAX_NEW_TOKENS,
+            # The system under test follows the config. Until now this argument
+            # was omitted and the default silently pinned it to "none", so the
+            # baselines could not have been run under C-07's condition even on
+            # purpose. The judge below deliberately does not follow it.
+            reasoning_effort=cfg.REASONING_EFFORT,
         )
 
         if is_abstained(response):
@@ -133,7 +138,11 @@ def run_generation_eval(
         quantization=cfg.LLM_QUANTIZATION,
         context_window=cfg.CONTEXT_WINDOW,
         temperature=cfg.TEMPERATURE,
-        reasoning_enabled=False,
+        # Derived, not asserted. Written as a literal `False` this field was a
+        # claim nobody checked — the same defect C-01 found in the citation
+        # harness, where every run declared reasoning off while the model was
+        # reasoning through its whole token budget.
+        reasoning_enabled=cfg.REASONING_EFFORT not in ("none", "", None),
         pipeline_mode=_PIPELINE_MODES[baseline],
         metrics=metrics,
     )
