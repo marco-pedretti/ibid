@@ -237,8 +237,11 @@ Per ogni dataset candidato: 16 domande costruite con lo stesso schema dei test p
 | C-06 | **Scaling**: stesso sistema su E2B, E4B, 12B, tutte le metriche + latenza + VRAM | È l'affermazione 3 del §0 |
 | C-07 | Riga dedicata all'effetto del ragionamento esteso on/off | Misurato una volta sola, non per ogni configurazione |
 | I-08 | **Misura** dei prefissi `query:`/`passage:` di E5 su un indice ridotto, senza re-ingestione | Delta appaiato su doc_R@5 — o la sua assenza |
+| I-10 | **Misura** del chunking contro la finestra da 512 token dell'embedder, sullo stesso indice ridotto | Delta appaiato su doc_R@5, **misurato separatamente da I-08** |
 
-**Perché un task `I-` in questa fase.** Il prefisso indica di cosa parla il task, non in che fase sta (precedente: `D-01` in Fase 3). Il difetto di I-08 è nell'ingestione, ma sta qui perché **decide se C-06 può partire**: C-06 è la misura più cara del progetto e l'affermazione 3 del §0 dice *«con un buon retrieval»*. Misurare costa 30 minuti, correggere ne costa 618 più tutta la Fase 3 — e lanciare C-06 su una premessa non verificata significa rischiare di rifarlo. I-08 **misura e basta**: la correzione è I-09, in Fase 5. Protocollo in `docs/open-questions.md`, OQ-02.
+**Perché due task `I-` in questa fase.** Il prefisso indica di cosa parla il task, non in che fase sta (precedente: `D-01` in Fase 3). Entrambi i difetti sono nell'ingestione, ma stanno qui perché **decidono se C-06 può partire**: C-06 è la misura più cara del progetto e l'affermazione 3 del §0 dice *«con un buon retrieval»*. Lanciarlo su una premessa non verificata significa rischiare di rifarlo. I-08 e I-10 **misurano e basta** — le correzioni sono I-09 e I-11, in Fase 5 — e vanno misurati **uno alla volta** (§14): vivono nella stessa funzione, `encode()`, e insieme darebbero un delta non attribuibile.
+
+**I-10 è il più grande dei due.** Il tokenizer tronca a 512 token e le pipeline di chunking non lo sanno: il **67,6%** dei chunk di open_ragbench e l'**82,1%** di ledger lo superano, e del chunk mediano entra nell'indice **circa metà del testo**. Il testo intero arriva comunque all'LLM, quindi il sistema risponde su materiale che non ha potuto trovare. Protocolli e numeri in `docs/open-questions.md`, OQ-02 e OQ-04.
 
 **Gate:** confronto sulle non rispondibili tra baseline A e sistema completo, e curva delle metriche in funzione della taglia del modello.
 
@@ -250,7 +253,7 @@ L'ordine non è quello della tabella, per la regola del §14. Il vincolo che lo 
 2. **C-04** — l'ultima modifica alla pipeline. C-03 gli ha già fornito i dati: `uncited_claim_rate` 0,106 e 0,156, astensione al 26,5% su LEDGER contro 5,5% su ORB.
 3. **E-04/E-05** — **mai eseguiti** (nessun risultato con `harness: generation` in `eval/results/`), e il gate di questa fase li richiede. Indipendenti dagli altri: si possono lanciare in parallelo.
 4. **C-07** — una misura sola; l'interruttore `REASONING_EFFORT` esiste in `config.py` da C-01.
-5. **I-08** — 30 minuti, e non cambia niente sotto: misura soltanto. Va prima di C-06 perché è ciò che dice se C-06 andrà rifatto.
+5. **I-10, poi I-08** — misurano soltanto, non cambiano niente sotto, e vanno prima di C-06 perché sono ciò che dice se C-06 andrà rifatto. I-10 per primo dei due: è l'effetto più grande, e se è nullo lo è a maggior ragione il prefisso.
 6. **C-06** — per ultimo, quando sotto non si muove più niente.
 
 **Da decidere prima di C-06, non dopo:** su LEDGER `citation_precision` non è interpretabile come proprietà del generatore — il verificatore NLI è fuori distribuzione su claim numerici contro tabelle OCR (vedi `docs/progress.md`, C-03 §8). Se C-06 gira così, la curva per taglia del modello avrà una riga muta su quel dataset, e la cosa emergerà a run finite.
@@ -268,11 +271,14 @@ Tutte e tre le voci nascono dall'audit del 2026-08-11, in cui le librerie sono s
 | ID | Task | Criterio di accettazione |
 |---|---|---|
 | I-09 | **Solo se I-08 è positivo**: prefissi E5 in `encode()`, re-ingestione, rimisura di Fase 3 e Fase 4 | Ogni numero dense rifatto sotto la ricetta corretta, vecchi e nuovi affiancati |
+| I-11 | **Solo se I-10 è positivo**: tetto di chunking allineato alla finestra dell'embedder | Come I-09 |
 | R-08 | `modifier=IDF` sull'indice sparso (Qdrant lo richiede: fastembed esclude l'IDF di proposito) | E-06 e R-01 rimisurati — **una sola causa cambiata** |
 | R-09 | Query BM25 codificate con `query_embed` invece che come documenti | Rimisura **separata** da R-08 |
 | R-10 | OQ-01, passi 1–2: perché il routing peggiora LEDGER di 17 punti | Il passo 3 (6–7 h GPU) solo se il 2 è positivo |
 
 **R-08 e R-09 non si fanno in un commit solo.** Sono due cause indipendenti — l'IDF vive nell'indice, la codifica della query nel client — e correggerle insieme misurando una volta viola il §14. Costa una rimisura in più: dieci minuti.
+
+**I-09 e I-11 invece condividono la re-ingestione, se scattano entrambe.** Non è un'eccezione al §14: l'attribuzione è già stata fatta a monte, da I-08 e I-10, che misurano una causa ciascuno su un indice ridotto. La re-ingestione completa non è la misura che separa le cause — è l'adozione di due correzioni già separate, e imporne due da 618 minuti ciascuna costerebbe venti ore di GPU per un'informazione già in mano.
 
 **Ordine:** R-08, R-09, R-10 sono indipendenti da I-09 e si possono fare prima. I-09 è la sola che obbliga a rifare tutto ciò che sta sopra, quindi va per ultima.
 

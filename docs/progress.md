@@ -105,7 +105,8 @@ L'associazione fra `#1` e il run corrispondente e risolta col colore: la tabella
 | C-04 | ✅ fatto (2026-08-11) | **Astensione corretta 100% su E-02 per entrambi i dataset**, e il gate non causa **nessuna** falsa astensione. Ma il criterio era già al 100% col solo modello: il gate è una garanzia, non una correzione. Vedi sotto. |
 | C-05 | ✅ fatto (2026-08-10) | **Criterio soddisfatto senza toccare il prompt.** L'istruzione c'era dal T-0x e non era mai stata verificata: 14/14 risposte nella lingua della domanda, 0 miste. `prompt_hash` invariato. |
 | C-07 | 🔄 in corso (2026-08-11) | Sei run da 200 query: due bracci × due dataset, più due repliche del controllo per il rumore. Entrambi i bracci a `MAX_NEW_TOKENS=2048` — a 1024 il ragionamento tronca metà delle risposte e si misurerebbe il budget. |
-| I-08 | ⬜ da fare | **Misura** dei prefissi E5 su indice ridotto. Gate di C-06: vedi `open-questions.md` OQ-02. |
+| I-10 | ⬜ da fare | **Misura** del chunking contro la finestra da 512 token. Gate di C-06, e il più grande dei due: OQ-04. |
+| I-08 | ⬜ da fare | **Misura** dei prefissi E5 su indice ridotto. Gate di C-06: OQ-02. Dopo I-10, e separatamente. |
 | C-06 | ⬜ da fare | Per ultimo, per la regola d'ordine del §14. |
 
 ### C-01 — Prompt con chunk numerati e formato citazione
@@ -484,6 +485,7 @@ Nata dall'audit del 2026-08-11: le librerie confrontate con la loro documentazio
 | Task | Stato | Note |
 |---|---|---|
 | I-09 | ⬜ da fare | Prefissi E5, **solo se I-08 è positivo**. Se scatta, obbliga a rifare Fase 3 e Fase 4. |
+| I-11 | ⬜ da fare | Tetto di chunking, **solo se I-10 è positivo**. Condivide la re-ingestione con I-09 se scattano entrambe. |
 | R-08 | ⬜ da fare | `modifier=IDF` sull'indice sparso. Invalida 2 run sparse + 4 hybrid; nessuna run dense. |
 | R-09 | ⬜ da fare | Query BM25 con `query_embed`. Rimisura **separata** da R-08. |
 | R-10 | ⬜ da fare | OQ-01, passi 1–2. |

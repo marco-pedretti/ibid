@@ -297,3 +297,56 @@ Non correggere i due difetti insieme e misurare una volta sola (§14: *mai due c
 | creazione collection | `src/index/store.py` → `ensure_collection()` |
 | codifica sparsa | `src/index/embed.py` → `encode_sparse()` |
 | verifica dei fatti | model card E5; sorgente fastembed installato; `client.get_collection(name).config.params.sparse_vectors` |
+
+---
+
+## OQ-04 — Metà del testo di un chunk non entra nell'embedding
+
+**Aperta.** Notata il 2026-08-11 controllando perché I-03 e I-04 non hanno un criterio di accettazione. Riferimento: I-03, I-04, I-07, e per estensione ogni misura di retrieval denso.
+
+### Il fatto
+
+Il tokenizer di `multilingual-e5-large` tronca a **512 token**, direzione destra: tutto ciò che segue viene scartato prima dell'embedding. Le pipeline di chunking non conoscono quel limite. Misurato su 1.500 chunk per collection, con il tokenizer vero e la troncatura disattivata per contare i token reali:
+
+| collection | mediana | p99 | max | oltre 512 token | testo embeddato (mediana) |
+|---|---|---|---|---|---|
+| open_ragbench | 1.009 tok | 16.373 | 39.348 | **67,6%** | **50,8%** |
+| ledger | 881 tok | 2.117 | 3.385 | **82,1%** | **58,2%** |
+
+Il chunk mediano è indicizzato per **circa metà del suo testo**. Il chunk al p99 di open_ragbench è indicizzato per il 3%.
+
+Il testo completo arriva comunque all'LLM in generazione: **il sistema risponde su materiale che non ha potuto trovare.** Il difetto è nel retrieval, non nella risposta.
+
+### Perché è più grande di OQ-02
+
+OQ-02 è un prefisso mancante su un input per il resto integro. Qui l'input è mezzo. Le due cose vivono nella stessa funzione (`encode()`) e sono entrambe misurabili sullo stesso indice ridotto, ma **non vanno misurate insieme** (§14).
+
+### Impatto sulle misure già fatte
+
+Verificato sui contesti reali di C-01 (200 query, dump `20260810_102617`): 10 chunk su 920 recuperati superano i 32.000 caratteri, e **1 query su 200** produce un contesto che eccede la finestra da 32k token del modello. Sulle risposte già misurate il danno è quindi marginale. Sul **retrieval** no: lì il difetto agisce su due terzi del corpus.
+
+### Il dato che tocca OQ-01
+
+| collection | mediana | oltre 512 token |
+|---|---|---|
+| ledger | 881 tok | 82,1% |
+| **ledger_routed** | **243 tok** | **5,8%** |
+
+`ledger_routed` entra quasi interamente nella finestra dell'embedder — **e perde di 17 punti**. La congettura registrata in `progress.md` (*«sub-chunking aggressivo → chunk troppo piccoli, IDF diluito»*) punta nella direzione opposta a questo dato: la pipeline generica vince **nonostante** sia troncata all'82%.
+
+Non risolve OQ-01. Elimina però l'ipotesi più intuitiva — che generic vinca perché porta più testo nell'indice — perché in proporzione ne porta **meno**. La domanda si stringe: da dove viene il vantaggio di generic, se non dalla quantità di testo indicizzato?
+
+### Protocollo
+
+Stesso impianto di OQ-02, e per la stessa ragione: indice ridotto, niente re-ingestione.
+
+1. **Campionare** ~5.000 chunk di un dataset dai documenti coperti dai golden.
+2. **Ri-chunkare** quel campione con un tetto a 512 token (le pipeline sono già parametriche: il tetto è un parametro, non una riscrittura).
+3. **Indicizzare le due varianti** e confrontare in appaiato con `scripts/compare_runs.py`, criterio binario "almeno un documento rilevante nei primi 5".
+4. **Non cambiare anche i prefissi** nella stessa misura.
+
+Attenzione a un confondente: a parità di corpus, chunk più piccoli significano **più chunk**, quindi più concorrenti nel ranking e più chunk dello stesso documento fra i primi k. È esattamente la variabile che rende OQ-01 difficile, e va letta a livello di documento per la stessa ragione per cui R-07 si legge su `doc_R@5`.
+
+### Cosa NON è dimostrato
+
+Che rispettare la finestra migliori il retrieval. `ledger_routed` è la prova che non è automatico: sta nella finestra e va peggio. La misura serve proprio perché il ragionamento a tavolino qui ha già sbagliato una volta.
