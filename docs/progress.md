@@ -104,11 +104,44 @@ L'associazione fra `#1` e il run corrispondente e risolta col colore: la tabella
 | C-03 | ✅ fatto (2026-08-10) | `citation_precision` **0,657 su open_ragbench, 0,366 su ledger** — e i due non si leggono allo stesso modo. Sospeso e riaperto in giornata: il verificatore di STACK.md è stato misurato prima di costruirci sopra, non reggeva, ed è stato sostituito. Vedi sotto. |
 | C-04 | ✅ fatto (2026-08-11) | **Astensione corretta 100% su E-02 per entrambi i dataset**, e il gate non causa **nessuna** falsa astensione. Ma il criterio era già al 100% col solo modello: il gate è una garanzia, non una correzione. Vedi sotto. |
 | C-05 | ✅ fatto (2026-08-10) | **Criterio soddisfatto senza toccare il prompt.** L'istruzione c'era dal T-0x e non era mai stata verificata: 14/14 risposte nella lingua della domanda, 0 miste. `prompt_hash` invariato. |
-| C-07 | 🔄 in corso (2026-08-11) | Sei run da 200 query: due bracci × due dataset, più due repliche del controllo per il rumore. Entrambi i bracci a `MAX_NEW_TOKENS=2048` — a 1024 il ragionamento tronca metà delle risposte e si misurerebbe il budget. |
+| C-07 | 🔶 **interrotto — 1 run su 6** (2026-08-11) | Codice e strumenti pronti; delle sei run ne esiste **una**. Dettaglio e comandi per riprendere qui sotto. |
 | I-10 | ⬜ da fare | **Misura** del chunking contro la finestra da 512 token. Gate di C-06, e il più grande dei due: OQ-04. |
 | C-08 | 🔄 codice fatto, misura in attesa di GPU (2026-08-11) | Markup delle tabelle OCR fuori dalla premessa, dietro `ENTAILMENT_RENDER_TABLES`. Premessa mediana da 1.158 a 821 token (−30,6%), ma **nessuna superava il cap**: il guadagno di budget è reale e inutile, resta la sola ragione distribuzionale, ancora da misurare. |
 | I-08 | ⬜ da fare | **Misura** dei prefissi E5 su indice ridotto. Gate di C-06: OQ-02. Dopo I-10, e separatamente. |
 | C-06 | ⬜ da fare | Per ultimo, per la regola d'ordine del §14. |
+
+### C-07 — stato dell'interruzione (2026-08-11)
+
+Il piano è sei run da 200 query: due bracci (`REASONING_EFFORT` `none` / `high`) × due dataset, più due repliche del controllo, che il §14 richiede perché la generazione campiona e a T=0 la stessa configurazione non riproduce se stessa query per query. Interrotto dopo la prima: il braccio con ragionamento costa 21 s/query contro i 9 del controllo, e le sei run sono ~4 ore, non le ~1,5 stimate all'inizio.
+
+**Cosa esiste davvero:**
+
+| braccio | stato | risultato |
+|---|---|---|
+| open_ragbench / `none` (controllo) | ✅ completo | `20260811_143623_open_ragbench_citations.json` — `format_compliance` 0,9309, latenza p50 9,2 s / p90 20,1 s, token p50 76 |
+| open_ragbench / `high` | ⛔ interrotto a 86/200 | scartato: un `.partial` non entra in un confronto appaiato, e `compare_generations` lo rifiuta di proposito |
+| ledger / `none`, ledger / `high`, 2 repliche | ⬜ mai lanciati | — |
+
+Lo 0,9309 del controllo **riproduce esattamente** la run C-01 del 10 agosto a un `MAX_NEW_TOKENS` diverso (2048 contro 1024), che è ciò che il probe prevedeva: il controllo non tocca mai il tetto, quindi alzarlo non lo cambia.
+
+**Per riprendere**, da un branch che contiene il codice di C-07 (`C-07` o `audit-librerie` — su `main` mancano le 82 righe di `citation_harness.py` che mettono `reasoning_effort` e `max_new_tokens` dentro `config_hash`, e i due bracci finirebbero su disco con lo stesso nome):
+
+```bash
+export MAX_NEW_TOKENS=2048
+REASONING_EFFORT=high python scripts/eval_citations.py --dataset open_ragbench --limit 200
+REASONING_EFFORT=none python scripts/eval_citations.py --dataset ledger        --limit 200
+REASONING_EFFORT=high python scripts/eval_citations.py --dataset ledger        --limit 200
+REASONING_EFFORT=none python scripts/eval_citations.py --dataset open_ragbench --limit 200   # replica
+REASONING_EFFORT=none python scripts/eval_citations.py --dataset ledger        --limit 200   # replica
+```
+
+Poi il confronto appaiato, due volte: fra i bracci, e fra controllo e replica — il secondo è il rumore contro cui si legge il primo.
+
+```bash
+python scripts/compare_generations.py --a <none>.jsonl --b <high>.jsonl --label-a none --label-b high
+```
+
+**Non rilanciare il controllo su open_ragbench**: c'è già, e rifarlo sostituirebbe una misura con un'altra invece di aggiungere la replica.
 
 ### C-01 — Prompt con chunk numerati e formato citazione
 
