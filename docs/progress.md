@@ -102,6 +102,7 @@ L'associazione fra `#1` e il run corrispondente e risolta col colore: la tabella
 | C-01 | ✅ fatto (2026-08-10) | **PASS su ledger, non dimostrato su open_ragbench.** Vedi sotto: il risultato è la differenza fra i due, non la media. |
 | C-02 | ✅ fatto (2026-08-10) | Parser ricostruito sugli output reali. Ribaltata una regola del T-06 che **fabbricava** citazioni 16 volte su 16. |
 | C-03 | ✅ fatto (2026-08-10) | `citation_precision` **0,657 su open_ragbench, 0,366 su ledger** — e i due non si leggono allo stesso modo. Sospeso e riaperto in giornata: il verificatore di STACK.md è stato misurato prima di costruirci sopra, non reggeva, ed è stato sostituito. Vedi sotto. |
+| C-05 | ✅ fatto (2026-08-10) | **Criterio soddisfatto senza toccare il prompt.** L'istruzione c'era dal T-0x e non era mai stata verificata: 14/14 risposte nella lingua della domanda, 0 miste. `prompt_hash` invariato. |
 
 ### C-01 — Prompt con chunk numerati e formato citazione
 
@@ -304,3 +305,36 @@ Confondente minore, misurato per escluderlo: le affermazioni che parlano *del co
 **3. A n=25 l'AUC oscillava fra 0,66 e 0,74 fra due campionamenti.** Le cifre riportate sopra sono a n=60 e con l'intervallo accanto, che è largo comunque.
 
 **Rischio pre-esistente trovato per caso:** `scripts/profile.py` fa ombra al modulo stdlib `profile`, che torch importa. Qualsiasi script in `scripts/` che tocchi torch fallisce con un `ModuleNotFoundError: GenerationMixin` che non c'entra niente. `probe_entailment.py` si toglie da solo la propria directory da `sys.path`; la causa resta.
+
+### C-05 — Istruzione esplicita sulla lingua di output
+
+**Criterio soddisfatto senza modificare il prompt.** L'istruzione `"Respond in the same language as the question"` c'era già: portata da `e3d6130`, un commit di refactor dell'era T-0x, e **mai verificata**. C-05 non era quindi «aggiungere una riga» ma «dimostrare che quella riga funziona», che è il criterio che il ROADMAP scrive.
+
+**Il baseline, dalle generazioni già salvate.** Su 891 risposte: 873 inglesi, 18 non identificabili (formule, risposte cortissime), **0 miste**. Il difetto non si manifesta sui nostri corpus — ma questo non dimostra niente sull'istruzione, perché entrambi i corpus sono inglesi: una risposta inglese a una domanda inglese è compatibile con un prompt che non dice nulla sulla lingua.
+
+**La prova vera.** 20 query reali del golden, 10 per dataset, tradotte a mano in it/es/fr/de, poste contro **gli stessi chunk inglesi**. Il retrieval gira sulla query inglese originale e poi resta fisso: tradurre anche la query sposterebbe il recupero, e una risposta sbagliata sarebbe un fallimento di retrieval travestito da fallimento di lingua.
+
+| | ledger | open_ragbench |
+|---|---|---|
+| campioni | 10 (5 astensioni) | 10 (1 astensione) |
+| lingua della domanda | **5/5** | **9/9** |
+| **risposte miste** | **0/5** | **0/9** |
+| formato §3.2 ancora rispettato | 5/5 | 9/9 |
+
+Il terzo controllo non è decorativo: una riga di prompt che sistema la lingua e rompe le citazioni non sarebbe un miglioramento. Esempio reale, domanda in tedesco contro chunk inglesi:
+
+> *Umbrella Sampling wird verwendet, um Zustände $s_{i}$ aus einer verallgemeinerten Markov-Kette zu sampeln… **[3]***
+
+**`prompt_hash` resta `3a50ef63`.** Nessuna modifica al prompt significa che i numeri di C-01 restano validi e che C-04 misurerà su un prompt stabile — che è esattamente il motivo per cui la regola d'ordine del §12 mette C-05 prima di C-04.
+
+#### Il reperto: l'astensione resta inglese, di proposito
+
+Tutte e 6 le astensioni sono tornate `Insufficient information.` qualunque fosse la lingua della domanda. A prima vista è proprio la «risposta mista incoerente» che C-05 cerca.
+
+**Non è un difetto da correggere.** È un *token di protocollo*, non prosa: `citation_format.is_abstention` lo confronta esattamente, e una frase che variasse per lingua renderebbe il **tasso di astensione dipendente dalla lingua in cui una query è stata scritta** — una metrica che si muove per una ragione che non c'entra col retrieval. Localizzarlo spetta alla UI (Fase 5), che rende il token. Tre test in `test_generation_prompt.py` esistono perché qualcuno, un giorno, vedrà l'astensione inglese sotto una domanda italiana e la "aggiusterà".
+
+#### Nota a margine, da non sopravvalutare
+
+Su LEDGER le astensioni sono 5/10 con domanda tradotta contro il 26,5% storico con domanda inglese, **a retrieval identico**. Suggerisce che il modello sia più cauto quando la domanda non è nella lingua dei chunk, ma n=10: è un'osservazione, non un risultato. Riguarda **C-04**.
+
+**Strumenti nuovi:** `src/generation/language.py` (rilevamento per frase su parole funzione pesate, nessuna dipendenza nuova — STACK.md impone una revisione di licenza per ognuna, e `langdetect` sarebbe un pacchetto da mantenere per un controllo su venti campioni), `scripts/probe_language.py`, `tests/fixtures/multilingual_queries.jsonl`. **1201 test.**
