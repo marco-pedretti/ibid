@@ -3,7 +3,7 @@
 Covers:
   - build_config() always emits every CONFIG_KEYS entry
   - config_slug() only names active flags
-  - differing_keys() isolates single-flag comparisons (ROADMAP §12)
+  - differing_keys() isolates single-flag comparisons (ROADMAP §14)
   - parse_legacy() splits old pipeline_mode labels back into structure
   - config_hash is NOT affected by the new config field
 """

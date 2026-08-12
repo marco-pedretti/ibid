@@ -44,12 +44,24 @@ Tutto il resto è dettaglio. Queste quattro determinano com'è il progetto.
 | Ambito | Scelta | Note |
 |---|---|---|
 | Vector store | **Qdrant** | Containerizza pulito, gestisce vettori densi **e sparsi** in named vectors: una collection, due indici, ibrido senza un secondo motore |
-| Embedding denso | **`intfloat/multilingual-e5-large`** | 1024-dim, 100+ lingue, Apache 2.0. Via fastembed 0.8.0 + onnxruntime-directml: ~10 embed/s su RX 6750 XT via DirectX 12, senza CUDA né ROCm |
+| Embedding denso | **`intfloat/multilingual-e5-large`** | 1024-dim, 100+ lingue, Apache 2.0. Via fastembed 0.8.0 + onnxruntime-directml: ~10 embed/s su RX 6750 XT via DirectX 12, senza CUDA né ROCm. **Finestra 512 token, e richiede i prefissi `query: ` / `passage: `** — vedi sotto |
 | Embedding sparso | **`Qdrant/bm25`** | fastembed `SparseTextEmbedding`. Statistico (no GPU), multilingual (18 lingue con stopword list), Apache 2.0, ~1 MB. Entra in R-01 (ibrido RRF) |
 | Embedding target | **BAAI/bge-m3** | Dense+sparse+multi-vector in un unico passaggio, MIT. Quando disponibile in fastembed (PR #602 aperto a luglio 2026): cambiare `EMBEDDING_MODEL` in `config.py` e re-ingest. Non blocca R-01 |
 | GPU backend | **onnxruntime-directml** | DirectML in maintenance mode (nessuna nuova feature, patch sicurezza garantite). Windows ML non applicabile per la RX 6750 XT: l'EP AMD per GPU discrete (MIGraphX) richiede un driver esatto e non supporta ancora scenari GenAI; VitisAI è solo per NPU Ryzen AI. DirectML rimane la scelta corretta ed è incluso in Windows ML come legacy EP |
 | Reranker | **BAAI/bge-reranker-base** | Cross-encoder multilingue (XLM-RoBERTa), MIT, 1.04GB. Attivo in fastembed 0.8.0. Target: bge-reranker-v2-m3 quando disponibile |
 | Fusione | RRF, scritto da voi | Venti righe |
+
+### Due vincoli del modello denso, scoperti nell'audit del 2026-08-11
+
+Non erano scritti qui, e il secondo era già stato usato — su un altro modello — per prendere una decisione.
+
+**1. La finestra è di 512 token, direzione destra.** Tutto ciò che segue viene scartato prima dell'embedding. Le pipeline di chunking non lo sanno: il 67,6% dei chunk di open_ragbench e l'82,1% di ledger superano quel limite, e del chunk mediano entra nell'indice **circa metà del testo**. Il testo intero arriva comunque all'LLM in generazione, quindi il sistema risponde su materiale che non ha potuto trovare.
+
+**L'asimmetria vale la pena di essere annotata.** Poche righe più sotto, in *Modelli e inferenza*, mDeBERTa-v3 è **scartato come verificatore proprio perché** *«ha una finestra di 512 token; i nostri chunk hanno mediana ~730 e p90 ~2900»*. Il fatto era noto, scritto, e sufficiente a rifiutare un modello. L'embedder ha la stessa finestra e nessuno ha fatto il collegamento — il ragionamento è stato applicato con rigore in un punto e non in quello adiacente. Misurato dopo: sul chunk *giusto* di open_ragbench la mediana è 564 token quando il retrieval lo trova e **1.525 quando lo manca** (p = 0,00087, `scripts/probe_truncation.py`).
+
+**2. I prefissi `query: ` e `passage: ` non vengono aggiunti.** La model card li richiede — *«otherwise you will see a performance degradation»* — e fastembed li lascia al chiamante: la classe che serve questo modello (`PooledEmbedding`) non sovrascrive `query_embed` né `passage_embed`, che quindi chiamano `embed()` nudo. Sono asimmetrici fra query e passaggio, quindi non è un difetto che si semplifica in un confronto.
+
+Nessuno dei due è ancora corretto, di proposito: correggerli cambia ogni numero denso già misurato. Le misure che decidono stanno in `ROADMAP.md` come **I-10** e **I-08**, le correzioni come **I-11** e **I-09**; il fatto, il protocollo e ciò che non è dimostrato in `docs/open-questions.md`, OQ-04 e OQ-02.
 
 > **Decisioni fissate in Fase 1 (agosto 2026):** modello denso scelto (`multilingual-e5-large`), sparso scelto (`Qdrant/bm25`), GPU backend confermato (DirectML). Non cambiare modello dopo aver iniziato a misurare: le righe della tabella non sono più confrontabili. La sostituzione con BGE-M3 è pianificata ma avverrà come ablation separata con re-ingestion completa, non come patch incrementale.
 

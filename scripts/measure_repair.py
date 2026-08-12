@@ -10,7 +10,7 @@ The two must not be confused, which is why they are computed by different tools
 against the same stored generations.  Running the repair before the C-01 checker
 would report ~100% by construction and say nothing about either.
 
-Reported per `dataset_id`, per ROADMAP §12 — a repair rate averaged over a corpus
+Reported per `dataset_id`, per ROADMAP §14 — a repair rate averaged over a corpus
 that cites `[n]` and one that does not is a number about neither.  `dataset_id`
 comes from the chunk ids in each record, not from the filename.
 

@@ -75,7 +75,7 @@ Se la perdita dell'heading fosse sufficiente a causare un crollo, ORB dovrebbe c
 
 ### Le tre ipotesi, e perché non sono separabili così come stanno
 
-Il routing su LEDGER ha cambiato **tre cose insieme**, il che viola §12 se le si vuole attribuire:
+Il routing su LEDGER ha cambiato **tre cose insieme**, il che viola §14 se le si vuole attribuire:
 
 - **H1 — perdita del contesto di sezione.** Il chunk tabella non embedda il proprio heading (misura 1).
 - **H2 — dimensione.** I chunk sono 3–12× più piccoli (misura 2). Due sotto-varianti, che vanno distinte:
@@ -165,7 +165,7 @@ python scripts/eval.py --dataset ledger --collection ledger_routed_ctx \
   --pipeline-mode routed --doc-aggregate --limit 200
 ```
 
-**Il confronto è `ledger_routed_ctx` contro `ledger_routed`** — *non* contro `ledger` generic. Fra routed_ctx e routed cambia una cosa sola (§12). Fra routed_ctx e generic ne cambiano tre, e il delta non sarebbe attribuibile. Il comparator della dashboard lo dice da solo: selezionando i due run deve comparire *"Cambia un parametro solo"*.
+**Il confronto è `ledger_routed_ctx` contro `ledger_routed`** — *non* contro `ledger` generic. Fra routed_ctx e routed cambia una cosa sola (§14). Fra routed_ctx e generic ne cambiano tre, e il delta non sarebbe attribuibile. Il comparator della dashboard lo dice da solo: selezionando i due run deve comparire *"Cambia un parametro solo"*.
 
 **Cosa guardare, in ordine:**
 
@@ -191,3 +191,218 @@ python scripts/eval.py --dataset ledger --collection ledger_routed_ctx \
 | test appaiato | `src/eval/paired.py`, `scripts/compare_runs.py` |
 | misure di questa nota | riprodotte con `client.scroll` su Qdrant; nessuno script committato — sono usa e getta |
 | esplorazione interattiva | dashboard → Failure Explorer e Retrieval Playground (tab A/B) |
+
+---
+
+## OQ-02 — I prefissi `query:` / `passage:` di E5 non vengono mai aggiunti
+
+**Aperta.** Notata il 2026-08-11 durante l'audit delle librerie contro la loro documentazione ufficiale. Riferimento: I-07, E-03, e per estensione ogni numero dense del progetto.
+
+### Il fatto
+
+La model card ufficiale di `intfloat/multilingual-e5-large` è esplicita:
+
+> *"Each input text should start with `query: ` or `passage: `, even for non-English texts. [...] This is how the model is trained, otherwise you will see a performance degradation."*
+
+`src/index/embed.py` non li aggiunge mai — né sui chunk, né sulle query — e non è un'omissione compensata dalla libreria. Verificato sul sorgente della versione installata (fastembed 0.8.0):
+
+- il modello è servito dalla classe `PooledEmbedding` (`fastembed/text/pooled_embedding.py`);
+- quella classe sovrascrive solo `_get_worker_class`, `mean_pooling`, `_list_supported_models`, `_post_process_onnx_output`;
+- **non** sovrascrive `query_embed` né `passage_embed`, che quindi cadono sulla base in `text_embedding_base.py`, dove entrambi si limitano a chiamare `embed()`.
+
+fastembed sa che il problema esiste: la descrizione dei modelli nomic nel suo stesso registro dice *"Prefixes for queries/documents: necessary"*. Documenta la necessità e lascia il compito al chiamante.
+
+### Cosa NON è dimostrato
+
+Che aggiungerli migliori i nostri numeri. La model card afferma un degrado in generale; su questo corpus non è misurato. È una discrepanza fra uso e documentazione, non ancora un difetto quantificato.
+
+### Perché è grave se lo è
+
+Tocca il percorso dense, cioè **tutto**: R-07 e la conclusione sull'affermazione 2 del §0, le soglie di astensione di C-04 (calibrate su punteggi coseno dense), il contesto su cui poggiano C-01 e C-03. Non invalida i confronti *interni* — ogni ablation ha confrontato configurazioni che condividevano lo stesso difetto — ma sposterebbe il livello assoluto di ogni misura.
+
+Nota anche che i prefissi sono **asimmetrici**: query e passaggi ricevono stringhe diverse. Un difetto simmetrico si semplifica in un confronto, uno asimmetrico no.
+
+### Protocollo per misurarlo — *senza* re-ingestione completa
+
+Una re-ingestione costa 618 minuti di GPU (misurati in R-07) e non serve per rispondere alla domanda.
+
+1. **Indice ridotto, due varianti.** Campionare ~5.000 chunk da un dataset e indicizzarli due volte: `probe_plain` (come oggi) e `probe_prefixed` (`passage: ` su ogni chunk). ~15 min di GPU ciascuno.
+2. **Le query nella forma corrispondente**: nude contro `probe_plain`, con `query: ` contro `probe_prefixed`. Le query golden i cui chunk rilevanti sono nel campione.
+3. **Confronto appaiato** con `scripts/compare_runs.py`, criterio binario "almeno un documento rilevante nei primi 5".
+4. **Non fare la variante mista** (query con prefisso contro indice senza) se non come curiosità: è una terza configurazione, non la correzione.
+
+Se il delta è reale e positivo, la correzione è una re-ingestione completa e una ri-misura di tutta la Fase 3 — cioè un task del ROADMAP, non una patch.
+
+---
+
+## OQ-03 — Il retrieval "BM25" non è BM25
+
+**Aperta.** Notata il 2026-08-11 nello stesso audit. Riferimento: E-06 (baseline C), R-01 (hybrid RRF).
+
+### I due fatti
+
+**1. Il modificatore IDF non è attivo.** La documentazione di Qdrant dice che i modelli BM25 *vanno* usati con `modifier="idf"` sull'indice sparso, perché fastembed **esclude di proposito** la componente IDF dai suoi vettori: la calcola Qdrant, a query time, dalle statistiche dell'indice. `ensure_collection()` crea `SparseVectorParams()` senza argomenti, e le collection in esecuzione lo confermano:
+
+```
+open_ragbench -> SparseVectorParams(index=None, modifier=None)
+ledger        -> SparseVectorParams(index=None, modifier=None)
+```
+
+Senza IDF il punteggio è la sola frequenza di termine: una parola comune pesa quanto una rara. È BM25 privato della metà che discrimina.
+
+**2. Le query vengono codificate come documenti.** `encode_sparse()` chiama `.embed()` anche sulle query. Il docstring di `Bm25.query_embed` in fastembed dice cosa andrebbe fatto invece:
+
+> *"To emulate BM25 behaviour, we don't need to use weights in the query, and it's enough to just hash the tokens and assign a weight of 1.0 to them."*
+
+Passando dalla via `embed()`, alla query viene applicata la normalizzazione per lunghezza del documento (il termine `b · doc_len / avg_len`): la domanda viene trattata come se fosse un documento del corpus.
+
+### Il sospetto, e perché è più di un sospetto
+
+Su LEDGER lo sparse crolla, e trascina l'hybrid **sotto** il dense:
+
+| ledger | doc_R@5 | nDCG@10 |
+|---|---|---|
+| dense | 0.9367 | 0.0937 |
+| sparse | **0.4758** | 0.0174 |
+| hybrid (RRF) | 0.8408 | 0.0754 |
+| dense + rerank | 0.9483 | 0.1276 |
+| hybrid + rerank | 0.8858 | 0.1108 |
+
+Su open_ragbench invece lo sparse regge (0.9700) e l'hybrid aiuta.
+
+La direzione combacia con il difetto: LEDGER è fatto di bilanci, dove a discriminare sono token rari — nomi di voci, sigle, cifre — cioè esattamente ciò che l'IDF pesa e la sola frequenza di termine no. Su paper accademici il vocabolario è più uniforme e l'assenza di IDF costa meno.
+
+**Non è dimostrato** che correggere i due difetti ribalti il risultato. È dimostrato che l'esperimento non ha misurato ciò che dichiarava: E-06 si chiama *"baseline C: retrieval lessicale BM25"* e non era BM25, e R-01 ha fuso quel braccio.
+
+### Perché è molto più economico di OQ-02
+
+Nessuna re-embeddatura dei chunk: i vettori sparsi sono già su disco e sono corretti così com'è (la componente TF è quella giusta). Serve
+
+- ricreare l'indice sparso con `modifier=models.Modifier.IDF` — l'IDF viene dalle statistiche dell'indice, non dai vettori;
+- una riga in `encode_sparse()` per il percorso query.
+
+Poi si rilanciano `--retrieval-mode sparse` e `--retrieval-mode hybrid` sui due dataset.
+
+### Trappola
+
+Non correggere i due difetti insieme e misurare una volta sola (§14: *mai due cambiamenti in una misura*). Sono due cause indipendenti: l'IDF vive nell'indice, la codifica della query nel client.
+
+---
+
+### Dove sono le cose (OQ-02, OQ-03)
+
+| cosa | dove |
+|---|---|
+| prefissi mancanti | `src/index/embed.py` → `encode()`, e il percorso query in `src/eval/retrieval_backends.py` |
+| creazione collection | `src/index/store.py` → `ensure_collection()` |
+| codifica sparsa | `src/index/embed.py` → `encode_sparse()` |
+| verifica dei fatti | model card E5; sorgente fastembed installato; `client.get_collection(name).config.params.sparse_vectors` |
+
+---
+
+## OQ-04 — Metà del testo di un chunk non entra nell'embedding
+
+**Aperta.** Notata il 2026-08-11 controllando perché I-03 e I-04 non hanno un criterio di accettazione. Riferimento: I-03, I-04, I-07, e per estensione ogni misura di retrieval denso.
+
+### Il fatto
+
+Il tokenizer di `multilingual-e5-large` tronca a **512 token**, direzione destra: tutto ciò che segue viene scartato prima dell'embedding. Le pipeline di chunking non conoscono quel limite. Misurato su 1.500 chunk per collection, con il tokenizer vero e la troncatura disattivata per contare i token reali:
+
+| collection | mediana | p99 | max | oltre 512 token | testo embeddato (mediana) |
+|---|---|---|---|---|---|
+| open_ragbench | 1.009 tok | 16.373 | 39.348 | **67,6%** | **50,8%** |
+| ledger | 881 tok | 2.117 | 3.385 | **82,1%** | **58,2%** |
+
+Il chunk mediano è indicizzato per **circa metà del suo testo**. Il chunk al p99 di open_ragbench è indicizzato per il 3%.
+
+Il testo completo arriva comunque all'LLM in generazione: **il sistema risponde su materiale che non ha potuto trovare.** Il difetto è nel retrieval, non nella risposta.
+
+### Perché è più grande di OQ-02
+
+OQ-02 è un prefisso mancante su un input per il resto integro. Qui l'input è mezzo. Le due cose vivono nella stessa funzione (`encode()`) e sono entrambe misurabili sullo stesso indice ridotto, ma **non vanno misurate insieme** (§14).
+
+### Impatto sulle misure già fatte
+
+Verificato sui contesti reali di C-01 (200 query, dump `20260810_102617`): 10 chunk su 920 recuperati superano i 32.000 caratteri, e **1 query su 200** produce un contesto che eccede la finestra da 32k token del modello. Sulle risposte già misurate il danno è quindi marginale. Sul **retrieval** no: lì il difetto agisce su due terzi del corpus.
+
+### Il difetto morde? Sì su open_ragbench, non visibile su LEDGER
+
+Misurato senza spendere GPU, su dati già su disco: i chunk recuperati stanno nei dump di C-01, i chunk giusti nei qrels, i testi in Qdrant. Riproducibile con `scripts/probe_truncation.py`.
+
+Per ogni query si guarda la lunghezza del chunk **giusto** (quello dei qrels), separando le query in cui il retrieval l'ha trovato da quelle in cui l'ha mancato:
+
+| | trovato | mancato | oltre 512 token | Fisher esatto |
+|---|---|---|---|---|
+| **open_ragbench** | mediana **564** tok (n=162) | mediana **1.525** tok (n=38) | 51,2% contro **81,6%** | **p = 0,00087** |
+| ledger | mediana 1.356 tok (n=70) | mediana 1.061 tok (n=130) | 95,7% contro 90,8% | p = 0,267 |
+
+Su open_ragbench **il chunk giusto mancato è quasi tre volte più lungo di quello trovato.** La direzione è ciò che rende la lettura non banale: a parità di tutto il resto un chunk più lungo contiene *più* testo, quindi dovrebbe essere più facile da trovare. Se viene mancato di più, la spiegazione più semplice è che quel testo in più nell'indice non c'è.
+
+Su LEDGER non si vede niente, e non è la stessa cosa che non esserci: là **il 90-96% dei chunk giusti supera i 512 token in entrambi i gruppi**. Il confronto è fra troncato e troncato, quindi la variabile è quasi costante e il test non ha nulla da separare. Assenza di potenza, non evidenza di assenza.
+
+**Resta descrittivo.** La lunghezza correla con altro — genere della sezione, posizione nel documento, quanto è specifica la domanda — e da qui non si separa. È il motivo per cui I-10 esiste comunque: questo dice che vale la pena di misurarlo, non lo sostituisce.
+
+### Il dato che tocca OQ-01
+
+| collection | mediana | oltre 512 token |
+|---|---|---|
+| ledger | 881 tok | 82,1% |
+| **ledger_routed** | **243 tok** | **5,8%** |
+
+`ledger_routed` entra quasi interamente nella finestra dell'embedder — **e perde di 17 punti**. La congettura registrata in `progress.md` (*«sub-chunking aggressivo → chunk troppo piccoli, IDF diluito»*) punta nella direzione opposta a questo dato: la pipeline generica vince **nonostante** sia troncata all'82%.
+
+Non risolve OQ-01. Elimina però l'ipotesi più intuitiva — che generic vinca perché porta più testo nell'indice — perché in proporzione ne porta **meno**. La domanda si stringe: da dove viene il vantaggio di generic, se non dalla quantità di testo indicizzato?
+
+### Protocollo
+
+Stesso impianto di OQ-02, e per la stessa ragione: indice ridotto, niente re-ingestione.
+
+1. **Campionare** ~5.000 chunk di un dataset dai documenti coperti dai golden.
+2. **Ri-chunkare** quel campione con un tetto a 512 token (le pipeline sono già parametriche: il tetto è un parametro, non una riscrittura).
+3. **Indicizzare le due varianti** e confrontare in appaiato con `scripts/compare_runs.py`, criterio binario "almeno un documento rilevante nei primi 5".
+4. **Non cambiare anche i prefissi** nella stessa misura.
+
+Attenzione a un confondente: a parità di corpus, chunk più piccoli significano **più chunk**, quindi più concorrenti nel ranking e più chunk dello stesso documento fra i primi k. È esattamente la variabile che rende OQ-01 difficile, e va letta a livello di documento per la stessa ragione per cui R-07 si legge su `doc_R@5`.
+
+### Cosa NON è dimostrato
+
+Che rispettare la finestra migliori il retrieval. `ledger_routed` è la prova che non è automatico: sta nella finestra e va peggio. La misura serve proprio perché il ragionamento a tavolino qui ha già sbagliato una volta.
+
+---
+
+## OQ-05 — Cosa serve per verificare una citazione numerica contro una tabella
+
+**Aperta.** Nata il 2026-08-12 da un risultato negativo: C-08 ha escluso la spiegazione più semplice, e ciò che resta richiede una decisione più grande.
+
+### Il fatto
+
+Su LEDGER `citation_precision` vale 0,3656 e non è interpretabile come proprietà del generatore. La diagnosi aveva due metà:
+
+1. le premesse sono markup di tabelle OCR — mediana **26,5%** di token di markup, peggiore 77,2%;
+2. il **96,7%** dei claim è numerico, cioè valori estratti da quelle tabelle.
+
+**C-08 ha testato la prima ed è stata falsificata.** Rendendo le tabelle in righe `cella | cella` sulle stesse 331 coppie: 0,3656 → 0,3263, **35 citazioni perse contro 22 guadagnate, p = 0,1112**. La variazione di P(entailment) è simmetrica (mediana +0,0000, 132 giù e 125 su): il verificatore è **indifferente alla forma superficiale** della tabella.
+
+### Cosa resta, e perché è una decisione più grande
+
+Resta la seconda metà, che nessuna riformattazione tocca: un modello NLI addestrato su prosa deve giudicare se *«i ricavi 2017 sono 1.234»* è implicato da una tabella di bilancio. Non è un problema di come la tabella è scritta — è che l'operazione richiesta è **una ricerca in una griglia più un confronto numerico**, non un'inferenza linguistica.
+
+Il ROADMAP §8 diceva: *«prendere ora quella decisione significherebbe costruire un secondo strumento per aggirare un difetto rimediabile nel primo»*. Ora sappiamo che il difetto **non è rimediabile nel primo**, quindi l'obiezione cade e la decisione è giustificata.
+
+### Le opzioni, e cosa costa sbagliarle
+
+| opzione | cosa comporta | rischio |
+|---|---|---|
+| **Riga muta**: `citation_precision` riportata solo su open_ragbench | zero lavoro | metà della prima affermazione del §0 resta senza numero, e C-06 avrà una curva di scaling con una riga vuota |
+| **Verificatore numerico per il genere tabellare**: il claim è supportato se i valori che asserisce compaiono nel chunk citato, con la loro etichetta di riga | scrivibile senza modelli nuovi | un numero che compare da qualche parte in una tabella non è il valore asserito: serve l'associazione riga/colonna, ed è lì che il lavoro vero sta |
+| **Verificatore diverso per dataset** | massima fedeltà | due strumenti che producono la stessa metrica con definizioni diverse — **i due dataset smettono di essere confrontabili**, che è precisamente ciò che il §3.1 vieta |
+
+La terza è la trappola: sembra la più rigorosa ed è quella che rompe il contratto. Se si va in quella direzione, la metrica va rinominata per dataset, non chiamata `citation_precision` in entrambi i casi.
+
+### Da decidere prima di C-06
+
+Vale ancora ciò che il §8 diceva: se C-06 gira senza aver risolto questo, la curva per taglia del modello ha una riga muta su un dataset su due, e la cosa emerge a run finite.
+
+### Cosa NON è dimostrato
+
+Che un verificatore numerico farebbe meglio. Il floor test di C-03 mostrava che il verificatore attuale, **su prosa**, mancava un terzo dei claim copiati alla lettera: la soglia 0,5 lo rende pessimista per scelta. Prima di costruire un secondo strumento va misurato quanto quello attuale sbaglia **su tabelle**, e il controllo dai qrels lì produce **3 sole coppie** — troppo poche. Serve prima un floor test costruito apposta per il genere tabellare.

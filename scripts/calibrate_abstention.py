@@ -3,7 +3,7 @@
 
 The human picks a budget — how many answerable questions may be refused.  This
 script turns that budget into a threshold per collection, which is what makes
-the gate "decided by code" (ROADMAP §12) instead of a number somebody liked.
+the gate "decided by code" (ROADMAP §14) instead of a number somebody liked.
 
 **Unanswerable queries never enter the calibration.**  The threshold is the
 budget-th percentile of top-1 scores over *answerable* queries only, so the

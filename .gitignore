@@ -14,3 +14,7 @@ logs/
 # Committing one puts a truncated measurement in history: `git add -A` during a
 # live run swept three into a commit before this line existed.
 *.partial
+
+# I campioni dei probe si rigenerano con `probe_index_variants.py sample` ed e'
+# deterministico: committarli aggiungerebbe peso senza aggiungere riproducibilita'.
+eval/results/probe_samples/

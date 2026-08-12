@@ -12,7 +12,7 @@ text on purpose; C-03 measures what a reader would actually be shown, which is
 the repaired text — verifying markers the parser would have discarded would
 score the model for citations the system never serves.
 
-Reported per `dataset_id`, never pooled (§12).
+Reported per `dataset_id`, never pooled (§14).
 
 Usage:
     python scripts/eval_citation_precision.py                      # latest dump per dataset
@@ -86,6 +86,14 @@ def fetch_texts(client, collection: str, chunk_ids: list[str]) -> dict[str, str]
 
 
 def _config_hash(dump: Path, n: int) -> str:
+    """Identita' della configurazione di verifica.
+
+    `render_tables` entra solo quando e' attivo, cosi' le run di C-03 del
+    2026-08-10 conservano l'identita' con cui sono state registrate. Senza di
+    esso le due varianti di C-08 finirebbero su disco sotto lo stesso nome: e'
+    lo stesso difetto che C-07 ha trovato in `citation_harness`, dove i due
+    bracci del ragionamento sarebbero collassati su un unico `config_hash`.
+    """
     params = {
         "harness": "citation_precision",
         "entailment_model": cfg.ENTAILMENT_MODEL,
@@ -94,6 +102,8 @@ def _config_hash(dump: Path, n: int) -> str:
         "source_generations": dump.name,
         "n": n,
     }
+    if cfg.ENTAILMENT_RENDER_TABLES:
+        params["render_tables"] = True
     return hashlib.md5(json.dumps(params, sort_keys=True).encode()).hexdigest()[:8]
 
 
@@ -166,6 +176,10 @@ def write_run(dataset: str, res: dict, commit: str) -> Path:
             "premise_cap": cfg.ENTAILMENT_PREMISE_CAP,
             "source_generations": res["dump"].name,
             "n_answers": res["n"],
+            # Registrato sempre, anche quando e' False: e' la variabile di C-08,
+            # e un campo assente non distingue "spento" da "misurato prima che
+            # l'interruttore esistesse".
+            "render_tables": cfg.ENTAILMENT_RENDER_TABLES,
         },
         metrics=build_metrics(r),
     )

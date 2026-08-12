@@ -3,7 +3,7 @@
 
 Runs the same evaluation N times and reports per-metric dispersion
 (mean ± std, min, max). No improvement smaller than the std should
-ever be declared significant — see ROADMAP §12.
+ever be declared significant — see ROADMAP §14.
 
 Supports two modes:
   retrieval  — runs run_retrieval_eval() N times (dense or sparse)

@@ -71,7 +71,7 @@ RERANK_FETCH_K: int = 20
 # What a human chooses is the budget: how many *answerable* questions the system
 # may refuse. The thresholds below are then derived from data by
 # scripts/calibrate_abstention.py — that derivation is what makes the gate
-# "decided by code" (ROADMAP §12) rather than a number somebody liked.
+# "decided by code" (ROADMAP §14) rather than a number somebody liked.
 #
 # 1% and not more, because the gate cannot improve the metric it is measured on:
 # on E-02 the model already abstains 35/35 on both datasets. The gate exists as a
@@ -114,6 +114,14 @@ ENTAILMENT_PREMISE_CAP: int = 4096
 # — so citation_precision reported with it is a lower bound, which is the safe
 # direction for a number meant to show the system can be trusted.
 ENTAILMENT_THRESHOLD: float = 0.5
+
+# Le premesse LEDGER sono OCR Mathpix: prosa con markup `<table>` dentro, fino al
+# 77% dei token della premessa. Con questo attivo il markup diventa righe
+# `cella | cella` prima della verifica. Parametro e non costante perche' il
+# confronto fra le due varianti deve girare sulle stesse generazioni salvate
+# (§3.4: un'ablation e' un ciclo sulla config). Default spento finche' C-08 non
+# ha misurato: cambiarlo cambia `citation_precision` gia' riportata.
+ENTAILMENT_RENDER_TABLES: bool = os.getenv("ENTAILMENT_RENDER_TABLES", "") == "1"
 
 # Query rewriting (R-03): LLM rewrites the query before embedding.
 # Uses LLM_BASE_URL / LLM_MODEL; override here for a dedicated smaller model.

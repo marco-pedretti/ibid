@@ -28,7 +28,7 @@
 
 La curva di scaling in **C-06** si ferma quindi a 12B. I tre punti della curva sono E2B (5.1B), E4B (8.0B), 12B (11.9B).
 
-> Questo esito era previsto come rischio in `ROADMAP.md §14`: "26B inutilizzabile sulla GPU → si scala a 12B, la curva regge."
+> Questo esito era previsto come rischio in `ROADMAP.md §16`: "26B inutilizzabile sulla GPU → si scala a 12B, la curva regge."
 
 ---
 
@@ -130,7 +130,7 @@ le due generic, ~780 MB di snapshot.
    da STACK.md e oggi mancante. È il **prerequisito legale** per distribuire
    qualunque indice. Entrambi i dataset lo permettono: `vectara/open_ragbench`
    Apache 2.0, `artefactory/ledger-long-context-KPI-QA` CC-BY-4.0. Il divieto di
-   ROADMAP §11 (*"niente snapshot Qdrant con il testo nel payload"*) riguarda i
+   ROADMAP §13 (*"niente snapshot Qdrant con il testo nel payload"*) riguarda i
    **corpus con licenza restrittiva**, non questi.
 3. **U-08**, profilo `demo` con indice committato. A 11.8 KB/punto, un indice
    sotto i 20 MB significa ~1.700 chunk, cioè 40-60 documenti open_ragbench —

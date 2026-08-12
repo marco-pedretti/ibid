@@ -7,7 +7,7 @@ Tracciamento dei task di `ROADMAP.md` man mano che vengono completati. Non sosti
 | Task | Stato | Note |
 |---|---|---|
 | T-01 | ✅ fatto (2026-08-03) | Scheletro repo: `src/{api,datasets,profiling,ingestion,index,retrieval,generation}/`, `compose.yml` (servizio `api` sempre attivo, `qdrant` dietro i profili `full`/`eval`/`demo`), `Dockerfile` multi-stage con `uv`, `pyproject.toml`, `.env.example`, `Makefile`, `.gitignore`, scheletro `eval/`, `dashboard/`, `ui/`, `data/demo/`. Gate verificato dal vivo: `docker compose up --build api` → container `healthy`, `curl /health` → `{"status":"ok"}`. **Non ancora committato in git.** |
-| T-02 | ✅ fatto (2026-08-04) | Smoke test via Ollama 0.32.5 (alternativa approvata da STACK.md). Modelli testati: E2B (5.1B Q4_K_M, 91.2 tok/s, 1.9 GB VRAM), E4B (8.0B Q4_K_M, 15.1 tok/s, 3.3 GB), 12B (11.9B Q4_K_M, 2.4 tok/s, 8.1 GB) — tutti 100% GPU. **26B MoE escluso**: file GGUF ~18 GB supera i 12 GB VRAM; curva di scaling C-06 si ferma a 12B (previsto in ROADMAP §14). Tabella in `docs/hardware.md`, dati grezzi in `eval/contamination/smoke_20260804_103814.json`. Fix notevole: Gemma 4 è un thinking model — con `/api/generate` i token vengono consumati dal reasoning invisibile; risolto usando `/api/chat` con `think: false`. Script riutilizzabile in `scripts/smoke_test.py`. |
+| T-02 | ✅ fatto (2026-08-04) | Smoke test via Ollama 0.32.5 (alternativa approvata da STACK.md). Modelli testati: E2B (5.1B Q4_K_M, 91.2 tok/s, 1.9 GB VRAM), E4B (8.0B Q4_K_M, 15.1 tok/s, 3.3 GB), 12B (11.9B Q4_K_M, 2.4 tok/s, 8.1 GB) — tutti 100% GPU. **26B MoE escluso**: file GGUF ~18 GB supera i 12 GB VRAM; curva di scaling C-06 si ferma a 12B (previsto in ROADMAP §16). Tabella in `docs/hardware.md`, dati grezzi in `eval/contamination/smoke_20260804_103814.json`. Fix notevole: Gemma 4 è un thinking model — con `/api/generate` i token vengono consumati dal reasoning invisibile; risolto usando `/api/chat` con `think: false`. Script riutilizzabile in `scripts/smoke_test.py`. |
 | T-03 | ✅ fatto (2026-08-04) | Dataset principale: `vectara/open_ragbench` — **nessuna contaminazione significativa**. 16 query da 16 paper diversi + 2 controlli positivi, testate su E4B e 12B senza contesto. Le 4 risposte "corrette" del 12B sono riconducibili a conoscenza disciplinare generale (matematica, medicina, economia, ML), non a training specifico sul paper: le 3 domande con valore numerico preciso (0.0226, $2.5, 8pF→3pF) erano sconosciute a entrambi i modelli. Dataset approvato. Secondo dataset (genere visuale) rinviato a I-01. Analisi in `docs/contamination.md`, dati grezzi in `eval/contamination/contamination_open_ragbench_20260804_112523.json`. Gate completo chiuso in T-05 ✅ |
 | T-04 | ✅ fatto (2026-08-04) | Schema `Chunk` e `EvalRun` in `src/datasets/schema.py` (contratti §3 di ROADMAP). Loader `src/datasets/open_ragbench.py`: scarica con `snapshot_download`, normalizza sezioni a `Chunk` (section_id come seq, content_type da presenza tabelle/immagini, tabelle Markdown incluse nel testo). Script `scripts/fetch_dataset.py`. Risultato: **997 documenti, 18840 chunk** (16858 text, 1982 mixed). I 1004 file scaricati includono corpus + queries/answers/qrels già disponibili per E-01. Test unitari in `tests/test_open_ragbench_schema.py` (9/9 pass). |
 | T-05 | ✅ fatto (2026-08-04) | Pipeline end-to-end funzionante: `scripts/ingest.py` + `scripts/query.py`. Stack: fastembed + onnxruntime-directml (AMD GPU via DirectX 12, 10 embed/s su testi lunghi), `intfloat/multilingual-e5-large` 1024-dim (BGE-M3 target non ancora in catalogo fastembed), Qdrant 1.18 con `query_points`. Gate verificato: query "SD of RMSE for Ridge Regression?" → risposta con `[1][2]` → valore 0.0226 citato correttamente dal paper 2412.20245v4. Questo è esattamente il valore che i modelli non conoscevano senza contesto in T-03. Problema risolto: PyTorch CPU ~0.06 embed/s → fastembed/DirectML ~10 embed/s (167x). |
@@ -30,7 +30,7 @@ Tracciamento dei task di `ROADMAP.md` man mano che vengono completati. Non sosti
 | I-04 | ✅ fatto (2026-08-05) | Pipeline `structured_hierarchical` in `src/ingestion/pipeline_structured_hierarchical.py`: `_parse_section()` estrae (level, heading, body) dall'heading Markdown embedded nella prima riga (`#{1,6} heading`); `_PathTracker` mantiene uno stack livello-aware per produrre `section_path` (`"Methods > Model"`); `chunk_document()` sub-chunka i body lunghi con i helper di I-03. Sezioni senza heading ereditano il path corrente senza modificare lo stack. content_type derivato dai campi `tables`/`images`. 29 test unitari in `tests/test_pipeline_structured_hierarchical.py`, 142/142 pass totali. |
 | I-05 | ✅ fatto (2026-08-05) | Pipeline `table_heavy` in `src/ingestion/pipeline_table_heavy.py`: `_split_segments()` usa `re.split` con gruppo catturante su `<table\b…</table>` per produrre segmenti alternati `("text",…)` / `("table",…)`; ogni segmento `table` diventa un chunk atomico (mai spezzato); i segmenti `text` vengono sub-chunkati con i helper di I-03. `_first_heading()` aggiorna `section_path` a ogni heading Markdown trovato nel testo, e il valore viene ereditato dai chunk tabella che seguono. Criterio accettazione verificato: nessun chunk contiene un `<table` senza il corrispondente `</table>`. Assunzione documentata: tabelle non annidate (conforme al corpus LEDGER Mathpix Markdown). 28 test unitari in `tests/test_pipeline_table_heavy.py`, 170/170 pass totali. |
 | I-06 | ⏭ rinviato | Nessun dataset corrente fornisce PDF fisici o coordinate bbox: open_ragbench è JSON pre-processato (no PDF), LEDGER è Mathpix Markdown `.mmd` (PDF sorgente non scaricati, coordinate perse nella conversione OCR). `bbox=None` per entrambi; `page` già popolato dal loader LEDGER. Applicabile solo con un futuro dataset che distribuisce PDF nativi + coordinate. Non blocca E-01→R-07. Nota aggiunta in ROADMAP §5. |
-| I-07 | ✅ fatto (2026-08-05) | Indicizzazione con named vectors (dense + sparse) su Qdrant, una collection per dataset. `src/index/embed.py`: aggiunto `encode_sparse()` via `SparseTextEmbedding` (Qdrant/bm25, CPU). `src/index/store.py`: migrato a named vectors (`"dense"` + `"sparse"`), payload esteso con `pipeline` e `section_path`, aggiunto `delete_collection()`. `scripts/ingest.py` riscritto: supporta `--dataset open_ragbench|ledger|all`, `--drop`, `--batch-size`, progress reporting con throughput e ETA, tempo totale in minuti. `scripts/query.py` aggiornato per `using="dense"` e payload completo. Fix test: tolleranza fp32 batch variance su DirectML alzata da 1e-6 a 1e-5. 28 nuovi test in `tests/test_index_embed.py` (18) e `tests/test_index_store.py` (10). **198/198 test passati.** Gate: `python scripts/ingest.py --drop` completato in **122 minuti** su 65.950 chunk totali (18.840 ORB + 47.110 LEDGER), batch=32, RX 6750 XT. Bottleneck: dense embedding ~10 embed/s × 66k chunk ≈ 110 min GPU. Criterio "< 20 min" era per BGE-M3 (PR #602 ancora aperto) — aggiornato in ROADMAP con i numeri reali. Sparse (BM25 CPU): 41s totali. Upsert: 50s totali. |
+| I-07 | ✅ fatto (2026-08-05) | Indicizzazione con named vectors (dense + sparse) su Qdrant, una collection per dataset. `src/index/embed.py`: aggiunto `encode_sparse()` via `SparseTextEmbedding` (Qdrant/bm25, CPU). `src/index/store.py`: migrato a named vectors (`"dense"` + `"sparse"`), payload esteso con `pipeline` e `section_path`, aggiunto `delete_collection()`. `scripts/ingest.py` riscritto: supporta `--dataset open_ragbench|ledger|all`, `--drop`, `--batch-size`, progress reporting con throughput e ETA, tempo totale in minuti. `scripts/query.py` aggiornato per `using="dense"` e payload completo. Fix test: tolleranza fp32 batch variance su DirectML alzata da 1e-6 a 1e-5. 28 nuovi test in `tests/test_index_embed.py` (18) e `tests/test_index_store.py` (10). **198/198 test passati.** Gate: `python scripts/ingest.py --drop` completato in **122 minuti** su 65.950 chunk totali (18.840 ORB + 47.110 LEDGER), batch=32, RX 6750 XT. Bottleneck: dense embedding ~10 embed/s × 66k chunk ≈ 110 min GPU. Criterio "< 20 min" era per BGE-M3 (PR #602 ancora aperto) — aggiornato in ROADMAP con i numeri reali. Sparse (BM25 CPU): 41s totali. Upsert: 50s totali.  **Perché il criterio originale (`< 20 minuti`) non è stato rispettato:** era calibrato su BGE-M3, che produce denso e sparso in un passaggio solo. Con `multilingual-e5-large` il collo di bottiglia è l'embedding denso a ~10 chunk/s: 66k chunk ≈ 110 minuti di GPU, e il criterio descriveva un modello che non è quello adottato. Job one-shot, accettato. Con BGE-M3 il tempo scenderà per costruzione. |
 
 ---
 
@@ -63,11 +63,11 @@ Tracciamento dei task di `ROADMAP.md` man mano che vengono completati. Non sosti
 
 ### Dashboard — riscrittura (2026-08-07)
 
-Non è un task di `ROADMAP.md` (che si ferma a D-01): è un intervento su D-01 già chiuso, fatto sul branch `dashboard-rework`. Motivo: la dashboard era organizzata attorno agli artefatti (un JSON, una collection, un golden file → una pagina), non attorno alle tre affermazioni del §0, e in due punti contraddiceva attivamente il §12.
+Non è un task di `ROADMAP.md` (che si ferma a D-01): è un intervento su D-01 già chiuso, fatto sul branch `dashboard-rework`. Motivo: la dashboard era organizzata attorno agli artefatti (un JSON, una collection, un golden file → una pagina), non attorno alle tre affermazioni del §0, e in due punti contraddiceva attivamente il §14.
 
 **1. `EvalRun.config` — `pipeline_mode` torna binario.** Il campo era diventato un'etichetta libera (`generic_filtered_text`, `routed_docagg`, `hybrid_rrf`), contro il contratto §3.3. Conseguenza pratica: impossibile selezionare due run che differiscono per un flag solo. Aggiunto `src/eval/run_config.py` (`build_config` / `config_slug` / `differing_keys`) e il campo `config: dict` a `EvalRun`, additivo con default `{}`. **`config_hash` è rimasto identico di proposito**: ricalcolarlo avrebbe reso non confrontabili i run già riportati qui sopra. `scripts/migrate_eval_results.py` ha ricostruito i 16 risultati storici conservando l'etichetta originale in `config.legacy_pipeline_mode`. §3.3 di `ROADMAP.md` aggiornato.
 
-**2. Rumore di fondo visibile.** `load_eval_runs()` scartava silenziosamente i file `NoiseFloorResult` (nessuna chiave `metrics`): il rumore misurato in E-07 non era **mai** arrivato in dashboard, e la colonna delta coloriva di verde qualunque Δ > 0, incluso uno sotto σ. Ora: `load_noise_floors()` + `match_noise_floor()` (mai fra dataset diversi, §11), barre con whisker ±σ, delta grigio sotto rumore e colorato solo sopra. `is_significant()` restituisce `None` quando il rumore non è mai stato misurato — "non misurato" è diverso da "non significativo", e la pagina lo dice esplicitamente. Il dataset è diventato una scelta singola: un delta cross-dataset non è più esprimibile nella UI.
+**2. Rumore di fondo visibile.** `load_eval_runs()` scartava silenziosamente i file `NoiseFloorResult` (nessuna chiave `metrics`): il rumore misurato in E-07 non era **mai** arrivato in dashboard, e la colonna delta coloriva di verde qualunque Δ > 0, incluso uno sotto σ. Ora: `load_noise_floors()` + `match_noise_floor()` (mai fra dataset diversi, §13), barre con whisker ±σ, delta grigio sotto rumore e colorato solo sopra. `is_significant()` restituisce `None` quando il rumore non è mai stato misurato — "non misurato" è diverso da "non significativo", e la pagina lo dice esplicitamente. Il dataset è diventato una scelta singola: un delta cross-dataset non è più esprimibile nella UI.
 
 **3. Retrieval Playground** (era Chunk Inspector). Le collection si leggono da Qdrant invece di essere hardcodate a `["open_ragbench", "ledger"]` — le collection `*_routed` di R-07 erano irraggiungibili proprio dall'unico strumento costruito per ispezionarle. Aggiunti hybrid (R-01) e rerank (R-02), che erano implementati ma non ispezionabili. Nuovo tab A/B fra due configurazioni qualsiasi, con overlap a livello chunk **e** documento: sul confronto `ledger` vs `ledger_routed` la Jaccard chunk è 0.00 e quella documento 0.33, e la UI spiega perché invece di lasciar credere a un guasto.
 
@@ -104,6 +104,82 @@ L'associazione fra `#1` e il run corrispondente e risolta col colore: la tabella
 | C-03 | ✅ fatto (2026-08-10) | `citation_precision` **0,657 su open_ragbench, 0,366 su ledger** — e i due non si leggono allo stesso modo. Sospeso e riaperto in giornata: il verificatore di STACK.md è stato misurato prima di costruirci sopra, non reggeva, ed è stato sostituito. Vedi sotto. |
 | C-04 | ✅ fatto (2026-08-11) | **Astensione corretta 100% su E-02 per entrambi i dataset**, e il gate non causa **nessuna** falsa astensione. Ma il criterio era già al 100% col solo modello: il gate è una garanzia, non una correzione. Vedi sotto. |
 | C-05 | ✅ fatto (2026-08-10) | **Criterio soddisfatto senza toccare il prompt.** L'istruzione c'era dal T-0x e non era mai stata verificata: 14/14 risposte nella lingua della domanda, 0 miste. `prompt_hash` invariato. |
+| C-07 | ✅ fatto (2026-08-12) | **Risultato negativo, e resta in tabella.** Il ragionamento esteso guadagna +4,4 punti di conformità *grezza* su open_ragbench (p=0,0386) e **+0,6 dopo il parser di C-02** (p=1,0000), perché tutto il guadagno è nella variante `[1] [2]` che il parser ripara gratis. Su ledger nessun effetto. Costo: **9,5× i token**, e l'astensione su ledger da 0,280 a 0,450. Vedi sotto. |
+| I-10 | ⬜ da fare | **Misura** del chunking contro la finestra da 512 token. Gate di C-06, e il più grande dei due: OQ-04. |
+| C-08 | ✅ fatto (2026-08-12) | **Risultato negativo: il markup non era la causa.** Rendere le tabelle OCR in righe leggibili porta `citation_precision` su LEDGER da 0,3656 a 0,3263 — 35 citazioni perse contro 22 guadagnate, **p = 0,1112**. Il verificatore è indifferente alla forma della tabella. Flag lasciato spento. La diagnosi che resta è in `open-questions.md`, OQ-05. |
+| I-08 | ⬜ da fare | **Misura** dei prefissi E5 su indice ridotto. Gate di C-06: OQ-02. Dopo I-10, e separatamente. |
+| C-06 | ⬜ da fare | Per ultimo, per la regola d'ordine del §14. |
+
+### C-08 — il markup delle tabelle non era la causa
+
+`citation_precision` su LEDGER vale 0,3656 e C-03 l'aveva registrata come non interpretabile. La diagnosi aveva due metà, e C-08 ne ha testata una.
+
+**Il sospetto, quantificato prima di agire** (117 chunk citati nella run C-03): la premessa mediana è per il **26,5%** token di markup `<td>`/`</tr>`, terzo quartile 62,5%, peggiore 77,2%. E il **96,7%** dei claim contiene almeno tre cifre. Nessuno dei due lati della coppia somiglia a ciò su cui un modello NLI addestrato su prosa è stato istruito.
+
+**La misura**, sulle stesse 331 coppie, stesso dump, nessuna rigenerazione:
+
+| premessa | citation_precision | recall | tempo |
+|---|---|---|---|
+| markup intatto | **0,3656** (121/331) | 0,2815 | 129 s |
+| tabelle rese in righe | **0,3263** (108/331) | 0,2222 | 78 s |
+
+Test appaiato per coppia (claim, chunk, marcatore): **35 citazioni perse contro 22 guadagnate, McNemar esatto p = 0,1112**. E la variazione di P(entailment) è simmetrica — mediana **+0,0000**, 132 punteggi scesi e 125 saliti, 74 invariati.
+
+> **Il verificatore è indifferente alla forma superficiale della tabella.** L'ipotesi era che il markup lo portasse fuori distribuzione; se fosse stato così, toglierlo avrebbe spostato i punteggi in una direzione. Li sposta in entrambe, in egual misura.
+
+**Cosa è servito comunque.** La misura era il modo per **falsificare** la spiegazione più semplice, e l'ha falsificata. Ciò che resta è la seconda metà della diagnosi — verificare un'asserzione numerica contro una griglia è una ricerca più un confronto, non un'inferenza linguistica — e non è rimediabile riformattando. Il ROADMAP §8 diceva che costruire un verificatore dedicato *«significherebbe aggirare un difetto rimediabile nel primo strumento»*: ora sappiamo che rimediabile non è, quindi l'obiezione cade. La decisione, con le sue trappole, è in [`open-questions.md`](open-questions.md) OQ-05.
+
+**Il flag resta spento.** Il punto stimato peggiora, anche se non in modo significativo, e non si accende un interruttore per un guadagno che non c'è. Il fatto che la verifica costi il 40% in meno non è una ragione sufficiente.
+
+**Difetto corretto prima di misurare**, con la lezione di C-07 ancora fresca: `_config_hash` di `eval_citation_precision` non conteneva il flag, quindi le due varianti sarebbero finite su disco **sotto lo stesso nome**. Ora `render_tables` entra nell'hash quando è attivo — e nel `config` sempre, anche quando è `False`, perché un campo assente non distingue "spento" da "misurato prima che l'interruttore esistesse".
+
+### C-07 — l'effetto del ragionamento esteso
+
+**La riga, per dataset** (gemma4:latest, T=0, dense top_k=5, 200 query, `MAX_NEW_TOKENS=2048` su entrambi i bracci):
+
+| dataset | ragionamento | conformità grezza | astensione | latenza p50 | token p50 |
+|---|---|---|---|---|---|
+| open_ragbench | spento | 0,9309 | 0,060 | 9,2 s | **76** |
+| open_ragbench | **acceso** | **0,9722** | 0,100 | 19,0 s | **721** |
+| ledger | spento | 0,9931 | 0,280 | 9,6 s | 38 |
+| ledger | **acceso** | **1,0000** | **0,450** | 16,8 s | 556 |
+
+**Il rumore di fondo, misurato e non assunto.** Due repliche del controllo, stessa configurazione: open_ragbench 0,9309 → 0,9362 (**3 query discordanti su 188**, p=1,0000), ledger 0,9931 → 1,0000 (**1 su 144**, p=1,0000). La generazione a T=0 è quasi deterministica — molto più di quanto il §1 lasciasse temere — quindi un effetto reale ha spazio per emergere, e questo è ciò che rende leggibile tutto il resto.
+
+**Il risultato grezzo sembra positivo.** Su open_ragbench il ragionamento porta +4,44 punti al test appaiato, 10 query migliorate contro 2 peggiorate, **p = 0,0386**. Il verdetto di C-01 passerebbe da "non dimostrato" a PASS. Su ledger, invece, **zero**: identico su ogni query in cui entrambi i bracci rispondono.
+
+**Ma il guadagno è tutto in una violazione sola:**
+
+| violazione (open_ragbench) | spento | acceso |
+|---|---|---|
+| `spaced_markers` | **0,0426** | **0,0056** |
+| `no_citation` | 0,0160 | 0,0111 |
+| `out_of_range` | 0,0106 | 0,0111 |
+| `comma_list` | 0,0053 | 0,0056 |
+| `range` | 0,0053 | 0,0056 |
+
+Il ragionamento corregge `[1] [2]` e nient'altro. È il difetto che C-01 aveva isolato come l'ultimo rimasto, e che un promemoria nel prompt aveva provato a correggere **fallendo** (p=0,167, revertito). Fa quello che la prompt non era riuscita a fare.
+
+**E qui il risultato si ribalta.** `[1] [2]` è esattamente la variante che il parser di C-02 ripara. Confrontando ciò che il sistema *serve* invece di ciò che il modello *genera* — `compare_generations.py --repaired`:
+
+| open_ragbench, 180 query appaiate | spento | acceso | delta | McNemar |
+|---|---|---|---|---|
+| grezzo | 0,9278 | 0,9722 | +0,0444 | **p = 0,0386** |
+| **riparato** | 0,9667 | 0,9722 | **+0,0056** | **p = 1,0000** |
+
+Il parser recupera da solo il 90% della differenza. Ciò che resta — 5 query discordanti su 180, 2 contro 3 — è indistinguibile dal rumore, che sulle stesse 200 query vale 3 discordanti.
+
+> **Conclusione di C-07: il ragionamento esteso non migliora il sistema, migliora una metrica.** Su open_ragbench compra 4,4 punti di conformità *grezza* pagandoli **9,5× i token** e 2,1× la latenza, e il parser di C-02 li produce gratis. Su ledger non compra niente in nessuna delle due letture, e costa 14,6× i token.
+
+**Il costo secondario è più grande del primo.** Con il ragionamento acceso l'astensione su ledger passa da 0,280 a **0,450**: 90 domande rifiutate su 200 invece di 56. Trentaquattro domande rispondibili in più a cui il sistema smette di rispondere, in cambio di zero punti di conformità. Su open_ragbench lo stesso effetto è più piccolo ma nella stessa direzione (0,060 → 0,100).
+
+Nota di metodo: le query astenute **escono dal test appaiato da entrambi i lati**, quindi il guadagno grezzo non è un artefatto del modello che evita le domande difficili — le 12 query discordanti sono tutte query a cui entrambi i bracci hanno risposto.
+
+**Perché `MAX_NEW_TOKENS=2048` e non 1024.** A 1024 il braccio con ragionamento tronca il 50% delle risposte e ne restituisce il 17% vuote: si sarebbe misurato il budget e attribuito al ragionamento. Il controllo non se ne accorge perché non tocca mai il tetto — verificato: output identico a 1024, 2048 e 4096 (`scripts/probe_reasoning.py budget`).
+
+**Sull'interruttore, con documentazione alla mano** (`docs.ollama.com`, `openai/openai.go`, `ai.google.dev/gemma`): il gestore `/v1` accetta cinque valori e mappa `none` su thinking spento; **omettere il campo lascia Ollama ad accendere il ragionamento da sé**, quindi il "ragionamento invisibile" scoperto in C-01 non era un bug aggirato ma il default documentato. Gemma 4 espone il thinking come booleano `enable_thinking`, senza livelli — perciò `medium`, `high` e il campo omesso danno token identici query per query, e l'asse è binario come il ROADMAP lo chiama. Resta non spiegato da nessuna delle due fonti perché `low` si distingua dagli altri tre (888 token mediani contro 993): il probe `levels` è pronto per chiuderlo, e non è sulla strada di C-07.
+
+**Difetto trovato e corretto prima di misurare:** `config_hash` non conteneva `reasoning_effort` né `max_new_tokens`, quindi i due bracci sarebbero finiti su disco **con lo stesso nome**. Cercandolo ne è emerso uno già realizzato: `prompt_hash` copriva solo `SYSTEM`, e i run 3 e 4 di C-01 sono registrati sotto lo stesso `2878488d` pur avendo user prompt diversi. Ora l'hash copre anche il template del messaggio utente, e i due bracci di C-07 hanno hash distinti (`df800f52` / `231c3d2c`).
 
 ### C-01 — Prompt con chunk numerati e formato citazione
 
@@ -131,7 +207,7 @@ La previsione era stata scritta **prima** di misurare (commit 4ce5ea0), sulla ba
 | 3 | riscritto sui fallimenti | 0,9309 | |
 | 4 | + promemoria vicino alla domanda | 0,8942 | revertito |
 
-Sottoposti al test appaiato di McNemar sulle stesse query, **nessuno dei cambi di prompt sposta la conformità complessiva in modo significativo**: run2→run3 p=0,210, run3→run4 p=0,167, run2→run4 p=1,000. Il "+4 punti" del run 3 era rumore ed era stato dichiarato come risultato — violazione del §12 corretta in 2c8cf0c.
+Sottoposti al test appaiato di McNemar sulle stesse query, **nessuno dei cambi di prompt sposta la conformità complessiva in modo significativo**: run2→run3 p=0,210, run3→run4 p=0,167, run2→run4 p=1,000. Il "+4 punti" del run 3 era rumore ed era stato dichiarato come risultato — violazione del §14 corretta in 2c8cf0c.
 
 > **Nota sui `config_hash` di questi file** (scoperta durante C-07). I run 3 e 4 sono su disco con lo stesso `config_hash 2878488d` pur avendo due prompt diverse: il promemoria del run 4 è stato aggiunto a `build_user_message`, e `prompt_hash` copriva solo `SYSTEM`. La conclusione qui sopra non ne è toccata — la tabella li ha sempre trattati come due prompt distinte e li ha confrontati appaiati — ma i due file non sono distinguibili dal loro nome. Da C-07 l'hash copre anche il template del messaggio utente; i file già scritti restano come sono, e la presenza del campo `user_template_hash` nel `config` è ciò che distingue le due regole. Il messaggio del commit `da12e50` afferma che i due run erano stati documentati come repliche a parità di configurazione: **non è così**, ed è questa riga a fare fede.
 
@@ -328,7 +404,7 @@ Il terzo controllo non è decorativo: una riga di prompt che sistema la lingua e
 
 > *Umbrella Sampling wird verwendet, um Zustände $s_{i}$ aus einer verallgemeinerten Markov-Kette zu sampeln… **[3]***
 
-**`prompt_hash` resta `3a50ef63`.** Nessuna modifica al prompt significa che i numeri di C-01 restano validi e che C-04 misurerà su un prompt stabile — che è esattamente il motivo per cui la regola d'ordine del §12 mette C-05 prima di C-04.
+**`prompt_hash` resta `3a50ef63`.** Nessuna modifica al prompt significa che i numeri di C-01 restano validi e che C-04 misurerà su un prompt stabile — che è esattamente il motivo per cui la regola d'ordine del §14 mette C-05 prima di C-04.
 
 #### Il reperto: l'astensione resta inglese, di proposito
 
@@ -471,3 +547,32 @@ Le frasi aggiunte vengono dall'output reale, non dall'immaginazione. Impatto ret
 **3. `EvalRun.config` non veniva popolato affatto**, e `reasoning_enabled` era scritto come letterale `False` — la stessa dichiarazione non verificata che C-01 aveva trovato altrove. Ora derivato da `cfg.REASONING_EFFORT`, che i baseline finalmente passano davvero al modello: prima l'argomento era omesso e il default lo fissava in silenzio, quindi non avrebbero potuto girare nella condizione di **C-07** nemmeno volendo. Il **giudice** invece resta fissato a `"none"` e non legge la config: è lo strumento di misura, e uno strumento che cambia insieme al proprio soggetto non può attribuire la differenza a nessuno dei due.
 
 **Aperto**: l'harness dei baseline non salva le risposte per query. È il motivo per cui il taglio 45% → 17% resta un'inferenza dai totali invece di un test appaiato, e per cui i tre difetti sopra hanno richiesto di rigenerare le risposte a mano per essere diagnosticati. `citation_harness` ha risolto lo stesso problema in C-01. **1232 test.**
+
+---
+
+## Fase 5 — Correttezza delle misure
+
+Nata dall'audit del 2026-08-11: le librerie confrontate con la loro documentazione ufficiale. Il fatto e il protocollo di ognuna stanno in [`open-questions.md`](open-questions.md).
+
+| Task | Stato | Note |
+|---|---|---|
+| I-09 | ⬜ da fare | Prefissi E5, **solo se I-08 è positivo**. Se scatta, obbliga a rifare Fase 3 e Fase 4. |
+| I-11 | ⬜ da fare | Tetto di chunking, **solo se I-10 è positivo**. Condivide la re-ingestione con I-09 se scattano entrambe. |
+| R-08 | ⬜ da fare | `modifier=IDF` sull'indice sparso. Invalida 2 run sparse + 4 hybrid; nessuna run dense. |
+| R-09 | ⬜ da fare | Query BM25 con `query_embed`. Rimisura **separata** da R-08. |
+| R-10 | ⬜ da fare | OQ-01, passi 1–2. |
+
+**Cosa questa fase non tocca**, verificato: E-04/E-05 non usano retrieval affatto, e la soglia di astensione di C-04 appartiene alla sola modalità `dense` (`threshold_for` restituisce `None` per le altre) — quindi R-08/R-09 non la sfiorano, per progetto e non per fortuna.
+
+---
+
+## Fase 6 — Qualità del codice
+
+Lista chiusa di difetti già osservati, non un giro di pulizia. **Gate: nessuna metrica cambia** — `rescore_citations.py` deve restituire gli stessi valori già registrati.
+
+| Task | Stato | Note |
+|---|---|---|
+| Q-01 | ⬜ da fare | `EvalRun` costruito in **5 siti**; `reasoning_enabled` derivato in 4 e ancora scritto `False` a mano in `src/eval/harness.py` — che con `--query-rewrite` usa davvero il modello. |
+| Q-02 | ⬜ da fare | L'harness dei baseline salva le risposte per query. Rende il taglio 45%→17% un test appaiato. |
+| Q-03 | ⬜ da fare | `scripts/profile.py` adombra il modulo `profile` della stdlib. Ha già rotto un import in C-03. |
+| Q-04 | ⬜ da fare | Igiene di import e lint su `scripts/`. |

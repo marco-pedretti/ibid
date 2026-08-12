@@ -21,7 +21,7 @@ Precision alone is trivially gamed by citing less — one confident citation and
 nothing else scores 1.0.  `uncited_claim_rate` is what stops that reading, which
 is why it is computed here and not left to the caller.
 
-Everything is reported per `dataset_id` (§12).  C-01 and C-02 both found the
+Everything is reported per `dataset_id` (§14).  C-01 and C-02 both found the
 failure mode to be genre-dependent, and the verifier itself was measured at
 AUC 0.939 on one corpus and 0.910 on the other — an average over the two would
 be a number about neither.

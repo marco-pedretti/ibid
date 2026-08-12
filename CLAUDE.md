@@ -19,7 +19,7 @@ Three claims the project exists to demonstrate (see ROADMAP.md §0):
 2. Automatic pipeline routing by document genre beats one generic pipeline — the gain must be reported **per dataset**, never aggregated.
 3. With good retrieval, model size matters less than expected (hypothesis to test).
 
-## Architecture (planned — see ROADMAP.md §13 / STACK.md)
+## Architecture (planned — see ROADMAP.md §15 / STACK.md)
 
 ```
 src/
@@ -98,7 +98,7 @@ Co-Authored-By: Elia Dallanoce <eliadallanoce@gmail.com>
 
 This rule has been violated on E-01 and E-03 (committed directly to main). It must be followed from every task forward without exception.
 
-## Working rules from ROADMAP.md §12 (apply to coding-agent work in this repo)
+## Working rules from ROADMAP.md §14 (apply to coding-agent work in this repo)
 
 - Never measure two changes at once — one change, then a measurement, before the next change.
 - No metric without `dataset_id`; never aggregate across document genres.
@@ -129,4 +129,4 @@ Full eval runs (3045 queries × N configs) take 1–2 hours each and block devel
 - Each run produces a JSON in `eval/results/` with its own `config_hash` and `pipeline_mode`; the Streamlit dashboard compares them.
 - Run for both `--dataset open_ragbench` and `--dataset ledger` — never aggregate across datasets.
 
-**Rationale:** every feature is behind a flag, so individual contributions are isolable at any time by combining flags. Deferring full runs to end-of-phase preserves §12 ("never measure two changes at once") without blocking daily progress.
+**Rationale:** every feature is behind a flag, so individual contributions are isolable at any time by combining flags. Deferring full runs to end-of-phase preserves §14 ("never measure two changes at once") without blocking daily progress.

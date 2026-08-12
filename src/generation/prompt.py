@@ -34,7 +34,7 @@ information.` whatever the question's language.  That is a protocol token, not
 prose: `citation_format.is_abstention` matches it exactly, and a phrase that
 varied per language would make the abstention rate depend on which language a
 query happened to be written in — a metric moving for a reason that has nothing
-to do with retrieval.  Localising it belongs to the UI (Fase 5), which renders
+to do with retrieval.  Localising it belongs to the UI (Fase 7), which renders
 the token; it does not belong in the prompt.
 """
 

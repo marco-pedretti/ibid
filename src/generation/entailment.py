@@ -37,6 +37,8 @@ from huggingface_hub import hf_hub_download
 from tokenizers import Tokenizer
 
 import src.config as cfg
+from src.ingestion.ocr_tables import parse_html_table
+from src.ingestion.pipeline_table_heavy import _split_segments
 
 # Same policy as the reranker (R-02): DirectML on AMD/Intel/NVIDIA via DX12 when
 # present, CPU otherwise, so the verifier runs on any machine.
@@ -166,11 +168,79 @@ def verify(
 _WHITESPACE = re.compile(r"\s+")
 
 
-def normalize_premise(text: str) -> str:
-    """Collapse whitespace so a chunk's formatting does not eat its token budget.
+def render_tables(text: str) -> str:
+    """Table markup -> readable rows, prose left alone.
 
-    LEDGER chunks are OCR output with runs of newlines and spaces inside table
-    markup.  Those tokens count against the premise cap while carrying nothing a
-    claim could be entailed by.
+    A LEDGER premise is Mathpix OCR: prose with `<table>` blocks inline.  The
+    markup was going to the verifier as-is, and it is not a small share —
+    measured over the 117 chunks cited in the C-03 ledger run, the median premise
+    is **26.5% markup tokens**, the third quartile 62.5%, the worst 77.2%.
+
+    Two costs, and the second is the one that matters.  The tokens count against
+    `ENTAILMENT_PREMISE_CAP` while carrying nothing a claim could be entailed by
+    — that is only budget.  The real problem is that an NLI model trained on
+    prose is out of distribution on `<td rowspan="2">`, while **96.7% of the
+    ledger claims are numeric** (three digits or more): both sides of the pair
+    are unlike anything the model was trained on.  It is why `citation_precision`
+    on ledger is recorded as not interpretable — see `docs/progress.md`, C-03.
+
+    Rendering rows as `cell | cell | cell` is the smallest change that removes
+    the markup without removing the table: the numbers a claim asserts stay, and
+    so does which row and column they sat in.
+
+    **Misurato il 2026-08-12, e l'ipotesi era sbagliata.** Sulle stesse 331
+    coppie della run C-03, rendere le tabelle porta `citation_precision` da
+    0,3656 a 0,3263: 35 citazioni perse contro 22 guadagnate, McNemar esatto
+    **p = 0,1112**, cioe' indistinguibile dal caso. La variazione di
+    P(entailment) e' simmetrica — mediana +0,0000, 132 punteggi scesi e 125
+    saliti — quindi il verificatore e' sostanzialmente **indifferente** alla
+    forma superficiale della tabella.
+
+    Ne segue che il markup non e' la causa dell'inutilizzabilita' di
+    `citation_precision` su LEDGER. Resta l'altra meta' della diagnosi, che
+    questa misura non tocca: il 96,7% dei claim e' numerico, e un modello NLI
+    addestrato su prosa non verifica un'asserzione numerica contro una tabella
+    a prescindere da come la tabella e' scritta. E' una limitazione del modello,
+    non della sua formattazione — vedi `docs/open-questions.md`, OQ-05.
+
+    Il flag resta spento di default: il punto stimato peggiora, anche se non in
+    modo significativo, e non si accende un interruttore per un guadagno che non
+    c'e'. Resta acceso solo il fatto che la verifica costa il 40% in meno (78 s
+    contro 129), che non e' una ragione sufficiente.
     """
+    out: list[str] = []
+    for kind, segment in _split_segments(text):
+        if kind != "table":
+            out.append(segment)
+            continue
+        rows = parse_html_table(segment)
+        # Never silently drop content: an unparseable table goes through whole,
+        # markup and all, exactly as before. A verifier that judges a claim
+        # against a premise that quietly lost its table is worse than one reading
+        # tags.
+        out.append(_row_join(rows) if rows else segment)
+    return "\n\n".join(out)
+
+
+def _row_join(rows: list[list[str]]) -> str:
+    """Rows as `cell | cell`, one per line."""
+    return "\n".join(" | ".join(row) for row in rows)
+
+
+def normalize_premise(text: str, render: bool | None = None) -> str:
+    """Prepare a chunk to be read as a premise.
+
+    Collapses whitespace so a chunk's formatting does not eat its token budget,
+    and — when `cfg.ENTAILMENT_RENDER_TABLES` is on — turns table markup into
+    rows first.
+
+    `render` is a parameter rather than a constant so the two variants can be
+    scored on the *same* stored generations: ROADMAP §3.4 wants an ablation to be
+    a loop over config, and comparing two verifiers by checking out two commits
+    is not that.
+    """
+    if render is None:
+        render = cfg.ENTAILMENT_RENDER_TABLES
+    if render:
+        text = render_tables(text)
     return _WHITESPACE.sub(" ", text).strip()

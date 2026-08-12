@@ -1,4 +1,4 @@
-"""Tests for dashboard/chunk_render.py — HTML tables in chunk text.
+"""Tests for src/ingestion/ocr_tables.py — HTML tables in chunk text.
 
 The parser must be forgiving: it reads OCR output, where unclosed tags and
 ragged rows are normal.  A debug view that refuses to render a malformed table
@@ -9,7 +9,7 @@ something readable" as behaviour, not just the happy path.
 from __future__ import annotations
 
 
-from dashboard.chunk_render import parse_html_table, table_density
+from src.ingestion.ocr_tables import parse_html_table, table_density
 
 SIMPLE = "<table><tr><td>a</td><td>b</td></tr><tr><td>c</td><td>d</td></tr></table>"
 
