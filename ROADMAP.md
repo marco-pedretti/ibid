@@ -257,7 +257,7 @@ L'ordine non è quello della tabella, per la regola del §14. Il vincolo che lo 
 3. **E-04/E-05** — **mai eseguiti** (nessun risultato con `harness: generation` in `eval/results/`), e il gate di questa fase li richiede. Indipendenti dagli altri: si possono lanciare in parallelo.
 4. **C-07** — ✅ fatto il 2026-08-12. Una misura sola, e risultato negativo: il guadagno esiste sul testo grezzo e sparisce dopo il parser di C-02. Vedi `docs/progress.md`.
 5. **I-10, poi I-08** — misurano soltanto, non cambiano niente sotto, e vanno prima di C-06 perché sono ciò che dice se C-06 andrà rifatto. I-10 per primo dei due: è l'effetto più grande, e se è nullo lo è a maggior ragione il prefisso.
-6. **C-08** — rimisura su generazioni già salvate, nessuna rigenerazione. Prima di C-06 perché decide se la riga LEDGER della curva di scaling dice qualcosa.
+6. **C-08** — ✅ fatto il 2026-08-12, risultato negativo: il markup non era la causa (p=0,1112). La riga LEDGER resta muta, e cosa serve per accenderla è in `docs/open-questions.md` OQ-05, **da decidere prima di C-06**.
 7. **C-06** — per ultimo, quando sotto non si muove più niente.
 
 **Da decidere prima di C-06, non dopo — ora è C-08.** Su LEDGER `citation_precision` non è interpretabile come proprietà del generatore: il verificatore NLI è fuori distribuzione su claim numerici contro tabelle OCR (vedi `docs/progress.md`, C-03). Se C-06 gira così, la curva per taglia del modello ha una riga muta su un dataset su due, e la cosa emerge a run finite.

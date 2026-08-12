@@ -188,7 +188,25 @@ def render_tables(text: str) -> str:
     the markup without removing the table: the numbers a claim asserts stay, and
     so does which row and column they sat in.
 
-    Whether this actually moves the number is measured, not assumed — see C-08.
+    **Misurato il 2026-08-12, e l'ipotesi era sbagliata.** Sulle stesse 331
+    coppie della run C-03, rendere le tabelle porta `citation_precision` da
+    0,3656 a 0,3263: 35 citazioni perse contro 22 guadagnate, McNemar esatto
+    **p = 0,1112**, cioe' indistinguibile dal caso. La variazione di
+    P(entailment) e' simmetrica — mediana +0,0000, 132 punteggi scesi e 125
+    saliti — quindi il verificatore e' sostanzialmente **indifferente** alla
+    forma superficiale della tabella.
+
+    Ne segue che il markup non e' la causa dell'inutilizzabilita' di
+    `citation_precision` su LEDGER. Resta l'altra meta' della diagnosi, che
+    questa misura non tocca: il 96,7% dei claim e' numerico, e un modello NLI
+    addestrato su prosa non verifica un'asserzione numerica contro una tabella
+    a prescindere da come la tabella e' scritta. E' una limitazione del modello,
+    non della sua formattazione — vedi `docs/open-questions.md`, OQ-05.
+
+    Il flag resta spento di default: il punto stimato peggiora, anche se non in
+    modo significativo, e non si accende un interruttore per un guadagno che non
+    c'e'. Resta acceso solo il fatto che la verifica costa il 40% in meno (78 s
+    contro 129), che non e' una ragione sufficiente.
     """
     out: list[str] = []
     for kind, segment in _split_segments(text):

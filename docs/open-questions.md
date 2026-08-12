@@ -367,3 +367,42 @@ Attenzione a un confondente: a parità di corpus, chunk più piccoli significano
 ### Cosa NON è dimostrato
 
 Che rispettare la finestra migliori il retrieval. `ledger_routed` è la prova che non è automatico: sta nella finestra e va peggio. La misura serve proprio perché il ragionamento a tavolino qui ha già sbagliato una volta.
+
+---
+
+## OQ-05 — Cosa serve per verificare una citazione numerica contro una tabella
+
+**Aperta.** Nata il 2026-08-12 da un risultato negativo: C-08 ha escluso la spiegazione più semplice, e ciò che resta richiede una decisione più grande.
+
+### Il fatto
+
+Su LEDGER `citation_precision` vale 0,3656 e non è interpretabile come proprietà del generatore. La diagnosi aveva due metà:
+
+1. le premesse sono markup di tabelle OCR — mediana **26,5%** di token di markup, peggiore 77,2%;
+2. il **96,7%** dei claim è numerico, cioè valori estratti da quelle tabelle.
+
+**C-08 ha testato la prima ed è stata falsificata.** Rendendo le tabelle in righe `cella | cella` sulle stesse 331 coppie: 0,3656 → 0,3263, **35 citazioni perse contro 22 guadagnate, p = 0,1112**. La variazione di P(entailment) è simmetrica (mediana +0,0000, 132 giù e 125 su): il verificatore è **indifferente alla forma superficiale** della tabella.
+
+### Cosa resta, e perché è una decisione più grande
+
+Resta la seconda metà, che nessuna riformattazione tocca: un modello NLI addestrato su prosa deve giudicare se *«i ricavi 2017 sono 1.234»* è implicato da una tabella di bilancio. Non è un problema di come la tabella è scritta — è che l'operazione richiesta è **una ricerca in una griglia più un confronto numerico**, non un'inferenza linguistica.
+
+Il ROADMAP §8 diceva: *«prendere ora quella decisione significherebbe costruire un secondo strumento per aggirare un difetto rimediabile nel primo»*. Ora sappiamo che il difetto **non è rimediabile nel primo**, quindi l'obiezione cade e la decisione è giustificata.
+
+### Le opzioni, e cosa costa sbagliarle
+
+| opzione | cosa comporta | rischio |
+|---|---|---|
+| **Riga muta**: `citation_precision` riportata solo su open_ragbench | zero lavoro | metà della prima affermazione del §0 resta senza numero, e C-06 avrà una curva di scaling con una riga vuota |
+| **Verificatore numerico per il genere tabellare**: il claim è supportato se i valori che asserisce compaiono nel chunk citato, con la loro etichetta di riga | scrivibile senza modelli nuovi | un numero che compare da qualche parte in una tabella non è il valore asserito: serve l'associazione riga/colonna, ed è lì che il lavoro vero sta |
+| **Verificatore diverso per dataset** | massima fedeltà | due strumenti che producono la stessa metrica con definizioni diverse — **i due dataset smettono di essere confrontabili**, che è precisamente ciò che il §3.1 vieta |
+
+La terza è la trappola: sembra la più rigorosa ed è quella che rompe il contratto. Se si va in quella direzione, la metrica va rinominata per dataset, non chiamata `citation_precision` in entrambi i casi.
+
+### Da decidere prima di C-06
+
+Vale ancora ciò che il §8 diceva: se C-06 gira senza aver risolto questo, la curva per taglia del modello ha una riga muta su un dataset su due, e la cosa emerge a run finite.
+
+### Cosa NON è dimostrato
+
+Che un verificatore numerico farebbe meglio. Il floor test di C-03 mostrava che il verificatore attuale, **su prosa**, mancava un terzo dei claim copiati alla lettera: la soglia 0,5 lo rende pessimista per scelta. Prima di costruire un secondo strumento va misurato quanto quello attuale sbaglia **su tabelle**, e il controllo dai qrels lì produce **3 sole coppie** — troppo poche. Serve prima un floor test costruito apposta per il genere tabellare.

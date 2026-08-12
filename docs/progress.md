@@ -106,9 +106,32 @@ L'associazione fra `#1` e il run corrispondente e risolta col colore: la tabella
 | C-05 | ✅ fatto (2026-08-10) | **Criterio soddisfatto senza toccare il prompt.** L'istruzione c'era dal T-0x e non era mai stata verificata: 14/14 risposte nella lingua della domanda, 0 miste. `prompt_hash` invariato. |
 | C-07 | ✅ fatto (2026-08-12) | **Risultato negativo, e resta in tabella.** Il ragionamento esteso guadagna +4,4 punti di conformità *grezza* su open_ragbench (p=0,0386) e **+0,6 dopo il parser di C-02** (p=1,0000), perché tutto il guadagno è nella variante `[1] [2]` che il parser ripara gratis. Su ledger nessun effetto. Costo: **9,5× i token**, e l'astensione su ledger da 0,280 a 0,450. Vedi sotto. |
 | I-10 | ⬜ da fare | **Misura** del chunking contro la finestra da 512 token. Gate di C-06, e il più grande dei due: OQ-04. |
-| C-08 | 🔄 codice fatto, misura in attesa di GPU (2026-08-11) | Markup delle tabelle OCR fuori dalla premessa, dietro `ENTAILMENT_RENDER_TABLES`. Premessa mediana da 1.158 a 821 token (−30,6%), ma **nessuna superava il cap**: il guadagno di budget è reale e inutile, resta la sola ragione distribuzionale, ancora da misurare. |
+| C-08 | ✅ fatto (2026-08-12) | **Risultato negativo: il markup non era la causa.** Rendere le tabelle OCR in righe leggibili porta `citation_precision` su LEDGER da 0,3656 a 0,3263 — 35 citazioni perse contro 22 guadagnate, **p = 0,1112**. Il verificatore è indifferente alla forma della tabella. Flag lasciato spento. La diagnosi che resta è in `open-questions.md`, OQ-05. |
 | I-08 | ⬜ da fare | **Misura** dei prefissi E5 su indice ridotto. Gate di C-06: OQ-02. Dopo I-10, e separatamente. |
 | C-06 | ⬜ da fare | Per ultimo, per la regola d'ordine del §14. |
+
+### C-08 — il markup delle tabelle non era la causa
+
+`citation_precision` su LEDGER vale 0,3656 e C-03 l'aveva registrata come non interpretabile. La diagnosi aveva due metà, e C-08 ne ha testata una.
+
+**Il sospetto, quantificato prima di agire** (117 chunk citati nella run C-03): la premessa mediana è per il **26,5%** token di markup `<td>`/`</tr>`, terzo quartile 62,5%, peggiore 77,2%. E il **96,7%** dei claim contiene almeno tre cifre. Nessuno dei due lati della coppia somiglia a ciò su cui un modello NLI addestrato su prosa è stato istruito.
+
+**La misura**, sulle stesse 331 coppie, stesso dump, nessuna rigenerazione:
+
+| premessa | citation_precision | recall | tempo |
+|---|---|---|---|
+| markup intatto | **0,3656** (121/331) | 0,2815 | 129 s |
+| tabelle rese in righe | **0,3263** (108/331) | 0,2222 | 78 s |
+
+Test appaiato per coppia (claim, chunk, marcatore): **35 citazioni perse contro 22 guadagnate, McNemar esatto p = 0,1112**. E la variazione di P(entailment) è simmetrica — mediana **+0,0000**, 132 punteggi scesi e 125 saliti, 74 invariati.
+
+> **Il verificatore è indifferente alla forma superficiale della tabella.** L'ipotesi era che il markup lo portasse fuori distribuzione; se fosse stato così, toglierlo avrebbe spostato i punteggi in una direzione. Li sposta in entrambe, in egual misura.
+
+**Cosa è servito comunque.** La misura era il modo per **falsificare** la spiegazione più semplice, e l'ha falsificata. Ciò che resta è la seconda metà della diagnosi — verificare un'asserzione numerica contro una griglia è una ricerca più un confronto, non un'inferenza linguistica — e non è rimediabile riformattando. Il ROADMAP §8 diceva che costruire un verificatore dedicato *«significherebbe aggirare un difetto rimediabile nel primo strumento»*: ora sappiamo che rimediabile non è, quindi l'obiezione cade. La decisione, con le sue trappole, è in [`open-questions.md`](open-questions.md) OQ-05.
+
+**Il flag resta spento.** Il punto stimato peggiora, anche se non in modo significativo, e non si accende un interruttore per un guadagno che non c'è. Il fatto che la verifica costi il 40% in meno non è una ragione sufficiente.
+
+**Difetto corretto prima di misurare**, con la lezione di C-07 ancora fresca: `_config_hash` di `eval_citation_precision` non conteneva il flag, quindi le due varianti sarebbero finite su disco **sotto lo stesso nome**. Ora `render_tables` entra nell'hash quando è attivo — e nel `config` sempre, anche quando è `False`, perché un campo assente non distingue "spento" da "misurato prima che l'interruttore esistesse".
 
 ### C-07 — l'effetto del ragionamento esteso
 
