@@ -59,7 +59,6 @@ DEFAULT = ROOT / "eval" / "results" / "verdicts" / "20260812_133954_ledger.jsonl
 #: che compaiono in ogni tabella di bilancio e darebbero corrispondenze gratuite.
 _NUM = re.compile(r"\d[\d,.]*\d|\d")
 _YEAR = re.compile(r"^(19|20)\d\d$")
-_COLSPAN = re.compile(r'colspan\s*=\s*"?[2-9]')
 
 
 def numbers(text: str) -> set[str]:
@@ -116,13 +115,12 @@ def cells_by_number(chunk_text: str) -> dict[str, list[tuple[str, str | None]]]:
         rows = parse_html_table(seg)
         if len(rows) < 2:
             continue
-        # **Se la tabella usa colspan, le colonne non sono allineabili.**
-        # `parse_html_table` non espande le celle che coprono piu' colonne, e il
-        # 74,8% delle tabelle citate su LEDGER ne ha: l'indice di colonna della
-        # riga dati non corrisponde a quello dell'intestazione. La prima versione
-        # di questo probe lo ignorava e riportava "il claim non nomina la colonna
-        # nell'82% dei casi", che era una proprieta' del parser.
-        header, skip = (None, 1) if _COLSPAN.search(seg) else _year_header(rows)
+        # Da C-09 `parse_html_table` espande colspan e rowspan, quindi gli
+        # indici di colonna di una riga dati e della sua intestazione
+        # corrispondono. Prima non era vero -- il 75% di queste tabelle usa celle
+        # unite -- e questo probe si rifiutava di leggere la colonna piuttosto
+        # che leggerla male.
+        header, skip = _year_header(rows)
         for row in rows[skip:]:
             label = next((c for c in row if c.strip() and not numbers(c)), "")
             for j, cell in enumerate(row):
