@@ -16,6 +16,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from src.eval.citation_metrics import (
     CitationReport,
+    PairVerdict,
     build_metrics,
     summarize,
     verify_answer,
@@ -178,3 +179,65 @@ class TestBuildMetrics:
         m = build_metrics(r)
         assert m["claims_per_answer"] == 2.0
         assert m["citations_per_answer"] == 3.0
+
+
+class TestNumericMetric:
+    """C-09: la metrica numerica affianca `citation_precision`, non la sostituisce.
+
+    Due strumenti con definizioni diverse — un'inferenza linguistica contro una
+    ricerca in griglia — e denominatori diversi. Sotto un nome solo i due dataset
+    smetterebbero di essere confrontabili.
+    """
+
+    def _report(self, numeric_outcomes: list[str]) -> CitationReport:
+        verdicts = [
+            PairVerdict(claim=f"c{i}", chunk_id="x", marker=1, supported=True,
+                        score=0.9, n_premises=1, numeric=o)
+            for i, o in enumerate(numeric_outcomes)
+        ]
+        return CitationReport(
+            n_answers=1, n_claims=len(verdicts), n_verifiable=len(verdicts),
+            n_uncited=0, n_pairs=len(verdicts), n_supported=len(verdicts),
+            n_claims_supported=len(verdicts), n_windowed=0,
+            n_numeric_judged=sum(1 for v in verdicts if v.numeric in ("supported", "unsupported")),
+            n_numeric_supported=sum(1 for v in verdicts if v.numeric == "supported"),
+            verdicts=verdicts,
+        )
+
+    def test_not_applicable_leaves_both_numerator_and_denominator(self):
+        """Non e' un fallimento: e' lavoro che resta all'NLI. Contarlo come
+        rifiuto sarebbe il difetto che C-09 corregge."""
+        r = self._report(["supported", "unsupported", "not_applicable"])
+        assert r.n_numeric_judged == 2
+        assert r.numeric_citation_precision == pytest.approx(0.5)
+
+    def test_coverage_reports_the_denominator(self):
+        r = self._report(["supported", "not_applicable", "not_applicable", "not_applicable"])
+        assert r.numeric_coverage == pytest.approx(0.25)
+
+    def test_precision_is_zero_when_nothing_is_judged(self):
+        r = self._report(["not_applicable", "not_applicable"])
+        assert r.numeric_citation_precision == 0.0
+        assert r.numeric_coverage == 0.0
+
+    def test_nli_precision_is_untouched(self):
+        """Il campo `supported` resta il verdetto dell'NLI: i numeri gia'
+        riportati prima di C-09 devono restare confrontabili (§14)."""
+        r = self._report(["unsupported"] * 3)
+        assert r.citation_precision == 1.0        # tutti supported per l'NLI
+        assert r.numeric_citation_precision == 0.0
+
+    def test_both_keys_always_present(self):
+        m = build_metrics(self._report(["not_applicable"]))
+        assert "numeric_citation_precision" in m and "numeric_coverage" in m
+
+    def test_verdict_records_the_numeric_outcome(self):
+        """Serve per rileggere i disaccordi senza ricalcolare: e' cosi' che i
+        67 casi numerico-si'/NLI-no sono stati letti."""
+        chunks = [{"chunk_id": "c1", "text": "<table><tr><td>Ricavi</td><td>1234.5</td></tr></table>"}]
+        _, verdicts = verify_answer(
+            "The reported Ricavi for the period were 1234.5 million [1].", chunks,
+            verifier=lambda text, claim: Verdict(supported=False, score=0.1, n_premises=1),
+        )
+        assert verdicts[0].numeric == "supported"
+        assert verdicts[0].supported is False     # l'NLI dice altro, e resta registrato

@@ -107,6 +107,7 @@ L'associazione fra `#1` e il run corrispondente e risolta col colore: la tabella
 | C-07 | ✅ fatto (2026-08-12) | **Risultato negativo, e resta in tabella.** Il ragionamento esteso guadagna +4,4 punti di conformità *grezza* su open_ragbench (p=0,0386) e **+0,6 dopo il parser di C-02** (p=1,0000), perché tutto il guadagno è nella variante `[1] [2]` che il parser ripara gratis. Su ledger nessun effetto. Costo: **9,5× i token**, e l'astensione su ledger da 0,280 a 0,450. Vedi sotto. |
 | I-10 | ✅ fatto (2026-08-12) | **Effetto reale, piccolo.** Il tetto a 512 token guadagna **+1,26 punti a doc@1** (p=0,0384) su 1.903 query, e regge a tutte e tre le profondità (p=0,038 / 0,040 / 0,034). Costo: **4,05× i chunk**. Vedi sotto. |
 | C-08 | ✅ fatto (2026-08-12) | **Risultato negativo: il markup non era la causa.** Rendere le tabelle OCR in righe leggibili porta `citation_precision` su LEDGER da 0,3656 a 0,3263 — 35 citazioni perse contro 22 guadagnate, **p = 0,1112**. Il verificatore è indifferente alla forma della tabella. Flag lasciato spento. La diagnosi che resta è in `open-questions.md`, OQ-05. |
+| C-09 | ✅ fatto (2026-08-12) | **`numeric_citation_precision` 0,7328 su LEDGER**, contro lo 0,2374 che l'NLI dà sulle stesse coppie. Copertura 39,6%; su open_ragbench 0,2% — lo strumento si rifiuta di giudicare la prosa invece di indovinare. Vedi sotto. |
 | I-08 | ✅ fatto (2026-08-12) | **Non stabilito.** I prefissi E5 sfiorano la soglia solo a doc@1 (p=0,0503), **cambiano segno** a doc@3 e spariscono a doc@5: è il profilo di un effetto nullo con rumore. La model card li richiede; su questo corpus non si vedono. |
 | C-06 | ⬜ da fare | Per ultimo, per la regola d'ordine del §14. |
 
@@ -135,6 +136,54 @@ Misurati insieme su un **indice ridotto** (450 documenti su 997, 9.312 chunk), c
 **Cosa resta aperto.** `capped` produce **4,05× i chunk** — l'indice quadruplica, e con esso il tempo di ingestione. Se +1,26 punti a doc@1 valgano quel prezzo è la decisione di I-11, e non la decide questa misura: la decide chi paga la re-ingestione. Quel che questa misura toglie dal tavolo è I-09, che questi dati non giustificano.
 
 **Limite dichiarato:** i tassi assoluti sono ottimistici — l'indice ridotto ha metà dei concorrenti della produzione — e non vanno letti come recall. Si legge il delta appaiato, che della riduzione non risente perché è identica dai due lati. I numeri si ri-derivano con `scripts/probe_index_variants.py eval` in due minuti.
+
+### C-09 — due generi, due strumenti di verifica
+
+**Il problema.** `citation_precision` su LEDGER vale 0,3656 e non è interpretabile: il 96,7% delle affermazioni asserisce numeri presi da tabelle OCR, e chiedere a un modello NLI *«questo testo implica quella frase?»* quando la domanda vera è *«cerca la cella giusta e confronta un numero»* non è un'inferenza linguistica. C-08 aveva già escluso che fosse la formattazione.
+
+**Quanto sbaglia lo strumento vecchio**, misurato prima di sostituirlo (`scripts/probe_table_floor.py`). Su claim i cui numeri sono *dimostrabilmente* nel chunk citato — una ricerca di stringa, nessun modello di mezzo:
+
+| | coppie | accettate a soglia 0,5 | P(entailment) mediana |
+|---|---|---|---|
+| open_ragbench (prosa) | 29 | **58,6%** | 0,580 — sopra soglia |
+| ledger (tabelle) | 161 | **28,0%** | 0,276 — ben sotto |
+
+**Chi sbaglia**, misurato prima di scegliere quanto costruire:
+
+```
+numero dentro una cella di tabella    126/161
+il claim nomina l'etichetta di RIGA    99/126 = 78,6%
+colonna (anno) determinabile           98/126
+  e il claim la nomina                 88/98  = 89,8%
+```
+
+Il generatore cita bene. Il difetto è nello strumento — il che ha reso il verificatore la versione semplice: cercare numeri ed etichette, non capire le tabelle.
+
+**Il risultato, per dataset:**
+
+| dataset | `citation_precision` (NLI) | `numeric_citation_precision` | `numeric_coverage` |
+|---|---|---|---|
+| open_ragbench | 0,6573 | 0,0000 | **0,0020** (1/496) |
+| **ledger** | 0,3656 | **0,7328** | **0,3958** (131/331) |
+
+Su LEDGER il numerico giudica il 39,6% delle coppie e ne accetta il 73,3%, contro il **23,7%** che l'NLI dà sulle stesse. Su open_ragbench giudica **una coppia su 496**: i numeri dei paper stanno nella prosa, non in celle, e lo strumento si rifiuta di giudicare invece di indovinare.
+
+> Quello 0,0000 su ORB **non è un risultato**: è una precisione su un denominatore di uno. La copertura accanto lo dice, ed è la ragione per cui le due chiavi si riportano sempre insieme.
+
+**Il vincolo rispettato.** Le due metriche non finiscono mai nella stessa colonna. Sono definizioni diverse — inferenza linguistica contro ricerca in griglia — e fonderle avrebbe reso i due dataset non confrontabili, che è la trappola che la decisione di OQ-05 doveva evitare. `citation_precision` non è cambiata di una virgola: 0,6573 e 0,3656 restano gli stessi valori registrati il 2026-08-10.
+
+**Perché il 73,3% da solo non prova niente.** Il verificatore accetta secondo lo stesso criterio — etichetta di riga nominata — che la misura di scoping aveva usato per stabilire che il modello cita bene. È circolare. La validazione vera sono i **disaccordi, che si leggono**: 67 casi in cui il numerico dice sì e l'NLI no, e i primi quattro sono citazioni palesemente corrette rifiutate con P(entail) fra 0,07 e 0,21 —
+
+```
+"the cost of goods sold ... in 2017 was $8,265.0 million"
+   numerico: riga='Cost of goods sold'  colonna='2017'     NLI: 0,138
+```
+
+Nell'altra direzione **2 casi soli**, ed entrambi rivelano un limite del numerico, non dell'NLI: righe senza etichetta, e claim troncati da `split_claims` che hanno perso il soggetto — quest'ultimo è un difetto **a monte**, nella segmentazione di C-03.
+
+**Ciò che questo strumento compra non è un numero migliore: è che ogni verdetto dice quale riga e quale colonna ha usato**, quindi si verifica a occhio in due secondi. L'NLI dice 0,138 e non dice perché.
+
+**Un prerequisito più grande del previsto.** Serviva espandere le celle unite nel parser: il **75%** delle tabelle citate usa `colspan≥2` e il **72%** `rowspan≥2`, quasi sempre le stesse. Senza espanderle l'indice di colonna di una riga dati non corrisponde a quello della sua intestazione, e non si può dire a quale anno appartiene un numero. Scrivendo il probe ho riportato **due volte** una limitazione del mio parser come se fosse un difetto del generatore, e le ho corrette entrambe misurando — la seconda volta il campione utile è passato da 12 a 98 casi.
 
 ### C-08 — il markup delle tabelle non era la causa
 

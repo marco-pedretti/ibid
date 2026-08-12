@@ -50,6 +50,7 @@ sys.path = [p for p in sys.path if Path(p or ".").resolve() != Path(__file__).pa
 import src.config as cfg  # noqa: E402
 from qdrant_client import models  # noqa: E402
 from src.index.store import get_client  # noqa: E402
+from src.generation.numeric_verify import Outcome, verify_numeric  # noqa: E402
 from src.ingestion.ocr_tables import parse_html_table  # noqa: E402
 from src.ingestion.pipeline_table_heavy import _split_segments  # noqa: E402
 
@@ -59,7 +60,6 @@ DEFAULT = ROOT / "eval" / "results" / "verdicts" / "20260812_133954_ledger.jsonl
 #: che compaiono in ogni tabella di bilancio e darebbero corrispondenze gratuite.
 _NUM = re.compile(r"\d[\d,.]*\d|\d")
 _YEAR = re.compile(r"^(19|20)\d\d$")
-_COLSPAN = re.compile(r'colspan\s*=\s*"?[2-9]')
 
 
 def numbers(text: str) -> set[str]:
@@ -116,13 +116,12 @@ def cells_by_number(chunk_text: str) -> dict[str, list[tuple[str, str | None]]]:
         rows = parse_html_table(seg)
         if len(rows) < 2:
             continue
-        # **Se la tabella usa colspan, le colonne non sono allineabili.**
-        # `parse_html_table` non espande le celle che coprono piu' colonne, e il
-        # 74,8% delle tabelle citate su LEDGER ne ha: l'indice di colonna della
-        # riga dati non corrisponde a quello dell'intestazione. La prima versione
-        # di questo probe lo ignorava e riportava "il claim non nomina la colonna
-        # nell'82% dei casi", che era una proprieta' del parser.
-        header, skip = (None, 1) if _COLSPAN.search(seg) else _year_header(rows)
+        # Da C-09 `parse_html_table` espande colspan e rowspan, quindi gli
+        # indici di colonna di una riga dati e della sua intestazione
+        # corrispondono. Prima non era vero -- il 75% di queste tabelle usa celle
+        # unite -- e questo probe si rifiutava di leggere la colonna piuttosto
+        # che leggerla male.
+        header, skip = _year_header(rows)
         for row in rows[skip:]:
             label = next((c for c in row if c.strip() and not numbers(c)), "")
             for j, cell in enumerate(row):
@@ -200,9 +199,42 @@ def analyse_rows(present: list[dict], texts: dict[str, str]) -> None:
         print("    per il verificatore numerico, non un difetto del generatore.")
 
 
+def compare_verifiers(rows: list[dict], texts: dict[str, str]) -> None:
+    """Il verificatore numerico di C-09 contro l'NLI, sulle stesse coppie.
+
+    E' la validazione che il criterio di C-09 chiede. Il confronto e' onesto
+    solo sul sottoinsieme che il numerico dichiara di saper giudicare: dove
+    risponde NOT_APPLICABLE il lavoro resta all'NLI, e contarlo come un
+    fallimento dell'uno o dell'altro sarebbe la confusione che C-09 corregge.
+    """
+    from collections import Counter
+    kinds: Counter[str] = Counter()
+    agree = nli_yes = num_yes = 0
+    for r in rows:
+        v = verify_numeric(r["claim"], texts.get(r["chunk_id"], ""))
+        kinds[v.outcome.value] += 1
+        if v.outcome is Outcome.NOT_APPLICABLE:
+            continue
+        nli_yes += r["supported"]
+        num_yes += v.supported
+        agree += r["supported"] == v.supported
+
+    judged = kinds["supported"] + kinds["unsupported"]
+    print(f"\n--- C-09 contro l'NLI, sulle stesse {len(rows)} coppie ---")
+    for k in ("supported", "unsupported", "not_applicable"):
+        print(f"  {k:<16} {kinds[k]:>4}  ({kinds[k] / len(rows):.1%})")
+    if not judged:
+        return
+    print(f"\n  sulle {judged} coppie che il numerico giudica:")
+    print(f"    accettate dal numerico : {num_yes:>4} = {num_yes / judged:.1%}")
+    print(f"    accettate dall'NLI     : {nli_yes:>4} = {nli_yes / judged:.1%}")
+    print(f"    i due concordano       : {agree:>4} = {agree / judged:.1%}")
+
+
 def main() -> None:
     args = [a for a in sys.argv[1:] if not a.startswith("--")]
     want_rows = "--rows" in sys.argv
+    want_numeric = "--numeric" in sys.argv
     path = Path(args[0]) if args else DEFAULT
     rows = [json.loads(x) for x in path.read_text(encoding="utf-8").splitlines() if x.strip()]
     dataset = rows[0]["chunk_id"].split(":")[0]
@@ -247,6 +279,8 @@ def main() -> None:
 
     if want_rows:
         analyse_rows(present, texts)
+    if want_numeric:
+        compare_verifiers(rows, texts)
 
     a = auc([r["score"] for r in present], [r["score"] for r in absent])
     print(f"\nAUC presente-vs-assente: {a:.4f}")

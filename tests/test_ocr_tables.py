@@ -30,9 +30,48 @@ class TestParseHtmlTable:
         html = "<table><tr><td>a</td><td>b</td><td>c</td></tr><tr><td>d</td></tr></table>"
         assert parse_html_table(html) == [["a", "b", "c"], ["d", "", ""]]
 
-    def test_attributes_ignored(self):
+    def test_colspan_is_expanded(self):
+        """C-09: una cella che copre sei colonne ne etichetta sei.
+
+        Il 75% delle tabelle citate su LEDGER usa `colspan>=2`. Senza espanderlo
+        l'indice di colonna di una riga dati non corrisponde a quello della sua
+        intestazione, e non si puo' dire a quale anno appartiene un numero.
+        """
         html = '<table><tr><td colspan="6">wide</td></tr></table>'
-        assert parse_html_table(html) == [["wide"]]
+        assert parse_html_table(html) == [["wide"] * 6]
+
+    def test_rowspan_carries_into_following_rows(self):
+        """Il 72% delle stesse tabelle usa anche `rowspan`, quindi una riga puo'
+        non contenere la propria etichetta: sta nella riga sopra."""
+        html = ('<table><tr><td rowspan="2">Ricavi</td><td>1</td></tr>'
+                "<tr><td>2</td></tr></table>")
+        assert parse_html_table(html) == [["Ricavi", "1"], ["Ricavi", "2"]]
+
+    def test_colspan_and_rowspan_together(self):
+        """Sono le stesse tabelle: 73 su 103 li usano entrambi."""
+        html = ('<table><tr><td rowspan="2">A</td><td colspan="2">B</td></tr>'
+                "<tr><td>c</td><td>d</td></tr></table>")
+        assert parse_html_table(html) == [["A", "B", "B"], ["A", "c", "d"]]
+
+    def test_header_band_aligns_with_the_year_row(self):
+        """Il caso vero che ha motivato la modifica: una fascia che copre le
+        colonne degli anni, con gli anni nella riga sotto."""
+        rows = parse_html_table(
+            '<table><tr><td></td><td colspan="2">Year ended</td></tr>'
+            "<tr><td>Revenue</td><td>2017</td><td>2016</td></tr>"
+            "<tr><td>Total</td><td>1.234</td><td>1.100</td></tr></table>"
+        )
+        # La colonna del 2017 e quella del suo valore hanno lo stesso indice.
+        assert rows[1].index("2017") == rows[2].index("1.234")
+
+    def test_absurd_span_is_capped(self):
+        """Un OCR puo' scrivere colspan="9999": la tabella non deve esplodere."""
+        html = '<table><tr><td colspan="9999">x</td></tr></table>'
+        assert len(parse_html_table(html)[0]) <= 64
+
+    def test_unparseable_span_treated_as_one(self):
+        html = '<table><tr><td colspan="due">x</td><td>y</td></tr></table>'
+        assert parse_html_table(html) == [["x", "y"]]
 
     def test_nested_inline_markup_flattened(self):
         html = "<table><tr><td><b>bold</b> text</td></tr></table>"

@@ -153,6 +153,14 @@ def print_report(dataset: str, res: dict) -> None:
     print(f"  premesse spezzate    {r.windowed_rate:.4f}  ({r.n_windowed}/{r.n_pairs})")
     print(f"  affermazioni: {r.n_claims} totali, {r.n_verifiable} verificabili "
           f"({r.n_claims - r.n_verifiable} frammenti esclusi)")
+    # C-09, stampate insieme e sotto un'intestazione loro: sono un'altra
+    # definizione, e affiancarle alle righe qui sopra come se fossero la stessa
+    # grandezza e' precisamente cio' che la decisione di OQ-05 vieta.
+    print(f"  --- verificatore numerico (C-09), definizione diversa ---")
+    print(f"  numeric_citation_precision  {r.numeric_citation_precision:.4f}  "
+          f"({r.n_numeric_supported}/{r.n_numeric_judged} citazioni numeriche)")
+    print(f"  numeric_coverage            {r.numeric_coverage:.4f}  "
+          f"({r.n_numeric_judged}/{r.n_pairs} coppie; le altre restano all'NLI)")
 
 
 def write_run(dataset: str, res: dict, commit: str) -> Path:
