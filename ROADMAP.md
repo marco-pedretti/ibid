@@ -255,7 +255,7 @@ L'ordine non è quello della tabella, per la regola del §14. Il vincolo che lo 
 1. **C-05** — cambia il prompt, e `prompt_hash` entra in `config_hash`: farlo dopo C-04 obbligherebbe a rimisurare C-04. Verificabile in gran parte sulle 891 generazioni già salvate, dove le risposte in lingua mista sono ≤1 su 189 — entrambi i corpus sono inglesi, quindi è più una verifica che una correzione.
 2. **C-04** — l'ultima modifica alla pipeline. C-03 gli ha già fornito i dati: `uncited_claim_rate` 0,106 e 0,156, astensione al 26,5% su LEDGER contro 5,5% su ORB.
 3. **E-04/E-05** — **mai eseguiti** (nessun risultato con `harness: generation` in `eval/results/`), e il gate di questa fase li richiede. Indipendenti dagli altri: si possono lanciare in parallelo.
-4. **C-07** — una misura sola; l'interruttore `REASONING_EFFORT` esiste in `config.py` da C-01.
+4. **C-07** — ✅ fatto il 2026-08-12. Una misura sola, e risultato negativo: il guadagno esiste sul testo grezzo e sparisce dopo il parser di C-02. Vedi `docs/progress.md`.
 5. **I-10, poi I-08** — misurano soltanto, non cambiano niente sotto, e vanno prima di C-06 perché sono ciò che dice se C-06 andrà rifatto. I-10 per primo dei due: è l'effetto più grande, e se è nullo lo è a maggior ragione il prefisso.
 6. **C-08** — rimisura su generazioni già salvate, nessuna rigenerazione. Prima di C-06 perché decide se la riga LEDGER della curva di scaling dice qualcosa.
 7. **C-06** — per ultimo, quando sotto non si muove più niente.

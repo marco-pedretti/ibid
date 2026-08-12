@@ -104,48 +104,59 @@ L'associazione fra `#1` e il run corrispondente e risolta col colore: la tabella
 | C-03 | ✅ fatto (2026-08-10) | `citation_precision` **0,657 su open_ragbench, 0,366 su ledger** — e i due non si leggono allo stesso modo. Sospeso e riaperto in giornata: il verificatore di STACK.md è stato misurato prima di costruirci sopra, non reggeva, ed è stato sostituito. Vedi sotto. |
 | C-04 | ✅ fatto (2026-08-11) | **Astensione corretta 100% su E-02 per entrambi i dataset**, e il gate non causa **nessuna** falsa astensione. Ma il criterio era già al 100% col solo modello: il gate è una garanzia, non una correzione. Vedi sotto. |
 | C-05 | ✅ fatto (2026-08-10) | **Criterio soddisfatto senza toccare il prompt.** L'istruzione c'era dal T-0x e non era mai stata verificata: 14/14 risposte nella lingua della domanda, 0 miste. `prompt_hash` invariato. |
-| C-07 | 🔶 **interrotto — 1 run su 6** (2026-08-11) | Codice e strumenti pronti; delle sei run ne esiste **una**. Dettaglio e comandi per riprendere qui sotto. |
+| C-07 | ✅ fatto (2026-08-12) | **Risultato negativo, e resta in tabella.** Il ragionamento esteso guadagna +4,4 punti di conformità *grezza* su open_ragbench (p=0,0386) e **+0,6 dopo il parser di C-02** (p=1,0000), perché tutto il guadagno è nella variante `[1] [2]` che il parser ripara gratis. Su ledger nessun effetto. Costo: **9,5× i token**, e l'astensione su ledger da 0,280 a 0,450. Vedi sotto. |
 | I-10 | ⬜ da fare | **Misura** del chunking contro la finestra da 512 token. Gate di C-06, e il più grande dei due: OQ-04. |
 | C-08 | 🔄 codice fatto, misura in attesa di GPU (2026-08-11) | Markup delle tabelle OCR fuori dalla premessa, dietro `ENTAILMENT_RENDER_TABLES`. Premessa mediana da 1.158 a 821 token (−30,6%), ma **nessuna superava il cap**: il guadagno di budget è reale e inutile, resta la sola ragione distribuzionale, ancora da misurare. |
 | I-08 | ⬜ da fare | **Misura** dei prefissi E5 su indice ridotto. Gate di C-06: OQ-02. Dopo I-10, e separatamente. |
 | C-06 | ⬜ da fare | Per ultimo, per la regola d'ordine del §14. |
 
-### C-07 — stato dell'interruzione (2026-08-11)
+### C-07 — l'effetto del ragionamento esteso
 
-Il piano è sei run da 200 query: due bracci (`REASONING_EFFORT` `none` / `high`) × due dataset, più due repliche del controllo, che il §14 richiede perché la generazione campiona e a T=0 la stessa configurazione non riproduce se stessa query per query. Interrotto dopo la prima: il braccio con ragionamento costa 21 s/query contro i 9 del controllo, e le sei run sono ~4 ore, non le ~1,5 stimate all'inizio.
+**La riga, per dataset** (gemma4:latest, T=0, dense top_k=5, 200 query, `MAX_NEW_TOKENS=2048` su entrambi i bracci):
 
-**Cosa esiste davvero:**
+| dataset | ragionamento | conformità grezza | astensione | latenza p50 | token p50 |
+|---|---|---|---|---|---|
+| open_ragbench | spento | 0,9309 | 0,060 | 9,2 s | **76** |
+| open_ragbench | **acceso** | **0,9722** | 0,100 | 19,0 s | **721** |
+| ledger | spento | 0,9931 | 0,280 | 9,6 s | 38 |
+| ledger | **acceso** | **1,0000** | **0,450** | 16,8 s | 556 |
 
-| braccio | stato | risultato |
+**Il rumore di fondo, misurato e non assunto.** Due repliche del controllo, stessa configurazione: open_ragbench 0,9309 → 0,9362 (**3 query discordanti su 188**, p=1,0000), ledger 0,9931 → 1,0000 (**1 su 144**, p=1,0000). La generazione a T=0 è quasi deterministica — molto più di quanto il §1 lasciasse temere — quindi un effetto reale ha spazio per emergere, e questo è ciò che rende leggibile tutto il resto.
+
+**Il risultato grezzo sembra positivo.** Su open_ragbench il ragionamento porta +4,44 punti al test appaiato, 10 query migliorate contro 2 peggiorate, **p = 0,0386**. Il verdetto di C-01 passerebbe da "non dimostrato" a PASS. Su ledger, invece, **zero**: identico su ogni query in cui entrambi i bracci rispondono.
+
+**Ma il guadagno è tutto in una violazione sola:**
+
+| violazione (open_ragbench) | spento | acceso |
 |---|---|---|
-| open_ragbench / `none` (controllo) | ✅ completo | `20260811_143623_open_ragbench_citations.json` — `format_compliance` 0,9309, latenza p50 9,2 s / p90 20,1 s, token p50 76 |
-| open_ragbench / `high` | ⛔ interrotto a 86/200 | scartato: un `.partial` non entra in un confronto appaiato, e `compare_generations` lo rifiuta di proposito |
-| ledger / `none`, ledger / `high`, 2 repliche | ⬜ mai lanciati | — |
+| `spaced_markers` | **0,0426** | **0,0056** |
+| `no_citation` | 0,0160 | 0,0111 |
+| `out_of_range` | 0,0106 | 0,0111 |
+| `comma_list` | 0,0053 | 0,0056 |
+| `range` | 0,0053 | 0,0056 |
 
-Lo 0,9309 del controllo **riproduce esattamente** la run C-01 del 10 agosto a un `MAX_NEW_TOKENS` diverso (2048 contro 1024), che è ciò che il probe prevedeva: il controllo non tocca mai il tetto, quindi alzarlo non lo cambia.
+Il ragionamento corregge `[1] [2]` e nient'altro. È il difetto che C-01 aveva isolato come l'ultimo rimasto, e che un promemoria nel prompt aveva provato a correggere **fallendo** (p=0,167, revertito). Fa quello che la prompt non era riuscita a fare.
 
-**Per riprendere.** Prerequisiti: Qdrant su (`docker compose up -d`), Ollama raggiungibile su `LLM_BASE_URL`, e un branch che contenga il codice di C-07 — `C-07` o `audit-librerie`. **Non da `main`**: là mancano le 82 righe di `citation_harness.py` che mettono `reasoning_effort` e `max_new_tokens` dentro `config_hash`, e i due bracci finirebbero su disco con lo stesso nome, che è il difetto che C-07 ha corretto per primo.
+**E qui il risultato si ribalta.** `[1] [2]` è esattamente la variante che il parser di C-02 ripara. Confrontando ciò che il sistema *serve* invece di ciò che il modello *genera* — `compare_generations.py --repaired`:
 
-Un blocco solo, da incollare in Git Bash. Concatena con `&&` così una run fallita ferma la catena invece di lasciarne girare altre quattro sopra un problema, e tiene un log perché ~3,5 ore non si stanno a guardare:
+| open_ragbench, 180 query appaiate | spento | acceso | delta | McNemar |
+|---|---|---|---|---|
+| grezzo | 0,9278 | 0,9722 | +0,0444 | **p = 0,0386** |
+| **riparato** | 0,9667 | 0,9722 | **+0,0056** | **p = 1,0000** |
 
-```bash
-export MAX_NEW_TOKENS=2048 &&   { REASONING_EFFORT=high python scripts/eval_citations.py --dataset open_ragbench --limit 200 &&     REASONING_EFFORT=none python scripts/eval_citations.py --dataset ledger        --limit 200 &&     REASONING_EFFORT=high python scripts/eval_citations.py --dataset ledger        --limit 200 &&     REASONING_EFFORT=none python scripts/eval_citations.py --dataset open_ragbench --limit 200 &&     REASONING_EFFORT=none python scripts/eval_citations.py --dataset ledger        --limit 200 ; }   2>&1 | tee eval/results/c07_resume.log
-```
+Il parser recupera da solo il 90% della differenza. Ciò che resta — 5 query discordanti su 180, 2 contro 3 — è indistinguibile dal rumore, che sulle stesse 200 query vale 3 discordanti.
 
-Le ultime due righe sono le **repliche del controllo**: non sono un doppione, sono il rumore di fondo contro cui si legge il delta fra i bracci. Il §14 le richiede perché la generazione campiona, e a T=0 la stessa configurazione non riproduce se stessa query per query — senza, le discordanze fra i due bracci contengono sia l'effetto sia il jitter e non si distinguono.
+> **Conclusione di C-07: il ragionamento esteso non migliora il sistema, migliora una metrica.** Su open_ragbench compra 4,4 punti di conformità *grezza* pagandoli **9,5× i token** e 2,1× la latenza, e il parser di C-02 li produce gratis. Su ledger non compra niente in nessuna delle due letture, e costa 14,6× i token.
 
-**Non rilanciare il controllo `open_ragbench` / `none` come sesta run**: esiste già (`20260811_143623`), e una seconda esecuzione è la replica, non una sostituzione.
+**Il costo secondario è più grande del primo.** Con il ragionamento acceso l'astensione su ledger passa da 0,280 a **0,450**: 90 domande rifiutate su 200 invece di 56. Trentaquattro domande rispondibili in più a cui il sistema smette di rispondere, in cambio di zero punti di conformità. Su open_ragbench lo stesso effetto è più piccolo ma nella stessa direzione (0,060 → 0,100).
 
-Poi il confronto, due volte — fra i bracci, e fra controllo e replica:
+Nota di metodo: le query astenute **escono dal test appaiato da entrambi i lati**, quindi il guadagno grezzo non è un artefatto del modello che evita le domande difficili — le 12 query discordanti sono tutte query a cui entrambi i bracci hanno risposto.
 
-```bash
-python scripts/compare_generations.py --a <none>.jsonl --b <high>.jsonl --label-a none --label-b high
-python scripts/compare_generations.py --a <none>.jsonl --b <replica>.jsonl --label-a run1 --label-b run2
-```
+**Perché `MAX_NEW_TOKENS=2048` e non 1024.** A 1024 il braccio con ragionamento tronca il 50% delle risposte e ne restituisce il 17% vuote: si sarebbe misurato il budget e attribuito al ragionamento. Il controllo non se ne accorge perché non tocca mai il tetto — verificato: output identico a 1024, 2048 e 4096 (`scripts/probe_reasoning.py budget`).
 
-**Mentre gira, due cose da non fare** — entrambe già costate GPU in questa sessione. Non cambiare branch: ogni run carica il codice all'avvio, e i bracci devono condividere lo stesso substrato. E non usare `git add -A`, che ha raccolto artefatti di run in commit di documentazione tre volte l'11 agosto.
+**Sull'interruttore, con documentazione alla mano** (`docs.ollama.com`, `openai/openai.go`, `ai.google.dev/gemma`): il gestore `/v1` accetta cinque valori e mappa `none` su thinking spento; **omettere il campo lascia Ollama ad accendere il ragionamento da sé**, quindi il "ragionamento invisibile" scoperto in C-01 non era un bug aggirato ma il default documentato. Gemma 4 espone il thinking come booleano `enable_thinking`, senza livelli — perciò `medium`, `high` e il campo omesso danno token identici query per query, e l'asse è binario come il ROADMAP lo chiama. Resta non spiegato da nessuna delle due fonti perché `low` si distingua dagli altri tre (888 token mediani contro 993): il probe `levels` è pronto per chiuderlo, e non è sulla strada di C-07.
 
-**Se serve interromperla**: uccidere prima il driver e poi i processi Python. Al contrario, il loop avanza al braccio successivo appena muore il figlio, e restano processi orfani che contendono la GPU alla run successiva.
+**Difetto trovato e corretto prima di misurare:** `config_hash` non conteneva `reasoning_effort` né `max_new_tokens`, quindi i due bracci sarebbero finiti su disco **con lo stesso nome**. Cercandolo ne è emerso uno già realizzato: `prompt_hash` copriva solo `SYSTEM`, e i run 3 e 4 di C-01 sono registrati sotto lo stesso `2878488d` pur avendo user prompt diversi. Ora l'hash copre anche il template del messaggio utente, e i due bracci di C-07 hanno hash distinti (`df800f52` / `231c3d2c`).
 
 ### C-01 — Prompt con chunk numerati e formato citazione
 
