@@ -112,3 +112,35 @@ class TestPairing:
             tmp_path,
         )
         assert "delta +1.0000" in out
+
+
+class TestRepaired:
+    """C-07: un guadagno che il parser produrrebbe comunque non è un guadagno.
+
+    C-01 misura il testo grezzo di proposito, ma il sistema serve ciò che esce da
+    `citations.normalize`. Sul confronto vero di C-07 il ragionamento guadagna
+    +4,4 punti sul grezzo (p=0,0386) e +0,6 sul riparato (p=1,0000): tutto il
+    guadagno era in una variante che il parser ripara gratis.
+    """
+
+    def test_raw_verdict_uses_the_stored_flag(self, tmp_path):
+        rec = _record("q1", False, answer="Vero [1] [2].", n_chunks=2)
+        assert compare_generations.compliant(rec, repaired=False) is False
+
+    def test_repaired_verdict_rechecks_the_text(self, tmp_path):
+        """`[1] [2]` è la variante che il parser unisce, ed è l'intero effetto
+        misurato in C-07."""
+        rec = _record("q1", False, answer="Vero [1] [2].", n_chunks=2)
+        assert compare_generations.compliant(rec, repaired=True) is True
+
+    def test_repair_does_not_rescue_an_unfixable_answer(self, tmp_path):
+        """Un marcatore fuori contesto viene scartato, non riparato: la risposta
+        resta non conforme."""
+        rec = _record("q1", False, answer="Vero senza citazione.", n_chunks=2)
+        assert compare_generations.compliant(rec, repaired=True) is False
+
+    def test_stored_flag_is_not_trusted_when_repairing(self, tmp_path):
+        """Il verdetto riparato non è ricavabile da quello grezzo, quindi va
+        ricalcolato invece che dedotto."""
+        rec = _record("q1", True, answer="Vero [1] [2].", n_chunks=2)
+        assert compare_generations.compliant(rec, repaired=True) is True

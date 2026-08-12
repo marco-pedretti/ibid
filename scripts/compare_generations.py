@@ -18,9 +18,19 @@ optional: ROADMAP §12 forbids declaring an improvement without comparing it
 against the noise baseline, and for generation that baseline has to be measured,
 not assumed to be zero.
 
+**`--repaired` asks the question that decides whether a gain is worth paying
+for.**  C-01 scores the raw text on purpose, but the system does not serve raw
+text: it serves what `citations.normalize` produces, and that parser already
+repairs the known variants.  A change that only fixes something the parser
+fixes for free is not an improvement to the system — it is an improvement to a
+metric.  C-07 is exactly that case: reasoning gains +4.4 points of raw
+compliance on open_ragbench, all of it spaced markers, and +0.6 points once the
+parser has run.
+
 Usage:
     python scripts/compare_generations.py --a <off>.jsonl --b <on>.jsonl
     python scripts/compare_generations.py --a <off>.jsonl --b <off-replicate>.jsonl
+    python scripts/compare_generations.py --a <off>.jsonl --b <on>.jsonl --repaired
 """
 
 from __future__ import annotations
@@ -35,6 +45,21 @@ ROOT = Path(__file__).parent.parent
 sys.path.insert(0, str(ROOT))
 
 from src.eval.paired import compare_paired  # noqa: E402
+from src.generation.citation_format import check_format  # noqa: E402
+from src.generation.citations import normalize  # noqa: E402
+
+
+def compliant(record: dict, repaired: bool) -> bool:
+    """Whether this answer respects §3.2 — as generated, or as served.
+
+    Re-checking rather than trusting the stored `compliant` flag: that flag was
+    computed on the raw text at run time, and the repaired verdict cannot be
+    recovered from it.
+    """
+    if not repaired:
+        return bool(record["compliant"])
+    n = record["n_chunks"]
+    return check_format(normalize(record["answer"], n), n).compliant
 
 
 def load(path: Path) -> dict[str, dict]:
@@ -71,6 +96,8 @@ def main() -> None:
     p.add_argument("--b", required=True, type=Path, help="arm under test JSONL")
     p.add_argument("--label-a", default="A")
     p.add_argument("--label-b", default="B")
+    p.add_argument("--repaired", action="store_true",
+                   help="confronta il testo dopo citations.normalize, cioe' cio' che il sistema serve")
     args = p.parse_args()
 
     a, b = load(args.a), load(args.b)
@@ -95,10 +122,11 @@ def main() -> None:
         print(f"  ({n_split} query astenute da un solo braccio, fuori dal test appaiato)")
 
     result = compare_paired(
-        [a[q]["compliant"] for q in paired_ids],
-        [b[q]["compliant"] for q in paired_ids],
+        [compliant(a[q], args.repaired) for q in paired_ids],
+        [compliant(b[q], args.repaired) for q in paired_ids],
     )
-    print(f"\nformat_compliance  {args.label_a} {result.rate_a:.4f} -> "
+    which = "riparato" if args.repaired else "grezzo"
+    print(f"\nformat_compliance ({which})  {args.label_a} {result.rate_a:.4f} -> "
           f"{args.label_b} {result.rate_b:.4f}   delta {result.delta:+.4f}")
     print(f"  discordanti: solo {args.label_a} {result.only_a}, "
           f"solo {args.label_b} {result.only_b}  (su {result.n})")
