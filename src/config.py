@@ -127,6 +127,18 @@ ENTAILMENT_PREMISE_CAP: int = 4096
 # direction for a number meant to show the system can be trusted.
 ENTAILMENT_THRESHOLD: float = 0.5
 
+# ---------------------------------------------------------------------------
+# Verifica numerica su tabelle (C-09)
+# ---------------------------------------------------------------------------
+# Quota delle parole di contenuto dell'etichetta di riga che devono comparire
+# nel claim perche' la riga sia considerata combaciante. 0,5 e' un compromesso:
+# "Cost of goods sold" da' {cost, goods, sold} dopo le stopword, e la meta'
+# lascia passare le riformulazioni parziali senza accettare qualunque cosa.
+# Come per ENTAILMENT_THRESHOLD, **non e' tarata sui dati su cui la metrica
+# viene riportata**: una soglia adattata al proprio campione gonfia la metrica
+# per costruzione.
+NUMERIC_ROW_MATCH_RATIO: float = 0.5
+
 # Le premesse LEDGER sono OCR Mathpix: prosa con markup `<table>` dentro, fino al
 # 77% dei token della premessa. Con questo attivo il markup diventa righe
 # `cella | cella` prima della verifica. Parametro e non costante perche' il
