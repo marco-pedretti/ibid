@@ -393,6 +393,25 @@ Resta la seconda metà, che nessuna riformattazione tocca: un modello NLI addest
 
 Il ROADMAP §8 diceva: *«prendere ora quella decisione significherebbe costruire un secondo strumento per aggirare un difetto rimediabile nel primo»*. Ora sappiamo che il difetto **non è rimediabile nel primo**, quindi l'obiezione cade e la decisione è giustificata.
 
+### Quanto sbaglia lo strumento attuale — misurato il 2026-08-12
+
+Prima di scegliere serviva sapere **quanto sbaglia il verificatore sulle tabelle**, che era la cosa che la sezione qui sotto dichiarava non dimostrata. Ora è misurata, e senza spendere GPU: i punteggi sono nei verdetti salvati, i testi in Qdrant, e *«il numero asserito è nel chunk»* è una ricerca di stringa. Riproducibile con `scripts/probe_table_floor.py`.
+
+Su claim i cui numeri distintivi stanno **tutti** nel chunk citato — cioè affermazioni che il chunk quantomeno contiene:
+
+| | coppie | accettate a soglia 0,5 | P(entailment) mediana |
+|---|---|---|---|
+| **open_ragbench** (prosa) | 29 | **58,6%** | **0,580** — sopra soglia |
+| **ledger** (tabelle) | 161 | **28,0%** | **0,276** — ben sotto |
+
+Stesso tipo di affermazione, stesso verificatore, stessa soglia: **lo strumento è circa la metà sensibile sul genere tabellare.** Su LEDGER dà 0,276 di mediana a claim i cui numeri sono dimostrabilmente lì.
+
+Quindi `citation_precision` 0,3656 è dominata dal **pavimento dello strumento**, non dal generatore. E la differenza fra i due dataset (0,657 contro 0,366) riflette in buona parte la differenza fra i due pavimenti (0,586 contro 0,280), non due modi diversi di citare.
+
+**Il numero che questa misura NON dà.** La presenza del numero non prova che il claim sia corretto: `1.234` può stare nella riga sbagliata o nell'anno sbagliato. È un proxy direzionale. Ma per la decisione basta: qualunque sia la verità su quei 161 claim, **il verificatore attuale non la sta misurando** — dà 0,276 sia quando il numero c'è sia quando non c'è (mediana 0,283 sui 5 casi in cui manca, troppo pochi per un test ma non incoraggianti).
+
+**Nota su cosa questo non autorizza:** abbassare la soglia. A 0,276 si accetterebbe metà del gruppo "presenti", ma sarebbe una soglia tarata sugli stessi dati su cui si riporta la metrica — la trappola che `config.py` documenta e che C-03 ha evitato di proposito. E cambierebbe anche open_ragbench, dove il problema non c'è.
+
 ### Le opzioni, e cosa costa sbagliarle
 
 | opzione | cosa comporta | rischio |
