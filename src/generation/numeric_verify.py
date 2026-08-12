@@ -126,7 +126,10 @@ def _year_header(rows: list[list[str]]) -> tuple[list[str] | None, int]:
     for i, row in enumerate(rows[:3]):
         if sum(1 for c in row if _YEAR.match(c.strip().replace(",", ""))) >= 2:
             return row, i + 1
-    return None, 1
+    # Nessuna riga di anni. Con piu' righe la prima e' quasi sempre
+    # un'intestazione testuale e va comunque saltata; con una riga sola non c'e'
+    # intestazione da saltare, e saltarla perderebbe l'unico dato della tabella.
+    return None, 1 if len(rows) > 1 else 0
 
 
 def table_cells(chunk_text: str) -> dict[str, list[Cell]]:
@@ -141,7 +144,7 @@ def table_cells(chunk_text: str) -> dict[str, list[Cell]]:
         if kind != "table":
             continue
         rows = parse_html_table(segment)
-        if len(rows) < 2:
+        if not rows:
             continue
         header, skip = _year_header(rows)
         for row in rows[skip:]:
