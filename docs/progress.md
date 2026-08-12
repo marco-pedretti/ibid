@@ -109,7 +109,36 @@ L'associazione fra `#1` e il run corrispondente e risolta col colore: la tabella
 | C-08 | ✅ fatto (2026-08-12) | **Risultato negativo: il markup non era la causa.** Rendere le tabelle OCR in righe leggibili porta `citation_precision` su LEDGER da 0,3656 a 0,3263 — 35 citazioni perse contro 22 guadagnate, **p = 0,1112**. Il verificatore è indifferente alla forma della tabella. Flag lasciato spento. La diagnosi che resta è in `open-questions.md`, OQ-05. |
 | C-09 | ✅ fatto (2026-08-12) | **`numeric_citation_precision` 0,7328 su LEDGER**, contro lo 0,2374 che l'NLI dà sulle stesse coppie. Copertura 39,6%; su open_ragbench 0,2% — lo strumento si rifiuta di giudicare la prosa invece di indovinare. Vedi sotto. |
 | I-08 | ✅ fatto (2026-08-12) | **Non stabilito.** I prefissi E5 sfiorano la soglia solo a doc@1 (p=0,0503), **cambiano segno** a doc@3 e spariscono a doc@5: è il profilo di un effetto nullo con rumore. La model card li richiede; su questo corpus non si vedono. |
-| C-06 | ⬜ da fare | Per ultimo, per la regola d'ordine del §14. |
+| C-06 | 🔄 in corso (2026-08-12) | Diviso in due sere: E2B ed E4B fatti, **12B da lanciare**. Comandi e vincoli qui sotto. |
+
+### C-06 — come completarlo (parte 2: il 12B)
+
+100 query per dataset su tre modelli. E2B ed E4B girati il 2026-08-12; il 12B costa **~43 s/query** (misurato, non estrapolato — la tabella di T-02 dava 33,8 tok/s di prefill che avrebbe implicato 185 s) e vale da solo il 70% del costo totale, quindi è stato separato.
+
+**Perché 100 e non 200.** C-06 confronta *taglie* e il confronto è appaiato: il braccio più corto fissa il denominatore, quindi numerosità diverse fra i modelli non aggiungerebbero potenza al confronto a tre — solo un invito a leggere come appaiati numeri che non lo sono. E-4B a 200 query esiste già comunque, da C-01 e C-07.
+
+```bash
+python scripts/eval_citations.py --dataset open_ragbench --model gemma4:12b --limit 100
+python scripts/eval_citations.py --dataset ledger        --model gemma4:12b --limit 100
+```
+
+**Vincoli perché le due metà siano confrontabili** — se uno salta, la curva di scaling confronta cose diverse:
+
+- **Nessuna variabile d'ambiente.** Si usano i default `MAX_NEW_TOKENS=1024` e `REASONING_EFFORT=none`, cioè il sistema com'è configurato. C-07 girava a 2048: quella era una misura diversa.
+- **Non toccare `src/` né gli indici fra le due metà.** In particolare nessun task di Fase 5: R-08 e R-09 vivono nello sparso e C-06 gira in dense, ma R-08 va fatto con `update_collection` — ricreare la collection distruggerebbe anche i vettori densi.
+- Stesse collection di produzione (`open_ragbench`, `ledger`), dense, `top_k=5`: i default.
+
+**Poi**, sui sei dump prodotti (~20 min, nessuna rigenerazione):
+
+```bash
+python scripts/eval_citation_precision.py eval/results/generations/<dump>.jsonl
+```
+
+**La VRAM** si legge solo a modello caricato, quindi subito dopo ogni braccio:
+
+```bash
+curl -s http://localhost:11434/api/ps
+```
 
 ### I-11 — non adottata, e perché il numero che la sosteneva era falso
 
