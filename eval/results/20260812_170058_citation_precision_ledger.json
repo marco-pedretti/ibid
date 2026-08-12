@@ -1,0 +1,32 @@
+{
+  "run_id": "88b42611-9f17-400b-a5f6-40325df3fa5f",
+  "timestamp": "2026-08-12T15:00:58.186427Z",
+  "git_commit": "a7ad20760a1442f6c934d4646ee106caab2eda66",
+  "config_hash": "959b6209",
+  "dataset_id": "ledger",
+  "model": "gemma4:latest",
+  "quantization": "Q4_K_M",
+  "context_window": 32768,
+  "temperature": 0.0,
+  "reasoning_enabled": false,
+  "pipeline_mode": "generic",
+  "config": {
+    "harness": "citation_precision",
+    "entailment_model": "MoritzLaurer/bge-m3-zeroshot-v2.0",
+    "entailment_threshold": 0.5,
+    "premise_cap": 4096,
+    "source_generations": "20260810_110845_ledger.jsonl",
+    "n_answers": 147,
+    "render_tables": false
+  },
+  "metrics": {
+    "citation_precision": 0.36555891238670696,
+    "citation_recall": 0.2814814814814815,
+    "uncited_claim_rate": 0.15555555555555556,
+    "windowed_premise_rate": 0.0,
+    "citations_per_answer": 2.251700680272109,
+    "claims_per_answer": 1.9387755102040816,
+    "numeric_citation_precision": 0.732824427480916,
+    "numeric_coverage": 0.3957703927492447
+  }
+}
