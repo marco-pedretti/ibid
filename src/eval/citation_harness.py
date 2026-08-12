@@ -80,8 +80,51 @@ def prompt_hash(system_prompt: str) -> str:
     Without it, rewording the prompt and re-running would produce two results
     with the same `config_hash` — two different measurements claiming to be the
     same configuration, which is exactly what the hash exists to prevent.
+
+    It covers `SYSTEM` **only**, which is half the prompt.  See
+    `user_template_hash` for the half it missed.
     """
     return hashlib.md5(system_prompt.encode("utf-8")).hexdigest()[:8]
+
+
+#: Fixed input for `user_template_hash`.  Its content is irrelevant and must
+#: never change: it is held constant precisely so that any difference in the
+#: rendered output comes from the template and nothing else.
+_TEMPLATE_PROBE = Chunk(
+    chunk_id="probe",
+    dataset_id="probe",
+    doc_id="probe",
+    doc_genre="",
+    pipeline="",
+    section_path="",
+    page=0,
+    bbox=None,
+    content_type="text",
+    text="probe",
+    source_uri="probe",
+)
+
+
+def user_template_hash() -> str:
+    """Identity of the *user* message template.
+
+    Instructions live on both sides of the prompt.  On 2026-08-10 the contiguity
+    rule was added to `build_user_message` — a change to the text the model
+    reads, with `SYSTEM` untouched — and runs `093723` and `102617` were recorded
+    under the same `config_hash 2878488d` with two different prompts.  That is
+    the exact failure `prompt_hash` was written to prevent, one level down.
+
+    Hashing the *rendered* message rather than the function's source keeps
+    docstring edits out of the identity: what matters is what the model sees.
+
+    Runs predating this function carry no `user_template_hash` in their config,
+    and their `config_hash` was computed under the old rule.  They are left as
+    recorded — a hash is a name for a measurement, and renaming measurements
+    after the fact is worse than admitting two of them were named ambiguously.
+    The field's presence is what tells the two rules apart.
+    """
+    rendered = build_user_message("probe", [_TEMPLATE_PROBE])
+    return hashlib.md5(rendered.encode("utf-8")).hexdigest()[:8]
 
 
 def _config_hash(
@@ -91,6 +134,12 @@ def _config_hash(
     model: str,
     system_prompt: str,
 ) -> str:
+    """Everything that changes the generation, and nothing that does not.
+
+    `reasoning_effort` and `max_new_tokens` are here because C-07 varies them:
+    its two arms are identical in every other parameter, so without these the
+    switch being measured would have no effect on the name of the result.
+    """
     params = {
         "harness": "citation",
         "embedding_model": cfg.EMBEDDING_MODEL,
@@ -100,8 +149,24 @@ def _config_hash(
         "llm_model": model,
         "temperature": cfg.TEMPERATURE,
         "prompt_hash": prompt_hash(system_prompt),
+        "user_template_hash": user_template_hash(),
+        "reasoning_effort": cfg.REASONING_EFFORT,
+        "max_new_tokens": cfg.MAX_NEW_TOKENS,
     }
     return hashlib.md5(json.dumps(params, sort_keys=True).encode()).hexdigest()[:8]
+
+
+def _percentile(sorted_values: list[float], q: float) -> float:
+    """Nearest-rank percentile of an already-sorted list; 0.0 when empty.
+
+    Nearest-rank rather than interpolated: every value it returns is a
+    measurement that actually happened, which is what a latency report should
+    contain.
+    """
+    if not sorted_values:
+        return 0.0
+    idx = min(len(sorted_values) - 1, int(q * len(sorted_values)))
+    return float(sorted_values[idx])
 
 
 def build_metrics(
@@ -117,8 +182,21 @@ def build_metrics(
     of the two: a cut-off answer has no citation because it never got to write
     one, and counting that as a format defect blames the prompt for a token
     budget.  In the first C-01 run it accounted for most of the failures.
+
+    **Cost is a metric, not a footnote.**  C-07 asks what extended reasoning is
+    worth, and C-06 asks the same of model size; neither question can be
+    answered by quality alone, because both switches buy quality with time.  The
+    median is reported rather than the mean: a single 300-second outlier moves a
+    mean over 200 queries by more than a real regression would.  `p90` is there
+    because the tail is what a user waits through.
+
+    `completion_tokens` counts the reasoning tokens too — they are generated and
+    paid for even though they never reach `message.content`, which is precisely
+    what makes them visible here and invisible in the answer.
     """
     n = len(records)
+    latencies = sorted(r.latency_s for r in records)
+    tokens = sorted(r.completion_tokens for r in records)
     metrics: dict[str, float] = {
         "format_compliance": summary.rate,
         "format_compliance_lower95": summary.rate_lower95,
@@ -126,6 +204,9 @@ def build_metrics(
         "truncation_rate": sum(1 for r in records if r.finish_reason == "length") / n if n else 0.0,
         "empty_answer_rate": sum(1 for r in records if not r.answer) / n if n else 0.0,
         "markers_per_answer": summary.markers_per_answer,
+        "latency_p50_s": _percentile(latencies, 0.50),
+        "latency_p90_s": _percentile(latencies, 0.90),
+        "completion_tokens_p50": _percentile(tokens, 0.50),
     }
     for kind, rate in summary.kind_rates.items():
         metrics[f"violation_{kind}"] = rate
@@ -317,6 +398,7 @@ def run_citation_eval(
             "harness": "citation",
             "llm_model": model,
             "prompt_hash": prompt_hash(system_prompt),
+            "user_template_hash": user_template_hash(),
             "reasoning_effort": cfg.REASONING_EFFORT,
             "max_new_tokens": cfg.MAX_NEW_TOKENS,
         },

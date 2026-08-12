@@ -15,6 +15,8 @@ import pytest
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
+import src.config as cfg
+import src.eval.citation_harness as citation_harness
 from src.eval.citation_harness import (
     GenerationRecord,
     GenerationWriter,
@@ -22,6 +24,7 @@ from src.eval.citation_harness import (
     partial_path,
     prompt_hash,
     run_citation_eval,
+    user_template_hash,
     write_generations,
 )
 from src.eval.retrieval_backends import Candidates
@@ -193,6 +196,48 @@ class TestEvalRunContract:
         b, _ = _run(golden, ["Vero [2]."] * 3, system_prompt="P")
         assert a.config_hash == b.config_hash
 
+    def test_reasoning_effort_changes_the_config_hash(self, golden, monkeypatch):
+        """The C-07 arms differ only by this switch.
+
+        Left out of the hash, "reasoning on" and "reasoning off" would be two
+        different measurements recorded under the same name — and the name is
+        what the dashboard groups by.
+        """
+        a, _ = _run(golden, ["Vero [1]."] * 3)
+        monkeypatch.setattr(cfg, "REASONING_EFFORT", "high")
+        b, _ = _run(golden, ["Vero [1]."] * 3)
+        assert a.config_hash != b.config_hash
+
+    def test_token_budget_changes_the_config_hash(self, golden, monkeypatch):
+        """C-07 raises it to 2048 for both arms, because at 1024 the reasoning
+        arm truncates half its answers.  A budget that changes the output and
+        not the name is the same defect as a prompt that does."""
+        a, _ = _run(golden, ["Vero [1]."] * 3)
+        monkeypatch.setattr(cfg, "MAX_NEW_TOKENS", 2048)
+        b, _ = _run(golden, ["Vero [1]."] * 3)
+        assert a.config_hash != b.config_hash
+
+    def test_user_template_is_part_of_the_prompt_identity(self, golden, monkeypatch):
+        """Instructions live on both sides of the prompt.
+
+        Runs 20260810_093723 and 20260810_102617 were recorded under the same
+        `config_hash 2878488d` with `SYSTEM` identical and the contiguity
+        reminder added to the *user* message in between.  Two prompts, one name.
+        """
+        before = user_template_hash()
+        monkeypatch.setattr(
+            citation_harness,
+            "build_user_message",
+            lambda q, chunks: f"different template: {q}",
+        )
+        assert user_template_hash() != before
+
+    def test_config_records_the_user_template_hash(self, golden):
+        """Its presence is what tells a hash computed under the new rule from
+        one computed under the old: pre-C-07 result files do not carry it."""
+        run, _ = _run(golden, ["Vero [1]."] * 3)
+        assert run.config["user_template_hash"] == user_template_hash()
+
 
 class TestTruncation:
     """A cut-off answer must not be blamed on the prompt.
@@ -270,6 +315,50 @@ class TestBuildMetrics:
     def test_no_records_does_not_divide_by_zero(self):
         m = build_metrics(summarize([]), [])
         assert m["truncation_rate"] == 0.0 and m["empty_answer_rate"] == 0.0
+        assert m["latency_p50_s"] == 0.0 and m["completion_tokens_p50"] == 0.0
+
+
+class TestCostMetrics:
+    """What the switch costs, next to what it buys.
+
+    C-07 compares reasoning on against off and C-06 compares model sizes; both
+    trade latency for quality, so a result that reports only quality answers
+    half the question.
+    """
+
+    @staticmethod
+    def _rec(latency: float, tokens: int) -> GenerationRecord:
+        return GenerationRecord(
+            query_id="q", query_text="Q?", chunk_ids=["c"], n_chunks=2,
+            answer="Vero [1].", compliant=True, abstained=False, markers=[1],
+            finish_reason="stop", latency_s=latency, completion_tokens=tokens,
+        )
+
+    def _metrics(self, pairs):
+        records = [self._rec(lat, tok) for lat, tok in pairs]
+        reports = [check_format(r.answer, 2) for r in records]
+        return build_metrics(summarize(reports), records)
+
+    def test_median_ignores_a_single_outlier(self):
+        """A mean over 200 queries moves further on one 300-second stall than on
+        a real regression, which is why the reported figure is the median."""
+        m = self._metrics([(1.0, 10), (1.0, 10), (1.0, 10), (1.0, 10), (300.0, 10)])
+        assert m["latency_p50_s"] == 1.0
+
+    def test_p90_reports_the_tail(self):
+        m = self._metrics([(1.0, 10)] * 9 + [(50.0, 10)])
+        assert m["latency_p90_s"] == 50.0
+
+    def test_reported_values_are_measurements_that_happened(self):
+        """Nearest-rank, not interpolated: 1.5 s is not a latency anybody saw."""
+        m = self._metrics([(1.0, 10), (2.0, 20)])
+        assert m["latency_p50_s"] in (1.0, 2.0)
+
+    def test_completion_tokens_are_reported(self):
+        """They include the reasoning tokens, which are generated and paid for
+        while never reaching the answer — invisible everywhere but here."""
+        m = self._metrics([(1.0, 140), (1.0, 998), (1.0, 998)])
+        assert m["completion_tokens_p50"] == 998
 
 
 class TestWriteGenerations:

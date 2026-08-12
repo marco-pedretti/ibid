@@ -16,7 +16,12 @@ LLM_MODEL: str = os.getenv("LLM_MODEL", "gemma4:latest")
 LLM_QUANTIZATION: str = os.getenv("LLM_QUANTIZATION", "Q4_K_M")
 CONTEXT_WINDOW: int = 32768
 TEMPERATURE: float = 0.0
-MAX_NEW_TOKENS: int = 1024
+# Overridable because C-07 needs both of its arms at 2048: with reasoning on,
+# 1024 is spent thinking before the answer starts and half the generations come
+# back truncated (see scripts/probe_reasoning.py). Raising it for the reasoning
+# arm alone would change two things at once, so the control moves with it — and
+# the control does not notice, since it never reaches the cap at either value.
+MAX_NEW_TOKENS: int = int(os.getenv("MAX_NEW_TOKENS", "1024"))
 
 # Gemma 4 is a thinking model. "none" suppresses the reasoning tokens through
 # the OpenAI-compatible contract — see src/generation/chat.py for what does and
