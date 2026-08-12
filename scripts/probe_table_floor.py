@@ -23,8 +23,17 @@ sbagliato. È un *proxy direzionale* — un numero assente rende il claim
 certamente infondato, un numero presente lo rende plausibile. Serve a rispondere
 "il verificatore vede la differenza?", non "il claim è vero?".
 
+**`--rows` restringe la specifica del verificatore numerico (OQ-05, opzione 2).**
+Del 72% che il verificatore rifiuta pur avendo il numero davanti non sappiamo
+quanto sia colpa sua e quanto siano claim che citano la *riga* o l'*anno*
+sbagliati. Sono due difetti diversi e chiedono due strumenti diversi: cercare
+cifre e' mezza giornata di lavoro, capire la struttura di una tabella OCR sono
+giorni. `--rows` risale dalla cella che contiene il numero alla sua etichetta di
+riga e alla sua intestazione di colonna, e guarda se il claim le nomina.
+
 Uso:
     python scripts/probe_table_floor.py [verdetti.jsonl]
+    python scripts/probe_table_floor.py [verdetti.jsonl] --rows
 """
 
 from __future__ import annotations
@@ -41,6 +50,8 @@ sys.path = [p for p in sys.path if Path(p or ".").resolve() != Path(__file__).pa
 import src.config as cfg  # noqa: E402
 from qdrant_client import models  # noqa: E402
 from src.index.store import get_client  # noqa: E402
+from src.ingestion.ocr_tables import parse_html_table  # noqa: E402
+from src.ingestion.pipeline_table_heavy import _split_segments  # noqa: E402
 
 DEFAULT = ROOT / "eval" / "results" / "verdicts" / "20260812_133954_ledger.jsonl"
 
@@ -48,6 +59,7 @@ DEFAULT = ROOT / "eval" / "results" / "verdicts" / "20260812_133954_ledger.jsonl
 #: che compaiono in ogni tabella di bilancio e darebbero corrispondenze gratuite.
 _NUM = re.compile(r"\d[\d,.]*\d|\d")
 _YEAR = re.compile(r"^(19|20)\d\d$")
+_COLSPAN = re.compile(r'colspan\s*=\s*"?[2-9]')
 
 
 def numbers(text: str) -> set[str]:
@@ -59,6 +71,64 @@ def numbers(text: str) -> set[str]:
             continue
         if norm:
             out.add(norm)
+    return out
+
+
+#: Parole troppo comuni perche' la loro presenza nel claim significhi qualcosa.
+_STOP = {"the", "of", "and", "for", "in", "to", "a", "total", "net", "other",
+         "year", "years", "ended", "december", "31", "$", "-", ""}
+
+
+def words(text: str) -> set[str]:
+    return {w for w in re.split(r"[^a-z0-9]+", text.lower()) if w and w not in _STOP}
+
+
+def _year_header(rows: list[list[str]]) -> tuple[list[str] | None, int]:
+    """La riga che porta gli anni, e quante righe di intestazione consumare.
+
+    **Le intestazioni sono a due livelli.** Misurato sulle tabelle vere: la prima
+    riga e' spesso una fascia che copre piu' colonne — `['', 'Year ended
+    September 30,', '']` — e gli anni stanno nella riga sotto. Prendere `rows[0]`
+    come intestazione, che era la prima versione di questo probe, faceva
+    risultare la colonna "non nominata dal claim" nel 77% dei casi: un difetto
+    dell'euristica riportato come difetto del modello.
+
+    Si cerca quindi, fra le prime tre righe, la prima che contenga almeno due
+    anni. Se non c'e', la colonna e' **non determinabile** — che e' diverso da
+    "sbagliata", e va contato a parte.
+    """
+    for i, row in enumerate(rows[:3]):
+        if sum(1 for c in row if _YEAR.match(c.strip().replace(",", ""))) >= 2:
+            return row, i + 1
+    return None, 1
+
+
+def cells_by_number(chunk_text: str) -> dict[str, list[tuple[str, str | None]]]:
+    """numero -> [(etichetta di riga, intestazione di colonna o None), ...].
+
+    L'etichetta di riga e' la prima cella non numerica della riga. La colonna e'
+    `None` quando la tabella non espone una riga di anni riconoscibile.
+    """
+    out: dict[str, list[tuple[str, str | None]]] = {}
+    for kind, seg in _split_segments(chunk_text):
+        if kind != "table":
+            continue
+        rows = parse_html_table(seg)
+        if len(rows) < 2:
+            continue
+        # **Se la tabella usa colspan, le colonne non sono allineabili.**
+        # `parse_html_table` non espande le celle che coprono piu' colonne, e il
+        # 74,8% delle tabelle citate su LEDGER ne ha: l'indice di colonna della
+        # riga dati non corrisponde a quello dell'intestazione. La prima versione
+        # di questo probe lo ignorava e riportava "il claim non nomina la colonna
+        # nell'82% dei casi", che era una proprieta' del parser.
+        header, skip = (None, 1) if _COLSPAN.search(seg) else _year_header(rows)
+        for row in rows[skip:]:
+            label = next((c for c in row if c.strip() and not numbers(c)), "")
+            for j, cell in enumerate(row):
+                for n in numbers(cell):
+                    col = header[j] if header and j < len(header) else None
+                    out.setdefault(n, []).append((label, col))
     return out
 
 
@@ -79,8 +149,61 @@ def auc(pos: list[float], neg: list[float]) -> float:
     return wins / (len(pos) * len(neg))
 
 
+def analyse_rows(present: list[dict], texts: dict[str, str]) -> None:
+    """Dei claim con il numero presente, quanti nominano anche riga e colonna?"""
+    located = row_ok = col_ok = both = unlocated = col_known = 0
+    for r in present:
+        table = cells_by_number(texts.get(r["chunk_id"], ""))
+        claim_words = words(r["claim"])
+        hits = [c for n in numbers(r["claim"]) for c in table.get(n, [])]
+        if not hits:
+            unlocated += 1          # il numero c'e' nel testo ma non in una cella
+            continue
+        located += 1
+        # Basta che **una** delle celle candidate combaci: se il numero compare
+        # piu' volte nella tabella, il claim e' sostenuto quando almeno una di
+        # quelle occorrenze e' quella giusta.
+        def label_matches(label: str) -> bool:
+            """Meta' delle parole di contenuto dell'etichetta compaiono nel claim.
+
+            Meta' e non tutte: "Cost of goods sold" diventa {cost, goods, sold}
+            dopo le stopword, e un claim che dice "the cost of goods sold was..."
+            le ha tutte, ma uno che dice "COGS for 2017" non ne ha nessuna. La
+            soglia a meta' e' un compromesso, e come tale va letta.
+            """
+            w = words(label)
+            return bool(w) and len(w & claim_words) * 2 >= len(w)
+
+        r_ok = any(label_matches(lab) for lab, _ in hits)
+        with_col = [c for _, c in hits if c is not None]
+        row_ok += r_ok
+        if with_col:
+            col_known += 1
+            c_ok = any(words(c) & claim_words for c in with_col)
+            col_ok += c_ok
+            both += r_ok and c_ok
+
+    print(f"\n--- struttura, sui {len(present)} claim con numeri presenti ---")
+    print(f"  numero trovato dentro una cella di tabella : {located}"
+          f"   (fuori da tabelle: {unlocated})")
+    if not located:
+        return
+    print(f"  il claim nomina anche l'etichetta di RIGA   : {row_ok}/{located} = {row_ok / located:.1%}")
+    if col_known:
+        print(f"  colonna (anno) determinabile               : {col_known}/{located}")
+        print(f"    e il claim la nomina                     : {col_ok}/{col_known} = {col_ok / col_known:.1%}")
+        print(f"    riga e colonna insieme                   : {both}/{col_known} = {both / col_known:.1%}")
+    else:
+        print("  colonna (anno): **mai determinabile su questo campione**")
+        print("    il 74,8% delle tabelle usa colspan e il parser non lo espande,")
+        print("    quindi l'anno di un numero non e' ricostruibile. E' un requisito")
+        print("    per il verificatore numerico, non un difetto del generatore.")
+
+
 def main() -> None:
-    path = Path(sys.argv[1]) if len(sys.argv) > 1 else DEFAULT
+    args = [a for a in sys.argv[1:] if not a.startswith("--")]
+    want_rows = "--rows" in sys.argv
+    path = Path(args[0]) if args else DEFAULT
     rows = [json.loads(x) for x in path.read_text(encoding="utf-8").splitlines() if x.strip()]
     dataset = rows[0]["chunk_id"].split(":")[0]
 
@@ -121,6 +244,9 @@ def main() -> None:
         print(f"\n  {label}: {len(group)} coppie")
         print(f"    P(entailment): {quartiles(scores)}")
         print(f"    accettate a soglia {thr}: {acc:.1%}")
+
+    if want_rows:
+        analyse_rows(present, texts)
 
     a = auc([r["score"] for r in present], [r["score"] for r in absent])
     print(f"\nAUC presente-vs-assente: {a:.4f}")
