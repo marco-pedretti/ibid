@@ -279,7 +279,7 @@ Tutte e tre le voci nascono dall'audit del 2026-08-11, in cui le librerie sono s
 | ID | Task | Criterio di accettazione |
 |---|---|---|
 | I-09 | **Solo se I-08 è positivo**: prefissi E5 in `encode()`, re-ingestione, rimisura di Fase 3 e Fase 4 | Ogni numero dense rifatto sotto la ricetta corretta, vecchi e nuovi affiancati |
-| I-11 | **Solo se I-10 è positivo**: tetto di chunking allineato alla finestra dell'embedder | Come I-09 |
+| I-11 | ~~Tetto di chunking allineato alla finestra dell'embedder~~ — **decisa il 2026-08-12: non adottata** | Nessun effetto sulla generazione; il guadagno di `citation_precision` era la lunghezza della premessa. Da riconsiderare alla prossima re-ingestione per la latenza (−44%). Vedi `progress.md` |
 | R-08 | `modifier=IDF` sull'indice sparso (Qdrant lo richiede: fastembed esclude l'IDF di proposito) | E-06 e R-01 rimisurati — **una sola causa cambiata** |
 | R-09 | Query BM25 codificate con `query_embed` invece che come documenti | Rimisura **separata** da R-08 |
 | R-10 | OQ-01, passi 1–2: perché il routing peggiora LEDGER di 17 punti | Il passo 3 (6–7 h GPU) solo se il 2 è positivo |
@@ -373,6 +373,7 @@ Solo se avanza tempo. Nessuno di questi è necessario perché il progetto sia co
 
 - Ogni fase finisce con numeri committati in `eval/results/`, con hash del commit.
 - Mai due modifiche senza misurare in mezzo.
+- **Prima di confrontare una metrica fra due configurazioni, verificare che il cambiamento non muova anche lo strumento che la misura.** Il tetto di chunking di I-11 sembrava alzare `citation_precision` di 11 punti; erano le premesse più corte, e quel verificatore accetta il 79% sotto i 343 token contro il 58% sopra i 1.784. Una metrica è confrontabile solo lungo gli assi che non toccano il suo strumento, e quali siano va saputo prima, non dopo.
 - **Una misura la cui etichetta si rivela falsa non è un risultato negativo da conservare: è un risultato da rifare.** Il §7 dice che i risultati negativi restano in tabella, e vale per una misura che ha risposto *male* alla domanda giusta. Non copre il caso in cui la domanda era un'altra — `E-06` si chiamava *«retrieval lessicale BM25»* e misurava qualcos'altro. La riga non si cancella: si rifà, e le due misure restano affiancate con detto quale descriveva cosa. Distinguere i due casi è il motivo per cui esiste la Fase 5.
 - **L'ordine dei task dentro una fase non è quello della tabella.** Ciò che cambia il comportamento va prima di ciò che lo misura, e una misura costosa ripetuta per N configurazioni va per ultima: qualsiasi modifica al comportamento fatta dopo la invalida, e ce ne si accorge a GPU spesa. Prima di iniziare una fase, ordinare i suoi task su questo criterio e scriverlo nella sezione della fase.
 - Temperatura 0 e finestra 32k su ogni run di valutazione, annotate nel risultato.

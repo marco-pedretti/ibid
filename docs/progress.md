@@ -111,6 +111,45 @@ L'associazione fra `#1` e il run corrispondente e risolta col colore: la tabella
 | I-08 | ✅ fatto (2026-08-12) | **Non stabilito.** I prefissi E5 sfiorano la soglia solo a doc@1 (p=0,0503), **cambiano segno** a doc@3 e spariscono a doc@5: è il profilo di un effetto nullo con rumore. La model card li richiede; su questo corpus non si vedono. |
 | C-06 | ⬜ da fare | Per ultimo, per la regola d'ordine del §14. |
 
+### I-11 — non adottata, e perché il numero che la sosteneva era falso
+
+I-10 aveva stabilito che il tetto a 512 token migliora il **retrieval** (+1,26 punti a doc@1, p=0,0384). Restava da sapere se la risposta si potesse ancora *scrivere*: a `top_k=5` il tetto porta il contesto da **5.243 a 2.030 token mediani, −61%**.
+
+**Sulla generazione, nessun impatto.** Stesse 150 query sui due indici:
+
+| | plain | capped |
+|---|---|---|
+| formato, appaiato **dopo il parser** | 0,9786 | 0,9786 — **+0,0000**, p=1,0000 |
+| formato, grezzo | 0,9500 | 0,9714 — +0,0214, p=0,5078 |
+| astensione | 6,0% | 4,0% |
+| troncate | 0 | 0 |
+
+L'astensione non sale: il contesto tagliato non fa perdere risposte. Era il controllo che il solo `format_compliance` non avrebbe mostrato, perché le astensioni escono dal suo denominatore.
+
+**E gli undici punti che sembravano il risultato.** `citation_precision` passava da 0,6634 a 0,7745. Dentro il **solo braccio `plain`**, a parità di generazione, l'accettazione cala in modo monotono con la lunghezza della premessa:
+
+```
+    65 -   343 token   79,2% accettate   P(entail) mediana 0,932
+   346 -   828 token   68,6%                              0,729
+   832 -  1721 token   59,8%                              0,554
+  1784 - 14632 token   57,8%                              0,529
+```
+
+Le premesse di `capped` stanno **tutte** sotto i 515 token, cioè nella fascia dove `plain` accetta il 68-79%. Il suo 77,5% è quello che si prevede applicando la curva di `plain` a premesse corte — **senza alcun miglioramento della qualità delle citazioni**.
+
+> `STACK.md` documentava già la sensibilità alla lunghezza di questo verificatore (correlazione 0,46-0,54 fra numero di finestre e P(entailment) massima). Era scritta, ed è stata dimenticata davanti a un numero che faceva comodo. Riproducibile con `scripts/probe_premise_length.py`.
+
+**La regola che sopravvive a I-11:** `citation_precision` non è confrontabile fra configurazioni che cambiano la lunghezza dei chunk. Vale per qualunque modifica al chunking, non solo per questa.
+
+**La decisione.** Nessun guadagno di qualità contro **618 minuti di re-ingestione e un indice quadruplo, per sempre**. Non adottata.
+
+**Due voci da riconsiderare alla prossima re-ingestione**, perché sono reali e non confuse da niente:
+
+1. **latenza −44% in mediana e −68% in p90** (9,8→5,5 s; 22,5→7,2 s), conseguenza diretta di un contesto più corto;
+2. **premesse spezzate 8,1% → 0%**, che *elimina* l'artefatto del massimo su più finestre invece di aggirarlo — un miglioramento dello strumento di misura, non del sistema.
+
+Se una re-ingestione servirà per altro — il passaggio a BGE-M3 è già previsto in `STACK.md` — il tetto va adottato in quell'occasione, perché lì costa zero in più.
+
 ### I-10 e I-08 — il tetto di chunking regge, i prefissi no
 
 Misurati insieme su un **indice ridotto** (450 documenti su 997, 9.312 chunk), che è ciò che rende la decisione economica: ~80 minuti di GPU contro i 618 di una re-ingestione completa. Le due varianti condividono l'indice di controllo, quindi separarle sarebbe costato una seconda costruzione per niente.
@@ -632,7 +671,7 @@ Nata dall'audit del 2026-08-11: le librerie confrontate con la loro documentazio
 | Task | Stato | Note |
 |---|---|---|
 | I-09 | ⬜ da fare | Prefissi E5, **solo se I-08 è positivo**. Se scatta, obbliga a rifare Fase 3 e Fase 4. |
-| I-11 | ⬜ da fare | Tetto di chunking, **solo se I-10 è positivo**. Condivide la re-ingestione con I-09 se scattano entrambe. |
+| I-11 | ❌ **non adottata** (2026-08-12) | Nessun effetto sulla generazione: formato identico dopo il parser (+0,0000, p=1,0000), astensione non peggiorata. Gli +11 punti di `citation_precision` erano **la lunghezza della premessa, non la qualità delle citazioni**. Prezzo: 618 min di re-ingestione e indice ×4. Due voci da riconsiderare alla prossima re-ingestione, vedi sotto. |
 | R-08 | ⬜ da fare | `modifier=IDF` sull'indice sparso. Invalida 2 run sparse + 4 hybrid; nessuna run dense. |
 | R-09 | ⬜ da fare | Query BM25 con `query_embed`. Rimisura **separata** da R-08. |
 | R-10 | ⬜ da fare | OQ-01, passi 1–2. |
