@@ -13,6 +13,7 @@ Sparse model: Qdrant/bm25 (statistical, multilingual, Apache 2.0, ~1 MB)
 from __future__ import annotations
 
 import onnxruntime
+import src.config as cfg
 from fastembed import SparseTextEmbedding, TextEmbedding
 from qdrant_client.models import SparseVector
 
@@ -28,13 +29,15 @@ _sparse_cache: dict[str, SparseTextEmbedding] = {}
 
 def _dense_model(name: str) -> TextEmbedding:
     if name not in _dense_cache:
-        _dense_cache[name] = TextEmbedding(model_name=name, providers=_PROVIDERS)
+        _dense_cache[name] = TextEmbedding(
+            model_name=name, providers=_PROVIDERS, cache_dir=cfg.FASTEMBED_CACHE
+        )
     return _dense_cache[name]
 
 
 def _sparse_model(name: str) -> SparseTextEmbedding:
     if name not in _sparse_cache:
-        _sparse_cache[name] = SparseTextEmbedding(model_name=name)
+        _sparse_cache[name] = SparseTextEmbedding(model_name=name, cache_dir=cfg.FASTEMBED_CACHE)
     return _sparse_cache[name]
 
 

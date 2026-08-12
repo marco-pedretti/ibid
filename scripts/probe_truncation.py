@@ -75,7 +75,8 @@ def fisher_exact_two_sided(a: int, b: int, c: int, d: int) -> float:
 
 def _tokenizer():
     model = TextEmbedding(
-        model_name=cfg.EMBEDDING_MODEL, providers=["CPUExecutionProvider"]
+        model_name=cfg.EMBEDDING_MODEL, providers=["CPUExecutionProvider"],
+        cache_dir=cfg.FASTEMBED_CACHE,
     ).model.tokenizer
     # Senza questo si conterebbero i token dopo il taglio, cioè 512 per tutti:
     # il probe misurerebbe la propria troncatura invece di quella dell'indice.
