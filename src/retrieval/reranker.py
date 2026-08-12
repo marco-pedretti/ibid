@@ -14,6 +14,8 @@ from typing import Any
 
 import onnxruntime
 
+import src.config as cfg
+
 # Use DirectML on AMD/Intel/NVIDIA GPUs via DirectX 12 when available;
 # fall back to CPU so the reranker runs everywhere.
 _PROVIDERS = (
@@ -38,7 +40,9 @@ def _get_reranker(model_name: str) -> Any:
     if model_name not in _model_cache:
         from fastembed.rerank.cross_encoder import TextCrossEncoder
 
-        _model_cache[model_name] = TextCrossEncoder(model_name=model_name, providers=_PROVIDERS)
+        _model_cache[model_name] = TextCrossEncoder(
+            model_name=model_name, providers=_PROVIDERS, cache_dir=cfg.FASTEMBED_CACHE
+        )
     return _model_cache[model_name]
 
 

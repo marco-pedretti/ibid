@@ -105,10 +105,36 @@ L'associazione fra `#1` e il run corrispondente e risolta col colore: la tabella
 | C-04 | ✅ fatto (2026-08-11) | **Astensione corretta 100% su E-02 per entrambi i dataset**, e il gate non causa **nessuna** falsa astensione. Ma il criterio era già al 100% col solo modello: il gate è una garanzia, non una correzione. Vedi sotto. |
 | C-05 | ✅ fatto (2026-08-10) | **Criterio soddisfatto senza toccare il prompt.** L'istruzione c'era dal T-0x e non era mai stata verificata: 14/14 risposte nella lingua della domanda, 0 miste. `prompt_hash` invariato. |
 | C-07 | ✅ fatto (2026-08-12) | **Risultato negativo, e resta in tabella.** Il ragionamento esteso guadagna +4,4 punti di conformità *grezza* su open_ragbench (p=0,0386) e **+0,6 dopo il parser di C-02** (p=1,0000), perché tutto il guadagno è nella variante `[1] [2]` che il parser ripara gratis. Su ledger nessun effetto. Costo: **9,5× i token**, e l'astensione su ledger da 0,280 a 0,450. Vedi sotto. |
-| I-10 | ⬜ da fare | **Misura** del chunking contro la finestra da 512 token. Gate di C-06, e il più grande dei due: OQ-04. |
+| I-10 | ✅ fatto (2026-08-12) | **Effetto reale, piccolo.** Il tetto a 512 token guadagna **+1,26 punti a doc@1** (p=0,0384) su 1.903 query, e regge a tutte e tre le profondità (p=0,038 / 0,040 / 0,034). Costo: **4,05× i chunk**. Vedi sotto. |
 | C-08 | ✅ fatto (2026-08-12) | **Risultato negativo: il markup non era la causa.** Rendere le tabelle OCR in righe leggibili porta `citation_precision` su LEDGER da 0,3656 a 0,3263 — 35 citazioni perse contro 22 guadagnate, **p = 0,1112**. Il verificatore è indifferente alla forma della tabella. Flag lasciato spento. La diagnosi che resta è in `open-questions.md`, OQ-05. |
-| I-08 | ⬜ da fare | **Misura** dei prefissi E5 su indice ridotto. Gate di C-06: OQ-02. Dopo I-10, e separatamente. |
+| I-08 | ✅ fatto (2026-08-12) | **Non stabilito.** I prefissi E5 sfiorano la soglia solo a doc@1 (p=0,0503), **cambiano segno** a doc@3 e spariscono a doc@5: è il profilo di un effetto nullo con rumore. La model card li richiede; su questo corpus non si vedono. |
 | C-06 | ⬜ da fare | Per ultimo, per la regola d'ordine del §14. |
+
+### I-10 e I-08 — il tetto di chunking regge, i prefissi no
+
+Misurati insieme su un **indice ridotto** (450 documenti su 997, 9.312 chunk), che è ciò che rende la decisione economica: ~80 minuti di GPU contro i 618 di una re-ingestione completa. Le due varianti condividono l'indice di controllo, quindi separarle sarebbe costato una seconda costruzione per niente.
+
+**1.903 query appaiate**, non 200: il campione contiene documenti interi, quindi ogni query golden i cui documenti rilevanti stanno dentro è valutabile senza reindicizzare nulla.
+
+| criterio | plain → **capped** (I-10) | p | plain → **prefixed** (I-08) | p |
+|---|---|---|---|---|
+| doc@1 | 0,9038 → **0,9164** | **0,0384** | 0,9038 → 0,9138 | 0,0503 |
+| doc@3 | 0,9732 → **0,9811** | **0,0400** | 0,9732 → **0,9716** | 0,7011 |
+| doc@5 | 0,9821 → **0,9895** | **0,0336** | 0,9821 → 0,9827 | 1,0000 |
+
+**I-10 regge a ogni profondità**, con la stessa direzione e un'ampiezza coerente: non è una soglia colpita per caso, è lo stesso effetto letto a tre distanze. **I-08 no**: sfiora la soglia solo dove c'è più margine, cambia segno a doc@3 e sparisce a doc@5.
+
+**A 200 query la lettura era invertita.** `prefixed` sembrava il migliore (2 contro 8 discordanti a doc@1) e `capped` nullo (4 contro 5). Con dieci volte i dati l'ordinamento si ribalta — e i dati in più erano già sugli indici costruiti, bastava non limitarsi alle 200 query che avevano *definito* il campione.
+
+> Non è che il campione da 200 fosse impreciso: dava l'**ordinamento sbagliato**. È lo stesso avvertimento che C-01 aveva già registrato — a quella numerosità il tasso complessivo non ha potenza per guidare una decisione — trovato una seconda volta su una domanda diversa.
+
+**Riportate tutte e tre le profondità, sempre.** `doc@5` è saturo (34 fallimenti su 1.903; su LEDGER **1 su 200**, misurato sull'indice completo) e non può distinguere niente; `doc@1` ha cinque volte il margine. Ma scegliere la profondità dopo aver visto quale conviene sarebbe selezione. Ed è servito: a doc@5 `capped` sembrava non rompere **nessuna** query, mentre a doc@1 ne rompe 50 su 1.903 — il documento giusto veniva spinto giù dalla prima posizione restando dentro le prime cinque.
+
+**Perché LEDGER non è stato misurato.** Verificato prima di spendere: a doc@5 l'indice completo di LEDGER è a **0,9950 — un solo fallimento su 200 query**. Con 494 documenti enormi, i primi 20 chunk coprono una mediana di 5 documenti distinti (12 su ORB): qualunque frammento pertinente trascina dentro il documento giusto. Non è che la misura costasse troppo (3h30, misurate): **non era misurabile** con questo criterio. Cinque minuti di controllo hanno risparmiato tre ore e mezza.
+
+**Cosa resta aperto.** `capped` produce **4,05× i chunk** — l'indice quadruplica, e con esso il tempo di ingestione. Se +1,26 punti a doc@1 valgano quel prezzo è la decisione di I-11, e non la decide questa misura: la decide chi paga la re-ingestione. Quel che questa misura toglie dal tavolo è I-09, che questi dati non giustificano.
+
+**Limite dichiarato:** i tassi assoluti sono ottimistici — l'indice ridotto ha metà dei concorrenti della produzione — e non vanno letti come recall. Si legge il delta appaiato, che della riduzione non risente perché è identica dai due lati. I numeri si ri-derivano con `scripts/probe_index_variants.py eval` in due minuti.
 
 ### C-08 — il markup delle tabelle non era la causa
 

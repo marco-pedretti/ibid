@@ -49,6 +49,18 @@ EMBEDDING_BATCH: int = 32  # TODO: provare 64 — I-07 ha girato 122 min con 32;
 # Multilingual (18 language stopword lists), Apache 2.0. Used in R-01 hybrid RRF.
 SPARSE_EMBEDDING_MODEL: str = "Qdrant/bm25"
 
+# Dove fastembed tiene i pesi. Il suo default e' `%TEMP%/fastembed_cache`, cioe'
+# una cartella che il sistema operativo ha il diritto di svuotare: il 2026-08-12
+# Windows ha cancellato la directory `blobs` **durante** I-10, lasciando i
+# symlink dello snapshot a puntare nel vuoto. L'indicizzazione era finita, la
+# valutazione e' morta su `NO_SUCHFILE` dopo 80 minuti di GPU.
+#
+# `~/.cache/fastembed` sta accanto a `~/.cache/huggingface`, che nella stessa
+# occasione e' sopravvissuta: e' una cache utente, non temporanea.
+FASTEMBED_CACHE: str = os.getenv(
+    "FASTEMBED_CACHE_PATH", str(Path.home() / ".cache" / "fastembed")
+)
+
 # ---------------------------------------------------------------------------
 # Retrieval
 # ---------------------------------------------------------------------------

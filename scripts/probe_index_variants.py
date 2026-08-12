@@ -174,8 +174,10 @@ def cmd_index(dataset: str, variant: str, cap: int) -> None:
     tok = None
     if variant == "capped":
         from fastembed import TextEmbedding
-        tok = TextEmbedding(model_name=cfg.EMBEDDING_MODEL,
-                            providers=["CPUExecutionProvider"]).model.tokenizer
+        tok = TextEmbedding(
+            model_name=cfg.EMBEDDING_MODEL, providers=["CPUExecutionProvider"],
+            cache_dir=cfg.FASTEMBED_CACHE,
+        ).model.tokenizer
         tok.no_truncation()
 
     chunks: list[Chunk] = []
@@ -216,26 +218,38 @@ def cmd_index(dataset: str, variant: str, cap: int) -> None:
 # passo 3 — confronto appaiato (GPU per le sole query)
 # --------------------------------------------------------------------------
 
-def cmd_eval(dataset: str, variant: str, top_k: int) -> None:
+def cmd_eval(dataset: str, variant: str, top_k: int, limit: int | None = None) -> None:
     from src.eval.retrieval_backends import RETRIEVERS
 
     sample = json.loads((SAMPLES / f"{dataset}_sample.json").read_text(encoding="utf-8"))
-    wanted = set(sample["query_ids"])
-    golden = {}
+    in_sample = set(sample["doc_ids"])
+
+    # **Tutte le query valutabili, non solo le 200 che hanno scelto i documenti.**
+    # Il campione contiene documenti interi, e una query e' valutabile se *tutti*
+    # i suoi documenti rilevanti stanno dentro: se ne mancasse uno risulterebbe
+    # fallita per assenza dal campione invece che per colpa del retrieval.
+    # Su open_ragbench sono 1.903 invece di 200 — dieci volte la potenza per il
+    # costo di embeddare qualche migliaio di query in piu', cioe' secondi. Il
+    # confronto e' appaiato e i due bracci vedono le stesse query, quindi la
+    # selezione non lo distorce; sposta solo i tassi assoluti, che infatti non
+    # vanno letti come recall (vedi il docstring in testa).
+    queries, gold_docs = [], {}
     for line in (GOLDEN / f"{dataset}.jsonl").read_text(encoding="utf-8").splitlines():
         if not line.strip():
             continue
         g = json.loads(line)
-        if g["query_id"] in wanted:
-            golden[g["query_id"]] = g
-    queries = [golden[q] for q in sample["query_ids"] if q in golden]
-
-    gold_docs = {g["query_id"]: {doc_id_from_chunk_id(q["chunk_id"])
-                                 for q in g["qrels"] if q.get("relevance", 0) > 0}
-                 for g in queries}
+        if g["dataset_id"] != dataset or not g.get("qrels"):
+            continue
+        docs = {doc_id_from_chunk_id(q["chunk_id"])
+                for q in g["qrels"] if q.get("relevance", 0) > 0}
+        if docs and docs <= in_sample:
+            queries.append(g)
+            gold_docs[g["query_id"]] = docs
+    if limit:
+        queries = queries[:limit]
 
     client = get_client(cfg.QDRANT_URL)
-    hits: dict[str, list[bool]] = {}
+    ranks: dict[str, list[int]] = {}
     for var in ("plain", variant):
         col = _collection(dataset, var)
         if not client.collection_exists(col):
@@ -244,21 +258,34 @@ def cmd_eval(dataset: str, variant: str, top_k: int) -> None:
         if var == "prefixed":
             texts = [f"query: {t}" for t in texts]
         cands = RETRIEVERS["dense"](client, col, texts, top_k, None)
-        hits[var] = []
+        ranks[var] = []
         for g, c in zip(queries, cands):
             docs: list[str] = []
             for cid in c.chunk_ids:
                 d = doc_id_from_chunk_id(cid)
                 if d not in docs:
                     docs.append(d)
-            hits[var].append(bool(set(docs[:5]) & gold_docs[g["query_id"]]))
+            # Posizione del primo documento rilevante, 0 se non compare affatto.
+            ranks[var].append(
+                next((i + 1 for i, d in enumerate(docs) if d in gold_docs[g["query_id"]]), 0)
+            )
 
-    res = compare_paired(hits["plain"], hits[variant])
-    print(f"\n=== {dataset}: plain vs {variant} — {res.n} query appaiate ===")
-    print("criterio: almeno un documento rilevante nei primi 5 documenti")
-    print(f"  plain {res.rate_a:.4f}  ->  {variant} {res.rate_b:.4f}   delta {res.delta:+.4f}")
-    print(f"  discordanti: solo plain {res.only_a}, solo {variant} {res.only_b}")
-    print(f"  {res.verdict()}")
+    print(f"\n=== {dataset}: plain vs {variant} — {len(queries)} query appaiate ===")
+    print("criterio: il primo documento rilevante entro le prime k posizioni")
+    # **Tutte e tre le profondita', sempre.** `doc@5` e' saturo — 7 fallimenti su
+    # 200 su open_ragbench e 1 su ledger — quindi non ha la potenza per
+    # distinguere niente; `doc@1` ne ha tre o quattro volte tanta. Ma scegliere
+    # la profondita' dopo aver visto quale conviene sarebbe selezione, quindi si
+    # riportano tutte e la scelta resta visibile a chi legge.
+    for k in (1, 3, 5):
+        res = compare_paired([0 < r <= k for r in ranks["plain"]],
+                             [0 < r <= k for r in ranks[variant]])
+        n_fail = sum(1 for r in ranks["plain"] if not 0 < r <= k)
+        print(f"\n  doc@{k}:  plain {res.rate_a:.4f}  ->  {variant} {res.rate_b:.4f}"
+              f"   delta {res.delta:+.4f}")
+        print(f"    discordanti: solo plain {res.only_a}, solo {variant} {res.only_b}"
+              f"   (fallimenti di plain: {n_fail})")
+        print(f"    {res.verdict()}")
 
 
 if __name__ == "__main__":
@@ -270,6 +297,8 @@ if __name__ == "__main__":
     p.add_argument("--top-k", type=int, default=20,
                    help="chunk recuperati; i primi 5 *documenti* distinti decidono")
     p.add_argument("--n-queries", type=int, default=N_QUERIES)
+    p.add_argument("--limit", type=int, default=None,
+                   help="valuta solo le prime N query valutabili")
     a = p.parse_args()
 
     if a.step == "sample":
@@ -277,4 +306,4 @@ if __name__ == "__main__":
     elif a.step == "index":
         cmd_index(a.dataset, a.variant, a.cap)
     else:
-        cmd_eval(a.dataset, a.variant, a.top_k)
+        cmd_eval(a.dataset, a.variant, a.top_k, a.limit)
