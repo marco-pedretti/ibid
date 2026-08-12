@@ -256,7 +256,7 @@ L'ordine non è quello della tabella, per la regola del §14. Il vincolo che lo 
 2. **C-04** — l'ultima modifica alla pipeline. C-03 gli ha già fornito i dati: `uncited_claim_rate` 0,106 e 0,156, astensione al 26,5% su LEDGER contro 5,5% su ORB.
 3. **E-04/E-05** — **mai eseguiti** (nessun risultato con `harness: generation` in `eval/results/`), e il gate di questa fase li richiede. Indipendenti dagli altri: si possono lanciare in parallelo.
 4. **C-07** — ✅ fatto il 2026-08-12. Una misura sola, e risultato negativo: il guadagno esiste sul testo grezzo e sparisce dopo il parser di C-02. Vedi `docs/progress.md`.
-5. **I-10, poi I-08** — misurano soltanto, non cambiano niente sotto, e vanno prima di C-06 perché sono ciò che dice se C-06 andrà rifatto. I-10 per primo dei due: è l'effetto più grande, e se è nullo lo è a maggior ragione il prefisso.
+5. **I-10, poi I-08** — ✅ fatti il 2026-08-12. I-10 regge (+1,26 punti a doc@1, p=0,0384, significativo a tutte le profondità), I-08 no. C-06 può partire senza aspettare una re-ingestione: entrambe le correzioni restano in Fase 5, e I-09 non è più giustificata.
 6. **C-08** — ✅ fatto il 2026-08-12, risultato negativo: il markup non era la causa (p=0,1112). La riga LEDGER resta muta, e cosa serve per accenderla è in `docs/open-questions.md` OQ-05, **da decidere prima di C-06**.
 7. **C-06** — per ultimo, quando sotto non si muove più niente.
 
