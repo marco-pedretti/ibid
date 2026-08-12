@@ -241,6 +241,7 @@ Per ogni dataset candidato: 16 domande costruite con lo stesso schema dei test p
 | I-08 | **Misura** dei prefissi `query:`/`passage:` di E5 su un indice ridotto, senza re-ingestione | Delta appaiato su doc_R@5 — o la sua assenza |
 | I-10 | **Misura** del chunking contro la finestra da 512 token dell'embedder, sullo stesso indice ridotto | Delta appaiato su doc_R@5, **misurato separatamente da I-08** |
 | C-08 | Premessa di entailment senza il markup delle tabelle OCR, e **rimisura** di `citation_precision` su LEDGER | Le due varianti affiancate sulle stesse generazioni. Chiude la decisione che il gate qui sotto rimandava |
+| C-09 | **Verificatore numerico per il genere tabellare**: `numeric_citation_precision` | Riportata per LEDGER accanto a `citation_precision`, **mai nella stessa colonna**. Validata sul floor test di OQ-05 |
 
 **Perché due task `I-` in questa fase.** Il prefisso indica di cosa parla il task, non in che fase sta (precedente: `D-01` in Fase 3). Entrambi i difetti sono nell'ingestione, ma stanno qui perché **decidono se C-06 può partire**: C-06 è la misura più cara del progetto e l'affermazione 3 del §0 dice *«con un buon retrieval»*. Lanciarlo su una premessa non verificata significa rischiare di rifarlo. I-08 e I-10 **misurano e basta** — le correzioni sono I-09 e I-11, in Fase 5 — e vanno misurati **uno alla volta** (§14): vivono nella stessa funzione, `encode()`, e insieme darebbero un delta non attribuibile.
 
@@ -257,8 +258,9 @@ L'ordine non è quello della tabella, per la regola del §14. Il vincolo che lo 
 3. **E-04/E-05** — **mai eseguiti** (nessun risultato con `harness: generation` in `eval/results/`), e il gate di questa fase li richiede. Indipendenti dagli altri: si possono lanciare in parallelo.
 4. **C-07** — ✅ fatto il 2026-08-12. Una misura sola, e risultato negativo: il guadagno esiste sul testo grezzo e sparisce dopo il parser di C-02. Vedi `docs/progress.md`.
 5. **I-10, poi I-08** — ✅ fatti il 2026-08-12. I-10 regge (+1,26 punti a doc@1, p=0,0384, significativo a tutte le profondità), I-08 no. C-06 può partire senza aspettare una re-ingestione: entrambe le correzioni restano in Fase 5, e I-09 non è più giustificata.
-6. **C-08** — ✅ fatto il 2026-08-12, risultato negativo: il markup non era la causa (p=0,1112). La riga LEDGER resta muta, e cosa serve per accenderla è in `docs/open-questions.md` OQ-05, **da decidere prima di C-06**.
-7. **C-06** — per ultimo, quando sotto non si muove più niente.
+6. **C-08** — ✅ fatto il 2026-08-12, risultato negativo: il markup non era la causa (p=0,1112).
+7. **C-09** — la decisione di OQ-05, presa il 2026-08-12: verificatore numerico per il genere tabellare. Va prima di C-06 perché la curva di scaling deve riportare qualcosa anche su LEDGER, e va **dopo** la misura di scoping che l'ha dimensionata: il modello associa la riga giusta nel 78,6% dei casi, quindi lo strumento deve cercare numeri ed etichette, non capire le tabelle.
+8. **C-06** — per ultimo, quando sotto non si muove più niente.
 
 **Da decidere prima di C-06, non dopo — ora è C-08.** Su LEDGER `citation_precision` non è interpretabile come proprietà del generatore: il verificatore NLI è fuori distribuzione su claim numerici contro tabelle OCR (vedi `docs/progress.md`, C-03). Se C-06 gira così, la curva per taglia del modello ha una riga muta su un dataset su due, e la cosa emerge a run finite.
 
