@@ -306,6 +306,8 @@ Non correggere i due difetti insieme e misurare una volta sola (§14: *mai due c
 
 
 > **Misurata il 2026-08-12 (I-10): l'effetto c'è.** Su indice ridotto, 1.903 query appaiate: doc@1 +0,0126 (**p=0,0384**), doc@3 +0,0079 (p=0,0400), doc@5 +0,0074 (p=0,0336) — stessa direzione a tutte le profondità. Il prezzo è **4,05× i chunk**. Resta da decidere se valga una re-ingestione (I-11). Su LEDGER non misurabile: doc@5 è già a 0,9950. Dettagli in `progress.md`.
+
+> **E non adottata (I-11, stesso giorno).** Il tetto non cambia la generazione — formato identico dopo il parser (p=1,0000), astensione non peggiorata — e gli +11 punti di `citation_precision` che sembravano sostenerlo erano **la lunghezza della premessa**: dentro un solo braccio l'accettazione cala da 79,2% a 57,8% al crescere del chunk. Nessun guadagno di qualità contro 618 minuti di re-ingestione e un indice ×4. Restano da riconsiderare alla prossima re-ingestione la latenza (−44%) e le premesse spezzate azzerate.
 **Aperta.** Notata il 2026-08-11 controllando perché I-03 e I-04 non hanno un criterio di accettazione. Riferimento: I-03, I-04, I-07, e per estensione ogni misura di retrieval denso.
 
 ### Il fatto
