@@ -411,7 +411,7 @@ Che rispettare la finestra migliori il retrieval. `ledger_routed` è la prova ch
 
 > **CHIUSA il 2026-08-12.** Decisa con l'opzione 2 e il vincolo del nome, implementata come **C-09**: `numeric_citation_precision` 0,7328 su LEDGER contro lo 0,2374 dell'NLI sulle stesse coppie, copertura 39,6%. Le due metriche restano separate, come il vincolo imponeva. Il resoconto è in [`progress.md`](progress.md), C-09; quel che segue è la nota che ha portato alla decisione e resta per come ci si è arrivati.
 
-**Aperta.** Nata il 2026-08-12 da un risultato negativo: C-08 ha escluso la spiegazione più semplice, e ciò che resta richiede una decisione più grande.
+**CHIUSA (2026-08-12), vedi il riquadro sopra.** Nata lo stesso giorno da un risultato negativo: C-08 ha escluso la spiegazione più semplice, e ciò che resta richiede una decisione più grande. Quel che segue è la nota che ha portato alla decisione, e resta per come ci si è arrivati.
 
 ### Il fatto
 
