@@ -469,7 +469,25 @@ Che un verificatore numerico farebbe meglio. Il floor test di C-03 mostrava che 
 
 ## OQ-06 — L'IDF porta al documento giusto e allontana dal chunk giusto
 
-**Aperta.** Emersa il 2026-08-13 dalla misura di R-08. Riferimento: R-08 in [`progress.md`](progress.md).
+**PASSI 1–2 FATTI (2026-08-13). Il meccanismo è confermato e più preciso dell'ipotesi; il rimedio che il protocollo proponeva è invece falsificato.** Emersa lo stesso giorno dalla misura di R-08.
+
+> **Il meccanismo, misurato.** Su LEDGER ogni domanda nomina un'azienda, e il **ticker** è il token più raro che contenga: è quello che l'IDF fa pesare. Contando quante volte il ticker compare nel chunk in cima (10.000 query, `scripts/probe_idf_discordant.py`):
+>
+> | | ripetizioni del ticker |
+> |---|---|
+> | chunk **d'oro** — quello che risponde | **0,64 – 1,04** |
+> | chunk in cima, IDF spento | 0,77 – 0,91 |
+> | chunk in cima, **IDF acceso** | **2,79 – 3,16** |
+>
+> L'IDF sposta il retrieval verso i chunk che **ripetono il nome dell'azienda**, di 3–4 volte, **in entrambi i gruppi** — sia dove guadagna sia dove perde. È una forza sola con due effetti, e questo spiega il segno opposto: *fra* i documenti il nome porta a quello giusto (+27,9 doc@5), *dentro* il documento porta alla modulistica invece che alla risposta (−1,31 chunk@5). Il paragrafo che risponde ripete **l'argomento**, non l'entità.
+>
+> **Cosa sono i chunk promossi**, leggendone 30 per gruppo: elenchi di allegati (*«Incorporated by reference to Exhibit 10.1…»*), certificazioni Sarbanes-Oxley, elenchi di controllate, `Note 1 — Organization and Business`, lettere agli azionisti. Tutta modulistica: è lì che la ragione sociale compare a ripetizione.
+>
+> **Il 61% delle query perse resta nel documento d'oro** — il guasto è «chunk sbagliato del documento giusto», come l'ipotesi prevedeva.
+>
+> ⚠️ **Il rimedio proposto al passo 2 non funziona.** Il protocollo diceva: *«se prevale il primo caso, la correzione non è l'IDF ma il filtro sul `content_type`»*. Ma la modulistica ha `content_type` **`text`/`mixed`, esattamente come il contenuto vero**: quel campo non li separa. Un filtro lì non toglierebbe gli allegati e toglierebbe risposte.
+>
+> **Il passo 3 resta aperto e il suo esito non è più scontato.** Spegnere l'IDF su LEDGER salverebbe 1,3 punti di chunk@5 e ne costerebbe 27,9 di doc@5. Quale dei due conti dipende da cosa consuma il retrieval — la generazione legge chunk — ed è una decisione con una misura sua, non un corollario di questa.
 
 ### Il fatto
 
@@ -492,9 +510,11 @@ Su LEDGER i token rari sono cifre e identificativi. Con l'IDF dominano il punteg
 
 ### Protocollo
 
-1. Estrarre le query discordanti a `sparse` chunk@5 — sono **484 perse e 353 guadagnate**, numeri comodi da leggere a campione. `scripts/probe_idf_paired.py` le calcola già; serve solo farsele stampare.
-2. Leggerne 30 per gruppo: il chunk recuperato con IDF è un indice/sommario/rimando, o è un chunk di contenuto sbagliato? Se prevale il primo caso l'ipotesi regge, e la correzione non è l'IDF ma il filtro sul `content_type`.
-3. **Solo se i passi 1–2 sono positivi**, misurare l'IDF per genere: attivo su `continuous_text`, spento su `table_heavy`.
+1. ~~Estrarre le query discordanti a `sparse` chunk@5~~ — **fatto**: 482 perse e 352 guadagnate, `scripts/probe_idf_discordant.py`.
+2. ~~Leggerne 30 per gruppo~~ — **fatto, e l'ipotesi regge**: la modulistica prevale. Ma la seconda metà della frase era sbagliata: `content_type` **non** separa la modulistica dal contenuto, sono entrambi `text`/`mixed`.
+3. **Ancora da fare**, e non è più un corollario: misurare l'IDF per genere significa scegliere fra 1,3 punti di chunk@5 e 27,9 di doc@5 su LEDGER. Vuole una misura sua, e va deciso cosa conta — la generazione consuma chunk.
+
+> **Nota su come il protocollo ha retto.** Scritto prima di guardare i dati, ha indovinato il meccanismo e sbagliato il rimedio. È la stessa forma di R-10: pre-registrare protegge dallo scegliere il test dopo aver visto i dati, non dall'aver previsto la cura sbagliata. Il passo 2 è stato eseguito com'era scritto, e quello che ha aggiunto è la misura meccanica delle ripetizioni del ticker — un numero al posto di trenta impressioni di lettura.
 
 ### Perché conta più di due punti di `hit@5`
 
