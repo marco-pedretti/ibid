@@ -713,7 +713,7 @@ Le frasi aggiunte vengono dall'output reale, non dall'immaginazione. Impatto ret
 
 **3. `EvalRun.config` non veniva popolato affatto**, e `reasoning_enabled` era scritto come letterale `False` — la stessa dichiarazione non verificata che C-01 aveva trovato altrove. Ora derivato da `cfg.REASONING_EFFORT`, che i baseline finalmente passano davvero al modello: prima l'argomento era omesso e il default lo fissava in silenzio, quindi non avrebbero potuto girare nella condizione di **C-07** nemmeno volendo. Il **giudice** invece resta fissato a `"none"` e non legge la config: è lo strumento di misura, e uno strumento che cambia insieme al proprio soggetto non può attribuire la differenza a nessuno dei due.
 
-~~**Aperto**: l'harness dei baseline non salva le risposte per query.~~ È il motivo per cui il taglio 45% → 17% resta un'inferenza dai totali invece di un test appaiato, e per cui i tre difetti sopra hanno richiesto di rigenerare le risposte a mano per essere diagnosticati. `citation_harness` ha risolto lo stesso problema in C-01. **1232 test.** — **Chiuso il 2026-08-13 da Q-02**: l'harness salva le risposte per query e `scripts/compare_baselines.py` fa il test appaiato. Il taglio 45%→17% (cioè `wrong_rate`) diventa così **misurabile** come test appaiato; misurarlo vuole una ri-esecuzione di E-04/E-05 su open_ragbench, ~70 minuti di GPU, non ancora fatta.
+~~**Aperto**: l'harness dei baseline non salva le risposte per query.~~ È il motivo per cui il taglio 45% → 17% resta un'inferenza dai totali invece di un test appaiato, e per cui i tre difetti sopra hanno richiesto di rigenerare le risposte a mano per essere diagnosticati. `citation_harness` ha risolto lo stesso problema in C-01. **1232 test.** — **Chiuso il 2026-08-13 da Q-02**, e **misurato**: `wrong_rate` 0,4500 → 0,1700, **31 query discordanti contro 3**, p<0,0001. Non è più un'inferenza dai totali. Dettagli e le altre due metriche nella sezione Q-02.
 
 ---
 
@@ -1074,7 +1074,31 @@ Guardando i soli totali si direbbe che il prompt severo risponde anche un po' me
 
 È esattamente la distinzione che i dump esistono per rendere possibile — su 25 query, cioè su uno smoke test, non su una misura.
 
-> **Il 45%→17% non è ancora un test appaiato.** Quel numero è il `wrong_rate` di E-04 contro E-05, misurato su 100 query per baseline l'11 agosto, quando i dump non esistevano. Ora è *misurabile*: serve ri-eseguire le due run su open_ragbench, **~70 minuti di GPU** al ritmo osservato oggi (~20 s/query, generazione più giudice). Non fatto — è una run lunga e va concordata.
+#### Il 45%→17% è diventato un test appaiato (2026-08-13)
+
+E-04 ed E-05 ri-eseguite su open_ragbench, 100 query per baseline. **I totali riproducono quelli dell'11 agosto a tre decimali** — 0,430/0,120 e 0,410/0,420 — il che è anche una verifica indipendente che la Fase 6 non ha cambiato comportamento.
+
+| esito | A (permissivo) | B (severo) | Δ | discordanti | p |
+|---|---|---|---|---|---|
+| **`wrong`** — invenzione | 0,4500 | **0,1700** | **−28,0** | **31 contro 3** | **<0,0001** |
+| `correct` | 0,4300 | 0,4100 | −2,0 | 9 contro 7 | **0,8036** |
+| **`abstained`** | 0,1200 | **0,4200** | **+30,0** | **0 contro 30** | **<0,0001** |
+
+**Il taglio dell'invenzione è reale e quasi unanime**: 31 query in cui solo il prompt permissivo inventa, 3 in cui solo il severo lo fa.
+
+**E non costa correttezza.** Il calo di 2 punti non si distingue dal caso — 9 query contro 7, p=0,80. Prima era un'inferenza dai totali: due percentuali vicine, e nessun modo di sapere se dietro ci fosse churn o stabilità. Ora si sa: c'è churn in entrambe le direzioni, e si annulla.
+
+**Il conto torna esattamente**, ed è la parte che rende leggibile il meccanismo: 30 astensioni in più = 28 invenzioni + 2 risposte corrette. Il prompt severo **converte invenzioni in astensioni**, non risposte corrette in astensioni. L'astensione è unanime (0 contro 30): non c'è una sola query in cui il permissivo si astenga e il severo no.
+
+> È il numero che sostiene l'**affermazione 1 del §0** — i modelli piccoli senza verifica sbagliano in modo sistematico — e ora lo sostiene come test appaiato invece che come confronto fra due medie. È anche ciò che U-04 deve rendere visibile nell'interfaccia.
+
+**24 delle 28 invenzioni diventano esattamente quell'astensione**, e i casi sono la faccia leggibile del numero:
+
+> *«How do changes in effective microbial death rate influence parameters like alpha and beta?»*
+> **A**: «The relationship between changes in **effective microbial death rate** and parameters like $\alpha$ (often representing a growth or production rate)…»
+> **B**: «I cannot answer without more information.»
+
+Il prompt permissivo non esita: grassetti, LaTeX, e una relazione causale inventata di sana pianta su un contenuto che non ha mai visto. Sono le due risposte affiancate che U-03 deve mostrare, e adesso esistono su disco invece che come aneddoto.
 | Q-03 | ✅ fatto (2026-08-13) | `scripts/profile.py` → **`profile_docs.py`**. Il difetto era riproducibile in una riga (`import profile` da `scripts/` restituiva il nostro file) e ora `import transformers` da quella cartella funziona. Tolto anche il rimedio locale in `probe_entailment.py`, che curava il sintomo per un file solo lasciando la causa in piedi per gli altri 35. |
 | Q-04 | ✅ fatto (2026-08-13) | `ruff check .` **pulito su tutto il repo**. Le 53 segnalazioni erano 3 difetti veri e 50 volte lo stesso: gli script non sono installati, quindi il bootstrap di `sys.path` deve precedere gli import. Soppresso in configurazione — **e dichiarato come soppressione** — con la correzione vera rimandata alla Fase 7. Tolti 101 `# noqa: E402` diventati ridondanti. |
 | Q-05 | ✅ fatto (2026-08-13) | `src/providers.py`. Le 3 copie in `src/` e le 2 liste letterali nei probe sono sparite; aggiunti `ROCMExecutionProvider` e `CUDAExecutionProvider` all'ordine di preferenza, **dichiarati e non verificati** (è U-12). Il ripiego su CPU ora **avvisa** invece di degradare in silenzio. Extra opzionali in `pyproject.toml`. Trovato per strada un percorso assoluto cablato in un probe. Vedi sotto. |

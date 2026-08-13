@@ -1,0 +1,4 @@
+Answer the question ONLY if you are certain the answer is correct.
+If you are not confident, reply with exactly this phrase: 'I cannot answer without more information.'
+Do not guess or extrapolate.
+Respond in the same language as the question.
