@@ -360,7 +360,7 @@ Tutte e tre le voci nascono dall'audit del 2026-08-11, in cui le librerie sono s
 
 | ID | Task | Criterio di accettazione |
 |---|---|---|
-| Q-01 | Costruzione di `EvalRun` unificata: oggi sono **5 siti**, `reasoning_enabled` è derivato in 4 e ancora scritto `False` a mano in `src/eval/harness.py` | Un solo posto lo costruisce; il campo non è più scrivibile a mano |
+| Q-01 | ✅ **fatto il 2026-08-13.** `run_config.make_eval_run` è l'unico costruttore. Il difetto vero era sotto la duplicazione: con `--query-rewrite` l'harness del retrieval dichiarava di non usare l'LLM mentre lo usava | Un solo posto lo costruisce; il campo non è più scrivibile a mano — **due test cercano chi ci riprova** |
 | Q-02 | **Entrambi** gli harness senza dump per query — baseline **e retrieval** — salvano i risultati per query, come già fa quello delle citazioni | Il taglio 45%→17% di E-04/E-05 diventa un test appaiato; e un confronto fra due run di retrieval archiviate non richiede più di ricostruire uno stato a comando |
 | Q-03 | ✅ **fatto il 2026-08-13.** `scripts/profile.py` non adombra più il modulo `profile` della standard library: rinominato `profile_docs.py` | `import transformers` da dentro `scripts/` smette di fallire |
 | Q-04 | ✅ **fatto il 2026-08-13.** Igiene di import e lint su `scripts/`: 3 difetti veri corretti, i 50 `E402` soppressi in configurazione **dichiarando che è una soppressione**, 101 `# noqa` ridondanti rimossi | `ruff check` pulito sul repo — **sì, su tutto** |
