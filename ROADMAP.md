@@ -278,7 +278,7 @@ Tutte e tre le voci nascono dall'audit del 2026-08-11, in cui le librerie sono s
 
 | ID | Task | Criterio di accettazione |
 |---|---|---|
-| I-09 | **Solo se I-08 è positivo**: prefissi E5 in `encode()`, re-ingestione, rimisura di Fase 3 e Fase 4 | Ogni numero dense rifatto sotto la ricetta corretta, vecchi e nuovi affiancati |
+| I-09 | ~~Prefissi E5 in `encode()`, re-ingestione, rimisura~~ — **non applicabile**: era condizionata a I-08, risultato negativo | Vedi `docs/progress.md` e OQ-02 |
 | I-11 | ~~Tetto di chunking allineato alla finestra dell'embedder~~ — **decisa il 2026-08-12: non adottata** | Nessun effetto sulla generazione; il guadagno di `citation_precision` era la lunghezza della premessa. Da riconsiderare alla prossima re-ingestione per la latenza (−44%). Vedi `progress.md` |
 | R-08 | `modifier=IDF` sull'indice sparso (Qdrant lo richiede: fastembed esclude l'IDF di proposito) | E-06 e R-01 rimisurati — **una sola causa cambiata** |
 | R-09 | Query BM25 codificate con `query_embed` invece che come documenti | Rimisura **separata** da R-08 |

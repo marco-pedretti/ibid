@@ -723,7 +723,7 @@ Nata dall'audit del 2026-08-11: le librerie confrontate con la loro documentazio
 
 | Task | Stato | Note |
 |---|---|---|
-| I-09 | ⬜ da fare | Prefissi E5, **solo se I-08 è positivo**. Se scatta, obbliga a rifare Fase 3 e Fase 4. |
+| I-09 | ❌ **non applicabile** (2026-08-12) | Era condizionata a I-08, che è risultato negativo: i prefissi E5 sfiorano la soglia solo a doc@1 (p=0,0503), cambiano segno a doc@3 e spariscono a doc@5. La deviazione dalla model card resta reale e documentata in OQ-02; il suo costo su questo corpus no. |
 | I-11 | ❌ **non adottata** (2026-08-12) | Nessun effetto sulla generazione: formato identico dopo il parser (+0,0000, p=1,0000), astensione non peggiorata. Gli +11 punti di `citation_precision` erano **la lunghezza della premessa, non la qualità delle citazioni**. Prezzo: 618 min di re-ingestione e indice ×4. Due voci da riconsiderare alla prossima re-ingestione, vedi sotto. |
 | R-08 | ⬜ da fare | `modifier=IDF` sull'indice sparso. Invalida 2 run sparse + 4 hybrid; nessuna run dense. |
 | R-09 | ⬜ da fare | Query BM25 con `query_embed`. Rimisura **separata** da R-08. |
