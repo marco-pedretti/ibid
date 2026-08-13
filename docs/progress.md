@@ -950,6 +950,18 @@ Quello che cambia non è il default ma **una regola di metodo**, aggiunta al §1
 
 ---
 
+### Debiti piccoli chiusi il 2026-08-13, prima della Fase 6
+
+Tre cose notate mentre si lavorava ad altro. Non sono task del ROADMAP: sono correzioni a lavoro già mergiato, fatte direttamente su `main` con un commit ciascuna.
+
+**1. `doc_aggregate` fuori dal `config_hash`.** Da R-05 le metriche documentali sono sempre riportate, quindi il flag non cambia più un solo numero — eppure cambiava il **nome** della misura. È lo specchio del difetto corretto da R-08 e R-09: là due misure diverse condividevano un nome, qui una misura sola ne aveva due. Verificato ricalcolando ogni run in `eval/results`: **zero run vive toccate**; `doc_aggregate=true` compare solo in 5 run di `archive/`, che conservano i propri hash per politica e già non si riproducono. Un test asseriva il contrario ed era corretto quando fu scritto — allora il flag aggiungeva davvero le metriche. Invertito, con scritto perché.
+
+**2. `--no-write` su `scripts/eval.py`.** Il gemello su `eval_citations.py` esisteva dal 12 agosto; qui mancava, e durante R-08 uno smoke test è finito in `eval/results/` accanto alle misure vere e ha dovuto essere cancellato a mano. Verificato: 84 file prima e dopo.
+
+**3. `src/` è lint-pulito.** Ultimo `E402` rimosso da `src/index/store.py`. Refactor puro — **1335 test prima e dopo**, che è la verifica che lo fosse davvero. Gli `E402` in `scripts/` restano e appartengono a Q-04.
+
+---
+
 ## Fase 6 — Qualità del codice
 
 Lista chiusa di difetti già osservati, non un giro di pulizia. **Gate: nessuna metrica cambia** — `rescore_citations.py` deve restituire gli stessi valori già registrati.
@@ -959,4 +971,4 @@ Lista chiusa di difetti già osservati, non un giro di pulizia. **Gate: nessuna 
 | Q-01 | ⬜ da fare | `EvalRun` costruito in **5 siti**; `reasoning_enabled` derivato in 4 e ancora scritto `False` a mano in `src/eval/harness.py` — che con `--query-rewrite` usa davvero il modello. |
 | Q-02 | ⬜ da fare | L'harness dei baseline salva le risposte per query. Rende il taglio 45%→17% un test appaiato. |
 | Q-03 | ⬜ da fare | `scripts/profile.py` adombra il modulo `profile` della stdlib. Ha già rotto un import in C-03. |
-| Q-04 | ⬜ da fare | Igiene di import e lint su `scripts/`. |
+| Q-04 | ⬜ da fare | Igiene di import e lint su `scripts/`. **`src/` è già pulito** (vedi sopra); resta solo `scripts/`. |
