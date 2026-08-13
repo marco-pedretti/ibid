@@ -21,6 +21,29 @@ dev-dependencies = [
     "pytest>=8.3",
 ]
 
+[tool.ruff.lint.per-file-ignores]
+# E402 = import non in cima al file.
+#
+# Gli script di `scripts/` non sono un package e non sono installati: per
+# importare `src.` devono prima mettere la radice del repo su `sys.path`, e
+# quell'istruzione deve per forza precedere gli import. Il pattern e' deliberato
+# ed e' l'unica ragione dei 50 E402 che ruff segnalava.
+#
+# **Questa e' una soppressione, non una correzione**, e va detto. La correzione
+# vera e' installare il progetto (`pip install -e .`) e cancellare le tre righe
+# di bootstrap da ogni script: hatchling e' gia' configurato piu' sotto, quindi
+# manca solo il passo di installazione. Non si fa qui perche' oggi `python
+# scripts/eval.py` funziona su un clone appena scaricato, e toglierlo e' un
+# cambiamento del modo di lavorare, non igiene del codice. La Fase 7 ci arriva
+# da sola: A-05 mette il backend in un container, dove il progetto **sara'**
+# installato per forza.
+#
+# Perche' in configurazione e non con `# noqa: E402` riga per riga: erano una
+# ventina di noqa messi in modo incoerente -- alcuni script li avevano tutti,
+# altri nessuno -- e cinquanta commenti che dicono la stessa cosa sono peggio di
+# una riga che la dice una volta con il motivo scritto.
+"scripts/*" = ["E402"]
+
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"

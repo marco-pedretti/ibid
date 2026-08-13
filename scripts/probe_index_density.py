@@ -38,10 +38,16 @@ from pathlib import Path
 ROOT = Path(__file__).parent.parent
 sys.path.insert(0, str(ROOT))
 
-import src.config as cfg  # noqa: E402
-from qdrant_client.models import QueryRequest, SearchParams  # noqa: E402
-from src.index.embed import encode  # noqa: E402
-from src.index.store import get_client, search_batch  # noqa: E402
+import src.config as cfg
+from qdrant_client.models import QueryRequest, SearchParams
+from src.index.embed import encode
+from src.index.store import get_client, search_batch
+
+
+#: Soglia di "pari merito". E' il distacco mediano fra il chunk vincente e il
+#: miglior chunk d'oro misurato in R-10 sulle query fallite: la differenza che
+#: separa un successo da un fallimento su questo corpus.
+TIE = 0.0090
 
 
 def _exact_top5(client, coll: str, vecs: list[list[float]]) -> list[list]:
@@ -54,11 +60,6 @@ def _exact_top5(client, coll: str, vecs: list[list[float]]) -> list[list]:
         out.extend(r.points for r in
                    client.query_batch_points(collection_name=coll, requests=reqs))
     return out
-
-#: Soglia di "pari merito". E' il distacco mediano fra il chunk vincente e il
-#: miglior chunk d'oro misurato in R-10 sulle query fallite: la differenza che
-#: separa un successo da un fallimento su questo corpus.
-TIE = 0.0090
 
 
 def _queries(dataset_id: str, limit: int) -> list[str]:

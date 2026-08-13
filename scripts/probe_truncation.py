@@ -40,10 +40,10 @@ ROOT = Path(__file__).parent.parent
 sys.path.insert(0, str(ROOT))
 sys.path = [p for p in sys.path if Path(p or ".").resolve() != Path(__file__).parent.resolve()]
 
-import src.config as cfg  # noqa: E402
-from fastembed import TextEmbedding  # noqa: E402
-from qdrant_client import models  # noqa: E402
-from src.index.store import get_client  # noqa: E402
+import src.config as cfg
+from fastembed import TextEmbedding
+from qdrant_client import models
+from src.index.store import get_client
 
 GENERATIONS = ROOT / "eval" / "results" / "generations"
 GOLDEN = ROOT / "eval" / "golden"

@@ -32,7 +32,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 # The private names are the point: the fixture has to be cut with exactly the
 # same blade the checker uses, or it would describe a different corpus than the
 # one C-01 measured.
-from src.generation.citation_format import (  # noqa: E402
+from src.generation.citation_format import (
     _PATTERNS,
     _is_citation_attempt,
     find_violations,

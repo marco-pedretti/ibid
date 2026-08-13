@@ -36,14 +36,14 @@ ROOT = Path(__file__).parent.parent
 sys.path.insert(0, str(ROOT))
 sys.path = [p for p in sys.path if Path(p or ".").resolve() != Path(__file__).parent.resolve()]
 
-import src.config as cfg  # noqa: E402
-from qdrant_client import models  # noqa: E402
-from src.datasets.schema import EvalRun  # noqa: E402
-from src.eval.citation_metrics import build_metrics, summarize, verify_answer  # noqa: E402
-from src.eval.provenance import git_commit  # noqa: E402
-from src.generation.citations import parse  # noqa: E402
-from src.generation.entailment import normalize_premise  # noqa: E402
-from src.index.store import get_client  # noqa: E402
+import src.config as cfg
+from qdrant_client import models
+from src.datasets.schema import EvalRun
+from src.eval.citation_metrics import build_metrics, summarize, verify_answer
+from src.eval.provenance import git_commit
+from src.generation.citations import parse
+from src.generation.entailment import normalize_premise
+from src.index.store import get_client
 
 GENERATIONS = ROOT / "eval" / "results" / "generations"
 RESULTS = ROOT / "eval" / "results"
@@ -156,7 +156,7 @@ def print_report(dataset: str, res: dict) -> None:
     # C-09, stampate insieme e sotto un'intestazione loro: sono un'altra
     # definizione, e affiancarle alle righe qui sopra come se fossero la stessa
     # grandezza e' precisamente cio' che la decisione di OQ-05 vieta.
-    print(f"  --- verificatore numerico (C-09), definizione diversa ---")
+    print("  --- verificatore numerico (C-09), definizione diversa ---")
     print(f"  numeric_citation_precision  {r.numeric_citation_precision:.4f}  "
           f"({r.n_numeric_supported}/{r.n_numeric_judged} citazioni numeriche)")
     print(f"  numeric_coverage            {r.numeric_coverage:.4f}  "

@@ -47,12 +47,12 @@ ROOT = Path(__file__).parent.parent
 sys.path.insert(0, str(ROOT))
 sys.path = [p for p in sys.path if Path(p or ".").resolve() != Path(__file__).parent.resolve()]
 
-import src.config as cfg  # noqa: E402
-from qdrant_client import models  # noqa: E402
-from src.index.store import get_client  # noqa: E402
-from src.generation.numeric_verify import Outcome, verify_numeric  # noqa: E402
-from src.ingestion.ocr_tables import parse_html_table  # noqa: E402
-from src.ingestion.pipeline_table_heavy import _split_segments  # noqa: E402
+import src.config as cfg
+from qdrant_client import models
+from src.index.store import get_client
+from src.generation.numeric_verify import Outcome, verify_numeric
+from src.ingestion.ocr_tables import parse_html_table
+from src.ingestion.pipeline_table_heavy import _split_segments
 
 DEFAULT = ROOT / "eval" / "results" / "verdicts" / "20260812_133954_ledger.jsonl"
 

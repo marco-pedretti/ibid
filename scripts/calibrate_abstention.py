@@ -32,10 +32,10 @@ ROOT = Path(__file__).parent.parent
 sys.path.insert(0, str(ROOT))
 sys.path = [p for p in sys.path if Path(p or ".").resolve() != Path(__file__).parent.resolve()]
 
-import src.config as cfg  # noqa: E402
-from src.datasets import registry  # noqa: E402
-from src.eval.retrieval_backends import RETRIEVERS  # noqa: E402
-from src.index.store import get_client  # noqa: E402
+import src.config as cfg
+from src.datasets import registry
+from src.eval.retrieval_backends import RETRIEVERS
+from src.index.store import get_client
 
 #: Answerable queries used to derive the threshold, and a disjoint set of the
 #: same size used only to report what it costs.

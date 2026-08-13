@@ -35,10 +35,10 @@ sys.stdout.reconfigure(encoding="utf-8")
 os.chdir(r"c:\Users\marco\dev\ibid")
 sys.path.insert(0, r"c:\Users\marco\dev\ibid")
 
-from qdrant_client import models  # noqa: E402
-import src.config as cfg  # noqa: E402
-from fastembed import TextEmbedding  # noqa: E402
-from src.index.store import get_client  # noqa: E402
+from qdrant_client import models
+import src.config as cfg
+from fastembed import TextEmbedding
+from src.index.store import get_client
 
 tok = TextEmbedding(model_name=cfg.EMBEDDING_MODEL, providers=["CPUExecutionProvider"],
                     cache_dir=cfg.FASTEMBED_CACHE).model.tokenizer
@@ -67,7 +67,8 @@ for arm, (vpath, collection) in ARMS.items():
     pairs.sort()
     n = len(pairs)
     if not n:
-        print(f"{arm}: nessuna coppia risolvibile"); continue
+        print(f"{arm}: nessuna coppia risolvibile")
+        continue
 
     print(f"\n=== {arm} ===  {n} coppie   (mancanti: {len(rows) - n})")
     # Quartili di lunghezza della premessa, e tasso di accettazione in ciascuno.

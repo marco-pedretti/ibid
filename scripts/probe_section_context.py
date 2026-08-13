@@ -51,11 +51,11 @@ from pathlib import Path
 ROOT = Path(__file__).parent.parent
 sys.path.insert(0, str(ROOT))
 
-import src.config as cfg  # noqa: E402
-from qdrant_client.models import FieldCondition, Filter, MatchAny  # noqa: E402
-from src.eval.paired import compare_paired  # noqa: E402
-from src.index.embed import encode  # noqa: E402
-from src.index.store import get_client, search_batch  # noqa: E402
+import src.config as cfg
+from qdrant_client.models import FieldCondition, Filter, MatchAny
+from src.eval.paired import compare_paired
+from src.index.embed import encode
+from src.index.store import get_client, search_batch
 
 
 def _cos(a: list[float], b: list[float]) -> float:

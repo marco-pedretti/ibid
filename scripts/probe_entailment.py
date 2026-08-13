@@ -62,8 +62,8 @@ sys.path.insert(0, str(ROOT))
 # esiste piu'. Curare il sintomo in un file solo lasciava la causa in piedi per
 # tutti gli altri.
 
-import src.config as cfg  # noqa: E402
-from src.index.store import get_client  # noqa: E402
+import src.config as cfg
+from src.index.store import get_client
 
 #: The **superseded** verifier, kept because `length` and `separation` measured
 #: it and those numbers are the recorded reason for replacing it.  MIT, and the
