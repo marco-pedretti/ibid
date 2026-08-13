@@ -8,7 +8,21 @@ Non è `progress.md` (che registra cosa è stato fatto) né `ROADMAP.md` (che de
 
 ## OQ-01 — Perché il routing peggiora LEDGER di 17 punti
 
-**Aperta.** Osservata il 2026-08-07 durante la riscrittura della dashboard. Riferimento: R-07.
+**RISOLTA A METÀ (2026-08-13, R-10).** Osservata il 2026-08-07 durante la riscrittura della dashboard. Riferimento: R-07.
+
+> **Le tre ipotesi qui sotto sono cadute tutte. La causa principale non era in elenco.**
+>
+> **45,9% del regresso è richiamo perso da HNSW.** Con ricerca **esatta**, `ledger_routed` va da 0,7647 a 0,8471 (857 query recuperate contro 33 perse su 10.000) mentre `ledger` si muove di 0,37 punti. Il divario passa da −17,14 a **−9,27**. `ledger_routed` ha 228.331 punti contro 47.110, in una banda di similarità larga 0,0085: le condizioni peggiori per un grafo di prossimità. Costo del rimedio: **2,5 ms/query contro 1,4**, e nessuna re-ingestione — `exact` e `hnsw_ef` sono parametri di ricerca. Adozione proposta come **R-11**.
+>
+> **H1 (heading mancante) — falsificata.** La simulazione del passo 2 dà +17,33%, che letto da solo sarebbe positivo. Ma un `section_path` **sbagliato**, preso da un altro documento, guadagna **esattamente lo stesso** (+17,33%), e il confronto appaiato vero-contro-finto dà 12 discordanti contro 12, p=1,0000. Il guadagno era perturbazione di un quasi-pareggio, non contesto.
+>
+> **H2b e H3 — falsificate.** Le query fallite e quelle riuscite hanno chunk d'oro **strutturalmente identici**: 1034 contro 1022 caratteri, 0,75 contro 0,75 lettere/carattere, `section_path` nel testo nel 66,4% contro 65,3%. Se dimensione o isolamento fossero la causa, i due gruppi differirebbero. Non differiscono.
+>
+> **H2a — fattore parziale.** Passare da profondità 5 a 20 recupera 6 punti su 17.
+>
+> **Cosa resta:** 9,27 punti dopo aver tolto HNSW. Il regime è quello del quasi-pareggio — il chunk d'oro perde per 0,0090 di coseno, l'intero top-5 sta dentro 0,0085, e il routing ha portato i concorrenti a pari merito da 7,1 a 9,0 di media. Descritto, non ancora azionabile. Numeri e ragionamento in [`progress.md`](progress.md) → *R-10*.
+>
+> **Sul protocollo qui sotto.** È stato eseguito com'era scritto, ed è giusto così. Ma il suo criterio binario non copriva il risultato reale né al passo 1 né al passo 2, e il passo 2 misurava senza saperlo l'instabilità dell'ordinamento invece del valore del contesto. **Pre-registrare un test protegge dallo scegliere il test dopo aver visto i dati; non protegge dall'aver scelto il test sbagliato prima.** Serve comunque un controllo che dica cosa il test sta misurando — ed è ciò che ha ribaltato la conclusione.
 
 ### Il fatto da spiegare
 
@@ -189,7 +203,8 @@ python scripts/eval.py --dataset ledger --collection ledger_routed_ctx \
 | routing per genere | `src/ingestion/router.py` → `route_text()` |
 | profondità di valutazione | `src/eval/harness.py`, `eval_depth` |
 | test appaiato | `src/eval/paired.py`, `scripts/compare_runs.py` |
-| misure di questa nota | riprodotte con `client.scroll` su Qdrant; nessuno script committato — sono usa e getta |
+| misure di questa nota | le originali con `client.scroll`, usa e getta; quelle di R-10 in `scripts/probe_routing_depth.py`, `probe_routing_failures.py`, `probe_section_context.py`, `probe_ann_recall.py` |
+| ricerca esatta vs approssimata | `scripts/probe_ann_recall.py` — `SearchParams(exact=True)` e `hnsw_ef` |
 | esplorazione interattiva | dashboard → Failure Explorer e Retrieval Playground (tab A/B) |
 
 ---

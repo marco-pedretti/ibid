@@ -727,7 +727,8 @@ Nata dall'audit del 2026-08-11: le librerie confrontate con la loro documentazio
 | I-11 | ❌ **non adottata** (2026-08-12) | Nessun effetto sulla generazione: formato identico dopo il parser (+0,0000, p=1,0000), astensione non peggiorata. Gli +11 punti di `citation_precision` erano **la lunghezza della premessa, non la qualità delle citazioni**. Prezzo: 618 min di re-ingestione e indice ×4. Due voci da riconsiderare alla prossima re-ingestione, vedi sotto. |
 | R-08 | ✅ fatto (2026-08-13) | `modifier=IDF` attivo su tutte e 7 le collection, **in place**. Effetto **opposto nei due dataset**: su open_ragbench guadagna a ogni profondità e a ogni livello (chunk@5 **+3,94**, p<0,0001); su LEDGER porta al **documento** giusto (doc@5 **+27,85**) e **allontana dal chunk** giusto (chunk@5 **−1,31**, p<0,0001). Adottato lo stesso — è una correzione, non un'ottimizzazione — ma il costo su LEDGER è reale e apre OQ-06. Vedi sotto. |
 | R-09 | ✅ fatto (2026-08-13) | **Risultato nullo, e si sa perché.** Le query passano da `query_embed()`. Effetto massimo misurato: **4 query discordanti su 10.000**, tutte le p ≥ 0,125. Il motivo è strutturale, non statistico: nell'87–94% dei casi le due codifiche differiscono per un **fattore di scala uniforme**, che nel prodotto scalare non cambia l'ordinamento. Adottato lo stesso. Vedi sotto. |
-| R-10 | ⬜ da fare | OQ-01, passi 1–2. |
+| R-10 | ✅ fatto (2026-08-13) | **Le tre ipotesi di OQ-01 sono cadute tutte, e la causa è un'altra.** Il **45,9%** del regresso di 17 punti è **richiamo perso da HNSW**: con ricerca esatta `ledger_routed` va da 0,7647 a 0,8471 (857 query recuperate, 33 perse) mentre `ledger` si muove di 0,37. H1 falsificata da un braccio di controllo che il protocollo non prevedeva. **Passo 3 non pagato.** Vedi sotto. |
+| R-11 | ⬜ proposta | Adottare `exact` / `hnsw_ef` come parametro di ricerca. Nasce da R-10; è un cambiamento nuovo e vuole la sua misura (§14). |
 
 **Cosa questa fase non tocca**, verificato: E-04/E-05 non usano retrieval affatto, e la soglia di astensione di C-04 appartiene alla sola modalità `dense` (`threshold_for` restituisce `None` per le altre) — quindi R-08/R-09 non la sfiorano, per progetto e non per fortuna.
 
@@ -821,6 +822,82 @@ Perché la libreria documenta un contratto e noi lo violavamo. Il codice ora fa 
 #### L'identità si spezza lo stesso
 
 `sparse_query_embed` è entrato nel `config_hash` **anche se l'effetto è nullo**, e la decisione è deliberata: l'appartenenza all'hash si decide da *cosa il sistema è*, non da *quanto grande è risultato l'effetto*. Il criterio opposto è circolare — servirebbe la misura per poter dare un nome alla misura. Due chiavi e non una, perché i tre stati (nessuna correzione, solo IDF, entrambe) esistono davvero su disco e le run IDF-only di stamattina sono un risultato misurato, non un gradino.
+
+### R-10 — OQ-01 risolta a metà, e non da nessuna delle ipotesi in campo
+
+OQ-01 era aperta dal 2026-08-07: il routing peggiora LEDGER di **17 punti** di doc-recall@5, con 1797 query perse contro 94 guadagnate. Tre ipotesi in campo — H1 (il chunk tabella non embedda il proprio heading), H2 (i chunk sono 3–12× più piccoli), H3 (la tabella è isolata dalla prosa). **Sono cadute tutte e tre.**
+
+#### Passo 1 — i fallimenti sono pareggi, non incomprensioni
+
+Il criterio binario del protocollo non copriva il risultato: `doc_R@5` del routed va da **0,7647 a 0,8567** passando da profondità 5 a 20, mentre il generic sta a 0,9678. Quadruplicare la profondità recupera **6 punti su 17**. H2a è un fattore parziale.
+
+La domanda giusta era *dove* sta il documento corretto quando il routing sbaglia. Su 2.353 query fallite: 39,1% entro rango 20, 72,3% entro 100, **27,7% mai trovato**.
+
+Poi tre cose hanno cambiato il quadro.
+
+**Un confondente escluso, nella direzione opposta.** `ledger_routed` ha 4,8× i chunk, quindi i primi 5 potrebbero coprire meno documenti distinti e il doc-recall calare per pura combinatoria. Misurato: il routed copre **più** documenti (3,60 contro 2,95). Vede di più e sbaglia lo stesso.
+
+**Un errore di unità d'analisi.** Le 651 query irrisolte erano state lette come «651 documenti mal rappresentati». LEDGER ha **494 documenti d'oro per 10.000 query**: per documento ne risulta **uno solo** mai trovato. Il guasto è della coppia query-documento.
+
+**Il fatto che rovescia la questione.** Cercando *dentro* il documento d'oro (filtro Qdrant su `doc_id`) si ottiene il punteggio del miglior chunk che avrebbe potuto rispondere:
+
+| | fallite | riuscite |
+|---|---|---|
+| punteggio del chunk vincente | 0,8619 | 0,8672 |
+| punteggio del miglior chunk d'oro | 0,8551 | 0,8664 |
+| **distacco** | **+0,0090** | +0,0000 |
+| lunghezza del chunk d'oro | 1034 char | 1022 char |
+| lettere/carattere | 0,75 | 0,75 |
+| `section_path` presente nel testo | 66,4% | 65,3% |
+
+**Nessuna differenza strutturale.** Il chunk giusto perde per nove millesimi. E l'intero top-5 vive dentro **0,0085** di coseno — meno del distacco che causa il fallimento. Concorrenti entro 0,0090 dal primo: media 7,1 su `ledger`, **9,0 su `ledger_routed`**.
+
+> Questo da solo falsifica H2b e H3: se i chunk piccoli o isolati fossero la causa, le query fallite avrebbero chunk d'oro diversi da quelle riuscite. Non li hanno.
+
+#### Passo 2 — il titolo giusto non batte quello sbagliato
+
+Il protocollo pre-registrato dà **+17,33%** (49/150 contro 23/150; 27 query solo con contesto contro 1 solo senza, p<0,0001). Letto da solo sarebbe un risultato positivo.
+
+Ma il passo 1 aveva stabilito che siamo in regime di quasi-pareggio, dove *qualunque* perturbazione consistente ribalta una frazione di casi. Quindi è stato aggiunto un **braccio di controllo** che il protocollo non prevedeva: anteporre un `section_path` **sbagliato**, preso da un altro documento — stessa lunghezza, stesso stile, contenuto senza relazione.
+
+| | | |
+|---|---|---|
+| senza contesto | 23/150 | 15,33% |
+| con contesto **vero** | 49/150 | **+17,33%** |
+| con contesto **finto** | 49/150 | **+17,33%** |
+
+Identici. E il confronto appaiato vero-contro-finto: **12 discordanti da una parte, 12 dall'altra, p = 1,0000**. Non pareggiano solo nel totale: ribaltano ognuno una dozzina di query *diverse*. È la firma di una perturbazione casuale.
+
+**H1 è falsificata, e con essa il senso del passo 3.** Le 6–7 ore di GPU avrebbero misurato l'instabilità di un pareggio. Senza il controllo avremmo scritto che il contesto di sezione vale 18 punti sulle query fallite, e sarebbe stato falso.
+
+#### La causa vera — quasi metà è HNSW che non trova
+
+Il passo 1 aveva lasciato una contraddizione. Le 651 query «mai trovate» hanno un distacco **minore** di quelle perse entro 100 — 0,0071 contro 0,0102 — che con una spiegazione basata sulla rappresentazione è esattamente al contrario. E un chunk a 0,0097 dal vincitore, con una manciata di concorrenti dentro quel distacco, dovrebbe stare verso rango 7, non oltre il centesimo.
+
+L'unica spiegazione che regge: **la ricerca non ci arriva**. Qdrant usa HNSW, che è approssimato — percorre un grafo, e in un vicinato denso può non raggiungere candidati che meriterebbero il podio. `ledger_routed` ha 228.331 punti contro 47.110, tutti in una banda di similarità larga 0,0085.
+
+Misurato con la ricerca **esatta**, che il grafo non lo usa affatto (10.000 query, `scripts/probe_ann_recall.py`):
+
+| | approssimata | esatta | Δ | recuperate / perse |
+|---|---|---|---|---|
+| `ledger_routed` | 0,7647 | **0,8471** | **+8,24** | **857 / 33** |
+| `ledger` | 0,9361 | 0,9398 | +0,37 | 42 / 5 |
+
+| divario `ledger` − `ledger_routed` | |
+|---|---|
+| con ricerca approssimata | **−17,14** |
+| con ricerca esatta | **−9,27** |
+| **quota imputabile a HNSW** | **7,87 punti = 45,9%** |
+
+Costo: **2,5 ms/query contro 1,4**. Su queste dimensioni la ricerca esatta costa quanto `ef=512` ed è più precisa. Sono parametri di **ricerca**, non di costruzione: nessuna re-ingestione.
+
+#### Cosa resta aperto
+
+**9,27 punti veri**, dopo aver tolto il richiamo perso dall'indice. Su quelli le tre ipotesi originali sono tutte cadute, e ciò che resta in piedi è la descrizione del passo 1: un regime di quasi-pareggio in cui il routing ha moltiplicato i concorrenti a pari merito. Non è ancora una causa azionabile.
+
+**L'adozione di `exact`/`hnsw_ef` non è stata fatta qui**: è un cambiamento nuovo e vuole la sua misura (§14). Proposta come **R-11**.
+
+> **Una lezione sul metodo, non sul routing.** Il protocollo di OQ-01 era stato scritto in anticipo, ed è stato eseguito com'era — cosa giusta. Ma il suo criterio binario non copriva il risultato reale né al passo 1 né al passo 2, e il suo passo 2 misurava, senza saperlo, l'instabilità dell'ordinamento invece del valore del contesto. **Pre-registrare un test protegge dallo scegliere il test dopo aver visto i dati; non protegge dall'aver scelto il test sbagliato prima.** Serve comunque un controllo che dica cosa il test sta misurando.
 
 ---
 
