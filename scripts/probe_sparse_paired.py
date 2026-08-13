@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+﻿#!/usr/bin/env python3
 """R-08: confronto **appaiato** con e senza `modifier=IDF`, sulle stesse query.
 
 Le run archiviate del 2026-08-07 non salvano i risultati per query, quindi il
