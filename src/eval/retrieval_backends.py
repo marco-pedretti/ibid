@@ -15,7 +15,7 @@ import time
 from dataclasses import dataclass
 
 import src.config as cfg
-from src.index.embed import encode, encode_sparse
+from src.index.embed import encode, encode_sparse_query
 from src.index.store import search_batch
 from src.retrieval.hybrid import rrf_fuse
 
@@ -53,7 +53,7 @@ def retrieve_dense(client, collection, texts, fetch_k, filters) -> list[Candidat
 
 
 def retrieve_sparse(client, collection, texts, fetch_k, filters) -> list[Candidates]:
-    vecs = encode_sparse(texts, cfg.SPARSE_EMBEDDING_MODEL)
+    vecs = encode_sparse_query(texts, cfg.SPARSE_EMBEDDING_MODEL)
     hits = search_batch(client, collection, vecs, top_k=fetch_k,
                         using="sparse", filters=filters)
     return [points_to_candidates(h) for h in hits]
@@ -70,7 +70,7 @@ def retrieve_hybrid(client, collection, texts, fetch_k, filters) -> list[Candida
     t0 = time.time()
     dense_vecs = encode(texts, cfg.EMBEDDING_MODEL, batch_size=cfg.EMBEDDING_BATCH)
     print(f"  Dense embeddings done in {time.time() - t0:.1f}s", flush=True)
-    sparse_vecs = encode_sparse(texts, cfg.SPARSE_EMBEDDING_MODEL)
+    sparse_vecs = encode_sparse_query(texts, cfg.SPARSE_EMBEDDING_MODEL)
 
     dense_all = search_batch(client, collection, dense_vecs, top_k=hybrid_fetch,
                              using="dense", filters=filters)

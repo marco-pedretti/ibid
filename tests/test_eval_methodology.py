@@ -1,4 +1,4 @@
-"""Tests for the evaluation methodology invariants (manutenzione 2026-08-07).
+﻿"""Tests for the evaluation methodology invariants (manutenzione 2026-08-07).
 
 These pin three properties that were violated by every run produced before this
 date, and whose violation was invisible in the result files:
@@ -48,7 +48,7 @@ def _run(tmp_path: Path, n_hits: int = 30, **kwargs):
     hits = [_hit(f"open_ragbench:doc{i}:0", 0.9 - i / 100) for i in range(n_hits)]
     with patch("src.eval.harness.get_client"), \
          patch("src.eval.retrieval_backends.encode", return_value=[[0.1] * 1024]), \
-         patch("src.eval.retrieval_backends.encode_sparse", return_value=[MagicMock()]), \
+         patch("src.eval.retrieval_backends.encode_sparse_query", return_value=[MagicMock()]), \
          patch("src.eval.retrieval_backends.search_batch", return_value=[hits]) as sb, \
          patch("src.eval.harness.cross_encode", side_effect=lambda q, p, m, top_n: [
              _hit(x["chunk_id"]) for x in p[:top_n]

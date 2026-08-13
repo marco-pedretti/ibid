@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import pytest
 
-from src.index.embed import encode, encode_sparse
+from src.index.embed import encode, encode_sparse, encode_sparse_query
 
 # These tests download ONNX models on first run (~500 MB for dense, ~1 MB for sparse).
 # Subsequent runs use the fastembed cache under ~/.cache/fastembed.
@@ -121,3 +121,85 @@ class TestEncodeSparse:
         svecs = encode_sparse(multilingual, SPARSE_MODEL)
         assert len(svecs) == 2
         assert all(len(sv.indices) > 0 for sv in svecs)
+
+
+# ---------------------------------------------------------------------------
+# Sparse, query side (R-09)
+# ---------------------------------------------------------------------------
+
+class TestEncodeSparseQuery:
+    """In BM25 the query and the document are not symmetric.
+
+    The query says *which* terms to score; the document says how much each one
+    is worth.  These tests pin the asymmetry, because it is invisible at the
+    call site — both functions take a list of strings and return SparseVectors,
+    so passing a question to the wrong one produces no error at all.
+    """
+
+    def test_all_weights_are_one(self):
+        """The whole point: no term weighting on the query side."""
+        sv = encode_sparse_query([TEXTS[0]], SPARSE_MODEL)[0]
+        assert all(v == pytest.approx(1.0) for v in sv.values)
+
+    def test_document_path_weights_depend_on_length(self):
+        """The defect R-09 removes, in one assertion.
+
+        Send a question through the document path and its terms are scaled by
+        `b · len / avg_len` — the ratio between the length of the *question* and
+        the average length of a *chunk*, two quantities with nothing to do with
+        each other.  So the identical word scores differently depending on how
+        long the question around it happens to be.  On the query side it is 1.0
+        either way.
+        """
+        short = encode_sparse(["margine"], SPARSE_MODEL)[0]
+        long = encode_sparse(
+            ["qual e' il margine operativo consolidato del gruppo nel 2023"], SPARSE_MODEL
+        )[0]
+        assert short.values[0] != pytest.approx(long.values[0])
+
+        q_short = encode_sparse_query(["margine"], SPARSE_MODEL)[0]
+        q_long = encode_sparse_query(
+            ["qual e' il margine operativo consolidato del gruppo nel 2023"], SPARSE_MODEL
+        )[0]
+        assert q_short.values[0] == pytest.approx(q_long.values[0]) == 1.0
+
+    def test_differs_from_the_document_encoding(self):
+        q = encode_sparse_query([TEXTS[0]], SPARSE_MODEL)[0]
+        d = encode_sparse([TEXTS[0]], SPARSE_MODEL)[0]
+        assert set(q.indices) == set(d.indices)  # stessi token
+        assert q.values != pytest.approx(d.values)  # pesi diversi
+
+    def test_repeated_terms_counted_once(self):
+        """`query_embed` de-duplicates through a set; `embed` does not.
+
+        A user who types the same word twice is not asking for it twice as
+        much.
+        """
+        once = encode_sparse_query(["margine"], SPARSE_MODEL)[0]
+        thrice = encode_sparse_query(["margine margine margine"], SPARSE_MODEL)[0]
+        assert set(once.indices) == set(thrice.indices)
+        assert len(thrice.indices) == len(once.indices)
+
+    def test_document_path_does_react_to_repetition(self):
+        once = encode_sparse(["margine"], SPARSE_MODEL)[0]
+        thrice = encode_sparse(["margine margine margine"], SPARSE_MODEL)[0]
+        assert once.values != pytest.approx(thrice.values)
+
+    def test_returns_one_vector_per_text(self):
+        assert len(encode_sparse_query(TEXTS, SPARSE_MODEL)) == len(TEXTS)
+
+    def test_indices_and_values_same_length(self):
+        for sv in encode_sparse_query(TEXTS, SPARSE_MODEL):
+            assert len(sv.indices) == len(sv.values)
+
+    def test_indices_are_ints(self):
+        sv = encode_sparse_query(TEXTS[:1], SPARSE_MODEL)[0]
+        assert all(isinstance(i, int) for i in sv.indices)
+
+    def test_empty_input_returns_empty_list(self):
+        assert encode_sparse_query([], SPARSE_MODEL) == []
+
+    def test_same_text_identical_output(self):
+        a = encode_sparse_query([TEXTS[0]], SPARSE_MODEL)[0]
+        b = encode_sparse_query([TEXTS[0]], SPARSE_MODEL)[0]
+        assert set(a.indices) == set(b.indices)

@@ -1,4 +1,4 @@
-"""Tests for R-02: cross-encoder reranker (rerank() + harness integration).
+﻿"""Tests for R-02: cross-encoder reranker (rerank() + harness integration).
 
 The fastembed TextCrossEncoder is mocked throughout — no model download required.
 """
@@ -257,7 +257,7 @@ class TestRerankerHarness:
 
         with patch("src.eval.harness.get_client"), \
              patch("src.eval.retrieval_backends.encode", return_value=[[0.1] * 1024]), \
-             patch("src.eval.retrieval_backends.encode_sparse", return_value=[sparse_vec]), \
+             patch("src.eval.retrieval_backends.encode_sparse_query", return_value=[sparse_vec]), \
              patch("src.eval.retrieval_backends.search_batch", return_value=[[hit]]), \
              patch("src.eval.harness.cross_encode", return_value=[mock_result]) as mock_ce:
             run_retrieval_eval(

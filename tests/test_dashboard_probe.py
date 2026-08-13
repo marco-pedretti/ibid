@@ -1,4 +1,4 @@
-"""Tests for dashboard/retrieval_probe.py — single-query interactive retrieval.
+﻿"""Tests for dashboard/retrieval_probe.py — single-query interactive retrieval.
 
 All Qdrant and embedding calls are mocked: these assert the probe's *ordering
 semantics* match the eval harness, not that the models work.
@@ -116,7 +116,7 @@ class TestProbe:
         if points is None:  # [] is a meaningful input, not "unset"
             points = [_point(f"ds:doc1:{i}", 0.9 - i / 100) for i in range(10)]
         with patch("dashboard.retrieval_probe.encode", return_value=[[0.1] * 1024]), \
-             patch("dashboard.retrieval_probe.encode_sparse", return_value=[MagicMock()]), \
+             patch("dashboard.retrieval_probe.encode_sparse_query", return_value=[MagicMock()]), \
              patch("dashboard.retrieval_probe.search", return_value=points) as mock_search, \
              patch("dashboard.retrieval_probe.cross_encode",
                    return_value=rerank_out if rerank_out is not None else []):

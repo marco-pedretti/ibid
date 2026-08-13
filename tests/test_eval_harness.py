@@ -1,4 +1,4 @@
-"""Tests for the retrieval evaluation harness (E-03/E-06/R-01).
+﻿"""Tests for the retrieval evaluation harness (E-03/E-06/R-01).
 
 Qdrant client and embedding functions are mocked — no server required.
 search_batch is patched instead of search: the harness sends queries in bulk
@@ -73,7 +73,7 @@ class TestDenseRetrieval:
 
         with patch("src.eval.harness.get_client"), \
              patch("src.eval.retrieval_backends.encode", return_value=[fake_vec]) as mock_enc, \
-             patch("src.eval.retrieval_backends.encode_sparse") as mock_sparse, \
+             patch("src.eval.retrieval_backends.encode_sparse_query") as mock_sparse, \
              patch("src.eval.retrieval_backends.search_batch", return_value=[[]]):
             run_retrieval_eval("open_ragbench", path, retrieval_mode="dense", limit=1)
 
@@ -130,7 +130,7 @@ class TestSparseRetrieval:
 
         with patch("src.eval.harness.get_client"), \
              patch("src.eval.retrieval_backends.encode") as mock_dense, \
-             patch("src.eval.retrieval_backends.encode_sparse",
+             patch("src.eval.retrieval_backends.encode_sparse_query",
                    return_value=[sparse_vec]) as mock_sparse, \
              patch("src.eval.retrieval_backends.search_batch", return_value=[[]]):
             run_retrieval_eval("open_ragbench", path, retrieval_mode="sparse", limit=1)
@@ -143,7 +143,7 @@ class TestSparseRetrieval:
         sparse_vec = self._fake_sparse_vec()
 
         with patch("src.eval.harness.get_client"), \
-             patch("src.eval.retrieval_backends.encode_sparse", return_value=[sparse_vec]), \
+             patch("src.eval.retrieval_backends.encode_sparse_query", return_value=[sparse_vec]), \
              patch("src.eval.retrieval_backends.search_batch", return_value=[[]]) as mock_batch:
             run_retrieval_eval("open_ragbench", path, retrieval_mode="sparse", limit=1)
 
@@ -155,7 +155,7 @@ class TestSparseRetrieval:
         sparse_vec = self._fake_sparse_vec()
 
         with patch("src.eval.harness.get_client"), \
-             patch("src.eval.retrieval_backends.encode_sparse", return_value=[sparse_vec]), \
+             patch("src.eval.retrieval_backends.encode_sparse_query", return_value=[sparse_vec]), \
              patch("src.eval.retrieval_backends.search_batch", return_value=[[]]):
             run = run_retrieval_eval(
                 "open_ragbench", path,
@@ -171,7 +171,7 @@ class TestSparseRetrieval:
         sparse_vec = self._fake_sparse_vec()
 
         with patch("src.eval.harness.get_client"), \
-             patch("src.eval.retrieval_backends.encode_sparse", return_value=[sparse_vec]), \
+             patch("src.eval.retrieval_backends.encode_sparse_query", return_value=[sparse_vec]), \
              patch("src.eval.retrieval_backends.search_batch", return_value=[[]]):
             run = run_retrieval_eval("open_ragbench", path, retrieval_mode="sparse", limit=1)
 
@@ -193,7 +193,7 @@ class TestConfigHash:
         retrieval_mode = kwargs.get("retrieval_mode", "dense")
 
         if retrieval_mode == "sparse":
-            embed_patch = patch("src.eval.retrieval_backends.encode_sparse", return_value=[sparse_vec])
+            embed_patch = patch("src.eval.retrieval_backends.encode_sparse_query", return_value=[sparse_vec])
         elif retrieval_mode == "hybrid":
             embed_patch = patch("src.eval.retrieval_backends.encode", return_value=[[0.1] * 1024])
         else:
@@ -202,7 +202,7 @@ class TestConfigHash:
         if retrieval_mode == "hybrid":
             with patch("src.eval.harness.get_client"), \
                  embed_patch, \
-                 patch("src.eval.retrieval_backends.encode_sparse", return_value=[sparse_vec]), \
+                 patch("src.eval.retrieval_backends.encode_sparse_query", return_value=[sparse_vec]), \
                  patch("src.eval.retrieval_backends.search_batch", return_value=[[]]):
                 return run_retrieval_eval("open_ragbench", path, limit=1, **kwargs)
         else:

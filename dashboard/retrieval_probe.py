@@ -19,7 +19,7 @@ from dataclasses import dataclass
 from typing import Any
 
 import src.config as cfg
-from src.index.embed import encode, encode_sparse
+from src.index.embed import encode, encode_sparse_query
 from src.index.store import search
 from src.retrieval.hybrid import rrf_fuse
 from src.retrieval.reranker import rerank as cross_encode
@@ -122,7 +122,7 @@ def probe(client, query_text: str, config: ProbeConfig) -> list[ProbeHit]:
     if config.retrieval_mode == "hybrid":
         hybrid_fetch = max(cfg.HYBRID_FETCH_K, fetch_k)
         dense_vec = encode([query_text], cfg.EMBEDDING_MODEL, batch_size=1)[0]
-        sparse_vec = encode_sparse([query_text], cfg.SPARSE_EMBEDDING_MODEL)[0]
+        sparse_vec = encode_sparse_query([query_text], cfg.SPARSE_EMBEDDING_MODEL)[0]
         dense_pts = search(client, config.collection, dense_vec, top_k=hybrid_fetch, using="dense")
         sparse_pts = search(client, config.collection, sparse_vec, top_k=hybrid_fetch, using="sparse")
         payload_map = {
@@ -143,7 +143,7 @@ def probe(client, query_text: str, config: ProbeConfig) -> list[ProbeHit]:
         ]
     else:
         if config.retrieval_mode == "sparse":
-            vec = encode_sparse([query_text], cfg.SPARSE_EMBEDDING_MODEL)[0]
+            vec = encode_sparse_query([query_text], cfg.SPARSE_EMBEDDING_MODEL)[0]
         else:
             vec = encode([query_text], cfg.EMBEDDING_MODEL, batch_size=1)[0]
         points = search(

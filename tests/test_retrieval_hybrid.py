@@ -1,4 +1,4 @@
-"""Tests for R-01: hybrid RRF retrieval (rrf_fuse + hybrid_search + harness integration).
+﻿"""Tests for R-01: hybrid RRF retrieval (rrf_fuse + hybrid_search + harness integration).
 
 rrf_fuse is pure Python — no Qdrant required.
 hybrid_search and harness integration use mocks.
@@ -183,7 +183,7 @@ class TestHybridHarness:
 
         with patch("src.eval.harness.get_client"), \
              patch("src.eval.retrieval_backends.encode", return_value=[dense_vec]), \
-             patch("src.eval.retrieval_backends.encode_sparse", return_value=[sparse_vec]), \
+             patch("src.eval.retrieval_backends.encode_sparse_query", return_value=[sparse_vec]), \
              patch("src.eval.retrieval_backends.search_batch", return_value=[[batch_hit]]) as mock_batch:
             run = run_retrieval_eval(
                 "open_ragbench", path,
@@ -209,7 +209,7 @@ class TestHybridHarness:
 
         with patch("src.eval.harness.get_client"), \
              patch("src.eval.retrieval_backends.encode", return_value=[dense_vec]) as mock_enc, \
-             patch("src.eval.retrieval_backends.encode_sparse", return_value=[sparse_vec]) as mock_sparse, \
+             patch("src.eval.retrieval_backends.encode_sparse_query", return_value=[sparse_vec]) as mock_sparse, \
              patch("src.eval.retrieval_backends.search_batch", return_value=[[batch_hit]]):
             run_retrieval_eval(
                 "open_ragbench", path,
@@ -231,7 +231,7 @@ class TestHybridHarness:
 
         with patch("src.eval.harness.get_client"), \
              patch("src.eval.retrieval_backends.encode", return_value=[[0.1] * 1024]), \
-             patch("src.eval.retrieval_backends.encode_sparse", return_value=[sparse_vec]), \
+             patch("src.eval.retrieval_backends.encode_sparse_query", return_value=[sparse_vec]), \
              patch("src.eval.retrieval_backends.search_batch", return_value=[[batch_hit]]) as mock_batch:
             run_retrieval_eval(
                 "open_ragbench", path,
@@ -257,7 +257,7 @@ class TestHybridHarness:
 
         with patch("src.eval.harness.get_client"), \
              patch("src.eval.retrieval_backends.encode", return_value=[[0.1] * 1024]), \
-             patch("src.eval.retrieval_backends.encode_sparse", return_value=[sparse_vec]), \
+             patch("src.eval.retrieval_backends.encode_sparse_query", return_value=[sparse_vec]), \
              patch("src.eval.retrieval_backends.search_batch", return_value=[[batch_hit]]):
             run_hybrid = run_retrieval_eval(
                 "open_ragbench", path, retrieval_mode="hybrid",
