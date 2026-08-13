@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+﻿#!/usr/bin/env python3
 """C-05 — does the answer come back in the language of the question?
 
 The acceptance criterion is "nessuna risposta mista incoerente su 20 campioni",
@@ -37,7 +37,6 @@ from pathlib import Path
 
 ROOT = Path(__file__).parent.parent
 sys.path.insert(0, str(ROOT))
-sys.path = [p for p in sys.path if Path(p or ".").resolve() != Path(__file__).parent.resolve()]
 
 import src.config as cfg
 from src.datasets import registry

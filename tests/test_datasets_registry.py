@@ -133,3 +133,20 @@ class TestNobodyHardcodesTheListAgain:
         pattern = re.compile(r"==\s*[\"']open_ragbench[\"']|[\"']open_ragbench[\"']\s*==")
         offenders = [str(rel) for rel, text in self._sources() if pattern.search(text)]
         assert not offenders, f"ramificano sul nome del dataset: {offenders}"
+
+    def test_no_module_writes_the_list_of_names_at_all(self):
+        """Più largo dei due sopra, e serviva.
+
+        I primi due cercano `choices=[...]` e le ramificazioni su `==`. Un
+        residuo in `eval_abstention.py` non era né l'uno né l'altro — era un
+        default in fondo a un `for`:
+
+            for dataset in ([args.dataset] if args.dataset else ["open_ragbench", "ledger"]):
+
+        È sopravvissuto a Q-06 e si è visto solo passando di lì per Q-01. Un
+        test che cerca la *forma* del difetto ne lascia fuori le varianti; questo
+        cerca la lista dei nomi, che è la cosa che non deve esistere.
+        """
+        pattern = re.compile(r"\[\s*[\"']open_ragbench[\"']\s*,\s*[\"']ledger[\"']")
+        offenders = [str(rel) for rel, text in self._sources() if pattern.search(text)]
+        assert not offenders, f"scrivono la lista dei dataset a mano: {offenders}"

@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+﻿#!/usr/bin/env python3
 """Derive the abstention thresholds from data (C-04).
 
 The human picks a budget — how many answerable questions may be refused.  This
@@ -30,7 +30,6 @@ from pathlib import Path
 
 ROOT = Path(__file__).parent.parent
 sys.path.insert(0, str(ROOT))
-sys.path = [p for p in sys.path if Path(p or ".").resolve() != Path(__file__).parent.resolve()]
 
 import src.config as cfg
 from src.datasets import registry
@@ -97,7 +96,7 @@ def main() -> None:
     ap.add_argument("--top-k", type=int, default=cfg.TOP_K)
     args = ap.parse_args()
 
-    datasets = [args.dataset] if args.dataset else ["open_ragbench", "ledger"]
+    datasets = [args.dataset] if args.dataset else registry.dataset_ids()
     out = {}
     for dataset in datasets:
         r = calibrate(dataset, args.budget, args.mode, args.top_k)

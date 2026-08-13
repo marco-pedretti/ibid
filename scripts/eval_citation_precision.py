@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+﻿#!/usr/bin/env python3
 """C-03 — citation_precision over stored generations, per dataset.
 
 No regeneration.  The C-01 harness saved every answer with the `chunk_ids` that
@@ -27,18 +27,16 @@ import hashlib
 import json
 import sys
 import time
-import uuid
 from dataclasses import asdict
-from datetime import datetime, timezone
+from datetime import datetime
 from pathlib import Path
 
 ROOT = Path(__file__).parent.parent
 sys.path.insert(0, str(ROOT))
-sys.path = [p for p in sys.path if Path(p or ".").resolve() != Path(__file__).parent.resolve()]
 
 import src.config as cfg
+from src.eval.run_config import make_eval_run
 from qdrant_client import models
-from src.datasets.schema import EvalRun
 from src.eval.citation_metrics import build_metrics, summarize, verify_answer
 from src.eval.provenance import git_commit
 from src.generation.citations import parse
@@ -165,17 +163,11 @@ def print_report(dataset: str, res: dict) -> None:
 
 def write_run(dataset: str, res: dict, commit: str) -> Path:
     r = res["report"]
-    run = EvalRun(
-        run_id=str(uuid.uuid4()),
-        timestamp=datetime.now(timezone.utc),
+    run = make_eval_run(
         git_commit=commit,
         config_hash=_config_hash(res["dump"], res["n"]),
         dataset_id=dataset,
-        model=cfg.LLM_MODEL,
-        quantization=cfg.LLM_QUANTIZATION,
-        context_window=cfg.CONTEXT_WINDOW,
-        temperature=cfg.TEMPERATURE,
-        reasoning_enabled=cfg.REASONING_EFFORT not in ("none", "", None),
+        llm=cfg.LLM_MODEL,
         pipeline_mode="generic",
         config={
             "harness": "citation_precision",

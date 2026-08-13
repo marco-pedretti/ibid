@@ -984,7 +984,48 @@ Non è un difetto: è `rescore_citations.py` che fa il suo mestiere, cioè dire 
 
 | Task | Stato | Note |
 |---|---|---|
-| Q-01 | ⬜ da fare | `EvalRun` costruito in **5 siti**; `reasoning_enabled` derivato in 4 e ancora scritto `False` a mano in `src/eval/harness.py` — che con `--query-rewrite` usa davvero il modello. |
+| Q-01 | ✅ fatto (2026-08-13) | `run_config.make_eval_run` è l'unico costruttore. Il difetto vero non era la duplicazione ma ciò che nascondeva: l'harness del retrieval dichiarava `model="retrieval_only"` e `reasoning_enabled=False` **anche con `--query-rewrite`**, cioè quando l'LLM girava davvero — e su disco c'è la run che lo prova. Vedi sotto. |
+
+### Q-01 — il campo che dichiarava il falso, e il commento che mi ha fermato
+
+**Cinque siti con lo stesso preambolo.** Quattro deducevano `reasoning_enabled` dalla configurazione, il quinto lo scriveva `False` a mano: la forma che prende una duplicazione quando invecchia, con la correzione arrivata ad alcune copie e non a tutte.
+
+**Ma il difetto vero è più profondo della duplicazione.** `make_eval_run` chiede a chi la chiama `llm: str | None`, dove `None` significa *«in questa run non ha girato nessun modello»* — e solo allora ha senso `model="retrieval_only"`, finestra 0, ragionamento spento.
+
+Chiederlo invece di dedurlo dal tipo di harness corregge una dichiarazione falsa: **l'harness del retrieval usa l'LLM quando `--query-rewrite` è attivo** (R-03), e diceva lo stesso di non usarlo. La prova è su disco:
+
+| `20260806_093334_open_ragbench_generic_dense-rewrite.json` | |
+|---|---|
+| `model` | `retrieval_only` |
+| `reasoning_enabled` | `false` |
+| cosa era successo | il modello aveva **riscritto ogni query** |
+
+È archiviata e resta com'è. Da ora una run del genere dice il vero.
+
+#### Il commento che ha impedito un cambio di semantica silenzioso
+
+La prima versione della fabbrica calcolava `git_commit()` da sé — comodo, una cosa in meno da passare. Poi ho letto il commento che stava sopra la riga che stavo sostituendo:
+
+> *«captured before the run, not when the EvalRun is built»*
+
+Una run lunga può **finire dopo un commit**, e il valore che serve è quello del codice che ha girato, non quello dell'albero a fine corsa. La mia versione l'avrebbe cambiato senza che nessun test se ne accorgesse. Ora `git_commit` è un parametro, e c'è un test che se ne accorgerebbe.
+
+#### Un test riscritto, perché guardava il posto sbagliato
+
+`test_reasoning_enabled_is_derived_not_asserted` cercava l'espressione della deduzione nel **testo sorgente** di `run_generation_eval`. Spostata la deduzione, il test è fallito **senza che ci fosse alcuna regressione**: segnalava *dove sta il codice*, non *cosa fa*.
+
+Riscritto sul comportamento — cinque valori di `REASONING_EFFORT`, verifica del campo risultante — e ora vale ovunque la deduzione viva.
+
+#### I residui trovati passando di lì
+
+Due difetti che i test di Q-03 e Q-06 non vedevano, trovati a occhio:
+
+- **Q-06**: due script scrivevano la lista dei dataset in una terza forma (`else ["open_ragbench", "ledger"]` in fondo a un `for`), che non era né `choices=` né una ramificazione su `==`. Aggiunto un test più largo, che cerca **la lista** invece delle due forme note — ed è lui che ha trovato il secondo.
+- **Q-03**: il rimedio locale che si toglieva `scripts/` da `sys.path` era in **altri sei file**. Q-03 cercava il nome del file, non i posti che lo aggiravano.
+
+> La lezione, per i tre test «guarda il resto del repo» scritti in questa fase: **cercare la *forma* di un difetto ne lascia fuori le varianti.** Meglio cercare la cosa che non deve esistere.
+
+**Gate superato**, output identico al riferimento. Verificata anche una eval vera: `config_hash 5c3c7fa2`, lo stesso di sempre. 1389 test.
 | Q-02 | ⬜ da fare | **Entrambi** gli harness senza dump per query — baseline **e retrieval** — salvano i risultati per query. Rende il taglio 45%→17% un test appaiato, e toglie la necessità di ricostruire uno stato a comando per confrontare due run di retrieval (come è servito in R-08). |
 | Q-03 | ✅ fatto (2026-08-13) | `scripts/profile.py` → **`profile_docs.py`**. Il difetto era riproducibile in una riga (`import profile` da `scripts/` restituiva il nostro file) e ora `import transformers` da quella cartella funziona. Tolto anche il rimedio locale in `probe_entailment.py`, che curava il sintomo per un file solo lasciando la causa in piedi per gli altri 35. |
 | Q-04 | ✅ fatto (2026-08-13) | `ruff check .` **pulito su tutto il repo**. Le 53 segnalazioni erano 3 difetti veri e 50 volte lo stesso: gli script non sono installati, quindi il bootstrap di `sys.path` deve precedere gli import. Soppresso in configurazione — **e dichiarato come soppressione** — con la correzione vera rimandata alla Fase 7. Tolti 101 `# noqa: E402` diventati ridondanti. |

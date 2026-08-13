@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+﻿#!/usr/bin/env python3
 """OQ-05 — il verificatore distingue un numero presente da uno assente?
 
 **Misura, non codice di produzione.** Committato perché il numero citato in
@@ -45,7 +45,6 @@ from pathlib import Path
 
 ROOT = Path(__file__).parent.parent
 sys.path.insert(0, str(ROOT))
-sys.path = [p for p in sys.path if Path(p or ".").resolve() != Path(__file__).parent.resolve()]
 
 import src.config as cfg
 from qdrant_client import models
