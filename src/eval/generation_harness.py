@@ -1,4 +1,4 @@
-"""Generation evaluation harness for baselines E-04 (permissive) and E-05 (strict).
+﻿"""Generation evaluation harness for baselines E-04 (permissive) and E-05 (strict).
 
 Orchestrates: load golden queries -> generate without context -> judge ->
 compute rates -> EvalRun.
@@ -8,11 +8,10 @@ from __future__ import annotations
 
 import hashlib
 import json
-import uuid
-from datetime import datetime, timezone
 from pathlib import Path
 
 import src.config as cfg
+from src.eval.run_config import make_eval_run
 from src.datasets.schema import EvalRun
 from src.eval.provenance import git_commit, load_golden
 from src.generation.baseline_prompts import (
@@ -169,21 +168,11 @@ def run_generation_eval(
         "wrong_rate": counts["wrong"] / n if n else 0.0,
     }
 
-    return EvalRun(
-        run_id=str(uuid.uuid4()),
-        timestamp=datetime.now(timezone.utc),
+    return make_eval_run(
         git_commit=commit,
         config_hash=_config_hash(baseline, model, queries),
         dataset_id=dataset_id,
-        model=model,
-        quantization=cfg.LLM_QUANTIZATION,
-        context_window=cfg.CONTEXT_WINDOW,
-        temperature=cfg.TEMPERATURE,
-        # Derived, not asserted. Written as a literal `False` this field was a
-        # claim nobody checked — the same defect C-01 found in the citation
-        # harness, where every run declared reasoning off while the model was
-        # reasoning through its whole token budget.
-        reasoning_enabled=cfg.REASONING_EFFORT not in ("none", "", None),
+        llm=model,
         pipeline_mode=_ROUTING_AXIS,
         config={
             "harness": "generation_baseline",

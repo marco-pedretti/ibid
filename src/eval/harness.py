@@ -1,4 +1,4 @@
-"""Retrieval evaluation harness (E-03).
+﻿"""Retrieval evaluation harness (E-03).
 
 Orchestrates: load golden queries -> embed -> search Qdrant -> compute IR metrics -> EvalRun.
 """
@@ -8,8 +8,6 @@ from __future__ import annotations
 import hashlib
 import json
 import time
-import uuid
-from datetime import datetime, timezone
 from pathlib import Path
 
 import src.config as cfg
@@ -25,7 +23,7 @@ from src.eval.metrics import (
 )
 from src.eval.provenance import git_commit, load_golden
 from src.eval.retrieval_backends import RETRIEVERS
-from src.eval.run_config import build_config
+from src.eval.run_config import build_config, make_eval_run
 from src.index.store import get_client
 import ir_measures
 
@@ -305,9 +303,7 @@ def run_retrieval_eval(
     for k, v in doc_metrics.items():
         metrics[f"doc_{k}"] = v
 
-    return EvalRun(
-        run_id=str(uuid.uuid4()),
-        timestamp=datetime.now(timezone.utc),
+    return make_eval_run(
         git_commit=commit,
         config_hash=_config_hash(
             top_k, pipeline_mode, retrieval_mode, rerank, query_rewrite,
@@ -315,11 +311,10 @@ def run_retrieval_eval(
             eval_depth,
         ),
         dataset_id=dataset_id,
-        model="retrieval_only",
-        quantization="none",
-        context_window=0,
-        temperature=0.0,
-        reasoning_enabled=False,
+        # Il retrieval da solo non tocca l'LLM -- ma con `--query-rewrite` si',
+        # e prima questa riga era un `model="retrieval_only"` cablato che lo
+        # negava. Vedi `make_eval_run`: e' il difetto che quella firma corregge.
+        llm=(cfg.QUERY_REWRITE_MODEL or cfg.LLM_MODEL) if query_rewrite else None,
         pipeline_mode=pipeline_mode,
         config=build_config(
             top_k=top_k,

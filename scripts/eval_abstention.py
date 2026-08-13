@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+﻿#!/usr/bin/env python3
 """C-04 — correct abstention on E-02, and what it costs on answerable queries.
 
 Two rates that only mean something together:
@@ -36,8 +36,7 @@ import json
 import random
 import sys
 import time
-import uuid
-from datetime import datetime, timezone
+from datetime import datetime
 from pathlib import Path
 
 ROOT = Path(__file__).parent.parent
@@ -45,8 +44,8 @@ sys.path.insert(0, str(ROOT))
 sys.path = [p for p in sys.path if Path(p or ".").resolve() != Path(__file__).parent.resolve()]
 
 import src.config as cfg
+from src.eval.run_config import make_eval_run
 from src.datasets import registry
-from src.datasets.schema import EvalRun
 from src.eval.citation_harness import _payload_to_chunk
 from src.eval.provenance import git_commit
 from src.eval.retrieval_backends import RETRIEVERS
@@ -156,12 +155,9 @@ def main() -> None:
 
         if args.no_write:
             continue
-        run = EvalRun(
-            run_id=str(uuid.uuid4()), timestamp=datetime.now(timezone.utc),
+        run = make_eval_run(
             git_commit=commit, config_hash=_config_hash(use_gate, len(an)),
-            dataset_id=dataset, model=args.model, quantization=cfg.LLM_QUANTIZATION,
-            context_window=cfg.CONTEXT_WINDOW, temperature=cfg.TEMPERATURE,
-            reasoning_enabled=cfg.REASONING_EFFORT not in ("none", "", None),
+            dataset_id=dataset, llm=args.model,
             pipeline_mode="generic",
             config={"harness": "abstention", "abstention_gate": use_gate,
                     "abstention_budget": cfg.ABSTENTION_BUDGET if use_gate else None,

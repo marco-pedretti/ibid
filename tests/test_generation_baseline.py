@@ -10,6 +10,7 @@ from unittest.mock import patch
 
 import pytest
 
+import src.config as cfg
 from src.datasets.golden import GoldenQrel, GoldenQuery
 from src.datasets.schema import EvalRun
 from src.generation.baseline_prompts import (
@@ -351,16 +352,29 @@ class TestReasoningProvenance:
         src = inspect.getsource(generation_harness.run_generation_eval)
         assert "reasoning_effort=cfg.REASONING_EFFORT" in src
 
-    def test_reasoning_enabled_is_derived_not_asserted(self):
-        """Written as a literal `False` this was a claim nobody checked — the
-        same defect C-01 found in the citation harness."""
-        import inspect
+    @pytest.mark.parametrize("effort,expected", [
+        ("none", False), ("", False), ("low", True), ("high", True), ("max", True),
+    ])
+    def test_reasoning_enabled_follows_the_config(self, tmp_path, monkeypatch,
+                                                  effort, expected):
+        """Scritto come `False` letterale era una dichiarazione che nessuno
+        verificava — lo stesso difetto che C-01 trovo' nell'harness delle
+        citazioni.
 
-        from src.eval import generation_harness
-
-        src = inspect.getsource(generation_harness.run_generation_eval)
-        assert "reasoning_enabled=False" not in src
-        assert 'reasoning_enabled=cfg.REASONING_EFFORT not in ("none", "", None)' in src
+        **Questo test guardava il testo sorgente della funzione**, e cercava
+        l'espressione `reasoning_enabled=cfg.REASONING_EFFORT not in (...)`.
+        Andava bene finche' la deduzione stava li'; con Q-01 e' passata in
+        `run_config.make_eval_run`, e il test e' fallito pur non essendoci
+        nessuna regressione — segnalava dove sta il codice, non cosa fa.
+        Riscritto sul comportamento: adesso vale ovunque la deduzione viva, che
+        e' la proprieta' che interessava fin dall'inizio.
+        """
+        monkeypatch.setattr(cfg, "REASONING_EFFORT", effort)
+        path = _write_golden(tmp_path, [_answerable_query()])
+        with patch("src.eval.generation_harness.generate", return_value="42."), \
+             patch("src.eval.generation_harness.judge_answer", return_value="correct"):
+            run = run_generation_eval("open_ragbench", path, baseline="A", limit=1)
+        assert run.reasoning_enabled is expected
 
     def test_the_judge_is_pinned_and_does_not_read_the_config(self):
         """An instrument that changes with its subject cannot attribute the

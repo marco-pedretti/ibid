@@ -1,4 +1,4 @@
-"""Citation-format evaluation harness (C-01).
+﻿"""Citation-format evaluation harness (C-01).
 
 Retrieve → prompt → generate → check the raw answer against ROADMAP §3.2.
 
@@ -19,16 +19,14 @@ from __future__ import annotations
 import hashlib
 import json
 import time
-import uuid
 from dataclasses import asdict, dataclass, field
-from datetime import datetime, timezone
 from pathlib import Path
 
 import src.config as cfg
 from src.datasets.schema import Chunk, EvalRun
 from src.eval.provenance import git_commit, load_golden
 from src.eval.retrieval_backends import RETRIEVERS
-from src.eval.run_config import build_config
+from src.eval.run_config import build_config, make_eval_run
 from src.generation.chat import generate_detailed
 from src.generation.citation_format import ComplianceSummary, check_format, summarize
 from src.generation.prompt import SYSTEM, build_user_message
@@ -387,20 +385,11 @@ def run_citation_eval(
 
     summary = summarize(reports)
 
-    run = EvalRun(
-        run_id=str(uuid.uuid4()),
-        timestamp=datetime.now(timezone.utc),
+    run = make_eval_run(
         git_commit=commit,
         config_hash=_config_hash(top_k, retrieval_mode, qdrant_collection, model, system_prompt),
         dataset_id=dataset_id,
-        model=model,
-        quantization=cfg.LLM_QUANTIZATION,
-        context_window=cfg.CONTEXT_WINDOW,
-        temperature=cfg.TEMPERATURE,
-        # Derived, not asserted: before this was tied to config, every run
-        # claimed reasoning was off while the model was reasoning through the
-        # whole token budget.
-        reasoning_enabled=cfg.REASONING_EFFORT not in ("none", "", None),
+        llm=model,
         pipeline_mode=pipeline_mode,
         config={
             **build_config(
