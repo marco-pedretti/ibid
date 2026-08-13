@@ -1,12 +1,12 @@
-#!/usr/bin/env python3
+﻿#!/usr/bin/env python3
 """I-01: document profiler CLI — prints a tabular report for a dataset.
 
 Usage:
-    python scripts/profile.py
-    python scripts/profile.py --dataset open_ragbench
-    python scripts/profile.py --dataset ledger
-    python scripts/profile.py --dataset all       # profile all downloaded datasets
-    python scripts/profile.py --json              # also dump per-doc profiles as JSON
+    python scripts/profile_docs.py
+    python scripts/profile_docs.py --dataset open_ragbench
+    python scripts/profile_docs.py --dataset ledger
+    python scripts/profile_docs.py --dataset all       # profile all downloaded datasets
+    python scripts/profile_docs.py --json              # also dump per-doc profiles as JSON
 """
 
 import argparse

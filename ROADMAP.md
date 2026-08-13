@@ -362,7 +362,7 @@ Tutte e tre le voci nascono dall'audit del 2026-08-11, in cui le librerie sono s
 |---|---|---|
 | Q-01 | Costruzione di `EvalRun` unificata: oggi sono **5 siti**, `reasoning_enabled` è derivato in 4 e ancora scritto `False` a mano in `src/eval/harness.py` | Un solo posto lo costruisce; il campo non è più scrivibile a mano |
 | Q-02 | **Entrambi** gli harness senza dump per query — baseline **e retrieval** — salvano i risultati per query, come già fa quello delle citazioni | Il taglio 45%→17% di E-04/E-05 diventa un test appaiato; e un confronto fra due run di retrieval archiviate non richiede più di ricostruire uno stato a comando |
-| Q-03 | `scripts/profile.py` non adombra più il modulo `profile` della standard library | `import transformers` da dentro `scripts/` smette di fallire |
+| Q-03 | ✅ **fatto il 2026-08-13.** `scripts/profile.py` non adombra più il modulo `profile` della standard library: rinominato `profile_docs.py` | `import transformers` da dentro `scripts/` smette di fallire |
 | Q-04 | Igiene di import e lint su `scripts/` | `ruff check` pulito sul repo |
 | Q-05 | La scelta del provider ONNX vive in **un posto solo**, e la dipendenza GPU è un extra opzionale di `pyproject.toml` | Nessun file di `src/` nomina `DmlExecutionProvider`; su una macchina senza DirectML l'import riesce e ripiega dichiarandolo |
 | Q-06 | **Registro dei dataset**: i dataset disponibili si leggono da un posto solo, non da 14 liste `choices=[...]` scritte a mano | Aggiungere un dataset dello stesso genere richiede **solo** il suo loader; nessuno script va toccato |
