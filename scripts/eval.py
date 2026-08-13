@@ -1,4 +1,4 @@
-"""E-03 / E-06 / R-01–R-07: Run retrieval evaluation and write EvalRun JSON to eval/results/.
+﻿"""E-03 / E-06 / R-01–R-07: Run retrieval evaluation and write EvalRun JSON to eval/results/.
 
 Usage:
     python scripts/eval.py [--dataset open_ragbench|ledger|all] [--top-k N] [--limit N]
@@ -44,6 +44,7 @@ from __future__ import annotations
 import argparse
 import sys
 import time
+from datetime import datetime, timezone
 from pathlib import Path
 
 ROOT = Path(__file__).parent.parent
@@ -51,11 +52,24 @@ sys.path.insert(0, str(ROOT))
 
 import src.config as cfg
 from src.datasets import registry
+from src.eval.dump import JsonlWriter
 from src.eval.harness import run_retrieval_eval
 from src.eval.run_config import build_config, config_slug
 
 GOLDEN_DIR = ROOT / "eval" / "golden"
 RESULTS_DIR = ROOT / "eval" / "results"
+
+
+def _shown(path: Path) -> str:
+    """Percorso relativo alla radice se ci sta, altrimenti assoluto.
+
+    `relative_to` solleva invece di ripiegare, e nei test `RESULTS_DIR` diventa
+    una tmp_path fuori dal repo: una riga di stampa non deve far fallire una run.
+    """
+    try:
+        return str(path.relative_to(ROOT))
+    except ValueError:
+        return str(path)
 
 
 def run_dataset(
@@ -101,6 +115,23 @@ def run_dataset(
     )
     t0 = time.time()
 
+    # Q-02: i risultati per query. Il nome si sceglie **prima** della run,
+    # perche' e' il file in cui i record vengono scritti mentre gira -- e con
+    # `--no-write` non si scrive niente, calibrazione compresa.
+    ts = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
+    # Derivata da RESULTS_DIR **qui** e non come costante di modulo: i test
+    # sostituiscono `scripts.eval.RESULTS_DIR` con una tmp_path, e una costante
+    # calcolata all'import gli sfuggirebbe -- come mi e' successo, lasciando sei
+    # file veri in `eval/results/retrieved/` scritti da una suite di test.
+    # Cartella separata dalle metriche: sono file per query e non per run, e
+    # mescolarli renderebbe illeggibile un `ls` di `eval/results/`.
+    retrieved_dir = RESULTS_DIR / "retrieved"
+    writer = None if no_write else JsonlWriter(
+        retrieved_dir / f"{ts}_{dataset_id}_{pipeline_mode}_{slug}.jsonl"
+    )
+    if writer is not None:
+        print(f"  risultati per query in {_shown(writer.tmp)}", flush=True)
+
     eval_run = run_retrieval_eval(
         dataset_id=dataset_id,
         golden_path=golden_path,
@@ -113,17 +144,19 @@ def run_dataset(
         doc_aggregate=doc_aggregate,
         limit=limit,
         collection=collection,
+        writer=writer,
     )
 
     elapsed = time.time() - t0
     if no_write:
         print(f"  Done in {elapsed:.1f}s -> niente salvato (--no-write)")
     else:
+        writer.finish()
         RESULTS_DIR.mkdir(parents=True, exist_ok=True)
-        ts = eval_run.timestamp.strftime("%Y%m%d_%H%M%S")
         out = RESULTS_DIR / f"{ts}_{dataset_id}_{eval_run.pipeline_mode}_{slug}.json"
         out.write_text(eval_run.model_dump_json(indent=2), encoding="utf-8")
         print(f"  Done in {elapsed:.1f}s -> {out.name}")
+        print(f"         {_shown(writer.path)}  ({writer.n} query)")
     for name, value in sorted(eval_run.metrics.items()):
         print(f"    {name}: {value:.4f}")
 

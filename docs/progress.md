@@ -713,7 +713,7 @@ Le frasi aggiunte vengono dall'output reale, non dall'immaginazione. Impatto ret
 
 **3. `EvalRun.config` non veniva popolato affatto**, e `reasoning_enabled` era scritto come letterale `False` — la stessa dichiarazione non verificata che C-01 aveva trovato altrove. Ora derivato da `cfg.REASONING_EFFORT`, che i baseline finalmente passano davvero al modello: prima l'argomento era omesso e il default lo fissava in silenzio, quindi non avrebbero potuto girare nella condizione di **C-07** nemmeno volendo. Il **giudice** invece resta fissato a `"none"` e non legge la config: è lo strumento di misura, e uno strumento che cambia insieme al proprio soggetto non può attribuire la differenza a nessuno dei due.
 
-**Aperto**: l'harness dei baseline non salva le risposte per query. È il motivo per cui il taglio 45% → 17% resta un'inferenza dai totali invece di un test appaiato, e per cui i tre difetti sopra hanno richiesto di rigenerare le risposte a mano per essere diagnosticati. `citation_harness` ha risolto lo stesso problema in C-01. **1232 test.**
+~~**Aperto**: l'harness dei baseline non salva le risposte per query.~~ È il motivo per cui il taglio 45% → 17% resta un'inferenza dai totali invece di un test appaiato, e per cui i tre difetti sopra hanno richiesto di rigenerare le risposte a mano per essere diagnosticati. `citation_harness` ha risolto lo stesso problema in C-01. **1232 test.** — **Chiuso il 2026-08-13 da Q-02**: l'harness salva le risposte per query e `scripts/compare_baselines.py` fa il test appaiato. Il taglio 45%→17% (cioè `wrong_rate`) diventa così **misurabile** come test appaiato; misurarlo vuole una ri-esecuzione di E-04/E-05 su open_ragbench, ~70 minuti di GPU, non ancora fatta.
 
 ---
 
@@ -1026,7 +1026,55 @@ Due difetti che i test di Q-03 e Q-06 non vedevano, trovati a occhio:
 > La lezione, per i tre test «guarda il resto del repo» scritti in questa fase: **cercare la *forma* di un difetto ne lascia fuori le varianti.** Meglio cercare la cosa che non deve esistere.
 
 **Gate superato**, output identico al riferimento. Verificata anche una eval vera: `config_hash 5c3c7fa2`, lo stesso di sempre. 1389 test.
-| Q-02 | ⬜ da fare | **Entrambi** gli harness senza dump per query — baseline **e retrieval** — salvano i risultati per query. Rende il taglio 45%→17% un test appaiato, e toglie la necessità di ricostruire uno stato a comando per confrontare due run di retrieval (come è servito in R-08). |
+| Q-02 | ✅ fatto (2026-08-13) | Entrambi gli harness salvano i risultati per query. La prova che serve: `compare_retrieved.py` riproduce **esattamente** i numeri di R-11 (0,9361 → 0,9398, 5 contro 42 discordanti) con uno strumento generico invece di un probe scritto apposta. Vedi sotto. |
+
+### Q-02 — i dump per query, e cosa rendono possibile
+
+**Il difetto ha morso due volte, in due posti diversi.**
+
+Durante E-04/E-05 la diagnosi di tre difetti ha richiesto di **rigenerare a mano le risposte**, perché quelle delle run non esistevano più. E il 2026-08-13, in R-08, il confronto con le run archiviate del retrieval è stato **marginale** — due medie, nessun test — e McNemar è stato possibile solo perché lo stato pre-correzione era riproducibile a comando, togliendo e rimettendo `modifier=IDF`. Una fortuna, non un metodo: la prossima correzione potrebbe non essere reversibile.
+
+**Il meccanismo è quello che C-01 aveva già inventato**, estratto in `src/eval/dump.py` prima di essere copiato una terza volta: append incrementale, suffisso `.partial`, rinomina **solo dopo l'ultimo record**. Le due proprietà che garantisce:
+
+- una run che muore alla query 190 su 200 **non perde le 190**;
+- un file troncato **non si confonde con uno finito** — l'esistenza del nome definitivo è la prova che la run è arrivata in fondo. `read_jsonl` rifiuta i `.partial` invece di leggerli in silenzio.
+
+#### La verifica che conta
+
+`scripts/compare_retrieved.py` sulle due run LEDGER (approssimata contro esatta):
+
+| | |
+|---|---|
+| A, ricerca approssimata | 0,9361 |
+| B, ricerca esatta | 0,9398 |
+| discordanti | **5 contro 42**, p < 0,0001 |
+
+**Sono esattamente i numeri di R-11**, ottenuti allora con un probe scritto apposta e ora con uno strumento generico che funziona su qualunque coppia di run. Lo script si rifiuta se i due dump non coprono le stesse query, invece di intersecare in silenzio: un test appaiato su una popolazione decisa dalla differenza fra due file non è un test appaiato.
+
+#### Cosa è stato tolto dopo averlo scritto
+
+`doc_ids` era pura derivazione di `chunk_ids` e pesava **circa un megabyte per run** per non dire niente di nuovo; i punteggi sono arrotondati a quattro cifre invece di sei. `query_text` invece resta benché sia nella golden: leggere le query discordanti è la pratica che qui ha ribaltato più di una conclusione — il controllo di R-10, i 67 disaccordi di C-09 — e costringere a un secondo file la rende abbastanza scomoda da non farla.
+
+**Costo su disco, misurato invece che stimato:** 7,1 MB grezzi per una run LEDGER da 10.000 query, **0,80 MB dentro git** (comprime nove volte). Il precedente c'è — le 34 generazioni di C-01 sono committate — e sotto il megabyte a run è il prezzo per rendere confrontabile una run archiviata.
+
+#### Un difetto mio, trovato dai test
+
+Avevo definito la cartella dei dump come costante di modulo derivata da `RESULTS_DIR`. I test sostituiscono `RESULTS_DIR` con una `tmp_path`, ma **una costante calcolata all'import gli sfugge**: sei file veri erano finiti in `eval/results/retrieved/`, scritti dalla suite di test. Ora si deriva al momento della chiamata. E `_shown()` ripiega sul percorso assoluto invece di sollevare — una riga di stampa non deve far fallire una run.
+
+#### E l'altra metà: i baseline
+
+Verificato end-to-end su due run brevi (25 query, prompt permissivo contro severo). Il test appaiato dice **due cose opposte sulla stessa coppia**:
+
+| esito contato | A | B | Δ | discordanti | p |
+|---|---|---|---|---|---|
+| `correct` | 0,5600 | 0,6000 | +4,0 | 1 contro 2 | **1,0000** |
+| `abstained` | 0,0400 | 0,2800 | **+24,0** | 0 contro 6 | **0,0312** |
+
+Guardando i soli totali si direbbe che il prompt severo risponde anche un po' meglio. Il test appaiato dice che quei quattro punti **poggiano su tre query discordanti** e non si distinguono dal caso, mentre la differenza sull'astensione è reale e unanime.
+
+È esattamente la distinzione che i dump esistono per rendere possibile — su 25 query, cioè su uno smoke test, non su una misura.
+
+> **Il 45%→17% non è ancora un test appaiato.** Quel numero è il `wrong_rate` di E-04 contro E-05, misurato su 100 query per baseline l'11 agosto, quando i dump non esistevano. Ora è *misurabile*: serve ri-eseguire le due run su open_ragbench, **~70 minuti di GPU** al ritmo osservato oggi (~20 s/query, generazione più giudice). Non fatto — è una run lunga e va concordata.
 | Q-03 | ✅ fatto (2026-08-13) | `scripts/profile.py` → **`profile_docs.py`**. Il difetto era riproducibile in una riga (`import profile` da `scripts/` restituiva il nostro file) e ora `import transformers` da quella cartella funziona. Tolto anche il rimedio locale in `probe_entailment.py`, che curava il sintomo per un file solo lasciando la causa in piedi per gli altri 35. |
 | Q-04 | ✅ fatto (2026-08-13) | `ruff check .` **pulito su tutto il repo**. Le 53 segnalazioni erano 3 difetti veri e 50 volte lo stesso: gli script non sono installati, quindi il bootstrap di `sys.path` deve precedere gli import. Soppresso in configurazione — **e dichiarato come soppressione** — con la correzione vera rimandata alla Fase 7. Tolti 101 `# noqa: E402` diventati ridondanti. |
 | Q-05 | ✅ fatto (2026-08-13) | `src/providers.py`. Le 3 copie in `src/` e le 2 liste letterali nei probe sono sparite; aggiunti `ROCMExecutionProvider` e `CUDAExecutionProvider` all'ordine di preferenza, **dichiarati e non verificati** (è U-12). Il ripiego su CPU ora **avvisa** invece di degradare in silenzio. Extra opzionali in `pyproject.toml`. Trovato per strada un percorso assoluto cablato in un probe. Vedi sotto. |

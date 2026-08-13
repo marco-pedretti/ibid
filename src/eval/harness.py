@@ -8,6 +8,7 @@ from __future__ import annotations
 import hashlib
 import json
 import time
+from dataclasses import dataclass
 from pathlib import Path
 
 import src.config as cfg
@@ -21,6 +22,7 @@ from src.eval.metrics import (
     build_run,
     compute_metrics,
 )
+from src.eval.dump import JsonlWriter
 from src.eval.provenance import git_commit, load_golden
 from src.eval.retrieval_backends import RETRIEVERS
 from src.eval.run_config import build_config, make_eval_run
@@ -166,6 +168,44 @@ def _config_hash(
     ).hexdigest()[:8]
 
 
+@dataclass
+class RetrievalRecord:
+    """Cosa una singola query ha recuperato (Q-02).
+
+    Senza questo file un confronto fra due run di retrieval e' **due medie e
+    nient'altro**: si puo' dire che un tasso e' salito, non che sia salito su
+    *queste* query e non per caso. Il 2026-08-13, in R-08, McNemar sulle
+    discordanti e' stato possibile solo perche' lo stato pre-correzione era
+    riproducibile a comando -- una fortuna, non un metodo.
+
+    `gold_chunk_ids` viene salvato insieme al resto, e non e' ridondante con la
+    golden: rende il dump **leggibile da solo**, senza dover ritrovare la
+    versione del file d'oro con cui la run e' girata.
+
+    `rewritten_text` e' vuoto salvo con `--query-rewrite`. Quando c'e', e' cio'
+    che il retrieval ha davvero cercato -- e senza, una query che fallisce non
+    dice se ha sbagliato la ricerca o la riscrittura.
+
+    **`doc_ids` non c'e'**, ed e' stato tolto dopo averlo scritto: e' una pura
+    derivazione di `chunk_ids` (`chunk_id.split(":")[1]`), e su una run da
+    10.000 query pesava circa un megabyte per non dire niente di nuovo. Un dump
+    archiviato paga il proprio spazio per sempre; chi legge lo ricava in una
+    riga.
+
+    `query_text` invece resta, benche' sia nella golden. Leggere le query
+    discordanti e' la pratica che in questo progetto ha ribaltato piu' di una
+    conclusione -- il controllo di R-10, i 67 disaccordi di C-09 -- e costringere
+    a un secondo file per farlo la rende abbastanza scomoda da non farla.
+    """
+
+    query_id: str
+    query_text: str
+    rewritten_text: str
+    chunk_ids: list[str]
+    scores: list[float]
+    gold_chunk_ids: list[str]
+
+
 def _progress(i: int, total: int, t0: float, label: str = "") -> None:
     elapsed = time.time() - t0
     rate = i / elapsed if elapsed > 0 else 0
@@ -189,6 +229,7 @@ def run_retrieval_eval(
     doc_aggregate: bool = False,
     limit: int | None = None,
     collection: str | None = None,
+    writer: JsonlWriter | None = None,
 ) -> EvalRun:
     """Run retrieval evaluation on answerable golden queries and compute IR metrics.
 
@@ -288,6 +329,15 @@ def run_retrieval_eval(
             chunk_ids = cand.chunk_ids[:eval_depth]
             scores = cand.scores[:eval_depth]
         run.extend(build_run(query.query_id, chunk_ids, scores))
+        if writer is not None:
+            writer.append(RetrievalRecord(
+                query_id=query.query_id,
+                query_text=query.query_text,
+                rewritten_text=texts[i - 1] if query_rewrite else "",
+                chunk_ids=chunk_ids,
+                scores=[round(s, 4) for s in scores],
+                gold_chunk_ids=sorted({qr.chunk_id for qr in query.qrels if qr.relevance > 0}),
+            ))
         if i % report_every == 0 or i == n:
             _progress(i, n, t0)
 

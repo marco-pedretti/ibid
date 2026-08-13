@@ -21,12 +21,15 @@ from src.eval.citation_harness import (
     GenerationRecord,
     GenerationWriter,
     build_metrics,
-    partial_path,
     prompt_hash,
     run_citation_eval,
     user_template_hash,
     write_generations,
 )
+# Il meccanismo di scrittura e' nato qui e Q-02 l'ha estratto in `src/eval/dump`,
+# perche' serviva anche agli altri due harness. `GenerationWriter` resta come
+# nome importabile da qui: e' quello che `scripts/eval_citations.py` usa.
+from src.eval.dump import partial_path
 from src.eval.retrieval_backends import Candidates
 from src.generation.chat import Completion
 from src.generation.citation_format import VIOLATION_KINDS, check_format, summarize

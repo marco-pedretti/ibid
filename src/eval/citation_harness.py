@@ -24,6 +24,7 @@ from pathlib import Path
 
 import src.config as cfg
 from src.datasets.schema import Chunk, EvalRun
+from src.eval.dump import JsonlWriter, write_all
 from src.eval.provenance import git_commit, load_golden
 from src.eval.retrieval_backends import RETRIEVERS
 from src.eval.run_config import build_config, make_eval_run
@@ -226,60 +227,16 @@ def build_metrics(
     return metrics
 
 
-def partial_path(path: Path) -> Path:
-    """Where generations accumulate while the run is still going."""
-    return path.with_suffix(path.suffix + ".partial")
-
-
-class GenerationWriter:
-    """Appends each generation as it is produced, under a `.partial` name.
-
-    Two problems, one mechanism.
-
-    A run that dies at query 190 of 200 used to lose everything: nothing was
-    written until the end, so forty minutes of GPU and 190 usable generations
-    went with it — and those generations are exactly the material C-02 needs.
-    Appending as we go keeps them.
-
-    The `.partial` suffix is not cosmetic.  A truncated file that looks like a
-    finished one is worse than no file: `scripts/rescore_citations.py` would
-    score 190 answers as if they were the whole run and report a rate computed
-    on a different denominator than it claims.  The rename happens only after
-    the last record, so **the existence of the final name is the proof that the
-    run reached the end.**
-    """
-
-    def __init__(self, path: Path, system_prompt: str):
-        self.path = path
-        self.tmp = partial_path(path)
-        self.path.parent.mkdir(parents=True, exist_ok=True)
-        self.tmp.write_text("", encoding="utf-8")
-        # The prompt is written up front, next to the partial file: a run that
-        # dies still leaves its generations interpretable.
-        self.path.with_suffix(".prompt.txt").write_text(system_prompt, encoding="utf-8")
-
-    def append(self, record: GenerationRecord) -> None:
-        with self.tmp.open("a", encoding="utf-8") as fh:
-            fh.write(json.dumps(asdict(record), ensure_ascii=False) + "\n")
-            fh.flush()
-
-    def finish(self) -> Path:
-        """Promote the partial file to its final name."""
-        self.tmp.replace(self.path)
-        return self.path
+#: Il meccanismo (append incrementale, suffisso `.partial`, rinomina solo alla
+#: fine) e' nato qui per C-01 ed e' stato estratto in `src/eval/dump.py` da Q-02,
+#: che ne aveva bisogno per gli altri due harness.  Questi nomi restano perche'
+#: sono quelli che C-02 e `rescore_citations.py` importano.
+GenerationWriter = JsonlWriter
 
 
 def write_generations(path: Path, records: list[GenerationRecord], system_prompt: str) -> None:
-    """Write generations in one shot — used by tests and by re-scoring tools.
-
-    The prompt goes in a sibling `.prompt.txt` rather than into every record:
-    the JSONL is read line by line by C-02, and repeating a 600-character system
-    prompt on every line would bury the outputs it exists to show.
-    """
-    writer = GenerationWriter(path, system_prompt)
-    for r in records:
-        writer.append(r)
-    writer.finish()
+    """Write generations in one shot — used by tests and by re-scoring tools."""
+    write_all(path, records, sidecar=system_prompt)
 
 
 def run_citation_eval(

@@ -28,7 +28,14 @@ sys.path.insert(0, str(ROOT))
 
 import src.config as cfg
 from src.datasets import registry
+from src.eval.dump import JsonlWriter
 from src.eval.generation_harness import run_generation_eval
+from src.generation.baseline_prompts import BASELINE_A_SYSTEM, BASELINE_B_SYSTEM
+
+#: Il prompt finisce accanto al dump, non dentro ogni record: e' lo stesso per
+#: tutte le query, e ripeterlo su ognuna seppellirebbe le risposte che il file
+#: esiste per mostrare. Stessa scelta dell'harness delle citazioni.
+_PROMPTS = {"A": BASELINE_A_SYSTEM, "B": BASELINE_B_SYSTEM}
 
 GOLDEN_DIR = ROOT / "eval" / "golden"
 RESULTS_DIR = ROOT / "eval" / "results"
@@ -47,6 +54,9 @@ def main() -> None:
                         help="unanswerable = E-02, per il gate della Fase 4")
     parser.add_argument("--model", default=None,
                         help=f"LLM model name (default: {cfg.LLM_MODEL})")
+    parser.add_argument("--no-write", action="store_true",
+                        help="stampa soltanto, non archivia ne EvalRun ne risposte: "
+                             "per calibrazioni e smoke test, che misure non sono")
     args = parser.parse_args()
 
     datasets = (
@@ -62,6 +72,18 @@ def main() -> None:
             sys.exit(1)
 
         print(f"\n=== Baseline {args.baseline} — {dataset_id} ===", flush=True)
+
+        # The population is part of the file's identity: a baseline run over the
+        # unanswerable set measures something else entirely.
+        suffix = "" if args.queries == "answerable" else "_unanswerable"
+        stem = f"{dataset_id}_baseline{args.baseline.lower()}{suffix}"
+        # Q-02: le risposte per query, scritte mentre la run gira. Il nome si
+        # sceglie prima, perche' e' il file in cui i record si accumulano.
+        ts = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
+        writer = None if args.no_write else JsonlWriter(
+            RESULTS_DIR / "baselines" / f"{ts}_{stem}.jsonl", sidecar=_PROMPTS[args.baseline]
+        )
+
         run = run_generation_eval(
             dataset_id=dataset_id,
             golden_path=golden_path,
@@ -69,22 +91,24 @@ def main() -> None:
             limit=args.limit,
             model=args.model,
             queries=args.queries,
-        )
-
-        ts = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
-        # The population is part of the file's identity: a baseline run over the
-        # unanswerable set measures something else entirely.
-        suffix = "" if args.queries == "answerable" else "_unanswerable"
-        out_path = RESULTS_DIR / f"{ts}_{dataset_id}_baseline{args.baseline.lower()}{suffix}.json"
-        out_path.write_text(
-            json.dumps(run.model_dump(mode="json"), indent=2, ensure_ascii=False),
-            encoding="utf-8",
+            writer=writer,
         )
 
         print(f"\nMetrics ({dataset_id}, baseline {args.baseline}):")
         for k, v in run.metrics.items():
             print(f"  {k}: {v:.3f}")
+
+        if args.no_write:
+            print("Niente salvato (--no-write).")
+            continue
+        writer.finish()
+        out_path = RESULTS_DIR / f"{ts}_{stem}.json"
+        out_path.write_text(
+            json.dumps(run.model_dump(mode="json"), indent=2, ensure_ascii=False),
+            encoding="utf-8",
+        )
         print(f"Saved -> {out_path.relative_to(ROOT)}")
+        print(f"         {writer.path.relative_to(ROOT)}  ({writer.n} query)")
 
 
 if __name__ == "__main__":
