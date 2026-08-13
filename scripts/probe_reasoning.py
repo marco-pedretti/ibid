@@ -47,14 +47,14 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-import src.config as cfg  # noqa: E402
-from src.eval.citation_harness import _payload_to_chunk  # noqa: E402
-from src.eval.provenance import load_golden  # noqa: E402
-from src.eval.retrieval_backends import RETRIEVERS  # noqa: E402
-from src.generation.chat import generate_detailed  # noqa: E402
-from src.generation.citation_format import check_format  # noqa: E402
-from src.generation.prompt import SYSTEM, build_user_message  # noqa: E402
-from src.index.store import get_client  # noqa: E402
+import src.config as cfg
+from src.eval.citation_harness import _payload_to_chunk
+from src.eval.provenance import load_golden
+from src.eval.retrieval_backends import RETRIEVERS
+from src.generation.chat import generate_detailed
+from src.generation.citation_format import check_format
+from src.generation.prompt import SYSTEM, build_user_message
+from src.index.store import get_client
 
 #: `None` means "omit the field entirely" — the state every generation before
 #: C-01 was in, and the one the docstring of chat.py calls invisible reasoning.

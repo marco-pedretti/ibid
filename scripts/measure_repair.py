@@ -28,8 +28,8 @@ from pathlib import Path
 ROOT = Path(__file__).parent.parent
 sys.path.insert(0, str(ROOT))
 
-from src.generation.citation_format import VIOLATION_KINDS, check_format  # noqa: E402
-from src.generation.citations import parse  # noqa: E402
+from src.generation.citation_format import VIOLATION_KINDS, check_format
+from src.generation.citations import parse
 
 GENERATIONS_DIR = ROOT / "eval" / "results" / "generations"
 

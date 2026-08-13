@@ -27,8 +27,8 @@ from pathlib import Path
 ROOT = Path(__file__).parent.parent
 sys.path.insert(0, str(ROOT))
 
-import src.config as cfg  # noqa: E402
-from src.index.store import ensure_idf_modifier, get_client  # noqa: E402
+import src.config as cfg
+from src.index.store import ensure_idf_modifier, get_client
 
 
 def main() -> None:

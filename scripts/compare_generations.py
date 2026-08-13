@@ -44,9 +44,9 @@ from pathlib import Path
 ROOT = Path(__file__).parent.parent
 sys.path.insert(0, str(ROOT))
 
-from src.eval.paired import compare_paired  # noqa: E402
-from src.generation.citation_format import check_format  # noqa: E402
-from src.generation.citations import normalize  # noqa: E402
+from src.eval.paired import compare_paired
+from src.generation.citation_format import check_format
+from src.generation.citations import normalize
 
 
 def compliant(record: dict, repaired: bool) -> bool:

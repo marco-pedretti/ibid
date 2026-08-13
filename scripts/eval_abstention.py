@@ -44,17 +44,17 @@ ROOT = Path(__file__).parent.parent
 sys.path.insert(0, str(ROOT))
 sys.path = [p for p in sys.path if Path(p or ".").resolve() != Path(__file__).parent.resolve()]
 
-import src.config as cfg  # noqa: E402
-from src.datasets import registry  # noqa: E402
-from src.datasets.schema import EvalRun  # noqa: E402
-from src.eval.citation_harness import _payload_to_chunk  # noqa: E402
-from src.eval.provenance import git_commit  # noqa: E402
-from src.eval.retrieval_backends import RETRIEVERS  # noqa: E402
-from src.generation.chat import generate_detailed  # noqa: E402
-from src.generation.citation_format import is_abstention  # noqa: E402
-from src.generation.prompt import SYSTEM, build_user_message  # noqa: E402
-from src.index.store import get_client  # noqa: E402
-from src.retrieval.abstention import decide  # noqa: E402
+import src.config as cfg
+from src.datasets import registry
+from src.datasets.schema import EvalRun
+from src.eval.citation_harness import _payload_to_chunk
+from src.eval.provenance import git_commit
+from src.eval.retrieval_backends import RETRIEVERS
+from src.generation.chat import generate_detailed
+from src.generation.citation_format import is_abstention
+from src.generation.prompt import SYSTEM, build_user_message
+from src.index.store import get_client
+from src.retrieval.abstention import decide
 
 RESULTS = ROOT / "eval" / "results"
 

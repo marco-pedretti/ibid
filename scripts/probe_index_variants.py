@@ -49,20 +49,19 @@ from __future__ import annotations
 import argparse
 import json
 import sys
-from collections import defaultdict
 from pathlib import Path
 
 ROOT = Path(__file__).parent.parent
 sys.path.insert(0, str(ROOT))
 sys.path = [p for p in sys.path if Path(p or ".").resolve() != Path(__file__).parent.resolve()]
 
-import src.config as cfg  # noqa: E402
-from src.datasets import registry  # noqa: E402
-from qdrant_client import models  # noqa: E402
-from src.datasets.schema import Chunk  # noqa: E402
-from src.eval.paired import compare_paired  # noqa: E402
-from src.index.store import ensure_collection, get_client  # noqa: E402
-from src.retrieval.doc_aggregation import doc_id_from_chunk_id  # noqa: E402
+import src.config as cfg
+from src.datasets import registry
+from qdrant_client import models
+from src.datasets.schema import Chunk
+from src.eval.paired import compare_paired
+from src.index.store import ensure_collection, get_client
+from src.retrieval.doc_aggregation import doc_id_from_chunk_id
 
 SAMPLES = ROOT / "eval" / "results" / "probe_samples"
 GOLDEN = ROOT / "eval" / "golden"

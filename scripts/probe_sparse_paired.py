@@ -34,14 +34,14 @@ from pathlib import Path
 ROOT = Path(__file__).parent.parent
 sys.path.insert(0, str(ROOT))
 
-import src.config as cfg  # noqa: E402
-from src.datasets import registry  # noqa: E402
-from qdrant_client.models import Modifier, SparseVectorParams  # noqa: E402
-from src.eval import retrieval_backends  # noqa: E402
-from src.eval.paired import compare_paired  # noqa: E402
-from src.eval.retrieval_backends import RETRIEVERS  # noqa: E402
-from src.index.embed import encode_sparse, encode_sparse_query  # noqa: E402
-from src.index.store import get_client  # noqa: E402
+import src.config as cfg
+from src.datasets import registry
+from qdrant_client.models import Modifier, SparseVectorParams
+from src.eval import retrieval_backends
+from src.eval.paired import compare_paired
+from src.eval.retrieval_backends import RETRIEVERS
+from src.index.embed import encode_sparse, encode_sparse_query
+from src.index.store import get_client
 
 
 def _set_modifier(client, name: str, modifier: Modifier) -> None:
