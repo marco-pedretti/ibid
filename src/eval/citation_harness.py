@@ -139,6 +139,21 @@ def _config_hash(
     `reasoning_effort` and `max_new_tokens` are here because C-07 varies them:
     its two arms are identical in every other parameter, so without these the
     switch being measured would have no effect on the name of the result.
+
+    **`n_queries` is deliberately NOT here, and adding it would be a mistake.**
+    The number of queries is *precision*, not configuration: the same setup
+    measured over 100 and over 200 queries is one configuration sampled twice.
+    C-06 depends on that — its consistency check works precisely because E4B at
+    200 queries (C-01) and at 100 (this run) share an identity and can be
+    compared as the same system, which is how three days of intervening changes
+    were ruled out. Putting `n` in the hash would have made those two runs
+    unrelatable.
+
+    The problem `n` seemed to solve is real but lives elsewhere: a three-query
+    calibration was written into `eval/results/` under the same name as the real
+    measurement. The fix for that is `--no-write` on the CLI — a throwaway run
+    should not be archived at all — not a name that makes every sample size a
+    different configuration.
     """
     params = {
         "harness": "citation",

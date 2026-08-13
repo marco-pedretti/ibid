@@ -18,9 +18,17 @@ Prerequisites:
     - Qdrant up with the dataset ingested
     - LLM server at LLM_BASE_URL
 
+`--no-write` esiste perche' una calibrazione non e' una misura: stampa e basta,
+senza lasciare un EvalRun in `eval/results/`.  Il 2026-08-12 uno smoke test da
+tre query e' finito accanto alla misura vera da cento, sotto lo **stesso**
+`config_hash` -- e giustamente, perche' la numerosita' e' precisione e non
+configurazione (vedi il docstring di `_config_hash`).  Il rimedio non e'
+rinominare le misure, e' non archiviare cio' che misura non e'.
+
 Usage:
     python scripts/eval_citations.py --dataset open_ragbench --limit 50
     python scripts/eval_citations.py --dataset ledger --model gemma4:12b --limit 50
+    python scripts/eval_citations.py --dataset open_ragbench --limit 3 --no-write
 """
 
 import argparse
@@ -56,6 +64,9 @@ def main() -> None:
     p.add_argument("--limit", type=int, default=None,
                    help="first N answerable queries only")
     p.add_argument("--model", default=None, help=f"LLM (default: {cfg.LLM_MODEL})")
+    p.add_argument("--no-write", action="store_true",
+                   help="stampa soltanto, non scrive EvalRun ne generazioni: per calibrazioni "
+                        "e smoke test, che non vanno archiviati come misure")
     args = p.parse_args()
 
     datasets = ["open_ragbench", "ledger"] if args.dataset == "all" else [args.dataset]
@@ -71,10 +82,19 @@ def main() -> None:
         # the generations are streaming into while the run is still going.
         ts = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
         gen_path = GENERATIONS_DIR / f"{ts}_{dataset_id}.jsonl"
-        writer = GenerationWriter(gen_path, SYSTEM)
+        # Una calibrazione non lascia niente su disco. Il 2026-08-12 uno smoke
+        # test da 3 query e' finito in `eval/results/` accanto alla misura vera
+        # da 100, con lo **stesso** `config_hash` -- perche' la numerosita' e'
+        # precisione, non configurazione, e giustamente non entra nell'hash.
+        # Il rimedio non e' rinominare le misure: e' non archiviare cio' che
+        # misura non e'. Stesso `--no-write` di eval_citation_precision.py.
+        writer = None if args.no_write else GenerationWriter(gen_path, SYSTEM)
 
         print(f"\n=== C-01 citation format — {dataset_id} ===", flush=True)
-        print(f"  generazioni in {writer.tmp.relative_to(ROOT)}", flush=True)
+        if writer is not None:
+            print(f"  generazioni in {writer.tmp.relative_to(ROOT)}", flush=True)
+        else:
+            print("  --no-write: niente su disco, questa non e' una misura", flush=True)
         run, records = run_citation_eval(
             dataset_id=dataset_id,
             golden_path=golden_path,
@@ -87,13 +107,13 @@ def main() -> None:
             system_prompt=SYSTEM,
             writer=writer,
         )
-        writer.finish()
-
-        out_path = RESULTS_DIR / f"{ts}_{dataset_id}_citations.json"
-        out_path.write_text(
-            json.dumps(run.model_dump(mode="json"), indent=2, ensure_ascii=False),
-            encoding="utf-8",
-        )
+        if writer is not None:
+            writer.finish()
+            out_path = RESULTS_DIR / f"{ts}_{dataset_id}_citations.json"
+            out_path.write_text(
+                json.dumps(run.model_dump(mode="json"), indent=2, ensure_ascii=False),
+                encoding="utf-8",
+            )
 
         compliance = run.metrics["format_compliance"]
         lower = run.metrics["format_compliance_lower95"]
@@ -124,8 +144,11 @@ def main() -> None:
                 print(f"    {kind:<16} {rate:.3f}")
         else:
             print("  no violations")
-        print(f"Saved -> {out_path.relative_to(ROOT)}")
-        print(f"         {gen_path.relative_to(ROOT)}")
+        if writer is None:
+            print("Niente salvato (--no-write).")
+        else:
+            print(f"Saved -> {out_path.relative_to(ROOT)}")
+            print(f"         {gen_path.relative_to(ROOT)}")
 
 
 if __name__ == "__main__":
