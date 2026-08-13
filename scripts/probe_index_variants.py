@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+﻿#!/usr/bin/env python3
 """I-10 e I-08 — misurare una ricetta di indicizzazione senza re-ingestare tutto.
 
 Una re-ingestione completa costa 618 minuti (misurati in R-07) e serve ad
@@ -56,6 +56,7 @@ sys.path.insert(0, str(ROOT))
 sys.path = [p for p in sys.path if Path(p or ".").resolve() != Path(__file__).parent.resolve()]
 
 import src.config as cfg
+from src.providers import CPU_ONLY
 from src.datasets import registry
 from qdrant_client import models
 from src.datasets.schema import Chunk
@@ -175,7 +176,7 @@ def cmd_index(dataset: str, variant: str, cap: int) -> None:
     if variant == "capped":
         from fastembed import TextEmbedding
         tok = TextEmbedding(
-            model_name=cfg.EMBEDDING_MODEL, providers=["CPUExecutionProvider"],
+            model_name=cfg.EMBEDDING_MODEL, providers=CPU_ONLY,
             cache_dir=cfg.FASTEMBED_CACHE,
         ).model.tokenizer
         tok.no_truncation()

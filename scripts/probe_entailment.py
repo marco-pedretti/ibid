@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+﻿#!/usr/bin/env python3
 """C-03 spike — which entailment model can verify attribution on our chunks?
 
 **This is measurement, not product code.**  C-03 was suspended on 2026-08-10
@@ -63,6 +63,7 @@ sys.path.insert(0, str(ROOT))
 # tutti gli altri.
 
 import src.config as cfg
+from src.providers import onnx_providers
 from src.index.store import get_client
 
 #: The **superseded** verifier, kept because `length` and `separation` measured
@@ -97,7 +98,7 @@ def _load() -> tuple[Tokenizer, ort.InferenceSession]:
         _tok = Tokenizer.from_file(hf_hub_download(MODEL, "tokenizer.json"))
         _sess = ort.InferenceSession(
             hf_hub_download(MODEL, "onnx/model.onnx"),
-            providers=["DmlExecutionProvider", "CPUExecutionProvider"],
+            providers=onnx_providers(),
         )
     return _tok, _sess
 
@@ -309,7 +310,7 @@ class Scorer:
             pass
         self.tok = Tokenizer.from_file(hf_hub_download(model, "tokenizer.json"))
         self.sess = ort.InferenceSession(
-            path, providers=["DmlExecutionProvider", "CPUExecutionProvider"])
+            path, providers=onnx_providers())
 
     def close(self) -> None:
         """Drop the session: 1.1 GB and 2.3 GB of weights resident at once on a

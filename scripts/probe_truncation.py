@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+﻿#!/usr/bin/env python3
 """OQ-04 — il chunk giusto viene mancato più spesso quando supera la finestra?
 
 **Misura, non codice di produzione.**  Committato perché i numeri citati in
@@ -41,6 +41,7 @@ sys.path.insert(0, str(ROOT))
 sys.path = [p for p in sys.path if Path(p or ".").resolve() != Path(__file__).parent.resolve()]
 
 import src.config as cfg
+from src.providers import CPU_ONLY
 from fastembed import TextEmbedding
 from qdrant_client import models
 from src.index.store import get_client
@@ -75,7 +76,7 @@ def fisher_exact_two_sided(a: int, b: int, c: int, d: int) -> float:
 
 def _tokenizer():
     model = TextEmbedding(
-        model_name=cfg.EMBEDDING_MODEL, providers=["CPUExecutionProvider"],
+        model_name=cfg.EMBEDDING_MODEL, providers=CPU_ONLY,
         cache_dir=cfg.FASTEMBED_CACHE,
     ).model.tokenizer
     # Senza questo si conterebbero i token dopo il taglio, cioè 512 per tutti:

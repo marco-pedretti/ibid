@@ -1,8 +1,8 @@
-"""Dense and sparse embedding via fastembed + ONNX Runtime DirectML (AMD GPU on Windows).
+"""Dense and sparse embedding via fastembed + ONNX Runtime.
 
 Dense model: intfloat/multilingual-e5-large (1024-dim, multilingual, Apache 2.0)
-  - fastembed routes ONNX inference to AMD RX 6750 XT via DmlExecutionProvider (DirectX 12)
-  - Falls back to CPU if DirectML is not available
+  - which accelerator runs the ONNX graph is decided by `src/providers.py`, not
+    here: it was the same three lines copied in three modules (Q-05)
   - Target: BAAI/bge-m3 when fastembed PR #602 merges
 
 Sparse model: Qdrant/bm25 (statistical, multilingual, Apache 2.0, ~1 MB)
@@ -12,16 +12,10 @@ Sparse model: Qdrant/bm25 (statistical, multilingual, Apache 2.0, ~1 MB)
 
 from __future__ import annotations
 
-import onnxruntime
 import src.config as cfg
 from fastembed import SparseTextEmbedding, TextEmbedding
 from qdrant_client.models import SparseVector
-
-_PROVIDERS = (
-    ["DmlExecutionProvider", "CPUExecutionProvider"]
-    if "DmlExecutionProvider" in onnxruntime.get_available_providers()
-    else ["CPUExecutionProvider"]
-)
+from src.providers import onnx_providers
 
 _dense_cache: dict[str, TextEmbedding] = {}
 _sparse_cache: dict[str, SparseTextEmbedding] = {}
@@ -30,7 +24,7 @@ _sparse_cache: dict[str, SparseTextEmbedding] = {}
 def _dense_model(name: str) -> TextEmbedding:
     if name not in _dense_cache:
         _dense_cache[name] = TextEmbedding(
-            model_name=name, providers=_PROVIDERS, cache_dir=cfg.FASTEMBED_CACHE
+            model_name=name, providers=onnx_providers(), cache_dir=cfg.FASTEMBED_CACHE
         )
     return _dense_cache[name]
 
