@@ -186,3 +186,41 @@ class TestConfigHashSeparatesTheFix:
         a, _ = _run(tmp_path)
         b, _ = _run(tmp_path, limit=1)
         assert a.config_hash == b.config_hash
+
+
+class TestConfigHashSeparatesTheIdfFix:
+    """R-08. Turning on `modifier=IDF` changed every sparse score, so a run
+    from before it must not share a name with one from after."""
+
+    # Literals, not recomputed: these are the hashes actually written into
+    # eval/results before R-08.  If this test fails, six archived runs have
+    # silently stopped matching their own filenames.
+    PRE_R08_SPARSE = "adb48814"
+    PRE_R08_HYBRID = "3d3ed9e7"
+    PRE_R08_HYBRID_RERANK = "fc616cbe"
+
+    @pytest.mark.parametrize("mode", ["sparse", "hybrid"])
+    def test_sparse_modes_got_a_new_identity(self, mode):
+        pre = {"sparse": self.PRE_R08_SPARSE, "hybrid": self.PRE_R08_HYBRID}[mode]
+        assert _config_hash(5, "generic", mode, eval_depth=10) != pre
+
+    def test_hybrid_rerank_got_a_new_identity(self):
+        assert _config_hash(
+            5, "generic", "hybrid", rerank=True, eval_depth=10
+        ) != self.PRE_R08_HYBRID_RERANK
+
+    @pytest.mark.parametrize("expected,depth", [("bbaaca85", None), ("5c3c7fa2", 10)])
+    def test_dense_identity_is_untouched(self, expected, depth):
+        """The other half of the rule, and the harder one to keep.
+
+        R-08 changed nothing a dense run reads, so dense runs must keep the
+        names they already have — C-06 and the whole of Fase 4 are compared
+        against them.  A hash change here would orphan every one of those
+        measurements without a single test failing anywhere else.
+        """
+        assert _config_hash(5, "generic", "dense", eval_depth=depth) == expected
+
+    def test_dense_and_sparse_are_still_distinct(self):
+        assert _config_hash(5, "generic", "dense", eval_depth=10) != _config_hash(
+            5, "generic", "sparse", eval_depth=10
+        )
