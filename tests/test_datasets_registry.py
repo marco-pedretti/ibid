@@ -111,12 +111,6 @@ class TestNobodyHardcodesTheListAgain:
         Path("src/datasets/schema.py"),
         Path("src/config.py"),
         Path("tests/test_datasets_registry.py"),
-        # Debito dichiarato, non dimenticanza: `fetch_dataset.py` accetta
-        # `--dataset` e poi lo ignora, usando open_ragbench ovunque. Collegarlo
-        # al registro gli fa guadagnare il supporto per ledger, che e' un
-        # cambiamento di comportamento e non entra nel commit di un refactor.
-        # Va tolto da questa lista nel commit che lo sistema.
-        Path("scripts/fetch_dataset.py"),
     }
 
     def _sources(self):
