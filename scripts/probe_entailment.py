@@ -53,11 +53,14 @@ from tokenizers import Tokenizer
 ROOT = Path(__file__).parent.parent
 sys.path.insert(0, str(ROOT))
 
-# Python puts this script's own directory first on sys.path, where
-# `scripts/profile.py` shadows the stdlib `profile` module — which torch imports.
-# Any script in scripts/ that touches torch fails with a misleading
-# "Could not import module 'GenerationMixin'" until this line runs.
-sys.path = [p for p in sys.path if Path(p or ".").resolve() != Path(__file__).parent.resolve()]
+# Qui c'era una riga che si toglieva `scripts/` da `sys.path`, perche'
+# `scripts/profile.py` faceva ombra al modulo `profile` della standard library --
+# che torch importa -- e ogni script di questa cartella che toccasse torch
+# falliva con un fuorviante "Could not import module 'GenerationMixin'".
+#
+# Rimossa in Q-03: lo script si chiama `profile_docs.py` e il conflitto non
+# esiste piu'. Curare il sintomo in un file solo lasciava la causa in piedi per
+# tutti gli altri.
 
 import src.config as cfg  # noqa: E402
 from src.index.store import get_client  # noqa: E402
