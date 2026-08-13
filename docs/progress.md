@@ -966,6 +966,22 @@ Tre cose notate mentre si lavorava ad altro. Non sono task del ROADMAP: sono cor
 
 Lista chiusa di difetti già osservati, non un giro di pulizia. **Gate: nessuna metrica cambia** — `rescore_citations.py` deve restituire gli stessi valori già registrati.
 
+### Il gate, catturato prima di cominciare (2026-08-13)
+
+Un gate che si misura solo alla fine non è un gate: se un numero non torna, non si sa da quando. Quindi il riferimento è stato preso **prima** della prima riga di Fase 6.
+
+**17 dump ricalcolati, 16 combaciano esattamente** (`+0.0000`). Uno no, ed è **preesistente**:
+
+| dump | registrata | ricalcolata | Δ |
+|---|---|---|---|
+| `20260810_085111_open_ragbench.jsonl` | 0,8854 | 0,8906 | **+0,0052** |
+
+Sono **8 astensioni in entrambi i casi** — non è il rilevatore di astensione. Lo scarto vale esattamente **una risposta su 192**, e la causa è la data: quella run è delle **08:51** del 10 agosto, e il controllo di formato ha ricevuto **cinque commit dopo**, l'ultimo dei quali è C-02. `e438250` in particolare (*«un costrutto che contiene 0 non è un tentativo di citazione»*) è il tipo di correzione che sposta un caso limite.
+
+Non è un difetto: è `rescore_citations.py` che fa il suo mestiere, cioè dire che quel numero fu registrato con uno strumento diverso da quello di oggi. Quella run è comunque superata — i numeri di C-01 in tabella vengono da esecuzioni successive.
+
+> **Quindi il criterio della Fase 6 è: questi stessi valori, non tutti zeri.** 16 a `+0.0000` e quel dump a `+0.0052`. Se a fine fase comparisse un diciassettesimo scostamento, sarebbe il refactor.
+
 | Task | Stato | Note |
 |---|---|---|
 | Q-01 | ⬜ da fare | `EvalRun` costruito in **5 siti**; `reasoning_enabled` derivato in 4 e ancora scritto `False` a mano in `src/eval/harness.py` — che con `--query-rewrite` usa davvero il modello. |

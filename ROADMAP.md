@@ -377,6 +377,12 @@ Tutte e tre le voci nascono dall'audit del 2026-08-11, in cui le librerie sono s
 
 **Q-05 e Q-06 sono nuove, aggiunte il 2026-08-13**, e non sono un allargamento di comodo: la prima è il prerequisito della Fase 7 (un servizio che gira su un'altra macchina probabilmente gira su Linux), la seconda è ciò che rende questo un *testbed* invece di un programma per due dataset.
 
+**Ordine di esecuzione** (§15 chiede di deciderlo prima e di scriverlo):
+
+**Q-03 → Q-06 → Q-04 → Q-05 → Q-01 → Q-02**
+
+Il criterio è ridurre il lavoro rifatto, non la difficoltà crescente. Q-03 e Q-06 toccano entrambi tutti gli script, quindi vanno **prima** di Q-04: passare il lint su `scripts/` e poi rimescolarli significherebbe passarlo due volte. Q-05 è isolato e sta dove capita. Q-01 e Q-02 vanno per ultimi perché sono gli unici due che possono far muovere un numero, e conviene che il gate sia l'ultima cosa a essere messa alla prova invece che la prima.
+
 **Gate, e non è negoziabile: nessuna metrica cambia.** Un refactor puro lascia invariato il conteggio dei test (§15) e lascia invariati i numeri: `scripts/rescore_citations.py` ricalcola le metriche di C-01 dai dump salvati a costo zero, e alla fine della fase deve restituire **gli stessi valori** già registrati. Se cambia un decimale, non era un refactor.
 
 ---
