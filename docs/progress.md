@@ -728,7 +728,7 @@ Nata dall'audit del 2026-08-11: le librerie confrontate con la loro documentazio
 | R-08 | ✅ fatto (2026-08-13) | `modifier=IDF` attivo su tutte e 7 le collection, **in place**. Effetto **opposto nei due dataset**: su open_ragbench guadagna a ogni profondità e a ogni livello (chunk@5 **+3,94**, p<0,0001); su LEDGER porta al **documento** giusto (doc@5 **+27,85**) e **allontana dal chunk** giusto (chunk@5 **−1,31**, p<0,0001). Adottato lo stesso — è una correzione, non un'ottimizzazione — ma il costo su LEDGER è reale e apre OQ-06. Vedi sotto. |
 | R-09 | ✅ fatto (2026-08-13) | **Risultato nullo, e si sa perché.** Le query passano da `query_embed()`. Effetto massimo misurato: **4 query discordanti su 10.000**, tutte le p ≥ 0,125. Il motivo è strutturale, non statistico: nell'87–94% dei casi le due codifiche differiscono per un **fattore di scala uniforme**, che nel prodotto scalare non cambia l'ordinamento. Adottato lo stesso. Vedi sotto. |
 | R-10 | ✅ fatto (2026-08-13) | **Le tre ipotesi di OQ-01 sono cadute tutte, e la causa è un'altra.** Il **45,9%** del regresso di 17 punti è **richiamo perso da HNSW**: con ricerca esatta `ledger_routed` va da 0,7647 a 0,8471 (857 query recuperate, 33 perse) mentre `ledger` si muove di 0,37. H1 falsificata da un braccio di controllo che il protocollo non prevedeva. **Passo 3 non pagato.** Vedi sotto. |
-| R-11 | ⬜ proposta | Adottare `exact` / `hnsw_ef` come parametro di ricerca. Nasce da R-10; è un cambiamento nuovo e vuole la sua misura (§14). |
+| R-11 | ✅ fatto (2026-08-13) | `SEARCH_EXACT` e `HNSW_EF` in `config.py`, **spenti di default**. Il guadagno non segue la taglia dell'indice ma il suo **richiamo**: da +0,0000 su open_ragbench a **+0,0846** su `ledger_routed`, dove l'ANN restituisce solo l'84,8% del vero top-5. **Conseguenza principale: il confronto sul routing di R-07 era contaminato** — 8 dei 21,7 punti di regresso su LEDGER erano l'indice, non la pipeline. Vedi sotto. |
 
 **Cosa questa fase non tocca**, verificato: E-04/E-05 non usano retrieval affatto, e la soglia di astensione di C-04 appartiene alla sola modalità `dense` (`threshold_for` restituisce `None` per le altre) — quindi R-08/R-09 non la sfiorano, per progetto e non per fortuna.
 
@@ -898,6 +898,55 @@ Costo: **2,5 ms/query contro 1,4**. Su queste dimensioni la ricerca esatta costa
 **L'adozione di `exact`/`hnsw_ef` non è stata fatta qui**: è un cambiamento nuovo e vuole la sua misura (§14). Proposta come **R-11**.
 
 > **Una lezione sul metodo, non sul routing.** Il protocollo di OQ-01 era stato scritto in anticipo, ed è stato eseguito com'era — cosa giusta. Ma il suo criterio binario non copriva il risultato reale né al passo 1 né al passo 2, e il suo passo 2 misurava, senza saperlo, l'instabilità dell'ordinamento invece del valore del contesto. **Pre-registrare un test protegge dallo scegliere il test dopo aver visto i dati; non protegge dall'aver scelto il test sbagliato prima.** Serve comunque un controllo che dica cosa il test sta misurando.
+
+### R-11 — il guadagno segue il richiamo dell'indice, e R-07 era contaminata
+
+`SEARCH_EXACT` e `HNSW_EF` vivono in `config.py`, collegati ai due percorsi di ricerca da `store.search_params()`. **Spenti di default**, e nel `config_hash` compaiono **solo se accesi**: è la differenza fra una correzione e una scelta. R-08 andava applicata a tutte le run perché senza IDF il ramo sparso non stava calcolando BM25; il default di Qdrant invece è una configurazione legittima, ed è quella in cui è stato misurato tutto il progetto. Cinque hash reali sono fissati a letterale nei test — `bbaaca85`, `5c3c7fa2`, `f178436c`, `e34c99d5`, `eebf9f45` — così un cambio accidentale del default fallisce prima che una misura sbagliata finisca su disco.
+
+#### Non è la taglia, ed è già interessante
+
+| collection | punti | `doc_R@5` approssimata → esatta | Δ |
+|---|---|---|---|
+| open_ragbench | 18.840 | 0,9681 → 0,9681 | **+0,0000** |
+| open_ragbench_routed | 98.312 | 0,9757 → 0,9787 | +0,0030 |
+| ledger | 47.110 | 0,8915 → 0,8962 | +0,0046 |
+| **ledger_routed** | **228.331** | **0,6744 → 0,7590** | **+0,0846** |
+
+98.312 punti rendono quasi zero, 228.331 ne rendono otto e mezzo: **la taglia da sola non lo spiega**. E nemmeno la densità da sola — `ledger` e `ledger_routed` hanno praticamente la stessa pendenza (caduta dal 1° al 5° di 0,0085 e 0,0075) e guadagni che differiscono di venti volte.
+
+#### Quello che lo predice si misura senza golden set
+
+Il **richiamo dell'indice**: quanta parte del *vero* top-5 la ricerca approssimata restituisce. Si ottiene confrontando ANN ed esatta sulle stesse query — nessun qrel, nessuna etichetta — quindi si può calcolare su qualunque collection **prima** di spenderci una valutazione (`scripts/probe_index_density.py`).
+
+| collection | `recall@5` dell'ANN | top-5 perfetti | guadagno osservato |
+|---|---|---|---|
+| open_ragbench | 0,9994 | 99,7% | +0,0000 |
+| open_ragbench_routed | 0,9860 | 93,5% | +0,0030 |
+| ledger | 0,9892 | 95,6% | +0,0046 |
+| **ledger_routed** | **0,8484** | **63,9%** | **+0,0846** |
+
+Su `ledger_routed` **più di una query su tre riceve un top-5 sbagliato**, e il 15% del vero top-5 non viene mai restituito.
+
+#### La conseguenza vera: R-07 confrontava anche gli indici
+
+R-07 e OQ-01 confrontano `ledger` (47k punti) con `ledger_routed` (228k). Con ricerca approssimata quel confronto **non misura solo la pipeline**: misura anche quanto richiamo l'indice perde, e ne perde molto di più su quello denso.
+
+| `doc_R@5`, LEDGER | generic | routed | divario |
+|---|---|---|---|
+| ricerca approssimata | 0,8915 | 0,6744 | **−21,71** |
+| ricerca esatta | 0,8962 | 0,7590 | **−13,72** |
+
+**Otto dei 21,7 punti di regresso — il 37% — erano l'indice, non il routing.** Su open_ragbench, dove entrambe le collection hanno richiamo quasi perfetto, il quadro non cambia: il routing guadagna +0,76 con l'approssimata e +1,06 con l'esatta.
+
+> Confrontare due indici di densità diversa con una ricerca approssimata non è un confronto fra pipeline. È un confronto fra pipeline **più** un confronto fra richiami, e i due non si separano guardando la metrica.
+
+#### Perché il default resta spento
+
+Perché è una **scelta**, non una correzione: il default di Qdrant è legittimo, ed è quello in cui è stato misurato tutto il progetto. Accenderlo d'ufficio spezzerebbe l'identità di ogni misura passata per un guadagno che sulle collection generiche va da 0,0000 a 0,0046.
+
+Quello che cambia non è il default ma **una regola di metodo**, aggiunta al §14: quando si confrontano due indici di taglia o densità diversa, la ricerca esatta è obbligatoria — oppure va verificato prima che il richiamo dell'ANN sia equivalente sui due. Costa un minuto con `probe_index_density.py`.
+
+**Cosa questo non dice.** Che la ricerca esatta sia sempre la scelta giusta: è O(n), e a 228k punti costa 2,5 ms/query contro 1,4, ma a dieci milioni il conto è un altro. È il motivo per cui resta un parametro e non una decisione cablata.
 
 ---
 
