@@ -28,7 +28,7 @@ from pathlib import Path
 ROOT = Path(__file__).parent.parent
 sys.path.insert(0, str(ROOT))
 
-from src.eval.dump import read_jsonl
+from src.eval.dump import aligned, read_jsonl
 from src.eval.paired import compare_paired
 
 
@@ -57,15 +57,11 @@ def main() -> None:
     rows_a = {r["query_id"]: r for r in read_jsonl(args.a)}
     rows_b = {r["query_id"]: r for r in read_jsonl(args.b)}
 
-    if set(rows_a) != set(rows_b):
-        only_a, only_b = len(set(rows_a) - set(rows_b)), len(set(rows_b) - set(rows_a))
-        raise SystemExit(
-            f"I due dump non coprono le stesse query: {only_a} solo in A, "
-            f"{only_b} solo in B. Un test appaiato su un'intersezione scelta dal "
-            "caso non e' un test appaiato."
-        )
+    try:
+        qids = aligned(rows_a, rows_b)
+    except ValueError as e:
+        raise SystemExit(f"{e}. Un test appaiato vuole la stessa popolazione.") from None
 
-    qids = sorted(rows_a)
     hits_a = [_hit(rows_a[q], args.depth, args.level) for q in qids]
     hits_b = [_hit(rows_b[q], args.depth, args.level) for q in qids]
     res = compare_paired(hits_a, hits_b)

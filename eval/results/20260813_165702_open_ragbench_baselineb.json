@@ -1,0 +1,26 @@
+{
+  "run_id": "02af00bd-a0bf-4bb5-9763-93d25aab746e",
+  "timestamp": "2026-08-13T17:01:23.784886Z",
+  "git_commit": "ce5341433c44d72654d7c6e5aac318eb6fe65ec5-dirty",
+  "config_hash": "b93d24ff",
+  "dataset_id": "open_ragbench",
+  "model": "gemma4:latest",
+  "quantization": "Q4_K_M",
+  "context_window": 32768,
+  "temperature": 0.0,
+  "reasoning_enabled": false,
+  "pipeline_mode": "generic",
+  "config": {
+    "harness": "generation_baseline",
+    "baseline": "B",
+    "queries": "answerable",
+    "n_queries": 25,
+    "llm_model": "gemma4:latest",
+    "judge_used": true
+  },
+  "metrics": {
+    "abstention_rate": 0.28,
+    "correct_rate": 0.6,
+    "wrong_rate": 0.12
+  }
+}

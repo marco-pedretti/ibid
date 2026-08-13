@@ -92,6 +92,22 @@ def write_all(path: Path, records: list[Any], sidecar: str | None = None) -> Pat
     return writer.finish()
 
 
+def aligned(a: dict[str, dict], b: dict[str, dict]) -> list[str]:
+    """Gli id comuni ai due dump, o un errore se non coincidono.
+
+    Un test appaiato su un'intersezione decisa dal caso non e' un test appaiato:
+    la popolazione la sceglierebbe la differenza fra i due file invece di chi
+    misura. Meglio rifiutarsi e dire di quanto differiscono.
+    """
+    if set(a) != set(b):
+        only_a, only_b = len(set(a) - set(b)), len(set(b) - set(a))
+        raise ValueError(
+            f"i due dump non coprono le stesse query: {only_a} solo in A, "
+            f"{only_b} solo in B"
+        )
+    return sorted(a)
+
+
 def read_jsonl(path: Path) -> list[dict]:
     """Legge un dump. Rifiuta i `.partial`, che sono run non finite.
 

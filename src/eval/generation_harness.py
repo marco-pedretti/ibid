@@ -8,9 +8,11 @@ from __future__ import annotations
 
 import hashlib
 import json
+from dataclasses import dataclass
 from pathlib import Path
 
 import src.config as cfg
+from src.eval.dump import JsonlWriter
 from src.eval.run_config import make_eval_run
 from src.datasets.schema import EvalRun
 from src.eval.provenance import git_commit, load_golden
@@ -36,6 +38,38 @@ _PROMPTS: dict[str, str] = {
 #: 2026-08-11, and the contract test on disk never caught it because E-04/E-05
 #: had never actually been run — no result file existed to check.
 _ROUTING_AXIS = "generic"
+
+
+@dataclass
+class BaselineRecord:
+    """Cosa il modello ha risposto a una query, e come e' stata giudicata (Q-02).
+
+    Senza questo file il taglio dal 45% al 17% di E-04/E-05 resta **un'inferenza
+    dai totali**: due percentuali, e nessun modo di sapere se le risposte
+    corrette del baseline permissivo siano *le stesse* di quelle del severo. Con
+    i record per query diventa un test appaiato.
+
+    E ha gia' morso una volta: durante E-04/E-05 la diagnosi di tre difetti ha
+    richiesto di **rigenerare a mano le risposte**, perche' quelle delle run non
+    esistevano piu'. L'harness delle citazioni aveva risolto lo stesso problema
+    in C-01, e quella decisione ha poi permesso a C-02 e C-03 di lavorare senza
+    rigenerare niente.
+
+    `response` e' salvata verbatim: e' il testo che il giudice ha letto, e un
+    verdetto senza la risposta che lo ha prodotto non si puo' rivedere.
+    """
+
+    query_id: str
+    query_text: str
+    response: str
+    verdict: str
+    abstained: bool
+    reference_answer: str
+    #: `False` quando il giudice non e' stato interpellato: sull'insieme non
+    #: rispondibile non c'e' niente contro cui giudicare, e `wrong` li' e' una
+    #: conseguenza logica e non un parere. Distinguerli evita di leggere come
+    #: giudizi cose che non lo sono.
+    judged: bool
 
 
 def _config_hash(baseline: str, model: str, queries: str = "answerable") -> str:
@@ -71,6 +105,7 @@ def run_generation_eval(
     limit: int | None = None,
     model: str | None = None,
     queries: str = "answerable",
+    writer: JsonlWriter | None = None,
 ) -> EvalRun:
     """Run no-context LLM baseline evaluation and return an EvalRun.
 
@@ -143,24 +178,36 @@ def run_generation_eval(
             reasoning_effort=cfg.REASONING_EFFORT,
         )
 
-        if is_abstained(response):
+        abstained = is_abstained(response)
+        if abstained:
             counts["abstained"] += 1
-            continue
-
-        if queries == "unanswerable":
+            verdict = "abstained"
+        elif queries == "unanswerable":
             # No reference to judge against, and no context the answer could have
             # come from: whatever this is, the model made it up.
             counts["wrong"] += 1
-            continue
+            verdict = "wrong"
+        else:
+            verdict = judge_answer(
+                query=q.query_text,
+                response=response,
+                reference=q.reference_answer,
+                base_url=cfg.LLM_BASE_URL,
+                model=model,
+            )
+            verdict = verdict if verdict in counts else "wrong"
+            counts[verdict] += 1
 
-        verdict = judge_answer(
-            query=q.query_text,
-            response=response,
-            reference=q.reference_answer,
-            base_url=cfg.LLM_BASE_URL,
-            model=model,
-        )
-        counts[verdict if verdict in counts else "wrong"] += 1
+        if writer is not None:
+            writer.append(BaselineRecord(
+                query_id=q.query_id,
+                query_text=q.query_text,
+                response=response,
+                verdict=verdict,
+                abstained=abstained,
+                reference_answer=q.reference_answer or "",
+                judged=not abstained and queries == "answerable",
+            ))
 
     metrics: dict[str, float] = {
         "abstention_rate": counts["abstained"] / n if n else 0.0,
