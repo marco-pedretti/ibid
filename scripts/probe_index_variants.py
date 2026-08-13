@@ -57,6 +57,7 @@ sys.path.insert(0, str(ROOT))
 sys.path = [p for p in sys.path if Path(p or ".").resolve() != Path(__file__).parent.resolve()]
 
 import src.config as cfg  # noqa: E402
+from src.datasets import registry  # noqa: E402
 from qdrant_client import models  # noqa: E402
 from src.datasets.schema import Chunk  # noqa: E402
 from src.eval.paired import compare_paired  # noqa: E402
@@ -291,7 +292,7 @@ def cmd_eval(dataset: str, variant: str, top_k: int, limit: int | None = None) -
 if __name__ == "__main__":
     p = argparse.ArgumentParser(description="I-10 / I-08 su indice ridotto")
     p.add_argument("step", choices=["sample", "index", "eval"])
-    p.add_argument("--dataset", choices=["open_ragbench", "ledger"], default="open_ragbench")
+    p.add_argument("--dataset", choices=registry.dataset_ids(), default="open_ragbench")
     p.add_argument("--variant", choices=["plain", "capped", "prefixed"], default="capped")
     p.add_argument("--cap", type=int, default=512, help="tetto in token per la variante capped")
     p.add_argument("--top-k", type=int, default=20,

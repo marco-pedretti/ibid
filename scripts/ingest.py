@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+﻿#!/usr/bin/env python3
 """I-07 / R-06: Full ingestion — chunk, embed (dense + sparse), upsert to Qdrant.
 
 One collection per dataset, named vectors:
@@ -28,7 +28,7 @@ ROOT = Path(__file__).parent.parent
 sys.path.insert(0, str(ROOT))
 
 import src.config as cfg
-from src.datasets import ledger, open_ragbench
+from src.datasets import registry
 from src.datasets.schema import Chunk
 from src.index.embed import encode, encode_sparse, vector_size
 from src.index.store import delete_collection, ensure_collection, get_client, upsert
@@ -53,28 +53,11 @@ def _load_chunks(
     limit: int | None,
     pipeline_mode: str = "original",
 ) -> list[Chunk]:
-    if dataset_id == "open_ragbench":
-        dataset_dir = data_dir / open_ragbench.DATASET_ID
-        corpus_dir = dataset_dir / "pdf" / "arxiv" / "corpus"
-        if not skip_download or not corpus_dir.exists():
-            print(f"  Downloading {open_ragbench.REPO_ID} ...")
-            open_ragbench.download(data_dir)
-        if pipeline_mode == "routed":
-            chunks = list(open_ragbench.iter_chunks_routed(dataset_dir))
-        else:
-            chunks = list(open_ragbench.iter_chunks(dataset_dir))
-    elif dataset_id == "ledger":
-        dataset_dir = data_dir / ledger.DATASET_ID
-        mmd_dir = dataset_dir / "eval" / "mmd"
-        if not skip_download or not mmd_dir.exists():
-            print(f"  Downloading {ledger.REPO_ID} ...")
-            ledger.download(data_dir)
-        if pipeline_mode == "routed":
-            chunks = list(ledger.iter_chunks_routed(dataset_dir))
-        else:
-            chunks = list(ledger.iter_chunks(dataset_dir))
-    else:
-        raise ValueError(f"Unknown dataset: {dataset_id}")
+    spec = registry.get(dataset_id)
+    if not skip_download or not spec.corpus_dir(data_dir).exists():
+        print(f"  Downloading {spec.repo_id} ...")
+        spec.download(data_dir)
+    chunks = list(spec.chunks(data_dir, pipeline_mode))
 
     if limit:
         chunks = chunks[:limit]
@@ -164,7 +147,7 @@ def main() -> None:
     parser.add_argument(
         "--dataset",
         default="all",
-        choices=["open_ragbench", "ledger", "all"],
+        choices=registry.cli_choices(),
         help="Dataset to ingest (default: all)",
     )
     parser.add_argument("--data-dir", type=Path, default=cfg.DATA_DIR)
@@ -206,9 +189,7 @@ def main() -> None:
     dim = vector_size(cfg.EMBEDDING_MODEL)
     print(f"dim={dim}  ({time.time()-t_warmup:.1f}s)")
 
-    datasets = (
-        ["open_ragbench", "ledger"] if args.dataset == "all" else [args.dataset]
-    )
+    datasets = registry.resolve(args.dataset)
 
     t_total = time.time()
     for ds in datasets:

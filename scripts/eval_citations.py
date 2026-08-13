@@ -41,6 +41,7 @@ ROOT = Path(__file__).parent.parent
 sys.path.insert(0, str(ROOT))
 
 import src.config as cfg
+from src.datasets import registry
 from src.eval.citation_harness import GenerationWriter, run_citation_eval
 from src.generation.citation_format import COMPLIANCE_TARGET, VIOLATION_KINDS
 from src.generation.prompt import SYSTEM
@@ -52,7 +53,7 @@ GENERATIONS_DIR = RESULTS_DIR / "generations"
 
 def main() -> None:
     p = argparse.ArgumentParser(description="C-01 citation format evaluation")
-    p.add_argument("--dataset", choices=["open_ragbench", "ledger", "all"],
+    p.add_argument("--dataset", choices=registry.cli_choices(),
                    default="open_ragbench")
     p.add_argument("--top-k", type=int, default=cfg.TOP_K,
                    help="chunks placed in context")
@@ -69,7 +70,7 @@ def main() -> None:
                         "e smoke test, che non vanno archiviati come misure")
     args = p.parse_args()
 
-    datasets = ["open_ragbench", "ledger"] if args.dataset == "all" else [args.dataset]
+    datasets = registry.resolve(args.dataset)
     RESULTS_DIR.mkdir(parents=True, exist_ok=True)
 
     for dataset_id in datasets:

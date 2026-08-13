@@ -27,6 +27,7 @@ ROOT = Path(__file__).parent.parent
 sys.path.insert(0, str(ROOT))
 
 import src.config as cfg
+from src.datasets import registry
 from src.eval.harness import run_retrieval_eval
 from src.eval.generation_harness import run_generation_eval
 from src.eval.noise_floor import build_noise_floor_result
@@ -39,7 +40,7 @@ def main() -> None:
     parser = argparse.ArgumentParser(description="E-07: noise floor measurement")
     parser.add_argument("--mode", choices=["retrieval", "generation"], default="retrieval",
                         help="Which eval to repeat")
-    parser.add_argument("--dataset", choices=["open_ragbench", "ledger"], default="open_ragbench")
+    parser.add_argument("--dataset", choices=registry.dataset_ids(), default="open_ragbench")
     parser.add_argument("--n-runs", type=int, default=5,
                         help="Number of repetitions (default: 5)")
     parser.add_argument("--retrieval-mode", choices=["dense", "sparse"], default="dense",

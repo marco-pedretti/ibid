@@ -16,11 +16,8 @@ from pathlib import Path
 ROOT = Path(__file__).parent.parent
 sys.path.insert(0, str(ROOT))
 
+from src.datasets import registry
 from src.datasets.golden import validate_golden_file
-from src.datasets.unanswerable import (
-    build_unanswerable_for_ledger,
-    build_unanswerable_for_open_ragbench,
-)
 
 GOLDEN_DIR = ROOT / "eval" / "golden"
 
@@ -44,10 +41,7 @@ def append_unanswerable(dataset_id: str) -> None:
         print(f"  {dataset_id}: unanswerable queries already present, skipping.")
         return
 
-    if dataset_id == "open_ragbench":
-        queries = build_unanswerable_for_open_ragbench(GOLDEN_DIR)
-    else:
-        queries = build_unanswerable_for_ledger(GOLDEN_DIR)
+    queries = registry.get(dataset_id).build_unanswerable(GOLDEN_DIR)
 
     with open(path, "a", encoding="utf-8") as f:
         for q in queries:
@@ -64,13 +58,12 @@ def main() -> None:
     parser = argparse.ArgumentParser(description="Append unanswerable queries (E-02)")
     parser.add_argument(
         "--dataset",
-        choices=["open_ragbench", "ledger", "all"],
+        choices=registry.cli_choices(),
         default="all",
     )
     args = parser.parse_args()
 
-    datasets = ["open_ragbench", "ledger"] if args.dataset == "all" else [args.dataset]
-    for ds in datasets:
+    for ds in registry.resolve(args.dataset):
         print(f"=== {ds} ===")
         append_unanswerable(ds)
 

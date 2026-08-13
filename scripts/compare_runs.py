@@ -30,6 +30,7 @@ ROOT = Path(__file__).parent.parent
 sys.path.insert(0, str(ROOT))
 
 import src.config as cfg
+from src.datasets import registry
 from src.eval.harness import load_golden
 from src.eval.retrieval_backends import RETRIEVERS
 from src.eval.metrics import METRIC_DEPTH
@@ -67,7 +68,7 @@ def per_query_hits(client, dataset_id, collection, queries, mode, depth, k):
 
 def main() -> None:
     ap = argparse.ArgumentParser(description="Paired comparison of two collections")
-    ap.add_argument("--dataset", required=True, choices=["open_ragbench", "ledger"])
+    ap.add_argument("--dataset", required=True, choices=registry.dataset_ids())
     ap.add_argument("--collection-a", required=True, help="baseline collection")
     ap.add_argument("--collection-b", required=True, help="collection under test")
     ap.add_argument("--retrieval-mode", default="dense", choices=["dense", "sparse", "hybrid"])

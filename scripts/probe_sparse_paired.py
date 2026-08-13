@@ -35,6 +35,7 @@ ROOT = Path(__file__).parent.parent
 sys.path.insert(0, str(ROOT))
 
 import src.config as cfg  # noqa: E402
+from src.datasets import registry  # noqa: E402
 from qdrant_client.models import Modifier, SparseVectorParams  # noqa: E402
 from src.eval import retrieval_backends  # noqa: E402
 from src.eval.paired import compare_paired  # noqa: E402
@@ -127,7 +128,7 @@ def _assert_encodings_differ() -> None:
 
 def main() -> None:
     p = argparse.ArgumentParser(description="OQ-03: le due meta', appaiate")
-    p.add_argument("--dataset", choices=["open_ragbench", "ledger"], default="open_ragbench")
+    p.add_argument("--dataset", choices=registry.dataset_ids(), default="open_ragbench")
     p.add_argument("--collection", default=None)
     p.add_argument("--limit", type=int, default=200)
     p.add_argument("--depth", type=int, default=5)

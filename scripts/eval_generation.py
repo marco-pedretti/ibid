@@ -27,6 +27,7 @@ ROOT = Path(__file__).parent.parent
 sys.path.insert(0, str(ROOT))
 
 import src.config as cfg
+from src.datasets import registry
 from src.eval.generation_harness import run_generation_eval
 
 GOLDEN_DIR = ROOT / "eval" / "golden"
@@ -37,7 +38,7 @@ def main() -> None:
     parser = argparse.ArgumentParser(description="Generation baseline evaluation")
     parser.add_argument("--baseline", choices=["A", "B"], default="A",
                         help="A=permissive (E-04), B=strict (E-05)")
-    parser.add_argument("--dataset", choices=["open_ragbench", "ledger", "all"],
+    parser.add_argument("--dataset", choices=registry.cli_choices(),
                         default="open_ragbench")
     parser.add_argument("--limit", type=int, default=None,
                         help="Evaluate only first N answerable queries (smoke test)")
@@ -49,7 +50,7 @@ def main() -> None:
     args = parser.parse_args()
 
     datasets = (
-        ["open_ragbench", "ledger"] if args.dataset == "all" else [args.dataset]
+        registry.resolve(args.dataset)
     )
 
     RESULTS_DIR.mkdir(parents=True, exist_ok=True)
