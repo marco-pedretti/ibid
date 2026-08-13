@@ -8,6 +8,16 @@ from pathlib import Path
 
 ROOT = Path(__file__).parent.parent
 
+
+def _int_or_none(raw: str | None) -> int | None:
+    """Un intero da variabile d'ambiente, dove "non impostata" e' un valore.
+
+    Serve dove il default non e' un numero ma "lascia decidere alla libreria":
+    `HNSW_EF` non impostato significa il default di Qdrant, che e' lo stato in
+    cui e' stato misurato tutto il progetto fino a R-11.
+    """
+    return int(raw) if raw not in (None, "") else None
+
 # ---------------------------------------------------------------------------
 # LLM (OpenAI-compatible endpoint)
 # ---------------------------------------------------------------------------
@@ -65,6 +75,31 @@ FASTEMBED_CACHE: str = os.getenv(
 # Retrieval
 # ---------------------------------------------------------------------------
 TOP_K: int = 5
+
+# Quanto a fondo HNSW cammina nel grafo prima di rispondere (R-11).
+#
+# La ricerca vettoriale di Qdrant e' **approssimata**: percorre un grafo di
+# prossimita' invece di confrontare la query con tutti i punti. Funziona finche'
+# c'e' una pendenza da seguire; se i punti sono quasi equidistanti dalla query, la
+# camminata si ferma in un vicinato plausibile e non sa che poco piu' in la' ce
+# n'e' uno migliore.
+#
+# R-10 ha misurato quanto costa su questo corpus. Su `ledger_routed` -- 228.331
+# punti in una banda di similarita' larga 0,0085 -- la ricerca esatta recupera
+# **857 query su 10.000** che quella approssimata perdeva, contro 33 perse:
+# doc-recall@5 da 0,7647 a 0,8471. Su `ledger` (47.110 punti) lo stesso confronto
+# vale +0,37 punti. Non e' una proprieta' del dataset: e' della densita'.
+#
+# `None` lascia il default di Qdrant, cioe' lo stato in cui e' stato misurato
+# tutto quanto precede R-11. Un valore alto costa tempo di query e nient'altro:
+# non tocca l'indice, non richiede re-ingestione, si cambia a ogni chiamata.
+HNSW_EF: int | None = _int_or_none(os.getenv("HNSW_EF"))
+
+# Salta il grafo e confronta con tutti i punti (R-11). Esatto per definizione.
+# Su 228k punti costa 2,5 ms/query contro 1,4 -- quanto `hnsw_ef=512`, ed e' piu'
+# preciso. Su collection molto piu' grandi il conto cambia, ed e' il motivo per
+# cui questo resta un parametro e non una scelta cablata.
+SEARCH_EXACT: bool = os.getenv("SEARCH_EXACT", "").lower() in ("1", "true", "yes")
 
 # Hybrid RRF (R-01): smoothing constant and candidate pool per index.
 # Fetch HYBRID_FETCH_K from each of dense and sparse before fusing.
