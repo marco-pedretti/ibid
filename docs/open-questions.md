@@ -215,7 +215,9 @@ python scripts/eval.py --dataset ledger --collection ledger_routed_ctx \
 
 
 > **Misurata il 2026-08-12 (I-08): non si vede.** Su indice ridotto, 1.903 query appaiate: doc@1 +0,0100 (p=0,0503), doc@3 **−0,0016**, doc@5 +0,0005. Sfiora la soglia solo dove c'è più margine, cambia segno più in profondità. La deviazione dalla model card resta reale; il suo costo su questo corpus non è dimostrato, e **I-09 non è giustificata da questi dati**. Dettagli in `progress.md`.
-**Aperta.** Notata il 2026-08-11 durante l'audit delle librerie contro la loro documentazione ufficiale. Riferimento: I-07, E-03, e per estensione ogni numero dense del progetto.
+**DECISA, NON CHIUSA (2026-08-12).** Notata il 2026-08-11 durante l'audit delle librerie contro la loro documentazione ufficiale. Riferimento: I-07, E-03, e per estensione ogni numero dense del progetto.
+
+> **Cosa significa «decisa, non chiusa».** La domanda *«quanto ci costa?»* ha una risposta misurata: su questo corpus, niente di dimostrabile. La deviazione dalla model card invece **resta**, ed è vera. Non c'è lavoro pendente, ma se un domani si cambiasse embedder o corpus la misura andrebbe rifatta — non ereditata.
 
 ### Il fatto
 
@@ -335,7 +337,9 @@ Non correggere i due difetti insieme e misurare una volta sola (§14: *mai due c
 > **Misurata il 2026-08-12 (I-10): l'effetto c'è.** Su indice ridotto, 1.903 query appaiate: doc@1 +0,0126 (**p=0,0384**), doc@3 +0,0079 (p=0,0400), doc@5 +0,0074 (p=0,0336) — stessa direzione a tutte le profondità. Il prezzo è **4,05× i chunk**. Resta da decidere se valga una re-ingestione (I-11). Su LEDGER non misurabile: doc@5 è già a 0,9950. Dettagli in `progress.md`.
 
 > **E non adottata (I-11, stesso giorno).** Il tetto non cambia la generazione — formato identico dopo il parser (p=1,0000), astensione non peggiorata — e gli +11 punti di `citation_precision` che sembravano sostenerlo erano **la lunghezza della premessa**: dentro un solo braccio l'accettazione cala da 79,2% a 57,8% al crescere del chunk. Nessun guadagno di qualità contro 618 minuti di re-ingestione e un indice ×4. Restano da riconsiderare alla prossima re-ingestione la latenza (−44%) e le premesse spezzate azzerate.
-**Aperta.** Notata il 2026-08-11 controllando perché I-03 e I-04 non hanno un criterio di accettazione. Riferimento: I-03, I-04, I-07, e per estensione ogni misura di retrieval denso.
+**DECISA, NON CHIUSA (2026-08-12).** Notata il 2026-08-11 controllando perché I-03 e I-04 non hanno un criterio di accettazione. Riferimento: I-03, I-04, I-07, e per estensione ogni misura di retrieval denso.
+
+> **Cosa significa «decisa, non chiusa».** Qui l'effetto sul retrieval **c'è** ed è misurato; quello che non c'è è un guadagno sulla generazione che giustifichi il prezzo. Il troncamento continua quindi a esistere in ogni indice del progetto, per scelta consapevole. Le due voci da riconsiderare alla prossima re-ingestione — latenza −44% e premesse spezzate — sono lavoro reale, ma condizionato a un evento che non è ancora in programma.
 
 ### Il fatto
 
