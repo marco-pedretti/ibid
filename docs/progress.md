@@ -985,6 +985,20 @@ Non è un difetto: è `rescore_citations.py` che fa il suo mestiere, cioè dire 
 | Task | Stato | Note |
 |---|---|---|
 | Q-01 | ⬜ da fare | `EvalRun` costruito in **5 siti**; `reasoning_enabled` derivato in 4 e ancora scritto `False` a mano in `src/eval/harness.py` — che con `--query-rewrite` usa davvero il modello. |
-| Q-02 | ⬜ da fare | L'harness dei baseline salva le risposte per query. Rende il taglio 45%→17% un test appaiato. |
+| Q-02 | ⬜ da fare | **Entrambi** gli harness senza dump per query — baseline **e retrieval** — salvano i risultati per query. Rende il taglio 45%→17% un test appaiato, e toglie la necessità di ricostruire uno stato a comando per confrontare due run di retrieval (come è servito in R-08). |
 | Q-03 | ✅ fatto (2026-08-13) | `scripts/profile.py` → **`profile_docs.py`**. Il difetto era riproducibile in una riga (`import profile` da `scripts/` restituiva il nostro file) e ora `import transformers` da quella cartella funziona. Tolto anche il rimedio locale in `probe_entailment.py`, che curava il sintomo per un file solo lasciando la causa in piedi per gli altri 35. |
 | Q-04 | ⬜ da fare | Igiene di import e lint su `scripts/`. **`src/` è già pulito** (vedi sopra); resta solo `scripts/`. |
+| Q-05 | ⬜ da fare | Scelta del provider ONNX in un posto solo, dipendenza GPU come extra opzionale. È la cucitura di U-12. |
+| Q-06 | ✅ fatto (2026-08-13) | `src/datasets/registry.py`. Le **14** liste `choices=[...]` scritte a mano sono sparite, e con loro la catena di `if` in `ingest.py` (21 righe → 4) e le due funzioni quasi identiche di `build_golden.py` (→ 1). Nel registro sono finite anche tre cose che erano sparse altrove: `prepare_golden`, `golden_ready_glob`, `build_unanswerable`. Vedi sotto. |
+
+### Q-06 — cosa ha cambiato, e il primo passaggio del gate
+
+**Il coupling era tutto ai bordi.** Il nucleo era già agnostico — `Chunk` porta `dataset_id`, il routing va per `doc_genre`, le metriche sono per dataset per contratto (§3.1) — e in tutto `src/` c'erano **16 sole occorrenze letterali** dei due nomi, quasi tutte nei loader, cioè dove devono stare. Il problema era che quattordici script ripetevano a mano la lista di cosa esiste.
+
+**Tre cose sono rientrate da dove erano scappate**: il download del parquet QA di LEDGER (viveva dentro `build_golden.py`), il criterio per sapere se era già stato fatto, e la scelta fra i due costruttori di query senza risposta (viveva dentro un `if` in `build_unanswerable.py`). Sono sapere *sul dataset*, non *sullo script*.
+
+**Due test guardano il resto del repo invece del registro**, ed è il punto: il valore di quel modulo non è che funzioni, è che sia l'unico posto che sa quali dataset esistono. Uno cerca le liste `choices` scritte a mano, l'altro le ramificazioni su `== "open_ragbench"`. Senza, il quindicesimo arriva alla prossima CLI e non se ne accorge nessuno finché non si aggiunge un dataset.
+
+> **`fetch_dataset.py` è stato un commit a parte, e vale la pena dire perché.** Accettava `--dataset`, elencava solo `open_ragbench` fra i `choices`, e poi nominava `open_ragbench` sei volte nel corpo. Non poteva sbagliare — l'unico valore ammesso era anche l'unico implementato — ma l'opzione era decorativa. Collegarlo al registro gli fa **guadagnare** il supporto per ledger, che è un cambiamento di comportamento e non entra nel commit di un refactor. Verificato: `--dataset ledger` riporta 494 documenti e 47.110 chunk, cioè esattamente i punti della collection su Qdrant.
+
+**Gate superato.** `rescore_citations.py` restituisce un output **identico al riferimento riga per riga**, confronto automatico compreso. È il primo dei sei task a metterlo alla prova.
