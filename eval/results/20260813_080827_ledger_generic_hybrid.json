@@ -1,0 +1,36 @@
+{
+  "run_id": "d32f4592-ee2b-4b6c-b701-b5dc78c92b7b",
+  "timestamp": "2026-08-13T08:08:27.522105Z",
+  "git_commit": "0dcbea0cdf0531b49c7c91e8673bf6281b89b0da",
+  "config_hash": "e34c99d5",
+  "dataset_id": "ledger",
+  "model": "retrieval_only",
+  "quantization": "none",
+  "context_window": 0,
+  "temperature": 0.0,
+  "reasoning_enabled": false,
+  "pipeline_mode": "generic",
+  "config": {
+    "retrieval_mode": "hybrid",
+    "top_k": 5,
+    "eval_depth": 10,
+    "rerank": false,
+    "query_rewrite": false,
+    "filter_content_type": null,
+    "doc_aggregate": false,
+    "collection": "ledger",
+    "n_queries": 10000,
+    "embedding_model": "intfloat/multilingual-e5-large",
+    "reranker_model": null,
+    "query_rewrite_model": null
+  },
+  "metrics": {
+    "R@5": 0.12747226266007972,
+    "R@10": 0.22099627962166069,
+    "Success@1": 0.0978,
+    "RR@10": 0.2244425793650781,
+    "nDCG@10": 0.15420926804873927,
+    "doc_R@10": 0.9321333333333356,
+    "doc_R@5": 0.9117500000000045
+  }
+}

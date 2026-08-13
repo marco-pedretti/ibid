@@ -726,7 +726,7 @@ Nata dall'audit del 2026-08-11: le librerie confrontate con la loro documentazio
 | I-09 | ❌ **non applicabile** (2026-08-12) | Era condizionata a I-08, che è risultato negativo: i prefissi E5 sfiorano la soglia solo a doc@1 (p=0,0503), cambiano segno a doc@3 e spariscono a doc@5. La deviazione dalla model card resta reale e documentata in OQ-02; il suo costo su questo corpus no. |
 | I-11 | ❌ **non adottata** (2026-08-12) | Nessun effetto sulla generazione: formato identico dopo il parser (+0,0000, p=1,0000), astensione non peggiorata. Gli +11 punti di `citation_precision` erano **la lunghezza della premessa, non la qualità delle citazioni**. Prezzo: 618 min di re-ingestione e indice ×4. Due voci da riconsiderare alla prossima re-ingestione, vedi sotto. |
 | R-08 | ✅ fatto (2026-08-13) | `modifier=IDF` attivo su tutte e 7 le collection, **in place**. Effetto **opposto nei due dataset**: su open_ragbench guadagna a ogni profondità e a ogni livello (chunk@5 **+3,94**, p<0,0001); su LEDGER porta al **documento** giusto (doc@5 **+27,85**) e **allontana dal chunk** giusto (chunk@5 **−1,31**, p<0,0001). Adottato lo stesso — è una correzione, non un'ottimizzazione — ma il costo su LEDGER è reale e apre OQ-06. Vedi sotto. |
-| R-09 | ⬜ da fare | Query BM25 con `query_embed`. Rimisura **separata** da R-08. |
+| R-09 | ✅ fatto (2026-08-13) | **Risultato nullo, e si sa perché.** Le query passano da `query_embed()`. Effetto massimo misurato: **4 query discordanti su 10.000**, tutte le p ≥ 0,125. Il motivo è strutturale, non statistico: nell'87–94% dei casi le due codifiche differiscono per un **fattore di scala uniforme**, che nel prodotto scalare non cambia l'ordinamento. Adottato lo stesso. Vedi sotto. |
 | R-10 | ⬜ da fare | OQ-01, passi 1–2. |
 
 **Cosa questa fase non tocca**, verificato: E-04/E-05 non usano retrieval affatto, e la soglia di astensione di C-04 appartiene alla sola modalità `dense` (`threshold_for` restituisce `None` per le altre) — quindi R-08/R-09 non la sfiorano, per progetto e non per fortuna.
@@ -774,6 +774,53 @@ Il test vero è `scripts/probe_idf_paired.py`, possibile perché lo stato pre-R-
 `_config_hash` non sapeva niente del modificatore, quindi una run `sparse` di oggi si sarebbe chiamata `adb48814` come quella di una settimana fa. Aggiunto `sparse_idf`, **solo** per `sparse` e `hybrid`: ricalcolando tutte le 26 run in `eval/results` con la funzione vecchia e con la nuova, cambiano le 10 sparse/hybrid e **nessuna** delle 16 dense. Due nomi densi sono fissati a letterale nel test, perché orfanare C-06 e la Fase 4 non farebbe fallire nessun altro test.
 
 È l'opposto del caso di `n_queries`, deciso il giorno prima: l'IDF cambia **cosa il sistema calcola**, la numerosità solo con quanta precisione lo osserviamo. Il primo deve spezzare l'identità, la seconda no.
+
+### R-09 — il difetto è reale, l'effetto è nullo, e il perché è aritmetico
+
+**Il difetto.** In BM25 query e documento non sono simmetrici: la query dice **quali** termini contano, il documento dice **quanto** vale ognuno. `Bm25.query_embed` di fastembed lo scrive esplicitamente — *«to emulate BM25 behaviour, we don't need to use weights in the query»*. Noi mandavamo anche le query da `embed()`, la via dei documenti, applicando alla domanda la normalizzazione per lunghezza `b · len / avg_len`: il rapporto fra la lunghezza della **domanda** e la lunghezza media di un **chunk**, due grandezze che non c'entrano niente l'una con l'altra.
+
+Corretti i quattro percorsi query (`retrieve_sparse`, `retrieve_hybrid`, e i due della dashboard). I due percorsi documento restano su `embed()`, che per loro è giusto.
+
+#### Il risultato: niente
+
+| test appaiato | discordanti | p |
+|---|---|---|
+| ORB `sparse`@5 | **1** / 3.045 | 1,0000 |
+| ORB `sparse`@10 | 1 / 3.045 | 1,0000 |
+| ORB `hybrid`@5 | 2 / 3.045 | 1,0000 |
+| LEDGER `sparse`@5 | **0** / 10.000 | 1,0000 |
+| LEDGER `sparse`@10 | 4 / 10.000 | 0,1250 |
+| LEDGER `hybrid`@5 | 4 / 10.000 | 1,0000 |
+
+Le run complete lo confermano: le metriche si muovono alla quarta o quinta cifra decimale, e la variazione più grande è `Success@1` su ORB `sparse`, +0,000985 — tre query su 3.045.
+
+#### Perché, e non è «l'effetto è piccolo»
+
+Il punteggio sparso è un **prodotto scalare** fra vettore query e vettore documento. Moltiplicare il vettore query per una costante moltiplica *ogni* punteggio per la stessa costante: **l'ordinamento non cambia**. E la codifica-documento di una domanda è esattamente una costante moltiplicativa ogni volta che nessun termine si ripete — con `tf = 1` per tutti, tutti i pesi vengono uguali.
+
+Misurato, non dedotto:
+
+| | open_ragbench | LEDGER |
+|---|---|---|
+| stesso insieme di token | **3.045 / 3.045 (100%)** | **10.000 / 10.000 (100%)** |
+| pesi uniformi → stesso ordinamento | 2.651 / 3.045 (**87,1%**) | 9.407 / 10.000 (**94,1%**) |
+| con un termine ripetuto | 394 (12,9%) | 593 (5,9%) |
+
+Le due codifiche non differiscono **mai** su *quali* token vengono valutati. E nel 87–94% dei casi differiscono solo per un fattore di scala. Nella minoranza restante il riequilibrio è tenue — pesi 1,65 contro 1,88, un rapporto di 1,14 — e cambia l'ordine solo quando due candidati erano già quasi appaiati.
+
+> Non è un effetto piccolo che potrebbe emergere con più potenza statistica. È un effetto **strutturalmente limitato**: per costruzione può toccare solo le query con un termine ripetuto, e nemmeno tutte.
+
+#### Cosa questo autorizza a dire di R-08
+
+Che i guadagni di OQ-03 sono **interamente** l'IDF. Se avessimo corretto le due metà insieme — la strada che il §14 vieta e che sembrava far risparmiare dieci minuti — avremmo attribuito tutto a «OQ-03» e non avremmo mai saputo che la ripartizione è 100 a 0. La misura separata è costata una rimisura, e ha comprato l'attribuzione.
+
+#### Perché è stato adottato lo stesso
+
+Perché la libreria documenta un contratto e noi lo violavamo. Il codice ora fa ciò che dice di fare, e costa zero. **Un risultato nullo qui è informazione**, non lavoro sprecato: dice che questa strada è chiusa e che chi in futuro vedrà lo sparso comportarsi male non deve ricominciare da qui.
+
+#### L'identità si spezza lo stesso
+
+`sparse_query_embed` è entrato nel `config_hash` **anche se l'effetto è nullo**, e la decisione è deliberata: l'appartenenza all'hash si decide da *cosa il sistema è*, non da *quanto grande è risultato l'effetto*. Il criterio opposto è circolare — servirebbe la misura per poter dare un nome alla misura. Due chiavi e non una, perché i tre stati (nessuna correzione, solo IDF, entrambe) esistono davvero su disco e le run IDF-only di stamattina sono un risultato misurato, non un gradino.
 
 ---
 

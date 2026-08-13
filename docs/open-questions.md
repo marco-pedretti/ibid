@@ -239,13 +239,17 @@ Se il delta è reale e positivo, la correzione è una re-ingestione completa e u
 
 ## OQ-03 — Il retrieval "BM25" non è BM25
 
-**Mezza chiusa (2026-08-13).** Notata il 2026-08-11 nello stesso audit. Riferimento: E-06 (baseline C), R-01 (hybrid RRF).
+**CHIUSA (2026-08-13).** Notata il 2026-08-11 nell'audit delle librerie. Riferimento: E-06 (baseline C), R-01 (hybrid RRF).
 
 > **Fatto 1 — chiuso da R-08.** `modifier=IDF` è attivo su tutte e sette le collection, applicato in place. L'effetto è **opposto nei due dataset** e sta in [`progress.md`](progress.md) → *R-08*. La misura ha aperto **OQ-06**.
 >
-> **Fatto 2 — ancora aperto (R-09).** Le query passano ancora da `embed()` invece che da `query_embed()`.
+> **Fatto 2 — chiuso da R-09, con risultato nullo.** Le query passano da `query_embed()`. Effetto massimo: **4 query discordanti su 10.000**. Il motivo è aritmetico e non statistico — il punteggio sparso è un prodotto scalare, e nell'87–94% dei casi le due codifiche differiscono per un solo fattore di scala, che non cambia l'ordinamento. Dettagli in `progress.md` → *R-09*.
+>
+> **Quindi tutto il guadagno di OQ-03 è l'IDF, nella misura 100 a 0.** È l'informazione che si sarebbe persa correggendo le due metà insieme, ed è ciò che il §14 comprava.
 >
 > **La previsione scritta qui sotto il 2026-08-11 era metà giusta, ed è utile sapere quale metà.** Diceva: *«su LEDGER a discriminare sono token rari, cioè esattamente ciò che l'IDF pesa»*. A livello di **documento** ha colto in pieno — doc@5 da 0,6411 a 0,9196, +27,9 punti su 10.000 query. A livello di **chunk** ha sbagliato segno: −1,31 punti, p<0,0001. Trovare il documento giusto e trovare il passaggio giusto non sono la stessa cosa, e la previsione non distingueva fra i due.
+>
+> **E una previsione mancava del tutto:** che il fatto 2, pur essendo una deviazione reale dalla documentazione, non potesse quasi muovere niente. Bastava guardare l'aritmetica del prodotto scalare — nessuna misura era necessaria per sospettarlo. Non ci abbiamo pensato, e l'abbiamo scoperto misurando.
 
 ### I due fatti
 
@@ -287,11 +291,9 @@ La direzione combacia con il difetto: LEDGER è fatto di bilanci, dove a discrim
 Nessuna re-embeddatura dei chunk: i vettori sparsi sono già su disco e sono corretti così com'è (la componente TF è quella giusta). Serve
 
 - ~~ricreare l'indice sparso con `modifier=models.Modifier.IDF`~~ — **fatto (R-08)**, e senza ricrearlo: `update_collection` lo aggiunge in place;
-- una riga in `encode_sparse()` per il percorso query — **da fare (R-09)**.
+- ~~una riga in `encode_sparse()` per il percorso query~~ — **fatto (R-09)**: funzione separata `encode_sparse_query()`, e quattro percorsi query aggiornati.
 
-Poi si rilanciano `--retrieval-mode sparse` e `--retrieval-mode hybrid` sui due dataset.
-
-**Per R-09 il protocollo è già scritto e collaudato**: `scripts/probe_idf_paired.py` non serve, perché la codifica della query vive nel client e i due bracci si ottengono senza toccare l'indice. Ma la lezione sì — a 200 query l'effetto dell'IDF su open_ragbench era `p=0,7266`, cioè invisibile, e a 3.045 è `p<0,0001`. **R-09 va misurata sulla golden intera e appaiata**, non su un campione.
+Entrambe misurate appaiate con `scripts/probe_sparse_paired.py` (`--vary idf` e `--vary query_embed`) sulla golden intera. **Non su un campione**: a 200 query l'effetto dell'IDF su open_ragbench era `p=0,7266`, cioè invisibile, e a 3.045 è `p<0,0001`.
 
 ### Trappola
 
@@ -304,8 +306,8 @@ Non correggere i due difetti insieme e misurare una volta sola (§14: *mai due c
 | cosa | dove |
 |---|---|
 | prefissi mancanti | `src/index/embed.py` → `encode()`, e il percorso query in `src/eval/retrieval_backends.py` |
-| creazione collection | `src/index/store.py` → `ensure_collection()` |
-| codifica sparsa | `src/index/embed.py` → `encode_sparse()` |
+| creazione collection | `src/index/store.py` → `ensure_collection()`, `ensure_idf_modifier()` |
+| codifica sparsa | `src/index/embed.py` → `encode_sparse()` (corpus) e `encode_sparse_query()` (query) |
 | verifica dei fatti | model card E5; sorgente fastembed installato; `client.get_collection(name).config.params.sparse_vectors` |
 
 ---
