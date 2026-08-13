@@ -260,7 +260,7 @@ L'ordine non è quello della tabella, per la regola del §14. Il vincolo che lo 
 5. **I-10, poi I-08** — ✅ fatti il 2026-08-12. I-10 regge (+1,26 punti a doc@1, p=0,0384, significativo a tutte le profondità), I-08 no. C-06 può partire senza aspettare una re-ingestione: entrambe le correzioni restano in Fase 5, e I-09 non è più giustificata.
 6. **C-08** — ✅ fatto il 2026-08-12, risultato negativo: il markup non era la causa (p=0,1112).
 7. **C-09** — ✅ fatto il 2026-08-12. `numeric_citation_precision` 0,7328 su LEDGER contro lo 0,2374 dell'NLI sulle stesse coppie; su open_ragbench copertura 0,2%, cioè lo strumento si rifiuta di giudicare la prosa. La riga LEDGER della curva di scaling ora dice qualcosa.
-8. **C-06** — per ultimo, quando sotto non si muove più niente.
+8. **C-06** — ✅ fatto a due punti il 2026-08-13. E2B ed E4B; il 12B costa **240 s/query misurati**, cioè 13,3 ore, ed è scartato col precedente del 26B in T-02. **L'affermazione 3 del §0 resta non determinata**: due punti mostrano un divario grande, il terzo avrebbe detto se la curva si appiattisce.
 
 **Da decidere prima di C-06, non dopo — ora è C-08.** Su LEDGER `citation_precision` non è interpretabile come proprietà del generatore: il verificatore NLI è fuori distribuzione su claim numerici contro tabelle OCR (vedi `docs/progress.md`, C-03). Se C-06 gira così, la curva per taglia del modello ha una riga muta su un dataset su due, e la cosa emerge a run finite.
 
