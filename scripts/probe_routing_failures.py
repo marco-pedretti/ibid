@@ -108,6 +108,8 @@ def main() -> None:
     p.add_argument("--sample", type=int, default=400,
                    help="query per gruppo (fallite / riuscite), campionate a caso")
     p.add_argument("--seed", type=int, default=0)
+    p.add_argument("--deep", type=int, default=100,
+                   help="profondita' che separa 'perso di poco' da 'mai emerso'")
     p.add_argument("--limit", type=int, default=None)
     args = p.parse_args()
 
@@ -125,9 +127,26 @@ def main() -> None:
         (ok if (set(gold) & seen) else failed).append(i)
     print(f"  fallite a top-5: {len(failed)}   riuscite: {len(ok)}")
 
+    # Le fallite non sono una cosa sola. Il passo 1 aveva trovato che il 27,7%
+    # non vede il documento giusto nemmeno a rango 100, e i quasi-pareggi non
+    # possono spiegare quelle: un pareggio perso finisce a rango 6, non oltre
+    # il 100. Se le due sotto-popolazioni hanno distacchi diversi, sono due
+    # guasti diversi e vanno raccontati separatamente.
+    deep_hits = search_batch(client, collection, [vecs[i] for i in failed],
+                             top_k=args.deep, using="dense")
+    near, far = [], []
+    for i, points in zip(failed, deep_hits):
+        seen = {(p.payload or {}).get("doc_id") for p in points}
+        (near if (set(gold_docs[i]) & seen) else far).append(i)
+    print(f"  di cui trovate entro rango {args.deep}: {len(near)}   "
+          f"mai trovate: {len(far)}")
+
     rnd = random.Random(args.seed)
     groups = {
-        "FALLITE": rnd.sample(failed, min(args.sample, len(failed))),
+        "FALLITE ma il documento e' entro rango 100": rnd.sample(
+            near, min(args.sample, len(near))),
+        "FALLITE e il documento non compare mai": rnd.sample(
+            far, min(args.sample, len(far))),
         "RIUSCITE": rnd.sample(ok, min(args.sample, len(ok))),
     }
 
