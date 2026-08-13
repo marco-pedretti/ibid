@@ -68,13 +68,11 @@ def encode_sparse(texts: list[str], model_name: str) -> list[SparseVector]:
     path applies the document-length normalization `b · doc_len / avg_len` and so
     scores the question as if it were a passage of the corpus.
 
-    The other half of the same problem is in `store.ensure_collection`, which
-    creates the sparse index without `modifier=IDF` — and fastembed omits the IDF
-    component on purpose, expecting Qdrant to supply it.
-
-    Both are recorded in `docs/open-questions.md` OQ-03, unfixed on purpose: the
-    correction changes what `--retrieval-mode sparse` and `hybrid` measure, and
-    the two causes have to be separated (§14).
+    This is the half of OQ-03 that is **still open** (R-09). The other half —
+    the sparse index created without `modifier=IDF` — was fixed by R-08 in
+    `store.ensure_collection`; the two were kept apart on purpose, because the
+    IDF lives in the index and the query encoding in the client, and correcting
+    both before measuring would have made the delta unattributable (§14).
     """
     results = list(_sparse_model(model_name).embed(texts))
     return [

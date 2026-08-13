@@ -8,10 +8,21 @@ from __future__ import annotations
 
 from unittest.mock import MagicMock
 
-from qdrant_client.models import Distance, SparseVector
+from qdrant_client.models import Distance, Modifier, SparseVector, SparseVectorParams
 
 from src.datasets.schema import Chunk
-from src.index.store import delete_collection, ensure_collection, upsert
+from src.index.store import (
+    delete_collection,
+    ensure_collection,
+    ensure_idf_modifier,
+    upsert,
+)
+
+
+def _collection_info(modifier: Modifier | None) -> MagicMock:
+    info = MagicMock()
+    info.config.params.sparse_vectors = {"sparse": SparseVectorParams(modifier=modifier)}
+    return info
 
 
 def _make_chunk(i: int) -> Chunk:
@@ -58,13 +69,77 @@ class TestEnsureCollection:
         assert dense_cfg.size == 1024
         assert dense_cfg.distance == Distance.COSINE
 
+    def test_new_collection_gets_idf_modifier(self):
+        """R-08: fastembed omits IDF from the vectors, so the index must add it."""
+        client = MagicMock()
+        client.collection_exists.return_value = False
+
+        ensure_collection(client, "my_col", dense_size=1024)
+
+        sparse = client.create_collection.call_args.kwargs["sparse_vectors_config"]["sparse"]
+        assert sparse.modifier == Modifier.IDF
+
     def test_does_not_recreate_existing_collection(self):
         client = MagicMock()
         client.collection_exists.return_value = True
+        client.get_collection.return_value = _collection_info(Modifier.IDF)
 
         ensure_collection(client, "existing", dense_size=1024)
 
         client.create_collection.assert_not_called()
+
+    def test_repairs_existing_collection_without_modifier(self):
+        client = MagicMock()
+        client.collection_exists.return_value = True
+        client.get_collection.return_value = _collection_info(None)
+
+        ensure_collection(client, "existing", dense_size=1024)
+
+        client.create_collection.assert_not_called()
+        client.delete_collection.assert_not_called()
+        client.update_collection.assert_called_once()
+
+
+# ---------------------------------------------------------------------------
+# ensure_idf_modifier (R-08)
+# ---------------------------------------------------------------------------
+
+class TestEnsureIdfModifier:
+    def test_sets_modifier_when_missing(self):
+        client = MagicMock()
+        client.get_collection.return_value = _collection_info(None)
+
+        assert ensure_idf_modifier(client, "col") is True
+
+        kwargs = client.update_collection.call_args.kwargs
+        assert kwargs["collection_name"] == "col"
+        assert kwargs["sparse_vectors_config"]["sparse"].modifier == Modifier.IDF
+
+    def test_idempotent_when_already_idf(self):
+        client = MagicMock()
+        client.get_collection.return_value = _collection_info(Modifier.IDF)
+
+        assert ensure_idf_modifier(client, "col") is False
+
+        client.update_collection.assert_not_called()
+
+    def test_never_deletes_the_collection(self):
+        """The dense vectors cost hours of GPU; the missing half is one config field."""
+        client = MagicMock()
+        client.get_collection.return_value = _collection_info(None)
+
+        ensure_idf_modifier(client, "col")
+
+        client.delete_collection.assert_not_called()
+        client.create_collection.assert_not_called()
+
+    def test_handles_collection_without_sparse_vectors(self):
+        client = MagicMock()
+        info = MagicMock()
+        info.config.params.sparse_vectors = None
+        client.get_collection.return_value = info
+
+        assert ensure_idf_modifier(client, "col") is True
 
 
 # ---------------------------------------------------------------------------

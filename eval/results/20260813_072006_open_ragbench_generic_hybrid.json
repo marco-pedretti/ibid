@@ -1,0 +1,36 @@
+{
+  "run_id": "8fef461d-6184-42a9-b8b7-1129e94ae238",
+  "timestamp": "2026-08-13T07:20:06.202259Z",
+  "git_commit": "0703b1842537eb4ca7fe3ee94302a33eb37f398d",
+  "config_hash": "322f1cbf",
+  "dataset_id": "open_ragbench",
+  "model": "retrieval_only",
+  "quantization": "none",
+  "context_window": 0,
+  "temperature": 0.0,
+  "reasoning_enabled": false,
+  "pipeline_mode": "generic",
+  "config": {
+    "retrieval_mode": "hybrid",
+    "top_k": 5,
+    "eval_depth": 10,
+    "rerank": false,
+    "query_rewrite": false,
+    "filter_content_type": null,
+    "doc_aggregate": false,
+    "collection": "open_ragbench",
+    "n_queries": 3045,
+    "embedding_model": "intfloat/multilingual-e5-large",
+    "reranker_model": null,
+    "query_rewrite_model": null
+  },
+  "metrics": {
+    "R@5": 0.9047619047619048,
+    "RR@10": 0.7451260197565613,
+    "Success@1": 0.6348111658456486,
+    "R@10": 0.9576354679802955,
+    "nDCG@10": 0.8006075234750237,
+    "doc_R@5": 0.9954022988505747,
+    "doc_R@10": 0.9973727422003285
+  }
+}

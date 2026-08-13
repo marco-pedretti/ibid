@@ -94,13 +94,19 @@ def _config_hash(
 ) -> str:
     """Stable identity of a config: same hash means directly comparable numbers.
 
-    Changed once, on 2026-08-07, by adding `eval_depth`.  The rule against
-    touching this function exists so that a silent change cannot make old and
-    new runs look comparable when they are not — and that is exactly why this
-    change was required rather than forbidden: fixing the retrieval depth
-    altered R@10/nDCG@10/RR@10, so pre-fix runs must *not* share a hash with
-    post-fix ones.  Archived runs keep their original hashes; the archive is
-    read-only (see eval/results/archive/README.md).
+    Changed twice.  On 2026-08-07 by adding `eval_depth`, and on 2026-08-13 by
+    adding `sparse_idf`.  The rule against touching this function exists so that
+    a silent change cannot make old and new runs look comparable when they are
+    not — and that is exactly why both changes were required rather than
+    forbidden: fixing the retrieval depth altered R@10/nDCG@10/RR@10, and R-08
+    turning on `modifier=IDF` altered every sparse score, so pre-fix runs must
+    *not* share a hash with post-fix ones.  Archived runs keep their original
+    hashes; the archive is read-only (see eval/results/archive/README.md).
+
+    Contrast with `n_queries` below, which looks like the same case and is not.
+    The IDF modifier changes *what the system computes*; the query count changes
+    only how precisely we observe it.  The first has to split the identity, the
+    second must not — see the docstring of `citation_harness._config_hash`.
 
     The human-readable flag dict lives in `EvalRun.config` — see
     `src/eval/run_config.py`.  Sample size (`n_queries`) is deliberately NOT
@@ -116,6 +122,13 @@ def _config_hash(
     }
     if eval_depth is not None:
         params["eval_depth"] = eval_depth
+    if retrieval_mode in ("sparse", "hybrid"):
+        # R-08. Hardcoded True because it is no longer optional: the index is
+        # created with the modifier and `ensure_collection` repairs it if not.
+        # It appears only for the modes that read the sparse vectors, so dense
+        # runs keep the identity they had — C-06 and the whole Fase 4 depend on
+        # being able to compare against them.
+        params["sparse_idf"] = True
     if rerank:
         params["reranker_model"] = cfg.RERANKER_MODEL
     if query_rewrite:
