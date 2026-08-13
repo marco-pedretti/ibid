@@ -15,6 +15,22 @@ dependencies = [
     "streamlit>=1.35",
 ]
 
+# L'acceleratore ONNX e' un extra, e gli extra si escludono a vicenda: queste
+# distribuzioni forniscono tutte lo stesso modulo `onnxruntime`, quindi
+# installarne due insieme rompe l'import. Se non se ne installa nessuna,
+# fastembed tira comunque `onnxruntime` (CPU) e il progetto funziona -- piu'
+# lentamente, e `src/providers.py` lo dice invece di lasciarlo scoprire a run
+# finita: ~2,4 embed/s contro ~10 misurati (I-07), cioe' un'ingestione da 2 ore
+# che ne diventa 8.
+#
+# Solo `gpu-directml` e' provato: e' quello di sviluppo, su AMD RX 6750 XT.
+# Gli altri due sono dichiarati perche' i provider corrispondenti sono in
+# `PREFERRED_ACCELERATORS`, e verificarli davvero e' U-12 (Fase 8).
+[project.optional-dependencies]
+gpu-directml = ["onnxruntime-directml>=1.20"]   # Windows, qualunque GPU DirectX 12
+gpu-rocm = ["onnxruntime-rocm>=1.20"]           # Linux + AMD — non verificato
+gpu-cuda = ["onnxruntime-gpu>=1.20"]            # Linux/Windows + NVIDIA — non verificato
+
 [tool.uv]
 dev-dependencies = [
     "ruff>=0.7",

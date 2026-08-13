@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+﻿#!/usr/bin/env python3
 """`citation_precision` dipende dalla lunghezza della premessa? (I-11)
 
 **Misura, non codice di produzione.** Committato perche' il numero citato in
@@ -28,30 +28,38 @@ fra configurazioni che cambiano la lunghezza dei chunk. Vale per qualunque
 modifica al chunking, non solo per questa.
 """
 import json
-import os
 import sys
+from pathlib import Path
 
+# Qui c'erano due `r"c:\Users\marco\dev\ibid"` cablati -- un `os.chdir` e un
+# `sys.path.insert` -- residuo di quando questo probe e' nato come script
+# usa-e-getta. Funzionava su una macchina sola: per chiunque altro moriva
+# all'import, e nessun test lo copriva perche' i probe non ne hanno.
+ROOT = Path(__file__).parent.parent
+sys.path.insert(0, str(ROOT))
 sys.stdout.reconfigure(encoding="utf-8")
-os.chdir(r"c:\Users\marco\dev\ibid")
-sys.path.insert(0, r"c:\Users\marco\dev\ibid")
 
-from qdrant_client import models
 import src.config as cfg
 from fastembed import TextEmbedding
+from qdrant_client import models
 from src.index.store import get_client
+from src.providers import CPU_ONLY
 
-tok = TextEmbedding(model_name=cfg.EMBEDDING_MODEL, providers=["CPUExecutionProvider"],
+tok = TextEmbedding(model_name=cfg.EMBEDDING_MODEL, providers=CPU_ONLY,
                     cache_dir=cfg.FASTEMBED_CACHE).model.tokenizer
 tok.no_truncation()
 client = get_client(cfg.QDRANT_URL)
 
+# Ancorati a ROOT e non relativi alla cartella corrente: prima li teneva in
+# piedi un `os.chdir` sulla macchina di chi ha scritto lo script.
+_VERDICTS = ROOT / "eval" / "results" / "verdicts"
 ARMS = {
-    "plain":  ("eval/results/verdicts/20260812_181041_open_ragbench.jsonl", "open_ragbench_probe_plain"),
-    "capped": ("eval/results/verdicts/20260812_181226_open_ragbench.jsonl", "open_ragbench_probe_capped"),
+    "plain":  (_VERDICTS / "20260812_181041_open_ragbench.jsonl", "open_ragbench_probe_plain"),
+    "capped": (_VERDICTS / "20260812_181226_open_ragbench.jsonl", "open_ragbench_probe_capped"),
 }
 
 for arm, (vpath, collection) in ARMS.items():
-    rows = [json.loads(x) for x in open(vpath, encoding="utf-8") if x.strip()]
+    rows = [json.loads(x) for x in vpath.read_text(encoding="utf-8").splitlines() if x.strip()]
     ids = sorted({r["chunk_id"] for r in rows})
     texts = {}
     for i in range(0, len(ids), 64):

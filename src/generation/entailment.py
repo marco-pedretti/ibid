@@ -40,13 +40,7 @@ import src.config as cfg
 from src.ingestion.ocr_tables import parse_html_table
 from src.ingestion.pipeline_table_heavy import _split_segments
 
-# Same policy as the reranker (R-02): DirectML on AMD/Intel/NVIDIA via DX12 when
-# present, CPU otherwise, so the verifier runs on any machine.
-_PROVIDERS = (
-    ["DmlExecutionProvider", "CPUExecutionProvider"]
-    if "DmlExecutionProvider" in onnxruntime.get_available_providers()
-    else ["CPUExecutionProvider"]
-)
+from src.providers import onnx_providers
 
 #: Index of the entailment logit.  The head is binary — entailment /
 #: not_entailment — which is the distinction the metric needs; a three-way NLI
@@ -89,7 +83,7 @@ def _load(model_name: str) -> tuple[Tokenizer, onnxruntime.InferenceSession]:
     except Exception:
         pass
     tok = Tokenizer.from_file(hf_hub_download(model_name, "tokenizer.json"))
-    sess = onnxruntime.InferenceSession(path, providers=_PROVIDERS)
+    sess = onnxruntime.InferenceSession(path, providers=onnx_providers())
     return tok, sess
 
 

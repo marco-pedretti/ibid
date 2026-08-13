@@ -988,7 +988,27 @@ Non è un difetto: è `rescore_citations.py` che fa il suo mestiere, cioè dire 
 | Q-02 | ⬜ da fare | **Entrambi** gli harness senza dump per query — baseline **e retrieval** — salvano i risultati per query. Rende il taglio 45%→17% un test appaiato, e toglie la necessità di ricostruire uno stato a comando per confrontare due run di retrieval (come è servito in R-08). |
 | Q-03 | ✅ fatto (2026-08-13) | `scripts/profile.py` → **`profile_docs.py`**. Il difetto era riproducibile in una riga (`import profile` da `scripts/` restituiva il nostro file) e ora `import transformers` da quella cartella funziona. Tolto anche il rimedio locale in `probe_entailment.py`, che curava il sintomo per un file solo lasciando la causa in piedi per gli altri 35. |
 | Q-04 | ✅ fatto (2026-08-13) | `ruff check .` **pulito su tutto il repo**. Le 53 segnalazioni erano 3 difetti veri e 50 volte lo stesso: gli script non sono installati, quindi il bootstrap di `sys.path` deve precedere gli import. Soppresso in configurazione — **e dichiarato come soppressione** — con la correzione vera rimandata alla Fase 7. Tolti 101 `# noqa: E402` diventati ridondanti. |
-| Q-05 | ⬜ da fare | Scelta del provider ONNX in un posto solo, dipendenza GPU come extra opzionale. È la cucitura di U-12. |
+| Q-05 | ✅ fatto (2026-08-13) | `src/providers.py`. Le 3 copie in `src/` e le 2 liste letterali nei probe sono sparite; aggiunti `ROCMExecutionProvider` e `CUDAExecutionProvider` all'ordine di preferenza, **dichiarati e non verificati** (è U-12). Il ripiego su CPU ora **avvisa** invece di degradare in silenzio. Extra opzionali in `pyproject.toml`. Trovato per strada un percorso assoluto cablato in un probe. Vedi sotto. |
+
+### Q-05 — la cucitura della portabilità, e un probe che funzionava su una macchina sola
+
+**Il blocco era in cinque posti** — `index/embed.py`, `generation/entailment.py`, `retrieval/reranker.py`, più due liste letterali in `probe_entailment.py` — sempre nella stessa forma: *«DirectML se c'è, altrimenti CPU»*.
+
+Non era solo duplicazione. **DirectML esiste solo su Windows**, quindi su Linux quel blocco ripiega sempre su CPU anche con una GPU capace, e finché stava in cinque posti sistemarlo voleva dire cinque modifiche coerenti fra loro. Ora `PREFERRED_ACCELERATORS` nomina anche ROCm e CUDA: **dichiarati, non verificati** — qui si sviluppa su Windows, e provarli davvero è U-12.
+
+> Averli in elenco non li rende testati. Li rende **raggiungibili senza toccare quel file**, che è tutto ciò che una cucitura deve fare.
+
+**Il ripiego adesso si dichiara.** Prima, senza acceleratore, il sistema girava su CPU in silenzio: ~2,4 embed/s contro ~10 (I-07), cioè un'ingestione da 2 ore che ne diventa 8, scoperto a run finita. Ora c'è un `NoAcceleratorWarning` che dice cosa ha trovato, cosa cercava, e quanto costa.
+
+**Tre script forzano CPU di proposito** — tokenizzano soltanto, e caricare un modello su GPU per contare token costa più di quanto renda. Ora lo dicono con `CPU_ONLY` invece che con una lista anonima: è la stessa scelta, ma leggibile come scelta.
+
+#### Il difetto trovato per strada
+
+`scripts/probe_premise_length.py` aveva **due percorsi assoluti cablati** — `os.chdir(r"c:\Users\marco\dev\ibid")` e lo stesso in `sys.path` — residuo di quando era uno script usa-e-getta. Funzionava su **una macchina sola**: per Elia moriva all'import, e nessun test lo copriva perché i probe non ne hanno.
+
+Anche i file che leggeva erano relativi, tenuti in piedi proprio da quel `chdir`. Ancorati a `ROOT`. Verificato lanciandolo **da fuori dal repo**: gira, e riproduce esattamente i numeri di I-11 (79,2% di accettazione nel primo quartile).
+
+**Gate superato**, output identico al riferimento. 1368 test.
 | Q-06 | ✅ fatto (2026-08-13) | `src/datasets/registry.py`. Le **14** liste `choices=[...]` scritte a mano sono sparite, e con loro la catena di `if` in `ingest.py` (21 righe → 4) e le due funzioni quasi identiche di `build_golden.py` (→ 1). Nel registro sono finite anche tre cose che erano sparse altrove: `prepare_golden`, `golden_ready_glob`, `build_unanswerable`. Vedi sotto. |
 
 ### Q-06 — cosa ha cambiato, e il primo passaggio del gate

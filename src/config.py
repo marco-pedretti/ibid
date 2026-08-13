@@ -71,6 +71,15 @@ FASTEMBED_CACHE: str = os.getenv(
     "FASTEMBED_CACHE_PATH", str(Path.home() / ".cache" / "fastembed")
 )
 
+# Quale acceleratore ONNX usare, se si vuole imporlo (Q-05). Vuoto = decide
+# `src/providers.py` guardando cosa la piattaforma offre, che e' il caso normale.
+# Sta qui accanto a FASTEMBED_CACHE perche' e' la stessa categoria: una manopola
+# di piattaforma, non un parametro di retrieval (§3.4).
+#
+#   ONNX_PROVIDERS=CPUExecutionProvider     confronta i tempi senza GPU
+#   ONNX_PROVIDERS=ROCMExecutionProvider,CPUExecutionProvider
+ONNX_PROVIDERS: str = os.getenv("ONNX_PROVIDERS", "")
+
 # ---------------------------------------------------------------------------
 # Retrieval
 # ---------------------------------------------------------------------------
