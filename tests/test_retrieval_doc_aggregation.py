@@ -303,10 +303,23 @@ class TestDocAggregateHarness:
         assert isinstance(run.metrics["doc_R@5"], float)
         assert isinstance(run.metrics["doc_R@10"], float)
 
-    def test_config_hash_differs_with_doc_aggregate(self, tmp_path):
+    def test_config_hash_is_the_same_with_or_without_the_flag(self, tmp_path):
+        """Era il contrario, e il contrario era sbagliato.
+
+        Quando `--doc-aggregate` aggiungeva davvero `doc_R@5` e `doc_R@10`, due
+        run che differivano per il flag producevano metriche diverse e non
+        potevano condividere un nome.  Da R-05 quelle metriche ci sono sempre:
+        il flag non cambia piu' un solo numero, quindi le due run **sono**
+        confrontabili e devono avere lo stesso hash.
+
+        Lasciato com'era, dava due nomi alla stessa misura -- lo specchio esatto
+        del difetto che R-08 e R-09 hanno corretto nell'altro verso, dove due
+        misure diverse ne condividevano uno.
+        """
         run_plain = self._run(tmp_path, doc_aggregate=False)
         run_agg = self._run(tmp_path, doc_aggregate=True)
-        assert run_plain.config_hash != run_agg.config_hash
+        assert run_plain.config_hash == run_agg.config_hash
+        assert run_plain.metrics == run_agg.metrics
 
     def test_relevant_doc_found_gives_recall_one(self, tmp_path):
         # The single hit chunk_id "open_ragbench:doc1:0" → doc_id "doc1",

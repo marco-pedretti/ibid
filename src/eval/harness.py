@@ -150,8 +150,17 @@ def _config_hash(
         params["query_rewrite_model"] = cfg.QUERY_REWRITE_MODEL or cfg.LLM_MODEL
     if filter_content_type:
         params["filter_content_type"] = filter_content_type
-    if doc_aggregate:
-        params["doc_aggregate"] = True
+    # `doc_aggregate` NON e' qui, ed e' l'unica voce tolta invece che aggiunta.
+    # Da R-05 le metriche documentali sono sempre riportate, quindi il flag non
+    # cambia piu' un solo numero: due run che differiscono solo per lui
+    # producono metriche identiche, e sono percio' **direttamente
+    # confrontabili** -- che e' esattamente cio' che condividere un hash
+    # significa. Tenerlo dentro dava nomi diversi alla stessa misura: lo
+    # specchio del difetto che R-08 e R-09 hanno corretto nell'altro verso.
+    #
+    # Nessuna run viva ne e' toccata: `doc_aggregate=true` compare solo in 5 run
+    # di `eval/results/archive/`, che conservano i propri hash per politica e
+    # gia' non si riproducono (sono anteriori a `eval_depth`).
     if collection and collection != dataset_id:
         params["collection"] = collection
     return hashlib.md5(
@@ -196,7 +205,10 @@ def run_retrieval_eval(
         filter_content_type: "text" | "table" | "mixed" | "auto" | None.
             "auto" infers the filter per query from keywords (R-04).
         doc_aggregate: kept for API compatibility; document-level metrics are
-            now always reported (see below).
+            now always reported (see below).  Since it changes no number, it is
+            deliberately **not** part of `config_hash` — it only survives in
+            `EvalRun.config` and in the filename slug, so archived runs stay
+            readable.
         limit: evaluate only first N answerable queries (for smoke tests)
         collection: Qdrant collection name to query. Defaults to dataset_id.
             Use a non-default name to evaluate against an alternative index
