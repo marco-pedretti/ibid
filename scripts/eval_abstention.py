@@ -45,6 +45,7 @@ sys.path.insert(0, str(ROOT))
 sys.path = [p for p in sys.path if Path(p or ".").resolve() != Path(__file__).parent.resolve()]
 
 import src.config as cfg  # noqa: E402
+from src.datasets import registry  # noqa: E402
 from src.datasets.schema import EvalRun  # noqa: E402
 from src.eval.citation_harness import _payload_to_chunk  # noqa: E402
 from src.eval.provenance import git_commit  # noqa: E402
@@ -120,7 +121,7 @@ def _config_hash(use_gate: bool, n_ans: int) -> str:
 
 def main() -> None:
     ap = argparse.ArgumentParser(description=__doc__)
-    ap.add_argument("--dataset", choices=["open_ragbench", "ledger"])
+    ap.add_argument("--dataset", choices=registry.dataset_ids())
     ap.add_argument("--n-answerable", type=int, default=60)
     ap.add_argument("--top-k", type=int, default=cfg.TOP_K)
     ap.add_argument("--model", default=cfg.LLM_MODEL)

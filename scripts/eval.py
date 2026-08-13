@@ -50,6 +50,7 @@ ROOT = Path(__file__).parent.parent
 sys.path.insert(0, str(ROOT))
 
 import src.config as cfg
+from src.datasets import registry
 from src.eval.harness import run_retrieval_eval
 from src.eval.run_config import build_config, config_slug
 
@@ -129,7 +130,7 @@ def run_dataset(
 
 def main() -> None:
     parser = argparse.ArgumentParser(description="Retrieval evaluation (E-03/E-06)")
-    parser.add_argument("--dataset", choices=["open_ragbench", "ledger", "all"], default="all")
+    parser.add_argument("--dataset", choices=registry.cli_choices(), default="all")
     parser.add_argument("--top-k", type=int, default=cfg.TOP_K)
     parser.add_argument("--limit", type=int, default=None,
                         help="Evaluate only first N answerable queries (smoke test)")
@@ -161,7 +162,7 @@ def main() -> None:
                              "smoke test, che non vanno archiviati come misure")
     args = parser.parse_args()
 
-    datasets = ["open_ragbench", "ledger"] if args.dataset == "all" else [args.dataset]
+    datasets = registry.resolve(args.dataset)
     for ds in datasets:
         print(f"=== {ds} ===")
         run_dataset(

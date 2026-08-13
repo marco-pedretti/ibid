@@ -365,7 +365,7 @@ Tutte e tre le voci nascono dall'audit del 2026-08-11, in cui le librerie sono s
 | Q-03 | ✅ **fatto il 2026-08-13.** `scripts/profile.py` non adombra più il modulo `profile` della standard library: rinominato `profile_docs.py` | `import transformers` da dentro `scripts/` smette di fallire |
 | Q-04 | Igiene di import e lint su `scripts/` | `ruff check` pulito sul repo |
 | Q-05 | La scelta del provider ONNX vive in **un posto solo**, e la dipendenza GPU è un extra opzionale di `pyproject.toml` | Nessun file di `src/` nomina `DmlExecutionProvider`; su una macchina senza DirectML l'import riesce e ripiega dichiarandolo |
-| Q-06 | **Registro dei dataset**: i dataset disponibili si leggono da un posto solo, non da 14 liste `choices=[...]` scritte a mano | Aggiungere un dataset dello stesso genere richiede **solo** il suo loader; nessuno script va toccato |
+| Q-06 | ✅ **fatto il 2026-08-13.** `src/datasets/registry.py`: le 14 liste scritte a mano sono sparite, con la catena di `if` di `ingest.py` (21 righe → 4) e le due funzioni gemelle di `build_golden.py` (→ 1) | Aggiungere un dataset dello stesso genere richiede il suo loader e **una riga nel registro**; nessuno script va toccato — verificato da due test che cercano le liste a mano nel resto del repo |
 
 **Ogni voce è un difetto che ha già morso**, non un'ipotesi di stile:
 

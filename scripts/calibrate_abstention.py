@@ -33,6 +33,7 @@ sys.path.insert(0, str(ROOT))
 sys.path = [p for p in sys.path if Path(p or ".").resolve() != Path(__file__).parent.resolve()]
 
 import src.config as cfg  # noqa: E402
+from src.datasets import registry  # noqa: E402
 from src.eval.retrieval_backends import RETRIEVERS  # noqa: E402
 from src.index.store import get_client  # noqa: E402
 
@@ -91,7 +92,7 @@ def calibrate(dataset: str, budget: float, mode: str, top_k: int, seed: int = 1)
 def main() -> None:
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("--budget", type=float, default=cfg.ABSTENTION_BUDGET)
-    ap.add_argument("--dataset", choices=["open_ragbench", "ledger"])
+    ap.add_argument("--dataset", choices=registry.dataset_ids())
     ap.add_argument("--mode", default=cfg.ABSTENTION_CALIBRATED_MODE)
     ap.add_argument("--top-k", type=int, default=cfg.TOP_K)
     args = ap.parse_args()
