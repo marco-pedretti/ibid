@@ -1,4 +1,4 @@
-"""Tests for dashboard/failure_store.py — batch retrieval ranked worst-first.
+﻿"""Tests for dashboard/failure_store.py — batch retrieval ranked worst-first.
 
 The behaviour that matters here is the chunk-vs-document distinction: a routed
 collection produces chunk_ids the qrels never mention, so chunk recall is
@@ -193,7 +193,7 @@ class TestEvaluateQueries:
             [_point("ds:doc1:0"), _point("ds:doc2:0")] for _ in queries
         ]
         with patch("dashboard.failure_store.encode", return_value=[[0.1] * 1024] * len(queries)), \
-             patch("dashboard.failure_store.encode_sparse",
+             patch("dashboard.failure_store.encode_sparse_query",
                    return_value=[MagicMock()] * len(queries)), \
              patch("dashboard.failure_store.search_batch", return_value=hits) as mock_sb, \
              patch("dashboard.failure_store.cross_encode",

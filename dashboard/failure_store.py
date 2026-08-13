@@ -20,7 +20,7 @@ from typing import Callable
 
 import src.config as cfg
 from src.datasets.golden import GoldenQuery
-from src.index.embed import encode, encode_sparse
+from src.index.embed import encode, encode_sparse_query
 from src.index.store import search_batch
 from src.retrieval.doc_aggregation import doc_id_from_chunk_id
 from src.retrieval.hybrid import rrf_fuse
@@ -99,7 +99,7 @@ def evaluate_queries(
         )
         sparse_all = search_batch(
             client, config.collection,
-            encode_sparse(texts, cfg.SPARSE_EMBEDDING_MODEL),
+            encode_sparse_query(texts, cfg.SPARSE_EMBEDDING_MODEL),
             top_k=hybrid_fetch, using="sparse",
         )
         results_all = []
@@ -120,7 +120,7 @@ def evaluate_queries(
             )
     else:
         if config.retrieval_mode == "sparse":
-            vecs = encode_sparse(texts, cfg.SPARSE_EMBEDDING_MODEL)
+            vecs = encode_sparse_query(texts, cfg.SPARSE_EMBEDDING_MODEL)
         else:
             vecs = encode(texts, cfg.EMBEDDING_MODEL, batch_size=cfg.EMBEDDING_BATCH)
         raw = search_batch(

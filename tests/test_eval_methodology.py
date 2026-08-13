@@ -1,4 +1,4 @@
-"""Tests for the evaluation methodology invariants (manutenzione 2026-08-07).
+﻿"""Tests for the evaluation methodology invariants (manutenzione 2026-08-07).
 
 These pin three properties that were violated by every run produced before this
 date, and whose violation was invisible in the result files:
@@ -48,7 +48,7 @@ def _run(tmp_path: Path, n_hits: int = 30, **kwargs):
     hits = [_hit(f"open_ragbench:doc{i}:0", 0.9 - i / 100) for i in range(n_hits)]
     with patch("src.eval.harness.get_client"), \
          patch("src.eval.retrieval_backends.encode", return_value=[[0.1] * 1024]), \
-         patch("src.eval.retrieval_backends.encode_sparse", return_value=[MagicMock()]), \
+         patch("src.eval.retrieval_backends.encode_sparse_query", return_value=[MagicMock()]), \
          patch("src.eval.retrieval_backends.search_batch", return_value=[hits]) as sb, \
          patch("src.eval.harness.cross_encode", side_effect=lambda q, p, m, top_n: [
              _hit(x["chunk_id"]) for x in p[:top_n]
@@ -189,8 +189,8 @@ class TestConfigHashSeparatesTheFix:
 
 
 class TestConfigHashSeparatesTheIdfFix:
-    """R-08. Turning on `modifier=IDF` changed every sparse score, so a run
-    from before it must not share a name with one from after."""
+    """R-08 and R-09. Each half of OQ-03 changed every sparse score, so the
+    three states — neither fix, IDF only, both — need three identities."""
 
     # Literals, not recomputed: these are the hashes actually written into
     # eval/results before R-08.  If this test fails, six archived runs have
@@ -198,6 +198,22 @@ class TestConfigHashSeparatesTheIdfFix:
     PRE_R08_SPARSE = "adb48814"
     PRE_R08_HYBRID = "3d3ed9e7"
     PRE_R08_HYBRID_RERANK = "fc616cbe"
+
+    # Written by the R-08 runs of 2026-08-13, before R-09.  Same reason.
+    R08_ONLY_SPARSE = "b1a67360"
+    R08_ONLY_HYBRID = "322f1cbf"
+    R08_ONLY_HYBRID_RERANK = "dc481d05"
+
+    @pytest.mark.parametrize("mode", ["sparse", "hybrid"])
+    def test_r09_split_the_identity_again(self, mode):
+        """The IDF-only runs are a real measured state, not a stepping stone."""
+        r08 = {"sparse": self.R08_ONLY_SPARSE, "hybrid": self.R08_ONLY_HYBRID}[mode]
+        assert _config_hash(5, "generic", mode, eval_depth=10) != r08
+
+    def test_r09_split_hybrid_rerank_too(self):
+        assert _config_hash(
+            5, "generic", "hybrid", rerank=True, eval_depth=10
+        ) != self.R08_ONLY_HYBRID_RERANK
 
     @pytest.mark.parametrize("mode", ["sparse", "hybrid"])
     def test_sparse_modes_got_a_new_identity(self, mode):

@@ -63,18 +63,43 @@ def encode(texts: list[str], model_name: str, batch_size: int = 32) -> list[list
 def encode_sparse(texts: list[str], model_name: str) -> list[SparseVector]:
     """Return BM25 sparse vectors for each text, as *documents*.
 
-    Queries go through here too, and should not: fastembed's `Bm25.query_embed`
-    exists because a query must be hashed to weight 1.0 per token, while this
-    path applies the document-length normalization `b · doc_len / avg_len` and so
-    scores the question as if it were a passage of the corpus.
-
-    This is the half of OQ-03 that is **still open** (R-09). The other half —
-    the sparse index created without `modifier=IDF` — was fixed by R-08 in
-    `store.ensure_collection`; the two were kept apart on purpose, because the
-    IDF lives in the index and the query encoding in the client, and correcting
-    both before measuring would have made the delta unattributable (§14).
+    **For the corpus only.** Queries go through `encode_sparse_query` (R-09):
+    this path applies the BM25 document weighting, including the length
+    normalization `b · doc_len / avg_len`, which is meaningless for a question.
     """
     results = list(_sparse_model(model_name).embed(texts))
+    return [
+        SparseVector(indices=r.indices.tolist(), values=r.values.tolist())
+        for r in results
+    ]
+
+
+def encode_sparse_query(texts: list[str], model_name: str) -> list[SparseVector]:
+    """Return BM25 sparse vectors for each text, as *queries* (R-09).
+
+    In BM25 the query and the document are not symmetric, and fastembed says so
+    in `Bm25.query_embed`:
+
+        "To emulate BM25 behaviour, we don't need to use weights in the query,
+        and it's enough to just hash the tokens and assign a weight of 1.0."
+
+    The query selects *which* terms are scored; the document decides *how much*
+    each one is worth.  Sending a question through `embed()` gives it document
+    weights it has no business having — a term repeated twice in the question
+    counts double, and the whole vector gets scaled by how long the question is
+    relative to the average *chunk*, which is a ratio between two unrelated
+    things.
+
+    This is the second half of OQ-03.  The first half was R-08 (`modifier=IDF`
+    on the index), deliberately corrected and measured before this one: the IDF
+    lives in the index and this lives in the client, and fixing both before
+    measuring would have made the delta unattributable (§14).
+
+    Note the third difference, which the docstring above does not mention:
+    `query_embed` de-duplicates tokens through a `set`, so a word repeated in
+    the question is counted once.  `embed` does not.
+    """
+    results = list(_sparse_model(model_name).query_embed(texts))
     return [
         SparseVector(indices=r.indices.tolist(), values=r.values.tolist())
         for r in results

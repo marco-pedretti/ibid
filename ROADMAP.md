@@ -281,10 +281,12 @@ Tutte e tre le voci nascono dall'audit del 2026-08-11, in cui le librerie sono s
 | I-09 | ~~Prefissi E5 in `encode()`, re-ingestione, rimisura~~ — **non applicabile**: era condizionata a I-08, risultato negativo | Vedi `docs/progress.md` e OQ-02 |
 | I-11 | ~~Tetto di chunking allineato alla finestra dell'embedder~~ — **decisa il 2026-08-12: non adottata** | Nessun effetto sulla generazione; il guadagno di `citation_precision` era la lunghezza della premessa. Da riconsiderare alla prossima re-ingestione per la latenza (−44%). Vedi `progress.md` |
 | R-08 | ✅ **fatto il 2026-08-13.** `modifier=IDF` attivo su tutte e 7 le collection, applicato in place. Effetto **opposto nei due dataset**: ORB guadagna a ogni livello (chunk@5 +3,94, p<0,0001), LEDGER guadagna il documento (doc@5 **+27,85**) e perde il chunk (chunk@5 **−1,31**, p<0,0001). Adottato perché è una correzione, non un'ottimizzazione. Apre **OQ-06** | E-06 e R-01 rimisurati — **una sola causa cambiata** |
-| R-09 | Query BM25 codificate con `query_embed` invece che come documenti | Rimisura **separata** da R-08 |
+| R-09 | ✅ **fatto il 2026-08-13. Risultato nullo.** Query BM25 codificate con `query_embed`. Effetto massimo **4 query discordanti su 10.000**; il motivo è aritmetico — il punteggio sparso è un prodotto scalare e nell'87–94% dei casi le due codifiche differiscono per un solo fattore di scala. Adottato lo stesso: la libreria documenta un contratto e lo violavamo. **Quindi tutto il guadagno di OQ-03 è l'IDF, 100 a 0** | Rimisura **separata** da R-08 |
 | R-10 | OQ-01, passi 1–2: perché il routing peggiora LEDGER di 17 punti | Il passo 3 (6–7 h GPU) solo se il 2 è positivo |
 
 **R-08 e R-09 non si fanno in un commit solo.** Sono due cause indipendenti — l'IDF vive nell'indice, la codifica della query nel client — e correggerle insieme misurando una volta viola il §14. Costa una rimisura in più: dieci minuti.
+
+> **Cosa hanno comprato quei dieci minuti** (misurato il 2026-08-13): R-08 muove fino a **+27,9 punti**, R-09 **4 query su 10.000**. Correggendole insieme il risultato sarebbe stato attribuito a «OQ-03» e la ripartizione — **100 a 0** — non si sarebbe mai vista. La regola non è pignoleria contabile: è l'unica cosa che distingue una causa da una coincidenza.
 
 **I-09 e I-11 invece condividono la re-ingestione, se scattano entrambe.** Non è un'eccezione al §14: l'attribuzione è già stata fatta a monte, da I-08 e I-10, che misurano una causa ciascuno su un indice ridotto. La re-ingestione completa non è la misura che separa le cause — è l'adozione di due correzioni già separate, e imporne due da 618 minuti ciascuna costerebbe venti ore di GPU per un'informazione già in mano.
 
