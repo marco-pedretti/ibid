@@ -1,8 +1,8 @@
 """EvalRun Comparator — compare measured runs within one dataset.
 
 Two rules from ROADMAP are enforced by the UI rather than left to discipline:
-  §13  the dataset is a single choice, so a cross-dataset delta cannot be built
-  §14  a delta is only coloured when it clears the E-07 noise floor, and only
+  §15  the dataset is a single choice, so a cross-dataset delta cannot be built
+  §15  a delta is only coloured when it clears the E-07 noise floor, and only
        called attributable when exactly one parameter differs
 """
 
@@ -77,7 +77,7 @@ def _render_delta(sel, table, floor) -> None:
     else:
         st.warning(
             f"Cambiano **{len(changed)}** parametri ({', '.join(changed)}): il delta "
-            "non è attribuibile a nessuno di essi in particolare (ROADMAP §14)."
+            "non è attribuibile a nessuno di essi in particolare (ROADMAP §15)."
         )
 
     rows = []
@@ -151,7 +151,7 @@ def render() -> None:
         )
         st.stop()
 
-    # ROADMAP §13 vieta le metriche aggregate su dataset diversi: il dataset è
+    # ROADMAP §15 vieta le metriche aggregate su dataset diversi: il dataset è
     # una scelta singola, non un filtro multiplo, così un delta cross-dataset
     # non è nemmeno esprimibile.
     datasets = sorted({r.dataset_id for r in runs})

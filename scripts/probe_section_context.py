@@ -35,7 +35,7 @@ Il braccio di **controllo** antepone un `section_path` **sbagliato**, preso da u
 altro documento: stessa lunghezza, stesso stile, contenuto senza relazione. Se
 ribalta quante query ne ribalta quello giusto, il guadagno non era il contesto.
 
-E' la regola aggiunta al §14 dopo I-11: prima di confrontare una metrica fra
+E' la regola aggiunta al §15 dopo I-11: prima di confrontare una metrica fra
 configurazioni, verificare che il cambiamento non muova lo strumento.
 
 Usage:

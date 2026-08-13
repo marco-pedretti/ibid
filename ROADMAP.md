@@ -1,4 +1,4 @@
-# ibid — Piano di implementazione
+﻿# ibid — Piano di implementazione
 
 **Banco di prova per sistemi RAG con attribuzione verificabile**, su modelli piccoli eseguiti in locale, valutato quantitativamente su dataset di benchmark pubblici.
 
@@ -17,6 +17,17 @@ Convenzioni:
 Il nome evocativo attira, la descrizione spiega. Chi scorre una lista di repository dà tre secondi a ciascuno: senza la descrizione, un nome criptico è solo criptico.
 
 ---
+
+> **Rinumerazione del 2026-08-13.** L'inserimento della Fase 7 (Servizio e API) ha spostato di uno le sezioni finali. I riferimenti dentro il repo sono stati aggiornati, **ma i messaggi di commit anteriori a quella data no** — non si riscrivono. Chi legge la storia traduca così:
+>
+> | prima | ora |
+> |---|---|
+> | §13 Cosa NON fare | **§14** |
+> | §14 Regole di lavoro | **§15** |
+> | §15 Struttura del repo | **§16** |
+> | §16 Rischi | **§17** |
+>
+> Le sezioni citate più spesso nel codice — §0 (le tre affermazioni) e §3 (contratti dati) — **non si sono mosse**, ed è il motivo per cui la rinumerazione era accettabile. Le fasi si sono spostate di conseguenza: la vecchia Fase 7 (Interfaccia) è ora la Fase 8, la vecchia Fase 8 (Extra) è la Fase 9.
 
 Questo documento è la fonte di verità per l'implementazione. È scritto per essere eseguibile anche da un coding agent: ogni task ha un identificativo, un deliverable e criteri di accettazione verificabili. Le scelte tecnologiche stanno in `STACK.md`.
 
@@ -124,7 +135,7 @@ class EvalRun(BaseModel):
     metrics: dict[str, float]
 ```
 
-`config` è additivo (default `{}`) e **non** entra nel calcolo di `config_hash`: i run misurati prima della sua introduzione restano confrontabili. Serve a tenere `pipeline_mode` binario come dichiarato qui sopra, invece di usarlo come etichetta libera in cui infilare `rerank`, `filtered_text`, `docagg` e simili — cosa che rende impossibile selezionare due run che differiscono per un flag solo (§14).
+`config` è additivo (default `{}`) e **non** entra nel calcolo di `config_hash`: i run misurati prima della sua introduzione restano confrontabili. Serve a tenere `pipeline_mode` binario come dichiarato qui sopra, invece di usarlo come etichetta libera in cui infilare `rerank`, `filtered_text`, `docagg` e simili — cosa che rende impossibile selezionare due run che differiscono per un flag solo (§15).
 
 ### 3.4 Configurazione
 
@@ -243,7 +254,7 @@ Per ogni dataset candidato: 16 domande costruite con lo stesso schema dei test p
 | C-08 | Premessa di entailment senza il markup delle tabelle OCR, e **rimisura** di `citation_precision` su LEDGER | Le due varianti affiancate sulle stesse generazioni. Chiude la decisione che il gate qui sotto rimandava |
 | C-09 | **Verificatore numerico per il genere tabellare**: `numeric_citation_precision` | Riportata per LEDGER accanto a `citation_precision`, **mai nella stessa colonna**. Validata sul floor test di OQ-05 |
 
-**Perché due task `I-` in questa fase.** Il prefisso indica di cosa parla il task, non in che fase sta (precedente: `D-01` in Fase 3). Entrambi i difetti sono nell'ingestione, ma stanno qui perché **decidono se C-06 può partire**: C-06 è la misura più cara del progetto e l'affermazione 3 del §0 dice *«con un buon retrieval»*. Lanciarlo su una premessa non verificata significa rischiare di rifarlo. I-08 e I-10 **misurano e basta** — le correzioni sono I-09 e I-11, in Fase 5 — e vanno misurati **uno alla volta** (§14): vivono nella stessa funzione, `encode()`, e insieme darebbero un delta non attribuibile.
+**Perché due task `I-` in questa fase.** Il prefisso indica di cosa parla il task, non in che fase sta (precedente: `D-01` in Fase 3). Entrambi i difetti sono nell'ingestione, ma stanno qui perché **decidono se C-06 può partire**: C-06 è la misura più cara del progetto e l'affermazione 3 del §0 dice *«con un buon retrieval»*. Lanciarlo su una premessa non verificata significa rischiare di rifarlo. I-08 e I-10 **misurano e basta** — le correzioni sono I-09 e I-11, in Fase 5 — e vanno misurati **uno alla volta** (§15): vivono nella stessa funzione, `encode()`, e insieme darebbero un delta non attribuibile.
 
 **I-10 è il più grande dei due.** Il tokenizer tronca a 512 token e le pipeline di chunking non lo sanno: il **67,6%** dei chunk di open_ragbench e l'**82,1%** di ledger lo superano, e del chunk mediano entra nell'indice **circa metà del testo**. Il testo intero arriva comunque all'LLM, quindi il sistema risponde su materiale che non ha potuto trovare. Protocolli e numeri in `docs/open-questions.md`, OQ-02 e OQ-04.
 
@@ -251,7 +262,7 @@ Per ogni dataset candidato: 16 domande costruite con lo stesso schema dei test p
 
 ### Ordine di esecuzione (deciso il 2026-08-10, dopo C-03)
 
-L'ordine non è quello della tabella, per la regola del §14. Il vincolo che lo determina: **C-06 rilancia l'intero sistema per ogni taglia di modello**, quindi ogni modifica al comportamento fatta dopo lo invalida.
+L'ordine non è quello della tabella, per la regola del §15. Il vincolo che lo determina: **C-06 rilancia l'intero sistema per ogni taglia di modello**, quindi ogni modifica al comportamento fatta dopo lo invalida.
 
 1. **C-05** — cambia il prompt, e `prompt_hash` entra in `config_hash`: farlo dopo C-04 obbligherebbe a rimisurare C-04. Verificabile in gran parte sulle 891 generazioni già salvate, dove le risposte in lingua mista sono ≤1 su 189 — entrambi i corpus sono inglesi, quindi è più una verifica che una correzione.
 2. **C-04** — l'ultima modifica alla pipeline. C-03 gli ha già fornito i dati: `uncited_claim_rate` 0,106 e 0,156, astensione al 26,5% su LEDGER contro 5,5% su ORB.
@@ -283,13 +294,13 @@ Tutte e tre le voci nascono dall'audit del 2026-08-11, in cui le librerie sono s
 | R-08 | ✅ **fatto il 2026-08-13.** `modifier=IDF` attivo su tutte e 7 le collection, applicato in place. Effetto **opposto nei due dataset**: ORB guadagna a ogni livello (chunk@5 +3,94, p<0,0001), LEDGER guadagna il documento (doc@5 **+27,85**) e perde il chunk (chunk@5 **−1,31**, p<0,0001). Adottato perché è una correzione, non un'ottimizzazione. Apre **OQ-06** | E-06 e R-01 rimisurati — **una sola causa cambiata** |
 | R-09 | ✅ **fatto il 2026-08-13. Risultato nullo.** Query BM25 codificate con `query_embed`. Effetto massimo **4 query discordanti su 10.000**; il motivo è aritmetico — il punteggio sparso è un prodotto scalare e nell'87–94% dei casi le due codifiche differiscono per un solo fattore di scala. Adottato lo stesso: la libreria documenta un contratto e lo violavamo. **Quindi tutto il guadagno di OQ-03 è l'IDF, 100 a 0** | Rimisura **separata** da R-08 |
 | R-10 | ✅ **fatto il 2026-08-13.** Le tre ipotesi di OQ-01 sono **cadute tutte**. Il **45,9%** del regresso è richiamo perso da HNSW: con ricerca esatta `ledger_routed` va da 0,7647 a 0,8471 (857 query recuperate contro 33 perse), `ledger` si muove di 0,37. H1 falsificata da un braccio di controllo assente dal protocollo: un `section_path` **sbagliato** guadagna esattamente quanto quello giusto (+17,33% entrambi, vero-contro-finto p=1,0000) | **Passo 3 non pagato**, e sarebbe stato uno spreco |
-| R-11 | ✅ **fatto il 2026-08-13.** `SEARCH_EXACT` e `HNSW_EF` in `config.py`, **spenti di default** e nell'hash solo se accesi. Il guadagno segue il **richiamo dell'indice**, non la taglia: +0,0000 su open_ragbench (ANN al 99,94% del vero top-5), **+0,0846** su `ledger_routed` (84,84%). **R-07 era contaminata: 8 dei 21,7 punti di regresso erano l'indice** | Nuova regola in §14. `probe_index_density.py` misura il richiamo senza golden set |
+| R-11 | ✅ **fatto il 2026-08-13.** `SEARCH_EXACT` e `HNSW_EF` in `config.py`, **spenti di default** e nell'hash solo se accesi. Il guadagno segue il **richiamo dell'indice**, non la taglia: +0,0000 su open_ragbench (ANN al 99,94% del vero top-5), **+0,0846** su `ledger_routed` (84,84%). **R-07 era contaminata: 8 dei 21,7 punti di regresso erano l'indice** | Nuova regola in §15. `probe_index_density.py` misura il richiamo senza golden set |
 
-**R-08 e R-09 non si fanno in un commit solo.** Sono due cause indipendenti — l'IDF vive nell'indice, la codifica della query nel client — e correggerle insieme misurando una volta viola il §14. Costa una rimisura in più: dieci minuti.
+**R-08 e R-09 non si fanno in un commit solo.** Sono due cause indipendenti — l'IDF vive nell'indice, la codifica della query nel client — e correggerle insieme misurando una volta viola il §15. Costa una rimisura in più: dieci minuti.
 
 > **Cosa hanno comprato quei dieci minuti** (misurato il 2026-08-13): R-08 muove fino a **+27,9 punti**, R-09 **4 query su 10.000**. Correggendole insieme il risultato sarebbe stato attribuito a «OQ-03» e la ripartizione — **100 a 0** — non si sarebbe mai vista. La regola non è pignoleria contabile: è l'unica cosa che distingue una causa da una coincidenza.
 
-**I-09 e I-11 invece condividono la re-ingestione, se scattano entrambe.** Non è un'eccezione al §14: l'attribuzione è già stata fatta a monte, da I-08 e I-10, che misurano una causa ciascuno su un indice ridotto. La re-ingestione completa non è la misura che separa le cause — è l'adozione di due correzioni già separate, e imporne due da 618 minuti ciascuna costerebbe venti ore di GPU per un'informazione già in mano.
+**I-09 e I-11 invece condividono la re-ingestione, se scattano entrambe.** Non è un'eccezione al §15: l'attribuzione è già stata fatta a monte, da I-08 e I-10, che misurano una causa ciascuno su un indice ridotto. La re-ingestione completa non è la misura che separa le cause — è l'adozione di due correzioni già separate, e imporne due da 618 minuti ciascuna costerebbe venti ore di GPU per un'informazione già in mano.
 
 **Ordine:** R-08, R-09, R-10 sono indipendenti da I-09 e si possono fare prima. I-09 è la sola che obbliga a rifare tutto ciò che sta sopra, quindi va per ultima.
 
@@ -322,13 +333,38 @@ Tutte e tre le voci nascono dall'audit del 2026-08-11, in cui le librerie sono s
 
 **Q-05 e Q-06 sono nuove, aggiunte il 2026-08-13**, e non sono un allargamento di comodo: la prima è il prerequisito della Fase 7 (un servizio che gira su un'altra macchina probabilmente gira su Linux), la seconda è ciò che rende questo un *testbed* invece di un programma per due dataset.
 
-**Gate, e non è negoziabile: nessuna metrica cambia.** Un refactor puro lascia invariato il conteggio dei test (§14) e lascia invariati i numeri: `scripts/rescore_citations.py` ricalcola le metriche di C-01 dai dump salvati a costo zero, e alla fine della fase deve restituire **gli stessi valori** già registrati. Se cambia un decimale, non era un refactor.
+**Gate, e non è negoziabile: nessuna metrica cambia.** Un refactor puro lascia invariato il conteggio dei test (§15) e lascia invariati i numeri: `scripts/rescore_citations.py` ricalcola le metriche di C-01 dai dump salvati a costo zero, e alla fine della fase deve restituire **gli stessi valori** già registrati. Se cambia un decimale, non era un refactor.
 
 ---
 
-## 11. Fase 7 — Interfaccia
+## 11. Fase 7 — Servizio e API
 
-**Durata: 1 settimana.** Da qui il progetto è completo e presentabile.
+**Durata: 1–1,5 settimane.** È la fase che rende il backend sostituibile dal frontend e viceversa, e che gli permette di girare su un'altra macchina. **Non è un ritocco**: è il lavoro architetturale più grande rimasto.
+
+**Il confine, detto una volta.** Il backend espone HTTP; il frontend è un client come un altro. Chiunque può scriverne un secondo, o nessuno. La demo React della Fase 8 è **un** consumatore dell'API, non il suo scopo.
+
+| ID | Task | Criterio di accettazione |
+|---|---|---|
+| A-01 | **Strato `src/service/`**: una funzione per caso d'uso, chiamata sia dalla CLI sia dall'API | Nessun endpoint contiene logica di pipeline. La stessa richiesta dalla CLI e dall'API produce lo **stesso** risultato, verificato da un test che le confronta |
+| A-02 | **La configurazione di una richiesta smette di passare da `cfg` globale**: parametri di retrieval e generazione viaggiano nella richiesta | Due richieste concorrenti con configurazioni diverse non si contaminano — test con due `top_k` diversi in parallelo |
+| A-03 | Il **contratto UI ↔ API** del §3.5 è implementato: schema delle risposte ed eventi dello stream | Ogni stato dell'interfaccia previsto in Fase 8 è rappresentabile nello schema, incluse «attendo i verdetti» e «il modello si è astenuto» |
+| A-04 | Endpoint FastAPI: `/health`, `/datasets`, `/query` (SSE), `/chunk/{chunk_id}` | `docker compose up` e una query completa da `curl`, senza il frontend |
+| A-05 | Backend come servizio in `docker compose`, con `QDRANT_URL` e `LLM_BASE_URL` da ambiente | Backend su una macchina, Qdrant e LLM su un'altra, senza modifiche al sorgente |
+| A-06 | **La dashboard Streamlit passa dall'API** invece di importare `src.` | `grep -r "^from src\." dashboard/` non trova più niente |
+
+**A-02 è il task difficile, ed è bene saperlo prima.** Gli harness leggono `cfg` globale — è ciò che ha permesso a R-11 di passare `SEARCH_EXACT` da variabile d'ambiente senza toccare una firma. Comodo per uno script, **impossibile per un servizio**: due richieste concorrenti con `top_k` diverso condividerebbero lo stesso modulo. Finché A-02 non è fatto, l'API è monoutente e non lo sa.
+
+**A-06 è la verifica, non un extra.** La dashboard importa `src.` in **9 moduli, 22 volte**: è il consumatore più esigente che esista già. Se l'API le basta, basterà anche al frontend — e se non le basta, si scopre ora invece che a React scritto. Se dovesse rivelarsi sproporzionata, va **rimandata dichiarandolo**, non silenziosamente omessa: senza, il confine è affermato e non provato.
+
+**Cosa questa fase NON fa**, e la lista è vincolante quanto quella sopra: nessuna astrazione del vector store, nessun harness a plugin, nessuna coda di messaggi, nessuna autenticazione, nessun multi-tenancy. Le ragioni stanno in §14 — sono la stessa decisione che ha tenuto fuori LangChain.
+
+**Gate: nessuna metrica cambia, e la CLI continua a funzionare identica.** `scripts/rescore_citations.py` deve restituire gli stessi valori registrati, e ogni script di `scripts/` deve girare come prima. Se l'API esiste ma la CLI si è rotta, non è stato estratto un servizio: è stato riscritto il programma.
+
+---
+
+## 12. Fase 8 — Interfaccia
+
+**Durata: 1 settimana.** Da qui il progetto è completo e presentabile. Costruita **sopra** l'API della Fase 7: il frontend non importa niente da `src/`.
 
 | ID | Task | Criterio di accettazione |
 |---|---|---|
@@ -351,7 +387,7 @@ Tutte e tre le voci nascono dall'audit del 2026-08-11, in cui le librerie sono s
 
 ---
 
-## 12. Fase 8 — Extra, in ordine di priorità
+## 13. Fase 9 — Extra, in ordine di priorità
 
 Solo se avanza tempo. Nessuno di questi è necessario perché il progetto sia completo.
 
@@ -364,7 +400,7 @@ Solo se avanza tempo. Nessuno di questi è necessario perché il progetto sia co
 
 ---
 
-## 13. Cosa NON fare
+## 14. Cosa NON fare
 
 - **Costruire un corpus a mano o fare scraping.** Era la voce di costo più grande ed è stata eliminata di proposito.
 - **Corpus con licenza restrittiva** (regolamenti FIA, specifiche 3GPP e simili): niente PDF nel repo, niente immagini Docker con documenti dentro, niente snapshot Qdrant con il testo nel payload.
@@ -376,7 +412,7 @@ Solo se avanza tempo. Nessuno di questi è necessario perché il progetto sia co
 
 ---
 
-## 14. Regole di lavoro
+## 15. Regole di lavoro
 
 **Per entrambi**
 
@@ -406,7 +442,7 @@ Solo se avanza tempo. Nessuno di questi è necessario perché il progetto sia co
 
 ---
 
-## 15. Struttura del repo
+## 16. Struttura del repo
 
 ```
 ├── compose.yml              # profili demo / full / eval
@@ -436,7 +472,7 @@ Solo se avanza tempo. Nessuno di questi è necessario perché il progetto sia co
 
 ---
 
-## 16. Rischi
+## 17. Rischi
 
 | Rischio | Quando lo scoprite | Mitigazione |
 |---|---|---|

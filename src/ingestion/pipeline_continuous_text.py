@@ -7,7 +7,7 @@ and are treated as atomic units — never split mid-paragraph.
 Overlap is achieved by keeping trailing paragraphs from the previous window in
 the next one, so a sentence near a chunk boundary is retrievable from either
 side. Parameters are module-level defaults intended to be swept in config.py
-(ablation = loop over config, not a code change — per ROADMAP §14).
+(ablation = loop over config, not a code change — per ROADMAP §15).
 """
 
 from __future__ import annotations

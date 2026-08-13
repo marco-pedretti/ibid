@@ -55,7 +55,7 @@ def render_noise_caption(floor) -> None:
         st.warning(
             "Nessun rumore di fondo misurato per questo dataset: le barre non hanno "
             "intervallo e nessun delta può essere dichiarato un miglioramento "
-            "(ROADMAP §14). Esegui `make noise-floor`.",
+            "(ROADMAP §15). Esegui `make noise-floor`.",
             icon="⚠️",
         )
     else:

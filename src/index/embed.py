@@ -93,7 +93,7 @@ def encode_sparse_query(texts: list[str], model_name: str) -> list[SparseVector]
     This is the second half of OQ-03.  The first half was R-08 (`modifier=IDF`
     on the index), deliberately corrected and measured before this one: the IDF
     lives in the index and this lives in the client, and fixing both before
-    measuring would have made the delta unattributable (§14).
+    measuring would have made the delta unattributable (§15).
 
     Note the third difference, which the docstring above does not mention:
     `query_embed` de-duplicates tokens through a `set`, so a word repeated in

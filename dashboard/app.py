@@ -3,7 +3,7 @@
 Four pages, one module each under `dashboard/views/`:
   1. EvalRun Comparator   — compare EvalRun JSONs within a single dataset, with
                             the E-07 noise floor drawn as ±σ whiskers and deltas
-                            below it refused the colour green (ROADMAP §14)
+                            below it refused the colour green (ROADMAP §15)
   2. Retrieval Playground — free-form query against any Qdrant collection, in
                             dense / sparse / hybrid, with or without reranking;
                             A/B tab compares two configs on the same query

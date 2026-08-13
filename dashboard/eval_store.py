@@ -38,7 +38,7 @@ def load_noise_floors(results_dir: Path) -> list[NoiseFloorResult]:
     These are the files `load_eval_runs` skips: they carry `metric_stats`
     (mean/std/min/max per metric) instead of a single `metrics` dict.  Without
     them the dashboard cannot tell a real improvement from run-to-run jitter,
-    which ROADMAP §14 requires before any delta is called an improvement.
+    which ROADMAP §15 requires before any delta is called an improvement.
     """
     floors: list[NoiseFloorResult] = []
     for f in results_dir.glob("*.json"):
@@ -177,7 +177,7 @@ def compare_table(runs: list[EvalRun]) -> dict[str, list[float]]:
 def config_diff(a: EvalRun, b: EvalRun) -> list[str]:
     """What changed between two runs, including the routing axis.
 
-    ROADMAP §14 forbids measuring two changes at once.  The comparator uses this
+    ROADMAP §15 forbids measuring two changes at once.  The comparator uses this
     to warn when a delta cannot be attributed to a single decision.
     """
     diff = differing_keys(a.config, b.config)

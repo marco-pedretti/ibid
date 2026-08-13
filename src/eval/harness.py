@@ -133,7 +133,7 @@ def _config_hash(
         # R-09, same argument, different half: the query encoding changes what
         # the sparse branch computes, so a run from before it must not share a
         # name with one from after.  Two keys and not one, because the two
-        # corrections were measured separately (§14) and the three states —
+        # corrections were measured separately (§15) and the three states —
         # neither, IDF only, both — each need their own identity.
         params["sparse_query_embed"] = True
     # R-11. Compare **solo quando e' acceso**: spento, l'hash resta quello di

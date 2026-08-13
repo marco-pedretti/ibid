@@ -20,7 +20,7 @@ Non è `progress.md` (che registra cosa è stato fatto) né `ROADMAP.md` (che de
 >
 > **H2a — fattore parziale.** Passare da profondità 5 a 20 recupera 6 punti su 17.
 >
-> **Aggiornamento R-11 (stesso giorno).** Misurate tutte e quattro le collection: il guadagno della ricerca esatta segue il **richiamo dell'indice**, non la sua taglia. `open_ragbench` +0,0000 (l'ANN trova il 99,94% del vero top-5), `open_ragbench_routed` +0,0030, `ledger` +0,0046, `ledger_routed` **+0,0846** (84,84%). Su `doc_R@5` il divario fra le due pipeline LEDGER passa da **−21,71 a −13,72**: il **37%** del regresso attribuito al routing era l'indice. Il default resta spento — è una scelta, non una correzione — ma il §14 ora vieta di confrontare indici di densità diversa con la ricerca approssimata.
+> **Aggiornamento R-11 (stesso giorno).** Misurate tutte e quattro le collection: il guadagno della ricerca esatta segue il **richiamo dell'indice**, non la sua taglia. `open_ragbench` +0,0000 (l'ANN trova il 99,94% del vero top-5), `open_ragbench_routed` +0,0030, `ledger` +0,0046, `ledger_routed` **+0,0846** (84,84%). Su `doc_R@5` il divario fra le due pipeline LEDGER passa da **−21,71 a −13,72**: il **37%** del regresso attribuito al routing era l'indice. Il default resta spento — è una scelta, non una correzione — ma il §15 ora vieta di confrontare indici di densità diversa con la ricerca approssimata.
 >
 > **Cosa resta:** 9,27 punti dopo aver tolto HNSW. Il regime è quello del quasi-pareggio — il chunk d'oro perde per 0,0090 di coseno, l'intero top-5 sta dentro 0,0085, e il routing ha portato i concorrenti a pari merito da 7,1 a 9,0 di media. Descritto, non ancora azionabile. Numeri e ragionamento in [`progress.md`](progress.md) → *R-10*.
 >
@@ -91,7 +91,7 @@ Se la perdita dell'heading fosse sufficiente a causare un crollo, ORB dovrebbe c
 
 ### Le tre ipotesi, e perché non sono separabili così come stanno
 
-Il routing su LEDGER ha cambiato **tre cose insieme**, il che viola §14 se le si vuole attribuire:
+Il routing su LEDGER ha cambiato **tre cose insieme**, il che viola §15 se le si vuole attribuire:
 
 - **H1 — perdita del contesto di sezione.** Il chunk tabella non embedda il proprio heading (misura 1).
 - **H2 — dimensione.** I chunk sono 3–12× più piccoli (misura 2). Due sotto-varianti, che vanno distinte:
@@ -181,7 +181,7 @@ python scripts/eval.py --dataset ledger --collection ledger_routed_ctx \
   --pipeline-mode routed --doc-aggregate --limit 200
 ```
 
-**Il confronto è `ledger_routed_ctx` contro `ledger_routed`** — *non* contro `ledger` generic. Fra routed_ctx e routed cambia una cosa sola (§14). Fra routed_ctx e generic ne cambiano tre, e il delta non sarebbe attribuibile. Il comparator della dashboard lo dice da solo: selezionando i due run deve comparire *"Cambia un parametro solo"*.
+**Il confronto è `ledger_routed_ctx` contro `ledger_routed`** — *non* contro `ledger` generic. Fra routed_ctx e routed cambia una cosa sola (§15). Fra routed_ctx e generic ne cambiano tre, e il delta non sarebbe attribuibile. Il comparator della dashboard lo dice da solo: selezionando i due run deve comparire *"Cambia un parametro solo"*.
 
 **Cosa guardare, in ordine:**
 
@@ -264,7 +264,7 @@ Se il delta è reale e positivo, la correzione è una re-ingestione completa e u
 >
 > **Fatto 2 — chiuso da R-09, con risultato nullo.** Le query passano da `query_embed()`. Effetto massimo: **4 query discordanti su 10.000**. Il motivo è aritmetico e non statistico — il punteggio sparso è un prodotto scalare, e nell'87–94% dei casi le due codifiche differiscono per un solo fattore di scala, che non cambia l'ordinamento. Dettagli in `progress.md` → *R-09*.
 >
-> **Quindi tutto il guadagno di OQ-03 è l'IDF, nella misura 100 a 0.** È l'informazione che si sarebbe persa correggendo le due metà insieme, ed è ciò che il §14 comprava.
+> **Quindi tutto il guadagno di OQ-03 è l'IDF, nella misura 100 a 0.** È l'informazione che si sarebbe persa correggendo le due metà insieme, ed è ciò che il §15 comprava.
 >
 > **La previsione scritta qui sotto il 2026-08-11 era metà giusta, ed è utile sapere quale metà.** Diceva: *«su LEDGER a discriminare sono token rari, cioè esattamente ciò che l'IDF pesa»*. A livello di **documento** ha colto in pieno — doc@5 da 0,6411 a 0,9196, +27,9 punti su 10.000 query. A livello di **chunk** ha sbagliato segno: −1,31 punti, p<0,0001. Trovare il documento giusto e trovare il passaggio giusto non sono la stessa cosa, e la previsione non distingueva fra i due.
 >
@@ -316,7 +316,7 @@ Entrambe misurate appaiate con `scripts/probe_sparse_paired.py` (`--vary idf` e 
 
 ### Trappola
 
-Non correggere i due difetti insieme e misurare una volta sola (§14: *mai due cambiamenti in una misura*). Sono due cause indipendenti: l'IDF vive nell'indice, la codifica della query nel client.
+Non correggere i due difetti insieme e misurare una volta sola (§15: *mai due cambiamenti in una misura*). Sono due cause indipendenti: l'IDF vive nell'indice, la codifica della query nel client.
 
 ---
 
@@ -356,7 +356,7 @@ Il testo completo arriva comunque all'LLM in generazione: **il sistema risponde 
 
 ### Perché è più grande di OQ-02
 
-OQ-02 è un prefisso mancante su un input per il resto integro. Qui l'input è mezzo. Le due cose vivono nella stessa funzione (`encode()`) e sono entrambe misurabili sullo stesso indice ridotto, ma **non vanno misurate insieme** (§14).
+OQ-02 è un prefisso mancante su un input per il resto integro. Qui l'input è mezzo. Le due cose vivono nella stessa funzione (`encode()`) e sono entrambe misurabili sullo stesso indice ridotto, ma **non vanno misurate insieme** (§15).
 
 ### Impatto sulle misure già fatte
 
@@ -502,4 +502,4 @@ Perché è materia dell'**affermazione 2 del §0** — *«il routing automatico 
 
 ### Trappola
 
-Attivare l'IDF per genere **senza** i passi 1–2 sarebbe scegliere la configurazione che vince sui dati su cui la si misura: la stessa trappola della soglia tarata sui propri dati che C-03 ha evitato. E sarebbe un secondo cambiamento infilato nella misura di R-08 (§14).
+Attivare l'IDF per genere **senza** i passi 1–2 sarebbe scegliere la configurazione che vince sui dati su cui la si misura: la stessa trappola della soglia tarata sui propri dati che C-03 ha evitato. E sarebbe un secondo cambiamento infilato nella misura di R-08 (§15).

@@ -6,7 +6,7 @@ Una re-ingestione completa costa 618 minuti (misurati in R-07) e serve ad
 campiona qualche migliaio di chunk, li indicizza in due varianti che differiscono
 per una cosa sola, e confronta in appaiato sulle query golden.
 
-Due misure lo usano, **una alla volta** (§14):
+Due misure lo usano, **una alla volta** (§15):
 
   capped     I-10 / OQ-04 — il tokenizer tronca a 512 token e le pipeline non lo
              sanno. La variante spezza i chunk a `--cap` token.

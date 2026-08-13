@@ -222,7 +222,7 @@ class TestNumericMetric:
 
     def test_nli_precision_is_untouched(self):
         """Il campo `supported` resta il verdetto dell'NLI: i numeri gia'
-        riportati prima di C-09 devono restare confrontabili (§14)."""
+        riportati prima di C-09 devono restare confrontabili (§15)."""
         r = self._report(["unsupported"] * 3)
         assert r.citation_precision == 1.0        # tutti supported per l'NLI
         assert r.numeric_citation_precision == 0.0

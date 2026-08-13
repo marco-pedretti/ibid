@@ -7,7 +7,7 @@ Tracciamento dei task di `ROADMAP.md` man mano che vengono completati. Non sosti
 | Task | Stato | Note |
 |---|---|---|
 | T-01 | ✅ fatto (2026-08-03) | Scheletro repo: `src/{api,datasets,profiling,ingestion,index,retrieval,generation}/`, `compose.yml` (servizio `api` sempre attivo, `qdrant` dietro i profili `full`/`eval`/`demo`), `Dockerfile` multi-stage con `uv`, `pyproject.toml`, `.env.example`, `Makefile`, `.gitignore`, scheletro `eval/`, `dashboard/`, `ui/`, `data/demo/`. Gate verificato dal vivo: `docker compose up --build api` → container `healthy`, `curl /health` → `{"status":"ok"}`. **Non ancora committato in git.** |
-| T-02 | ✅ fatto (2026-08-04) | Smoke test via Ollama 0.32.5 (alternativa approvata da STACK.md). Modelli testati: E2B (5.1B Q4_K_M, 91.2 tok/s, 1.9 GB VRAM), E4B (8.0B Q4_K_M, 15.1 tok/s, 3.3 GB), 12B (11.9B Q4_K_M, 2.4 tok/s, 8.1 GB) — tutti 100% GPU. **26B MoE escluso**: file GGUF ~18 GB supera i 12 GB VRAM; curva di scaling C-06 si ferma a 12B (previsto in ROADMAP §16). Tabella in `docs/hardware.md`, dati grezzi in `eval/contamination/smoke_20260804_103814.json`. Fix notevole: Gemma 4 è un thinking model — con `/api/generate` i token vengono consumati dal reasoning invisibile; risolto usando `/api/chat` con `think: false`. Script riutilizzabile in `scripts/smoke_test.py`. |
+| T-02 | ✅ fatto (2026-08-04) | Smoke test via Ollama 0.32.5 (alternativa approvata da STACK.md). Modelli testati: E2B (5.1B Q4_K_M, 91.2 tok/s, 1.9 GB VRAM), E4B (8.0B Q4_K_M, 15.1 tok/s, 3.3 GB), 12B (11.9B Q4_K_M, 2.4 tok/s, 8.1 GB) — tutti 100% GPU. **26B MoE escluso**: file GGUF ~18 GB supera i 12 GB VRAM; curva di scaling C-06 si ferma a 12B (previsto in ROADMAP §17). Tabella in `docs/hardware.md`, dati grezzi in `eval/contamination/smoke_20260804_103814.json`. Fix notevole: Gemma 4 è un thinking model — con `/api/generate` i token vengono consumati dal reasoning invisibile; risolto usando `/api/chat` con `think: false`. Script riutilizzabile in `scripts/smoke_test.py`. |
 | T-03 | ✅ fatto (2026-08-04) | Dataset principale: `vectara/open_ragbench` — **nessuna contaminazione significativa**. 16 query da 16 paper diversi + 2 controlli positivi, testate su E4B e 12B senza contesto. Le 4 risposte "corrette" del 12B sono riconducibili a conoscenza disciplinare generale (matematica, medicina, economia, ML), non a training specifico sul paper: le 3 domande con valore numerico preciso (0.0226, $2.5, 8pF→3pF) erano sconosciute a entrambi i modelli. Dataset approvato. Secondo dataset (genere visuale) rinviato a I-01. Analisi in `docs/contamination.md`, dati grezzi in `eval/contamination/contamination_open_ragbench_20260804_112523.json`. Gate completo chiuso in T-05 ✅ |
 | T-04 | ✅ fatto (2026-08-04) | Schema `Chunk` e `EvalRun` in `src/datasets/schema.py` (contratti §3 di ROADMAP). Loader `src/datasets/open_ragbench.py`: scarica con `snapshot_download`, normalizza sezioni a `Chunk` (section_id come seq, content_type da presenza tabelle/immagini, tabelle Markdown incluse nel testo). Script `scripts/fetch_dataset.py`. Risultato: **997 documenti, 18840 chunk** (16858 text, 1982 mixed). I 1004 file scaricati includono corpus + queries/answers/qrels già disponibili per E-01. Test unitari in `tests/test_open_ragbench_schema.py` (9/9 pass). |
 | T-05 | ✅ fatto (2026-08-04) | Pipeline end-to-end funzionante: `scripts/ingest.py` + `scripts/query.py`. Stack: fastembed + onnxruntime-directml (AMD GPU via DirectX 12, 10 embed/s su testi lunghi), `intfloat/multilingual-e5-large` 1024-dim (BGE-M3 target non ancora in catalogo fastembed), Qdrant 1.18 con `query_points`. Gate verificato: query "SD of RMSE for Ridge Regression?" → risposta con `[1][2]` → valore 0.0226 citato correttamente dal paper 2412.20245v4. Questo è esattamente il valore che i modelli non conoscevano senza contesto in T-03. Problema risolto: PyTorch CPU ~0.06 embed/s → fastembed/DirectML ~10 embed/s (167x). |
@@ -63,11 +63,11 @@ Tracciamento dei task di `ROADMAP.md` man mano che vengono completati. Non sosti
 
 ### Dashboard — riscrittura (2026-08-07)
 
-Non è un task di `ROADMAP.md` (che si ferma a D-01): è un intervento su D-01 già chiuso, fatto sul branch `dashboard-rework`. Motivo: la dashboard era organizzata attorno agli artefatti (un JSON, una collection, un golden file → una pagina), non attorno alle tre affermazioni del §0, e in due punti contraddiceva attivamente il §14.
+Non è un task di `ROADMAP.md` (che si ferma a D-01): è un intervento su D-01 già chiuso, fatto sul branch `dashboard-rework`. Motivo: la dashboard era organizzata attorno agli artefatti (un JSON, una collection, un golden file → una pagina), non attorno alle tre affermazioni del §0, e in due punti contraddiceva attivamente il §15.
 
 **1. `EvalRun.config` — `pipeline_mode` torna binario.** Il campo era diventato un'etichetta libera (`generic_filtered_text`, `routed_docagg`, `hybrid_rrf`), contro il contratto §3.3. Conseguenza pratica: impossibile selezionare due run che differiscono per un flag solo. Aggiunto `src/eval/run_config.py` (`build_config` / `config_slug` / `differing_keys`) e il campo `config: dict` a `EvalRun`, additivo con default `{}`. **`config_hash` è rimasto identico di proposito**: ricalcolarlo avrebbe reso non confrontabili i run già riportati qui sopra. `scripts/migrate_eval_results.py` ha ricostruito i 16 risultati storici conservando l'etichetta originale in `config.legacy_pipeline_mode`. §3.3 di `ROADMAP.md` aggiornato.
 
-**2. Rumore di fondo visibile.** `load_eval_runs()` scartava silenziosamente i file `NoiseFloorResult` (nessuna chiave `metrics`): il rumore misurato in E-07 non era **mai** arrivato in dashboard, e la colonna delta coloriva di verde qualunque Δ > 0, incluso uno sotto σ. Ora: `load_noise_floors()` + `match_noise_floor()` (mai fra dataset diversi, §13), barre con whisker ±σ, delta grigio sotto rumore e colorato solo sopra. `is_significant()` restituisce `None` quando il rumore non è mai stato misurato — "non misurato" è diverso da "non significativo", e la pagina lo dice esplicitamente. Il dataset è diventato una scelta singola: un delta cross-dataset non è più esprimibile nella UI.
+**2. Rumore di fondo visibile.** `load_eval_runs()` scartava silenziosamente i file `NoiseFloorResult` (nessuna chiave `metrics`): il rumore misurato in E-07 non era **mai** arrivato in dashboard, e la colonna delta coloriva di verde qualunque Δ > 0, incluso uno sotto σ. Ora: `load_noise_floors()` + `match_noise_floor()` (mai fra dataset diversi, §15), barre con whisker ±σ, delta grigio sotto rumore e colorato solo sopra. `is_significant()` restituisce `None` quando il rumore non è mai stato misurato — "non misurato" è diverso da "non significativo", e la pagina lo dice esplicitamente. Il dataset è diventato una scelta singola: un delta cross-dataset non è più esprimibile nella UI.
 
 **3. Retrieval Playground** (era Chunk Inspector). Le collection si leggono da Qdrant invece di essere hardcodate a `["open_ragbench", "ledger"]` — le collection `*_routed` di R-07 erano irraggiungibili proprio dall'unico strumento costruito per ispezionarle. Aggiunti hybrid (R-01) e rerank (R-02), che erano implementati ma non ispezionabili. Nuovo tab A/B fra due configurazioni qualsiasi, con overlap a livello chunk **e** documento: sul confronto `ledger` vs `ledger_routed` la Jaccard chunk è 0.00 e quella documento 0.33, e la UI spiega perché invece di lasciar credere a un guasto.
 
@@ -374,7 +374,7 @@ La previsione era stata scritta **prima** di misurare (commit 4ce5ea0), sulla ba
 | 3 | riscritto sui fallimenti | 0,9309 | |
 | 4 | + promemoria vicino alla domanda | 0,8942 | revertito |
 
-Sottoposti al test appaiato di McNemar sulle stesse query, **nessuno dei cambi di prompt sposta la conformità complessiva in modo significativo**: run2→run3 p=0,210, run3→run4 p=0,167, run2→run4 p=1,000. Il "+4 punti" del run 3 era rumore ed era stato dichiarato come risultato — violazione del §14 corretta in 2c8cf0c.
+Sottoposti al test appaiato di McNemar sulle stesse query, **nessuno dei cambi di prompt sposta la conformità complessiva in modo significativo**: run2→run3 p=0,210, run3→run4 p=0,167, run2→run4 p=1,000. Il "+4 punti" del run 3 era rumore ed era stato dichiarato come risultato — violazione del §15 corretta in 2c8cf0c.
 
 > **Nota sui `config_hash` di questi file** (scoperta durante C-07). I run 3 e 4 sono su disco con lo stesso `config_hash 2878488d` pur avendo due prompt diverse: il promemoria del run 4 è stato aggiunto a `build_user_message`, e `prompt_hash` copriva solo `SYSTEM`. La conclusione qui sopra non ne è toccata — la tabella li ha sempre trattati come due prompt distinte e li ha confrontati appaiati — ma i due file non sono distinguibili dal loro nome. Da C-07 l'hash copre anche il template del messaggio utente; i file già scritti restano come sono, e la presenza del campo `user_template_hash` nel `config` è ciò che distingue le due regole. Il messaggio del commit `da12e50` afferma che i due run erano stati documentati come repliche a parità di configurazione: **non è così**, ed è questa riga a fare fede.
 
@@ -571,7 +571,7 @@ Il terzo controllo non è decorativo: una riga di prompt che sistema la lingua e
 
 > *Umbrella Sampling wird verwendet, um Zustände $s_{i}$ aus einer verallgemeinerten Markov-Kette zu sampeln… **[3]***
 
-**`prompt_hash` resta `3a50ef63`.** Nessuna modifica al prompt significa che i numeri di C-01 restano validi e che C-04 misurerà su un prompt stabile — che è esattamente il motivo per cui la regola d'ordine del §14 mette C-05 prima di C-04.
+**`prompt_hash` resta `3a50ef63`.** Nessuna modifica al prompt significa che i numeri di C-01 restano validi e che C-04 misurerà su un prompt stabile — che è esattamente il motivo per cui la regola d'ordine del §15 mette C-05 prima di C-04.
 
 #### Il reperto: l'astensione resta inglese, di proposito
 
@@ -813,7 +813,7 @@ Le due codifiche non differiscono **mai** su *quali* token vengono valutati. E n
 
 #### Cosa questo autorizza a dire di R-08
 
-Che i guadagni di OQ-03 sono **interamente** l'IDF. Se avessimo corretto le due metà insieme — la strada che il §14 vieta e che sembrava far risparmiare dieci minuti — avremmo attribuito tutto a «OQ-03» e non avremmo mai saputo che la ripartizione è 100 a 0. La misura separata è costata una rimisura, e ha comprato l'attribuzione.
+Che i guadagni di OQ-03 sono **interamente** l'IDF. Se avessimo corretto le due metà insieme — la strada che il §15 vieta e che sembrava far risparmiare dieci minuti — avremmo attribuito tutto a «OQ-03» e non avremmo mai saputo che la ripartizione è 100 a 0. La misura separata è costata una rimisura, e ha comprato l'attribuzione.
 
 #### Perché è stato adottato lo stesso
 
@@ -895,7 +895,7 @@ Costo: **2,5 ms/query contro 1,4**. Su queste dimensioni la ricerca esatta costa
 
 **9,27 punti veri**, dopo aver tolto il richiamo perso dall'indice. Su quelli le tre ipotesi originali sono tutte cadute, e ciò che resta in piedi è la descrizione del passo 1: un regime di quasi-pareggio in cui il routing ha moltiplicato i concorrenti a pari merito. Non è ancora una causa azionabile.
 
-**L'adozione di `exact`/`hnsw_ef` non è stata fatta qui**: è un cambiamento nuovo e vuole la sua misura (§14). Proposta come **R-11**.
+**L'adozione di `exact`/`hnsw_ef` non è stata fatta qui**: è un cambiamento nuovo e vuole la sua misura (§15). Proposta come **R-11**.
 
 > **Una lezione sul metodo, non sul routing.** Il protocollo di OQ-01 era stato scritto in anticipo, ed è stato eseguito com'era — cosa giusta. Ma il suo criterio binario non copriva il risultato reale né al passo 1 né al passo 2, e il suo passo 2 misurava, senza saperlo, l'instabilità dell'ordinamento invece del valore del contesto. **Pre-registrare un test protegge dallo scegliere il test dopo aver visto i dati; non protegge dall'aver scelto il test sbagliato prima.** Serve comunque un controllo che dica cosa il test sta misurando.
 
@@ -944,7 +944,7 @@ R-07 e OQ-01 confrontano `ledger` (47k punti) con `ledger_routed` (228k). Con ri
 
 Perché è una **scelta**, non una correzione: il default di Qdrant è legittimo, ed è quello in cui è stato misurato tutto il progetto. Accenderlo d'ufficio spezzerebbe l'identità di ogni misura passata per un guadagno che sulle collection generiche va da 0,0000 a 0,0046.
 
-Quello che cambia non è il default ma **una regola di metodo**, aggiunta al §14: quando si confrontano due indici di taglia o densità diversa, la ricerca esatta è obbligatoria — oppure va verificato prima che il richiamo dell'ANN sia equivalente sui due. Costa un minuto con `probe_index_density.py`.
+Quello che cambia non è il default ma **una regola di metodo**, aggiunta al §15: quando si confrontano due indici di taglia o densità diversa, la ricerca esatta è obbligatoria — oppure va verificato prima che il richiamo dell'ANN sia equivalente sui due. Costa un minuto con `probe_index_density.py`.
 
 **Cosa questo non dice.** Che la ricerca esatta sia sempre la scelta giusta: è O(n), e a 228k punti costa 2,5 ms/query contro 1,4, ma a dieci milioni il conto è un altro. È il motivo per cui resta un parametro e non una decisione cablata.
 
