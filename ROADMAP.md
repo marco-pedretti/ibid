@@ -141,6 +141,50 @@ class EvalRun(BaseModel):
 
 Ogni scelta di retrieval è un parametro in `config.py`. Un'ablation deve essere un ciclo su file di configurazione. Se cambiare il reranker richiede di toccare un modulo, il design è sbagliato.
 
+### 3.5 Contratto UI ↔ API
+
+Scritto **prima** degli endpoint (A-03), e prima di qualunque scelta di design dell'interfaccia. Non descrive come la UI appare: descrive **cosa può chiedere e cosa riceve**. Sta qui e non nella Fase 8 perché è un contratto dati, e perché è ciò che la Fase 7 implementa.
+
+**Deriva dai requisiti già decisi**, non è da inventare:
+
+| requisito di Fase 8 | cosa impone |
+|---|---|
+| U-02 — lista documenti sempre visibile | la risposta porta **sempre** i chunk recuperati, non solo il testo |
+| U-05 — indicatore di pipeline | ogni chunk porta `pipeline` e `doc_genre` |
+| U-07 — non verificate marcate, non nascoste | ogni citazione porta il **proprio verdetto**, e l'API non ne filtra nessuna |
+| U-03 — RAG on/off affiancati | la richiesta accetta il toggle; le due risposte sono confrontabili |
+| U-01 — cambio dataset senza riavvio | esiste `GET /datasets`; nessuna costante nel frontend |
+| U-06 — link profondi | ogni citazione porta `source_uri` e `page`; `bbox` resta `null` finché I-06 è rinviato — **dichiararlo, non simularlo** |
+
+#### La verifica arriva dopo il testo, e questo decide il protocollo
+
+`verify_answer()` prende la risposta **completa**: la spezza in claim e per ogni coppia (claim, chunk citato) fa girare il modello NLI. È posteriore alla generazione per costruzione.
+
+Ma l'architettura prevede **SSE streaming**, e U-07 chiede che le citazioni non verificate siano marcate. Quindi mentre i token scorrono, il marcatore `[2]` compare **prima che il suo verdetto esista**.
+
+Ne segue che lo stream **non è una sequenza di token**. Il minimo indispensabile:
+
+```
+event: token      { "text": "..." }                     n volte
+event: chunks     { "chunks": [...] }                   una volta, appena il retrieval è finito
+event: answer     { "text": "...", "repaired": true }   il testo dopo il parser di C-02
+event: citations  { "citations": [...] }                dopo la verifica
+event: done       { "abstained": false, "timings": {...} }
+```
+
+Due conseguenze che vanno decise una volta sola, non scoperte a frontend scritto:
+
+1. **Il testo grezzo non è il testo finale.** Il parser di C-02 ripara i marcatori (`[1] [2]` → `[1][2]`), quindi ciò che scorre in `token` differisce da `answer`. La UI deve sapere che il testo verrà sostituito, o lo stream deve essere ritardato fino al parser — perdendo lo streaming. **Va scelto, e la scelta va scritta qui.**
+2. **`chunks` arriva prima di `answer`.** È ciò che rende U-02 realizzabile: la lista documenti compare mentre il modello sta ancora scrivendo.
+
+#### Il criterio di completezza
+
+**La UI deve poter leggere lo schema e sapere cosa disegnare in ogni stato**, inclusi «sto aspettando i verdetti», «il modello si è astenuto» e «il retrieval non ha trovato niente». Se uno stato non è rappresentabile, manca un campo — e si scopre ora invece che a frontend scritto.
+
+#### Cosa il contratto NON copre
+
+Layout, componenti, stile, gestione dello stato lato client, paginazione, cronologia delle query, sessioni salvate. Non incidono sulla forma delle risposte, quindi non vincolano l'API e restano decisioni di Fase 8.
+
 ---
 
 ## 4. Fase 0 — Fetta verticale e gate di contaminazione
