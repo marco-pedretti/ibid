@@ -41,7 +41,11 @@ from pathlib import Path
 
 ROOT = Path(__file__).parent.parent
 sys.path.insert(0, str(ROOT))
-sys.path = [p for p in sys.path if Path(p or ".").resolve() != Path(__file__).parent.resolve()]
+# Qui c'era una riga che si toglieva `scripts/` da `sys.path`, per aggirare
+# `scripts/profile.py` che faceva ombra al modulo `profile` della stdlib. Q-03 ha
+# rinominato quel file: il conflitto non esiste piu'. La gemella in
+# `probe_entailment.py` era gia' sparita allora; questa e' sfuggita perche' Q-03
+# cercava il *nome del file*, non i rimedi sparsi che lo aggiravano.
 
 import src.config as cfg
 from src.eval.run_config import make_eval_run
@@ -132,7 +136,7 @@ def main() -> None:
     commit = git_commit()
     client = get_client(cfg.QDRANT_URL)
 
-    for dataset in ([args.dataset] if args.dataset else ["open_ragbench", "ledger"]):
+    for dataset in ([args.dataset] if args.dataset else registry.dataset_ids()):
         rows = [json.loads(x) for x in
                 (ROOT / "eval" / "golden" / f"{dataset}.jsonl").read_text(encoding="utf-8").splitlines()
                 if x.strip()]
