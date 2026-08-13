@@ -12,6 +12,7 @@ Usage:
     python scripts/eval.py --filter-content-type auto            # R-04 keyword-inferred filter
     python scripts/eval.py --doc-aggregate                       # R-05 doc-level file list
     python scripts/eval.py --collection open_ragbench_routed --pipeline-mode routed --doc-aggregate  # R-07
+    python scripts/eval.py --limit 50 --no-write                  # calibrazione, non archiviata
 
 Options:
     --dataset              Which dataset(s) to evaluate (default: all)
@@ -24,10 +25,18 @@ Options:
     --doc-aggregate        No-op: doc_R@5/doc_R@10 sono ora sempre riportate (R-05)
     --collection           Override Qdrant collection name (R-07: e.g. open_ragbench_routed)
     --pipeline-mode        Ingestion routing axis: generic | routed (R-07)
+    --no-write             Stampa e basta: una calibrazione non e' una misura
 
 Result files are named {ts}_{dataset}_{pipeline_mode}_{config_slug}.json.
 The retrieval flags are stored structurally in EvalRun.config — pipeline_mode
 stays binary per ROADMAP §3.3.
+
+`--no-write` esiste per la stessa ragione del gemello in `eval_citations.py`:
+il 2026-08-13, durante R-08, uno smoke test da 100 query e' finito in
+`eval/results/` accanto alle misure vere e ha dovuto essere cancellato a mano.
+La numerosita' non entra nel `config_hash` -- e' precisione, non configurazione
+-- quindi su disco quel file era indistinguibile da una misura. Il rimedio non
+e' rinominare le misure, e' non archiviare cio' che misura non e'.
 """
 
 from __future__ import annotations
@@ -59,6 +68,7 @@ def run_dataset(
     doc_aggregate: bool = False,
     collection: str | None = None,
     pipeline_mode_override: str | None = None,
+    no_write: bool = False,
 ) -> None:
     golden_path = GOLDEN_DIR / f"{dataset_id}.jsonl"
     if not golden_path.exists():
@@ -105,12 +115,14 @@ def run_dataset(
     )
 
     elapsed = time.time() - t0
-    RESULTS_DIR.mkdir(parents=True, exist_ok=True)
-    ts = eval_run.timestamp.strftime("%Y%m%d_%H%M%S")
-    out = RESULTS_DIR / f"{ts}_{dataset_id}_{eval_run.pipeline_mode}_{slug}.json"
-    out.write_text(eval_run.model_dump_json(indent=2), encoding="utf-8")
-
-    print(f"  Done in {elapsed:.1f}s -> {out.name}")
+    if no_write:
+        print(f"  Done in {elapsed:.1f}s -> niente salvato (--no-write)")
+    else:
+        RESULTS_DIR.mkdir(parents=True, exist_ok=True)
+        ts = eval_run.timestamp.strftime("%Y%m%d_%H%M%S")
+        out = RESULTS_DIR / f"{ts}_{dataset_id}_{eval_run.pipeline_mode}_{slug}.json"
+        out.write_text(eval_run.model_dump_json(indent=2), encoding="utf-8")
+        print(f"  Done in {elapsed:.1f}s -> {out.name}")
     for name, value in sorted(eval_run.metrics.items()):
         print(f"    {name}: {value:.4f}")
 
@@ -144,6 +156,9 @@ def main() -> None:
                             "(R-07; default: generic). Retrieval flags are recorded "
                             "separately in EvalRun.config, not in this label."
                         ))
+    parser.add_argument("--no-write", action="store_true",
+                        help="stampa soltanto, non scrive l'EvalRun: per calibrazioni e "
+                             "smoke test, che non vanno archiviati come misure")
     args = parser.parse_args()
 
     datasets = ["open_ragbench", "ledger"] if args.dataset == "all" else [args.dataset]
@@ -154,6 +169,7 @@ def main() -> None:
             args.query_rewrite, args.filter_content_type, args.doc_aggregate,
             collection=args.collection,
             pipeline_mode_override=args.pipeline_mode,
+            no_write=args.no_write,
         )
 
 
