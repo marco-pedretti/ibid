@@ -299,22 +299,28 @@ Tutte e tre le voci nascono dall'audit del 2026-08-11, in cui le librerie sono s
 
 ## 10. Fase 6 — Qualità del codice
 
-**Durata: 2–3 giorni.** Prima della Fase 7, perché l'interfaccia si costruisce **sopra** questi moduli: rifattorizzarli dopo significa farlo due volte.
+**Durata: 3–4 giorni.** Prima della Fase 7, perché il servizio si estrae **sopra** questi moduli: rifattorizzarli dopo significa cristallizzare i difetti dietro un'interfaccia, e poi rifarli due volte.
 
 **Un refactor senza criterio di accettazione è illimitato**, ed è l'unica cosa in questo repo che non avrebbe un numero accanto. Quindi la fase non è "leggibilità e pulizia": è una lista chiusa di difetti già osservati, ognuno con la prova che esiste.
 
 | ID | Task | Criterio di accettazione |
 |---|---|---|
 | Q-01 | Costruzione di `EvalRun` unificata: oggi sono **5 siti**, `reasoning_enabled` è derivato in 4 e ancora scritto `False` a mano in `src/eval/harness.py` | Un solo posto lo costruisce; il campo non è più scrivibile a mano |
-| Q-02 | L'harness dei baseline salva le risposte per query, come già fa quello delle citazioni | Il taglio 45%→17% di E-04/E-05 diventa un test appaiato invece di un'inferenza dai totali |
+| Q-02 | **Entrambi** gli harness senza dump per query — baseline **e retrieval** — salvano i risultati per query, come già fa quello delle citazioni | Il taglio 45%→17% di E-04/E-05 diventa un test appaiato; e un confronto fra due run di retrieval archiviate non richiede più di ricostruire uno stato a comando |
 | Q-03 | `scripts/profile.py` non adombra più il modulo `profile` della standard library | `import transformers` da dentro `scripts/` smette di fallire |
 | Q-04 | Igiene di import e lint su `scripts/` | `ruff check` pulito sul repo |
+| Q-05 | La scelta del provider ONNX vive in **un posto solo**, e la dipendenza GPU è un extra opzionale di `pyproject.toml` | Nessun file di `src/` nomina `DmlExecutionProvider`; su una macchina senza DirectML l'import riesce e ripiega dichiarandolo |
+| Q-06 | **Registro dei dataset**: i dataset disponibili si leggono da un posto solo, non da 14 liste `choices=[...]` scritte a mano | Aggiungere un dataset dello stesso genere richiede **solo** il suo loader; nessuno script va toccato |
 
 **Ogni voce è un difetto che ha già morso**, non un'ipotesi di stile:
 
 - **Q-01** — è la stessa duplicazione che ha lasciato `reasoning_enabled=False` scritto a mano mentre il modello ragionava, difetto che C-01 ha corretto in due harness su tre. Il terzo è ancora così, e non è cosmetico: con `--query-rewrite` quell'harness *usa* il modello (R-03).
-- **Q-02** — durante E-04/E-05 la diagnosi dei tre difetti ha richiesto di rigenerare a mano le risposte, perché quelle delle run non esistevano più. C-01 aveva risolto lo stesso problema, e quella decisione ha poi permesso a C-02 e C-03 di lavorare senza rigenerare nulla.
+- **Q-02** — durante E-04/E-05 la diagnosi dei tre difetti ha richiesto di rigenerare a mano le risposte, perché quelle delle run non esistevano più. **E il 2026-08-13 il difetto ha morso di nuovo, altrove**: le run di retrieval archiviate non salvano i risultati per query, quindi il confronto con loro in R-08 era marginale — due medie, nessun test. È stato possibile fare McNemar solo perché lo stato pre-correzione era **riproducibile a comando**, cosa che non sarà vera la prossima volta.
 - **Q-03** — ha già rotto un import durante C-03.
+- **Q-05** — il blocco che sceglie `DmlExecutionProvider` è copiato in `src/index/embed.py`, `src/generation/entailment.py` e `src/retrieval/reranker.py`, più due volte in un probe. Non è solo duplicazione: è **la cucitura di U-12**, e finché sta in cinque posti la portabilità Linux è cinque modifiche invece di una.
+- **Q-06** — `choices=["open_ragbench", "ledger", "all"]` è scritto a mano in **14 script**. Il nucleo è già agnostico (16 sole occorrenze letterali in tutto `src/`, quasi tutte nei loader, cioè dove devono stare): il coupling è tutto ai bordi. Serve anche a U-01, che chiede di cambiare dataset senza riavvio.
+
+**Q-05 e Q-06 sono nuove, aggiunte il 2026-08-13**, e non sono un allargamento di comodo: la prima è il prerequisito della Fase 7 (un servizio che gira su un'altra macchina probabilmente gira su Linux), la seconda è ciò che rende questo un *testbed* invece di un programma per due dataset.
 
 **Gate, e non è negoziabile: nessuna metrica cambia.** Un refactor puro lascia invariato il conteggio dei test (§14) e lascia invariati i numeri: `scripts/rescore_citations.py` ricalcola le metriche di C-01 dai dump salvati a costo zero, e alla fine della fase deve restituire **gli stessi valori** già registrati. Se cambia un decimale, non era un refactor.
 
