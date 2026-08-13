@@ -23,11 +23,11 @@ from qdrant_client.models import (
     SparseVectorParams,
     VectorParams,
 )
-
-_SEARCH_BATCH = 256
-
 from src.datasets.schema import Chunk
 
+#: Quante ricerche per richiesta HTTP. Batch piu' grandi evitano l'esaurimento
+#: dei socket su Windows (WinError 10048) quando si valutano migliaia di query.
+_SEARCH_BATCH = 256
 _UPSERT_BATCH = 256
 
 
