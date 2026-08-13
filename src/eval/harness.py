@@ -94,14 +94,15 @@ def _config_hash(
 ) -> str:
     """Stable identity of a config: same hash means directly comparable numbers.
 
-    Changed twice.  On 2026-08-07 by adding `eval_depth`, and on 2026-08-13 by
-    adding `sparse_idf`.  The rule against touching this function exists so that
-    a silent change cannot make old and new runs look comparable when they are
-    not — and that is exactly why both changes were required rather than
-    forbidden: fixing the retrieval depth altered R@10/nDCG@10/RR@10, and R-08
-    turning on `modifier=IDF` altered every sparse score, so pre-fix runs must
-    *not* share a hash with post-fix ones.  Archived runs keep their original
-    hashes; the archive is read-only (see eval/results/archive/README.md).
+    Changed three times.  On 2026-08-07 by adding `eval_depth`, and on
+    2026-08-13 by adding `sparse_idf` (R-08) and `sparse_query_embed` (R-09).
+    The rule against touching this function exists so that a silent change
+    cannot make old and new runs look comparable when they are not — and that is
+    exactly why all three changes were required rather than forbidden: fixing
+    the retrieval depth altered R@10/nDCG@10/RR@10, and each half of OQ-03
+    altered every sparse score, so pre-fix runs must *not* share a hash with
+    post-fix ones.  Archived runs keep their original hashes; the archive is
+    read-only (see eval/results/archive/README.md).
 
     Contrast with `n_queries` below, which looks like the same case and is not.
     The IDF modifier changes *what the system computes*; the query count changes
@@ -129,6 +130,12 @@ def _config_hash(
         # runs keep the identity they had — C-06 and the whole Fase 4 depend on
         # being able to compare against them.
         params["sparse_idf"] = True
+        # R-09, same argument, different half: the query encoding changes what
+        # the sparse branch computes, so a run from before it must not share a
+        # name with one from after.  Two keys and not one, because the two
+        # corrections were measured separately (§14) and the three states —
+        # neither, IDF only, both — each need their own identity.
+        params["sparse_query_embed"] = True
     if rerank:
         params["reranker_model"] = cfg.RERANKER_MODEL
     if query_rewrite:

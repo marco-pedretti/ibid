@@ -189,8 +189,8 @@ class TestConfigHashSeparatesTheFix:
 
 
 class TestConfigHashSeparatesTheIdfFix:
-    """R-08. Turning on `modifier=IDF` changed every sparse score, so a run
-    from before it must not share a name with one from after."""
+    """R-08 and R-09. Each half of OQ-03 changed every sparse score, so the
+    three states — neither fix, IDF only, both — need three identities."""
 
     # Literals, not recomputed: these are the hashes actually written into
     # eval/results before R-08.  If this test fails, six archived runs have
@@ -198,6 +198,22 @@ class TestConfigHashSeparatesTheIdfFix:
     PRE_R08_SPARSE = "adb48814"
     PRE_R08_HYBRID = "3d3ed9e7"
     PRE_R08_HYBRID_RERANK = "fc616cbe"
+
+    # Written by the R-08 runs of 2026-08-13, before R-09.  Same reason.
+    R08_ONLY_SPARSE = "b1a67360"
+    R08_ONLY_HYBRID = "322f1cbf"
+    R08_ONLY_HYBRID_RERANK = "dc481d05"
+
+    @pytest.mark.parametrize("mode", ["sparse", "hybrid"])
+    def test_r09_split_the_identity_again(self, mode):
+        """The IDF-only runs are a real measured state, not a stepping stone."""
+        r08 = {"sparse": self.R08_ONLY_SPARSE, "hybrid": self.R08_ONLY_HYBRID}[mode]
+        assert _config_hash(5, "generic", mode, eval_depth=10) != r08
+
+    def test_r09_split_hybrid_rerank_too(self):
+        assert _config_hash(
+            5, "generic", "hybrid", rerank=True, eval_depth=10
+        ) != self.R08_ONLY_HYBRID_RERANK
 
     @pytest.mark.parametrize("mode", ["sparse", "hybrid"])
     def test_sparse_modes_got_a_new_identity(self, mode):
