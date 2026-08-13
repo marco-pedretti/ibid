@@ -240,3 +240,53 @@ class TestConfigHashSeparatesTheIdfFix:
         assert _config_hash(5, "generic", "dense", eval_depth=10) != _config_hash(
             5, "generic", "sparse", eval_depth=10
         )
+
+
+class TestSearchParamsIdentity:
+    """R-11. `search_exact` e `hnsw_ef` sono una **scelta**, non una correzione.
+
+    R-08 andava applicata a tutte le run perche' senza IDF il ramo sparso non
+    stava calcolando BM25.  Questo no: il default di Qdrant e' una
+    configurazione legittima, ed e' quella in cui e' stato misurato tutto il
+    progetto.  Quindi finche' il parametro resta spento non c'e' niente da
+    distinguere, e l'hash non deve muoversi di un bit.
+    """
+
+    # Gli hash effettivamente scritti in eval/results prima di R-11.
+    @pytest.mark.parametrize("mode,rerank,depth,expected", [
+        ("dense", False, None, "bbaaca85"),
+        ("dense", False, 10, "5c3c7fa2"),
+        ("sparse", False, 10, "f178436c"),
+        ("hybrid", False, 10, "e34c99d5"),
+        ("hybrid", True, 10, "eebf9f45"),
+    ])
+    def test_flags_off_moves_nothing(self, mode, rerank, depth, expected, monkeypatch):
+        monkeypatch.setattr(cfg, "SEARCH_EXACT", False)
+        monkeypatch.setattr(cfg, "HNSW_EF", None)
+        assert _config_hash(5, "generic", mode, rerank=rerank, eval_depth=depth) == expected
+
+    def test_exact_splits_the_identity(self, monkeypatch):
+        monkeypatch.setattr(cfg, "SEARCH_EXACT", True)
+        monkeypatch.setattr(cfg, "HNSW_EF", None)
+        assert _config_hash(5, "generic", "dense", eval_depth=10) != "5c3c7fa2"
+
+    def test_ef_splits_the_identity(self, monkeypatch):
+        monkeypatch.setattr(cfg, "SEARCH_EXACT", False)
+        monkeypatch.setattr(cfg, "HNSW_EF", 512)
+        assert _config_hash(5, "generic", "dense", eval_depth=10) != "5c3c7fa2"
+
+    def test_different_ef_values_differ(self, monkeypatch):
+        monkeypatch.setattr(cfg, "SEARCH_EXACT", False)
+        monkeypatch.setattr(cfg, "HNSW_EF", 128)
+        a = _config_hash(5, "generic", "dense", eval_depth=10)
+        monkeypatch.setattr(cfg, "HNSW_EF", 512)
+        assert a != _config_hash(5, "generic", "dense", eval_depth=10)
+
+    def test_exact_wins_over_ef(self, monkeypatch):
+        """Esatto e approssimato-profondo non sono la stessa cosa e non devono
+        collidere: `exact` ignora `hnsw_ef`, quindi l'hash deve dirlo."""
+        monkeypatch.setattr(cfg, "SEARCH_EXACT", True)
+        monkeypatch.setattr(cfg, "HNSW_EF", 512)
+        a = _config_hash(5, "generic", "dense", eval_depth=10)
+        monkeypatch.setattr(cfg, "HNSW_EF", 128)
+        assert a == _config_hash(5, "generic", "dense", eval_depth=10)

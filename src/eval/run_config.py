@@ -68,6 +68,12 @@ def build_config(
         "collection": collection,
         "n_queries": n_queries,
         "embedding_model": cfg.EMBEDDING_MODEL,
+        # R-11: sempre presenti, anche spenti. Nell'hash compaiono solo se
+        # accesi (per non spostare le identita' gia' misurate), ma qui servono
+        # sempre: un run che non dice come ha cercato non e' interpretabile, e
+        # R-10 ha mostrato che su questo corpus la differenza vale 8 punti.
+        "search_exact": cfg.SEARCH_EXACT,
+        "hnsw_ef": cfg.HNSW_EF,
         "reranker_model": cfg.RERANKER_MODEL if rerank else None,
         "query_rewrite_model": (
             (cfg.QUERY_REWRITE_MODEL or cfg.LLM_MODEL) if query_rewrite else None

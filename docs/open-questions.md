@@ -20,6 +20,8 @@ Non è `progress.md` (che registra cosa è stato fatto) né `ROADMAP.md` (che de
 >
 > **H2a — fattore parziale.** Passare da profondità 5 a 20 recupera 6 punti su 17.
 >
+> **Aggiornamento R-11 (stesso giorno).** Misurate tutte e quattro le collection: il guadagno della ricerca esatta segue il **richiamo dell'indice**, non la sua taglia. `open_ragbench` +0,0000 (l'ANN trova il 99,94% del vero top-5), `open_ragbench_routed` +0,0030, `ledger` +0,0046, `ledger_routed` **+0,0846** (84,84%). Su `doc_R@5` il divario fra le due pipeline LEDGER passa da **−21,71 a −13,72**: il **37%** del regresso attribuito al routing era l'indice. Il default resta spento — è una scelta, non una correzione — ma il §14 ora vieta di confrontare indici di densità diversa con la ricerca approssimata.
+>
 > **Cosa resta:** 9,27 punti dopo aver tolto HNSW. Il regime è quello del quasi-pareggio — il chunk d'oro perde per 0,0090 di coseno, l'intero top-5 sta dentro 0,0085, e il routing ha portato i concorrenti a pari merito da 7,1 a 9,0 di media. Descritto, non ancora azionabile. Numeri e ragionamento in [`progress.md`](progress.md) → *R-10*.
 >
 > **Sul protocollo qui sotto.** È stato eseguito com'era scritto, ed è giusto così. Ma il suo criterio binario non copriva il risultato reale né al passo 1 né al passo 2, e il passo 2 misurava senza saperlo l'instabilità dell'ordinamento invece del valore del contesto. **Pre-registrare un test protegge dallo scegliere il test dopo aver visto i dati; non protegge dall'aver scelto il test sbagliato prima.** Serve comunque un controllo che dica cosa il test sta misurando — ed è ciò che ha ribaltato la conclusione.

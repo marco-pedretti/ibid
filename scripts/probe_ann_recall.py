@@ -131,8 +131,18 @@ def main() -> None:
         print(f"  divario {a} - {b}")
         print(f"    con ricerca approssimata  {gap_app:+.4f}")
         print(f"    con ricerca esatta        {gap_ex:+.4f}")
-        print(f"    quota imputabile a HNSW   {gap_app - gap_ex:+.4f}  "
-              f"({(gap_app - gap_ex)/gap_app:.1%} del divario)")
+        quota = gap_app - gap_ex
+        # La percentuale ha senso solo se il divario e' un regresso vero da
+        # spiegare. Con un divario minuscolo o di segno opposto -- cioe' dove il
+        # routing *guadagna* -- "il 72% del divario" e' un rapporto fra rumori,
+        # e stamparlo inviterebbe a leggerlo come su LEDGER. Su open_ragbench
+        # questa riga e' comparsa una volta a -72,2% e non voleva dire niente.
+        if gap_app > 0.02:
+            print(f"    quota imputabile a HNSW   {quota:+.4f}  "
+                  f"({quota/gap_app:.1%} del divario)")
+        else:
+            print(f"    quota imputabile a HNSW   {quota:+.4f}  "
+                  f"(divario troppo piccolo per una percentuale)")
 
 
 if __name__ == "__main__":

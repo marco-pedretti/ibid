@@ -9,6 +9,7 @@ This layout matches R-01 hybrid RRF: query both vectors, fuse results.
 
 from __future__ import annotations
 
+import src.config as cfg
 from qdrant_client import QdrantClient
 from qdrant_client.models import (
     Distance,
@@ -17,6 +18,7 @@ from qdrant_client.models import (
     PointStruct,
     QueryRequest,
     QueryResponse,
+    SearchParams,
     SparseVector,
     SparseVectorParams,
     VectorParams,
@@ -120,6 +122,22 @@ def upsert(
         )
 
 
+def search_params() -> SearchParams | None:
+    """Come cercare nel grafo HNSW, o se saltarlo del tutto (R-11).
+
+    `None` quando nessuno dei due parametri e' impostato: lascia a Qdrant il suo
+    default, che e' lo stato in cui e' stato misurato tutto ciò che precede
+    R-11.  Un `SearchParams` vuoto non sarebbe la stessa cosa da leggere, e
+    questa funzione esiste perche' la decisione stia in un posto solo invece che
+    ripetuta in ogni sito di ricerca.
+    """
+    if cfg.SEARCH_EXACT:
+        return SearchParams(exact=True)
+    if cfg.HNSW_EF is not None:
+        return SearchParams(hnsw_ef=cfg.HNSW_EF)
+    return None
+
+
 def search(
     client: QdrantClient,
     collection: str,
@@ -134,6 +152,7 @@ def search(
         using=using,
         limit=top_k,
         query_filter=query_filter,
+        search_params=search_params(),
     ).points
 
 
@@ -159,8 +178,10 @@ def search_batch(
     for start in range(0, len(vectors), _SEARCH_BATCH):
         batch = vectors[start : start + _SEARCH_BATCH]
         batch_filters = filters[start : start + _SEARCH_BATCH] if filters else [None] * len(batch)
+        params = search_params()
         requests = [
-            QueryRequest(query=vec, using=using, limit=top_k, with_payload=True, filter=f)
+            QueryRequest(query=vec, using=using, limit=top_k, with_payload=True,
+                         filter=f, params=params)
             for vec, f in zip(batch, batch_filters)
         ]
         responses = client.query_batch_points(

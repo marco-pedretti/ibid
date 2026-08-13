@@ -136,6 +136,14 @@ def _config_hash(
         # corrections were measured separately (§14) and the three states —
         # neither, IDF only, both — each need their own identity.
         params["sparse_query_embed"] = True
+    # R-11. Compare **solo quando e' acceso**: spento, l'hash resta quello di
+    # sempre e ogni misura gia' fatta continua a valere. E' la differenza fra un
+    # parametro nuovo e una correzione -- R-08 andava applicata a tutti, questo
+    # e' una scelta, e finche' resta al default non c'e' niente da distinguere.
+    if cfg.SEARCH_EXACT:
+        params["search_exact"] = True
+    elif cfg.HNSW_EF is not None:
+        params["hnsw_ef"] = cfg.HNSW_EF
     if rerank:
         params["reranker_model"] = cfg.RERANKER_MODEL
     if query_rewrite:
