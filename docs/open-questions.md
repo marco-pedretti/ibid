@@ -239,7 +239,13 @@ Se il delta è reale e positivo, la correzione è una re-ingestione completa e u
 
 ## OQ-03 — Il retrieval "BM25" non è BM25
 
-**Aperta.** Notata il 2026-08-11 nello stesso audit. Riferimento: E-06 (baseline C), R-01 (hybrid RRF).
+**Mezza chiusa (2026-08-13).** Notata il 2026-08-11 nello stesso audit. Riferimento: E-06 (baseline C), R-01 (hybrid RRF).
+
+> **Fatto 1 — chiuso da R-08.** `modifier=IDF` è attivo su tutte e sette le collection, applicato in place. L'effetto è **opposto nei due dataset** e sta in [`progress.md`](progress.md) → *R-08*. La misura ha aperto **OQ-06**.
+>
+> **Fatto 2 — ancora aperto (R-09).** Le query passano ancora da `embed()` invece che da `query_embed()`.
+>
+> **La previsione scritta qui sotto il 2026-08-11 era metà giusta, ed è utile sapere quale metà.** Diceva: *«su LEDGER a discriminare sono token rari, cioè esattamente ciò che l'IDF pesa»*. A livello di **documento** ha colto in pieno — doc@5 da 0,6411 a 0,9196, +27,9 punti su 10.000 query. A livello di **chunk** ha sbagliato segno: −1,31 punti, p<0,0001. Trovare il documento giusto e trovare il passaggio giusto non sono la stessa cosa, e la previsione non distingueva fra i due.
 
 ### I due fatti
 
@@ -280,10 +286,12 @@ La direzione combacia con il difetto: LEDGER è fatto di bilanci, dove a discrim
 
 Nessuna re-embeddatura dei chunk: i vettori sparsi sono già su disco e sono corretti così com'è (la componente TF è quella giusta). Serve
 
-- ricreare l'indice sparso con `modifier=models.Modifier.IDF` — l'IDF viene dalle statistiche dell'indice, non dai vettori;
-- una riga in `encode_sparse()` per il percorso query.
+- ~~ricreare l'indice sparso con `modifier=models.Modifier.IDF`~~ — **fatto (R-08)**, e senza ricrearlo: `update_collection` lo aggiunge in place;
+- una riga in `encode_sparse()` per il percorso query — **da fare (R-09)**.
 
 Poi si rilanciano `--retrieval-mode sparse` e `--retrieval-mode hybrid` sui due dataset.
+
+**Per R-09 il protocollo è già scritto e collaudato**: `scripts/probe_idf_paired.py` non serve, perché la codifica della query vive nel client e i due bracci si ottengono senza toccare l'indice. Ma la lezione sì — a 200 query l'effetto dell'IDF su open_ragbench era `p=0,7266`, cioè invisibile, e a 3.045 è `p<0,0001`. **R-09 va misurata sulla golden intera e appaiata**, non su un campione.
 
 ### Trappola
 
@@ -433,3 +441,42 @@ Vale ancora ciò che il §8 diceva: se C-06 gira senza aver risolto questo, la c
 ### Cosa NON è dimostrato
 
 Che un verificatore numerico farebbe meglio. Il floor test di C-03 mostrava che il verificatore attuale, **su prosa**, mancava un terzo dei claim copiati alla lettera: la soglia 0,5 lo rende pessimista per scelta. Prima di costruire un secondo strumento va misurato quanto quello attuale sbaglia **su tabelle**, e il controllo dai qrels lì produce **3 sole coppie** — troppo poche. Serve prima un floor test costruito apposta per il genere tabellare.
+
+---
+
+## OQ-06 — L'IDF porta al documento giusto e allontana dal chunk giusto
+
+**Aperta.** Emersa il 2026-08-13 dalla misura di R-08. Riferimento: R-08 in [`progress.md`](progress.md).
+
+### Il fatto
+
+Attivare `modifier=IDF` su LEDGER, misurato appaiato su 10.000 query:
+
+| LEDGER, `sparse` | senza IDF | con IDF | Δ | p |
+|---|---|---|---|---|
+| doc@5 | 0,6411 | **0,9196** | **+27,85** | <0,0001 |
+| chunk@5 | 0,0946 | **0,0815** | **−1,31** | <0,0001 |
+
+Le due direzioni sono entrambe significative e vanno in senso opposto. Su open_ragbench il conflitto non esiste: l'IDF guadagna a tutti e due i livelli.
+
+Dopo la fusione RRF il danno sul chunk **non si attenua, peggiora**: `hybrid` chunk@5 fa −2,32 (597 query perse contro 365 guadagnate). Ed è `hybrid` chunk@5 il numero che la generazione consuma davvero.
+
+### L'ipotesi
+
+Su LEDGER i token rari sono cifre e identificativi. Con l'IDF dominano il punteggio e tirano verso il documento che contiene quella cifra, ma verso il chunk che la *nomina* — un indice, un sommario, un rimando — invece che verso quello che risponde. Senza IDF domina la frequenza di termine, che premia i chunk che ripetono i termini della domanda.
+
+**Non è misurata.** È coerente con i segni osservati e con quello che LEDGER è, ma "coerente con" non è "dimostrata da".
+
+### Protocollo
+
+1. Estrarre le query discordanti a `sparse` chunk@5 — sono **484 perse e 353 guadagnate**, numeri comodi da leggere a campione. `scripts/probe_idf_paired.py` le calcola già; serve solo farsele stampare.
+2. Leggerne 30 per gruppo: il chunk recuperato con IDF è un indice/sommario/rimando, o è un chunk di contenuto sbagliato? Se prevale il primo caso l'ipotesi regge, e la correzione non è l'IDF ma il filtro sul `content_type`.
+3. **Solo se i passi 1–2 sono positivi**, misurare l'IDF per genere: attivo su `continuous_text`, spento su `table_heavy`.
+
+### Perché conta più di due punti di `hit@5`
+
+Perché è materia dell'**affermazione 2 del §0** — *«il routing automatico per genere documentale batte una pipeline generica»* — e per una volta il candidato al routing non è la pipeline di chunking ma un parametro dell'indice. È la quarta volta che il genere emerge come variabile dominante in questo progetto.
+
+### Trappola
+
+Attivare l'IDF per genere **senza** i passi 1–2 sarebbe scegliere la configurazione che vince sui dati su cui la si misura: la stessa trappola della soglia tarata sui propri dati che C-03 ha evitato. E sarebbe un secondo cambiamento infilato nella misura di R-08 (§14).

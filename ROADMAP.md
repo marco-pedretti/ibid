@@ -280,7 +280,7 @@ Tutte e tre le voci nascono dall'audit del 2026-08-11, in cui le librerie sono s
 |---|---|---|
 | I-09 | ~~Prefissi E5 in `encode()`, re-ingestione, rimisura~~ — **non applicabile**: era condizionata a I-08, risultato negativo | Vedi `docs/progress.md` e OQ-02 |
 | I-11 | ~~Tetto di chunking allineato alla finestra dell'embedder~~ — **decisa il 2026-08-12: non adottata** | Nessun effetto sulla generazione; il guadagno di `citation_precision` era la lunghezza della premessa. Da riconsiderare alla prossima re-ingestione per la latenza (−44%). Vedi `progress.md` |
-| R-08 | `modifier=IDF` sull'indice sparso (Qdrant lo richiede: fastembed esclude l'IDF di proposito) | E-06 e R-01 rimisurati — **una sola causa cambiata** |
+| R-08 | ✅ **fatto il 2026-08-13.** `modifier=IDF` attivo su tutte e 7 le collection, applicato in place. Effetto **opposto nei due dataset**: ORB guadagna a ogni livello (chunk@5 +3,94, p<0,0001), LEDGER guadagna il documento (doc@5 **+27,85**) e perde il chunk (chunk@5 **−1,31**, p<0,0001). Adottato perché è una correzione, non un'ottimizzazione. Apre **OQ-06** | E-06 e R-01 rimisurati — **una sola causa cambiata** |
 | R-09 | Query BM25 codificate con `query_embed` invece che come documenti | Rimisura **separata** da R-08 |
 | R-10 | OQ-01, passi 1–2: perché il routing peggiora LEDGER di 17 punti | Il passo 3 (6–7 h GPU) solo se il 2 è positivo |
 

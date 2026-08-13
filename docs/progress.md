@@ -725,11 +725,55 @@ Nata dall'audit del 2026-08-11: le librerie confrontate con la loro documentazio
 |---|---|---|
 | I-09 | ❌ **non applicabile** (2026-08-12) | Era condizionata a I-08, che è risultato negativo: i prefissi E5 sfiorano la soglia solo a doc@1 (p=0,0503), cambiano segno a doc@3 e spariscono a doc@5. La deviazione dalla model card resta reale e documentata in OQ-02; il suo costo su questo corpus no. |
 | I-11 | ❌ **non adottata** (2026-08-12) | Nessun effetto sulla generazione: formato identico dopo il parser (+0,0000, p=1,0000), astensione non peggiorata. Gli +11 punti di `citation_precision` erano **la lunghezza della premessa, non la qualità delle citazioni**. Prezzo: 618 min di re-ingestione e indice ×4. Due voci da riconsiderare alla prossima re-ingestione, vedi sotto. |
-| R-08 | ⬜ da fare | `modifier=IDF` sull'indice sparso. Invalida 2 run sparse + 4 hybrid; nessuna run dense. |
+| R-08 | ✅ fatto (2026-08-13) | `modifier=IDF` attivo su tutte e 7 le collection, **in place**. Effetto **opposto nei due dataset**: su open_ragbench guadagna a ogni profondità e a ogni livello (chunk@5 **+3,94**, p<0,0001); su LEDGER porta al **documento** giusto (doc@5 **+27,85**) e **allontana dal chunk** giusto (chunk@5 **−1,31**, p<0,0001). Adottato lo stesso — è una correzione, non un'ottimizzazione — ma il costo su LEDGER è reale e apre OQ-06. Vedi sotto. |
 | R-09 | ⬜ da fare | Query BM25 con `query_embed`. Rimisura **separata** da R-08. |
 | R-10 | ⬜ da fare | OQ-01, passi 1–2. |
 
 **Cosa questa fase non tocca**, verificato: E-04/E-05 non usano retrieval affatto, e la soglia di astensione di C-04 appartiene alla sola modalità `dense` (`threshold_for` restituisce `None` per le altre) — quindi R-08/R-09 non la sfiorano, per progetto e non per fortuna.
+
+### R-08 — l'IDF aiuta un genere e ne danneggia un altro
+
+**Il difetto.** `ensure_collection()` creava `SparseVectorParams()` senza argomenti, e tutte e sette le collection risultavano `modifier=None`. fastembed lascia fuori la componente IDF dai vettori BM25 **di proposito** — dipende dalle statistiche del corpus, che il client non ha — e si aspetta che la fornisca Qdrant a query time. Senza, il punteggio è la sola frequenza di termine: una parola comune pesa quanto una rara. Era BM25 privato della metà che discrimina.
+
+**La correzione è in place, mai delete + create**: i vettori sparsi su disco erano corretti, la metà mancante stava nella configurazione. `update_collection` la aggiunge senza toccare un punto — verificato sul conteggio prima e dopo su tutte e sette.
+
+#### I numeri (test appaiato, McNemar esatto, stesse query e stessi chunk)
+
+| | **open_ragbench** (3.045 query) | | **LEDGER** (10.000 query) | |
+|---|---|---|---|---|
+| | senza → con IDF | p | senza → con IDF | p |
+| `sparse` chunk@5 | 0,8443 → **0,8837** (+3,94) | <0,0001 | 0,0946 → **0,0815** (**−1,31**) | <0,0001 |
+| `sparse` chunk@10 | 0,8923 → **0,9376** (+4,53) | <0,0001 | 0,1385 → **0,1188** (**−1,97**) | <0,0001 |
+| `sparse` doc@5 | 0,9593 → **0,9846** (+2,53) | <0,0001 | 0,6411 → **0,9196** (**+27,85**) | <0,0001 |
+| `sparse` doc@10 | 0,9773 → **0,9941** (+1,67) | <0,0001 | 0,7234 → **0,9622** (**+23,88**) | <0,0001 |
+| `hybrid` chunk@5 | 0,8916 → **0,9034** (+1,18) | 0,0022 | 0,4375 → **0,4143** (**−2,32**) | <0,0001 |
+| `hybrid` chunk@10 | 0,9442 → **0,9576** (+1,35) | <0,0001 | 0,5747 → **0,5681** (−0,66) | 0,0033 |
+| `hybrid` doc@5 | 0,9865 → **0,9924** (+0,59) | 0,0014 | 0,9297 → **0,9550** (+2,53) | <0,0001 |
+| `hybrid` doc@10 | 0,9931 → **0,9974** (+0,43) | 0,0002 | 0,9531 → **0,9744** (+2,13) | <0,0001 |
+
+**Su open_ragbench l'IDF vince ovunque. Su LEDGER fa due cose opposte**: porta al documento giusto molto più spesso (+27,9 punti a doc@5 in `sparse`) e al chunk giusto un po' meno spesso (−1,31, e −2,32 dopo la fusione). Non è rumore: 484 contro 353 query discordanti a `sparse` chunk@5, 597 contro 365 a `hybrid`.
+
+**L'ipotesi** — e resta un'ipotesi, non misurata: su LEDGER i token rari sono cifre e identificativi. Con l'IDF dominano, e tirano verso il documento che contiene quella cifra ma verso il chunk che la *nomina*, non verso quello che risponde. Senza IDF domina la frequenza, che premia i chunk che ripetono i termini della domanda. Verificabile leggendo le ~600 query discordanti; non fatto.
+
+**La fusione RRF assorbe lo sparso in entrambe le direzioni**: su ORB il guadagno passa da +3,94 a +1,18, su LEDGER il guadagno documentale da +27,9 a +2,5 e il danno sul chunk da −1,31 a −2,32.
+
+#### Perché è stato adottato lo stesso
+
+Perché **non è un'ottimizzazione, è una correzione**: senza IDF quel ramo non stava misurando BM25, e chiamarlo `--retrieval-mode sparse` era un'etichetta falsa. L'alternativa era conservare un difetto noto per proteggere due punti di `hit@5` su un dataset. Ma il costo su LEDGER è reale, va detto accanto al guadagno, e apre **OQ-06**: l'IDF è un candidato al routing per genere (affermazione 2 del §0), non una scelta globale. Attivarlo per genere sarebbe un cambiamento nuovo con una misura sua — non si fa qui.
+
+#### Come è stata ottenuta la misura
+
+Le run archiviate del 2026-08-07 sono a **200 query** e non salvano i risultati per query: contro di loro si confrontano due medie e nient'altro. **A 200 query l'effetto su open_ragbench è p=0,7266**, cioè invisibile — il campione era 15 volte troppo piccolo. Le stesse 200 query sono state comunque rimisurate, per avere un confronto legittimo con l'archivio (`b1a67360`, `322f1cbf`, `dc481d05`).
+
+Il test vero è `scripts/probe_idf_paired.py`, possibile perché lo stato pre-R-08 è **riproducibile in secondi**: l'IDF vive nella configurazione, si toglie e si rimette. Il probe riproduce esattamente i due numeri già su disco — 0,8750 senza, 0,8850 con — ed è questo che autorizza a credergli.
+
+> **Il modo in cui questo probe è quasi passato senza misurare niente:** la prima versione spegneva l'IDF con `None`, che in `update_collection` significa *«non toccare questo campo»*, non *«azzera»*. Risultato: **zero query discordanti su 200**, e nessun errore da nessuna parte. Due bracci che erano lo stesso braccio. Serve `Modifier.NONE`, e serve rileggere dopo ogni scrittura — che è quello che il probe ora fa.
+
+#### `config_hash`: due misure, due nomi
+
+`_config_hash` non sapeva niente del modificatore, quindi una run `sparse` di oggi si sarebbe chiamata `adb48814` come quella di una settimana fa. Aggiunto `sparse_idf`, **solo** per `sparse` e `hybrid`: ricalcolando tutte le 26 run in `eval/results` con la funzione vecchia e con la nuova, cambiano le 10 sparse/hybrid e **nessuna** delle 16 dense. Due nomi densi sono fissati a letterale nel test, perché orfanare C-06 e la Fase 4 non farebbe fallire nessun altro test.
+
+È l'opposto del caso di `n_queries`, deciso il giorno prima: l'IDF cambia **cosa il sistema calcola**, la numerosità solo con quanta precisione lo osserviamo. Il primo deve spezzare l'identità, la seconda no.
 
 ---
 
