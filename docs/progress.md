@@ -109,36 +109,60 @@ L'associazione fra `#1` e il run corrispondente e risolta col colore: la tabella
 | C-08 | ✅ fatto (2026-08-12) | **Risultato negativo: il markup non era la causa.** Rendere le tabelle OCR in righe leggibili porta `citation_precision` su LEDGER da 0,3656 a 0,3263 — 35 citazioni perse contro 22 guadagnate, **p = 0,1112**. Il verificatore è indifferente alla forma della tabella. Flag lasciato spento. La diagnosi che resta è in `open-questions.md`, OQ-05. |
 | C-09 | ✅ fatto (2026-08-12) | **`numeric_citation_precision` 0,7328 su LEDGER**, contro lo 0,2374 che l'NLI dà sulle stesse coppie. Copertura 39,6%; su open_ragbench 0,2% — lo strumento si rifiuta di giudicare la prosa invece di indovinare. Vedi sotto. |
 | I-08 | ✅ fatto (2026-08-12) | **Non stabilito.** I prefissi E5 sfiorano la soglia solo a doc@1 (p=0,0503), **cambiano segno** a doc@3 e spariscono a doc@5: è il profilo di un effetto nullo con rumore. La model card li richiede; su questo corpus non si vedono. |
-| C-06 | 🔄 in corso (2026-08-12) | Diviso in due sere: E2B ed E4B fatti, **12B da lanciare**. Comandi e vincoli qui sotto. |
+| C-06 | ✅ fatto **a due punti** (2026-08-13) | E2B ed E4B su entrambi i dataset. **12B scartato**: 240 s/query misurati, 13,3 ore. **L'affermazione 3 del §0 resta non determinata** — con due punti il divario c'è ed è grande, ma se la curva si appiattisca era proprio ciò che il terzo punto doveva dire. Vedi sotto. |
 
-### C-06 — come completarlo (parte 2: il 12B)
+### C-06 — la curva di scaling, a due punti su tre
 
-100 query per dataset su tre modelli. E2B ed E4B girati il 2026-08-12; il 12B costa **~43 s/query** (misurato, non estrapolato — la tabella di T-02 dava 33,8 tok/s di prefill che avrebbe implicato 185 s) e vale da solo il 70% del costo totale, quindi è stato separato.
+**I numeri** (100 query per dataset, `MAX_NEW_TOKENS=1024`, `REASONING_EFFORT=none`, dense top_k=5):
 
-**Perché 100 e non 200.** C-06 confronta *taglie* e il confronto è appaiato: il braccio più corto fissa il denominatore, quindi numerosità diverse fra i modelli non aggiungerebbero potenza al confronto a tre — solo un invito a leggere come appaiati numeri che non lo sono. E-4B a 200 query esiste già comunque, da C-01 e C-07.
+| | **E2B** (5,1B) | **E4B** (8,0B) | Δ |
+|---|---|---|---|
+| `format_compliance` open_ragbench | 0,8211 | **0,9263** | **+10,5** |
+| `format_compliance` ledger | 0,9487 | **1,0000** | +5,1 |
+| `citation_precision` ORB (NLI) | 0,7150 | 0,6811 | −3,4 ⚠️ |
+| `uncited_claim_rate` ORB | 0,1748 | **0,1261** | |
+| `citation_recall` ORB | 0,5976 | **0,6429** | |
+| `numeric_citation_precision` ledger | 0,5094 | **0,7283** | **+21,9** |
+| latenza p50 ORB | **7,6 s** | 9,4 s | |
+| **VRAM** | **1,93 GB** | 3,28 GB | |
+
+**⚠️ Su ORB E2B sembra battere E4B in `citation_precision`. Non lo batte:** non cita il 17,5% delle affermazioni contro il 12,6%, e ha recall più basso (0,598 contro 0,643). **La precisione sale citando di meno** — la trappola per cui C-03 aveva deciso di riportare `uncited_claim_rate` accanto e mai da solo. È anche un confronto **marginale e non appaiato**: i due modelli producono affermazioni diverse, quindi McNemar non si applica.
+
+**I due controlli di coerenza sono passati.** E4B era già stato misurato in C-01 a 200 query: 0,9309 contro 0,9263 qui (scarto 0,0046) e 1,0000 contro 1,0000 su ledger. È il motivo per cui E4B è dentro C-06 anche se i suoi numeri esistevano già — senza, qualunque differenza fra le taglie sarebbe stata attribuibile anche a un cambio d'ambiente in tre giorni di modifiche.
+
+**C-09 si ripaga subito.** Su LEDGER il verificatore numerico mostra il divario fra le taglie a **+21,9 punti**, dove l'NLI — dominato dal proprio pavimento su quel genere — ne mostra 9 (0,2000 → 0,2931). Senza C-09 quella riga della curva sarebbe stata in gran parte una misura dello strumento.
+
+#### Perché il 12B è stato scartato
+
+**240 s/query, misurati due volte** (1→2 record in 240 s; 3→5 in 480 s): **6,7 ore per dataset, 13,3 in totale**. Il precedente esiste: T-02 aveva già escluso il 26B MoE perché non entrava in VRAM, e la curva si era fermata a 12B.
+
+Il conto tornava dalla tabella di T-02 — prefill 33,8 tok/s su ~5.000 token di contesto fa 148 s, più 75 s di generazione a 2,4 tok/s. **Quel calcolo era stato fatto e poi scartato** perché una calibrazione da 3 query aveva risposto 43 s/query. Due stime che differivano di quattro volte, e ho scelto quella comoda invece di indagare la discrepanza. La calibrazione resta inspiegata: 3 query in 113 secondi totali sono incompatibili con i 240 s misurati sulla **stessa identica prima query**.
+
+> **Regola operativa che ne discende:** uno smoke test da 3 query non è una stima. E il ritmo di una run lunga va misurato nei suoi primi minuti, non annunciato e poi lasciato correre.
+
+#### Cosa questo lascia aperto
+
+**L'affermazione 3 del §0 non è determinata.** Dice *«con un retrieval buono la taglia del modello conta molto meno di quanto si creda»*. Su due punti:
+
+- passare da 5,1B a 8,0B — **1,57× i parametri, 1,7× la VRAM** — compra **+10,5 punti** di conformità su ORB e **+21,9** di precisione numerica su LEDGER;
+- non è un effetto piccolo, quindi **questi dati non sostengono l'affermazione 3**;
+- ma **se la curva si appiattisca fra 8B e 12B era precisamente ciò che il terzo punto doveva dire**, ed è la parte non misurata.
+
+Riportarlo come «taglia conta poco» sarebbe leggere due punti come se fossero tre.
+
+#### Cosa invece questi dati sostengono
+
+**Il genere documentale conta quanto la taglia, e forse di più.** E2B passando da ORB a LEDGER guadagna **12,8 punti**; passare da E2B a E4B su ORB ne vale **10,5**. Cambiare corpus vale più che raddoppiare il modello.
+
+La causa è quella che C-01 aveva già isolato: su open_ragbench il **23% dei chunk contiene già marcatori `[n]`** — sono paper, e i paper citano così — mentre su LEDGER sono **zero**. Il modo dominante di sbagliare, copiare i riferimenti del documento, su LEDGER *non può esistere*. È la terza volta che questo progetto trova il genere come variabile dominante, ed è materia dell'affermazione 2, non della 3.
+
+#### Per completare il terzo punto
 
 ```bash
 python scripts/eval_citations.py --dataset open_ragbench --model gemma4:12b --limit 100
-python scripts/eval_citations.py --dataset ledger        --model gemma4:12b --limit 100
 ```
 
-**Vincoli perché le due metà siano confrontabili** — se uno salta, la curva di scaling confronta cose diverse:
-
-- **Nessuna variabile d'ambiente.** Si usano i default `MAX_NEW_TOKENS=1024` e `REASONING_EFFORT=none`, cioè il sistema com'è configurato. C-07 girava a 2048: quella era una misura diversa.
-- **Non toccare `src/` né gli indici fra le due metà.** In particolare nessun task di Fase 5: R-08 e R-09 vivono nello sparso e C-06 gira in dense, ma R-08 va fatto con `update_collection` — ricreare la collection distruggerebbe anche i vettori densi.
-- Stesse collection di produzione (`open_ragbench`, `ledger`), dense, `top_k=5`: i default.
-
-**Poi**, sui sei dump prodotti (~20 min, nessuna rigenerazione):
-
-```bash
-python scripts/eval_citation_precision.py eval/results/generations/<dump>.jsonl
-```
-
-**La VRAM** si legge solo a modello caricato, quindi subito dopo ogni braccio:
-
-```bash
-curl -s http://localhost:11434/api/ps
-```
+**6,7 ore.** Su LEDGER non ne vale la pena: E4B è già a 1,0000 e il 12B non ha margine per migliorare. Restano validi i vincoli della parte 1 — nessuna variabile d'ambiente, e niente modifiche a `src/` o agli indici rispetto ai numeri qui sopra.
 
 ### I-11 — non adottata, e perché il numero che la sosteneva era falso
 
