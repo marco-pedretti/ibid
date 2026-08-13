@@ -1,0 +1,32 @@
+{
+  "run_id": "c431316e-f522-476a-ba97-5845ce77c503",
+  "timestamp": "2026-08-12T17:51:07.072771Z",
+  "git_commit": "9ad37b02074719ff6db345766cf3ccf9f4a89576",
+  "config_hash": "e549abc3",
+  "dataset_id": "open_ragbench",
+  "model": "gemma4:latest",
+  "quantization": "Q4_K_M",
+  "context_window": 32768,
+  "temperature": 0.0,
+  "reasoning_enabled": false,
+  "pipeline_mode": "generic",
+  "config": {
+    "harness": "citation_precision",
+    "entailment_model": "MoritzLaurer/bge-m3-zeroshot-v2.0",
+    "entailment_threshold": 0.5,
+    "premise_cap": 4096,
+    "source_generations": "20260812_170338_open_ragbench.jsonl",
+    "n_answers": 95,
+    "render_tables": false
+  },
+  "metrics": {
+    "citation_precision": 0.6811023622047244,
+    "citation_recall": 0.6428571428571429,
+    "uncited_claim_rate": 0.12605042016806722,
+    "windowed_premise_rate": 0.08267716535433071,
+    "citations_per_answer": 2.6736842105263157,
+    "claims_per_answer": 2.5789473684210527,
+    "numeric_citation_precision": 0.0,
+    "numeric_coverage": 0.003937007874015748
+  }
+}
