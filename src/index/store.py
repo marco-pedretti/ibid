@@ -13,6 +13,7 @@ from qdrant_client import QdrantClient
 from qdrant_client.models import (
     Distance,
     Filter,
+    Modifier,
     PointStruct,
     QueryRequest,
     QueryResponse,
@@ -33,12 +34,51 @@ def get_client(url: str) -> QdrantClient:
 
 
 def ensure_collection(client: QdrantClient, name: str, dense_size: int) -> None:
+    """Create the collection if absent; repair the IDF modifier if present.
+
+    R-08. `modifier=IDF` is not decoration: fastembed's BM25 leaves the IDF
+    component out of the vectors *on purpose*, because it depends on corpus
+    statistics the client does not have. Qdrant supplies it at query time — but
+    only if the sparse index is told to. Without it the score is term frequency
+    alone, and a common word weighs as much as a rare one.
+
+    Existing collections are repaired in place rather than recreated, because
+    the sparse *vectors* were never wrong: the missing half lives in the index
+    configuration. See `ensure_idf_modifier`.
+    """
     if not client.collection_exists(name):
         client.create_collection(
             collection_name=name,
             vectors_config={"dense": VectorParams(size=dense_size, distance=Distance.COSINE)},
-            sparse_vectors_config={"sparse": SparseVectorParams()},
+            sparse_vectors_config={"sparse": SparseVectorParams(modifier=Modifier.IDF)},
         )
+        return
+    ensure_idf_modifier(client, name)
+
+
+def ensure_idf_modifier(client: QdrantClient, name: str) -> bool:
+    """Set `modifier=IDF` on an existing sparse index. Returns True if changed.
+
+    **In place, never delete-and-recreate.** The dense vectors of these
+    collections cost hours of GPU (open_ragbench and ledger together are ~66k
+    chunks, and the routed variants ~326k); dropping them to change one field of
+    the sparse configuration would throw away every measurement that depends on
+    them, C-06 included. `update_collection` alters the sparse params and leaves
+    the points untouched — verified against the running instance before this was
+    written.
+
+    Idempotent: returns False when the modifier is already IDF, so it can be
+    called on every ingest without a second thought.
+    """
+    info = client.get_collection(name)
+    sparse = (info.config.params.sparse_vectors or {}).get("sparse")
+    if sparse is not None and sparse.modifier == Modifier.IDF:
+        return False
+    client.update_collection(
+        collection_name=name,
+        sparse_vectors_config={"sparse": SparseVectorParams(modifier=Modifier.IDF)},
+    )
+    return True
 
 
 def delete_collection(client: QdrantClient, name: str) -> None:
