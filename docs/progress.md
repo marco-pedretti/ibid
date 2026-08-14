@@ -1599,7 +1599,7 @@ Per la stessa ragione `/document/{doc_id}/chunks` restituisce i chunk **in ordin
 |---|---|---|
 | U-00 | âœ… fatto (2026-08-14) | Scheletro `ui/`: Vite 8 + React 19 + TypeScript 7 + Tailwind 4, client SSE scritto a mano, temi, i18n IT/EN, `/datasets` all'avvio. **19 test Vitest** + 15 test Python sul contratto generato. `npm run typecheck && npm test && npm run build` verdi; catena provata contro l'API viva. Dettaglio sotto. |
 | U-01 | ✅ fatto (2026-08-14) | Selettore dataset nella corsia laterale del mockup, scelta ricordata in `localStorage` e **validata** contro `/datasets`. La regola di selezione è in funzioni pure: **9 test Vitest** in più (28 in tutto), senza jsdom. Provato contro l'API viva: `open_ragbench` 18.840 e `ledger` 47.110 chunk. Dettaglio sotto. |
-| U-02 | ✅ fatto (2026-08-14) | Schermata di chat con **pannello fonti sempre visibile** (nel telaio, non nella chat): otto stati, uno per evento del §3.5, macchina a stati in un reducer puro con **16 test** (44 lato Vitest). Marcatori inerti finché non arriva `answer`. I valori di `abstention` ora sono generati come i tipi. Esempi dello stato vuoto presi da `eval/golden`. Provato contro l'API viva su una query d'oro reale. Dettaglio sotto. |
+| U-02 | ✅ fatto (2026-08-14) | Schermata di chat con **pannello fonti sempre visibile** (nel telaio, non nella chat): otto stati, uno per evento del §3.5, macchina a stati in un reducer puro con **16 test** (44 lato Vitest). Marcatori inerti finché non arriva `answer`. I valori di `abstention` ora sono generati come i tipi. Esempi dello stato vuoto presi da `eval/golden`. Provato contro l'API viva su una query d'oro reale. **Rendering LaTeX** con KaTeX, regola dei delimitatori misurata: 49 falsi positivi tolti su 49, zero formule vere perse. Dettaglio sotto. |
 
 ### U-00 â€” il contratto esiste in due linguaggi, e uno dei due si genera
 
@@ -1757,6 +1757,36 @@ I tre esempi dello stato vuoto vengono da `eval/golden/*.jsonl`, per dataset, tr
 Targhette `pipeline`/`doc_genre` sulle schede (U-05), verdetti per citazione (U-07), toggle RAG (U-03), prompt del baseline (U-04), parametri avanzati, cronologia. Ognuno arriva col proprio criterio e col proprio test; anticiparli significa consegnarli senza la verifica che li accompagna.
 
 Un debito invece è reale e va detto: i quattro dati dell'indice che U-01 mostrava nella colonna centrale — collection, punti, dimensione densa, vettori sparsi — sono usciti di scena quando la chat ha preso quel posto. Devono tornare sotto «Dettagli della run», che il §12 vuole sempre leggibile e che non esiste ancora.
+
+#### Il LaTeX, e perché la regola comoda era sbagliata
+
+`open_ragbench` sono paper e `ledger` è Mathpix Markdown: la matematica non è un caso limite, è il contenuto. Misurato prima di scrivere il rendering:
+
+| | risposte di riferimento | chunk veri |
+|---|---|---|
+| `open_ragbench` | 452 formule `$…$` su 2000 | 83% con `$…$`, 50% con `$$`, 65% con comandi LaTeX, **100% comincia con un titolo Markdown** |
+| `ledger` | 0 | 48% con `$…$` (ma è **valuta**), 39% con tabelle in **HTML**, 77% con titoli |
+
+**La regola comoda è sbagliata, e si sapeva solo misurandola.** «Accetto `$…$` solo se contiene un comando LaTeX» eviterebbe di scambiare due prezzi per una formula, ma **125 coppie su 452 (28%) non hanno nessun segnale**: sono variabili singole — `$o$`, `$n$`, `$p(y, o, u)$`. Butterebbe via un quarto della matematica vera.
+
+Si usa la regola stretta dei delimitatori (niente spazio dopo l'apertura né prima della chiusura, nessuna cifra subito dopo, nessun attraversamento di riga vuota), che però da sola non bastava sui chunk: nelle tabelle HTML di `ledger` `<td>` non ha spazi, e due importi in celle diverse si chiudevano a vicenda. **49 falsi positivi su 600 chunk.** Le due difese possibili, contate sugli stessi 1200 chunk:
+
+| guardia | falsi tolti (`ledger`) | formule vere perse (`open_ragbench`) |
+|---|---|---|
+| **contiene un tag HTML** | **49 / 49** | **0 / 22.150** |
+| tetto di 120 caratteri | 26 / 49 | 275 |
+
+Separazione perfetta contro separazione mediocre, e in tutti e due i versi. La guardia riconosce un **tag**, non un `<` qualunque: `$a < b$` resta matematica.
+
+> **Il corpus finanziario ne aveva bisogno quanto i paper, e non per la stessa ragione.** Alla domanda sul capex di Sherwin-Williams il modello ha risposto `Capital expenditures ... were $(303.8)$ million dollars [1]`: riecheggia i delimitatori Mathpix del documento anche attorno a una cifra di bilancio. Senza rendering, quella stringa si legge così com'è — ed era esattamente il difetto segnalato.
+
+**Una formula incompleta resta testo.** Mentre i token arrivano, `$\frac{a}` non ha ancora la chiusura: comporla disegnerebbe un errore rosso per mezzo secondo a ogni formula che si sta scrivendo. La proprietà cade fuori dalla segmentazione, non è un caso speciale.
+
+**Gli estratti passano da `perAnteprima`**: via i cancelletti dei titoli e i tag delle tabelle. Senza, l'anteprima più frequente in assoluto comincia con `####` e quella di un bilancio è fatta di `</td><td>`. È una riduzione per una scheda alta due righe, non una modifica del dato — chi aprirà la fonte con U-06 deve vedere il chunk com'è stato indicizzato.
+
+**Cosa non si renderizza, e perché.** Tabelle Markdown, grassetti e liste **nella risposta**: nelle risposte di riferimento sono zero, e nelle due risposte osservate dal vivo pure. Un parser Markdown completo entrerebbe anche in conflitto col §3.2, che accetta come citazione solo `[n]` contiguo — `[1]` è sintassi di link in Markdown. Se un giorno il modello dovesse rispondere con una tabella, si vedrà come testo grezzo: brutto, ma leggibile e senza inventare struttura che il contratto non riconosce.
+
+`katex` 0.18.4 (MIT) è **l'unica dipendenza che finisce nel bundle servito**, e porta i propri font: +260 kB di JS e +190 kB di font, emessi da `vite build` come file locali — nessuna richiesta a un CDN, quindi U-08 resta avviabile senza rete. È una deroga dichiarata al «tutti font di sistema» del §12, e la ragione è la stessa per cui i simboli sono disegnati e non scritti: un carattere risolto dal sistema è diverso su ogni macchina, e una formula lo è in modo molto più visibile di un caret. `trust: false` resta il default e resta scritto: senza, `\href` darebbe a un testo **generato dal modello** un modo per iniettare markup.
 
 #### Provato contro l'API viva
 
