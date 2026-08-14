@@ -34,10 +34,13 @@ from src.service.answer import (
 from src.service.catalog import (
     CollectionInfo,
     DatasetInfo,
+    DocumentInfo,
     chunk,
     collections,
     dataset_of,
     datasets,
+    document_chunks,
+    documents,
     models,
 )
 
@@ -50,6 +53,7 @@ __all__ = [
     "CitationsEvent",
     "CollectionInfo",
     "DatasetInfo",
+    "DocumentInfo",
     "DoneEvent",
     "Event",
     "RetrieveRequest",
@@ -61,6 +65,8 @@ __all__ = [
     "collections",
     "dataset_of",
     "datasets",
+    "document_chunks",
+    "documents",
     "models",
     "retrieve_chunks",
 ]

@@ -16,6 +16,7 @@ from qdrant_client.models import (
     Filter,
     MatchValue,
     Modifier,
+    PayloadSchemaType,
     PointStruct,
     QueryRequest,
     QueryResponse,
@@ -55,8 +56,10 @@ def ensure_collection(client: QdrantClient, name: str, dense_size: int) -> None:
             vectors_config={"dense": VectorParams(size=dense_size, distance=Distance.COSINE)},
             sparse_vectors_config={"sparse": SparseVectorParams(modifier=Modifier.IDF)},
         )
+        ensure_payload_indexes(client, name)
         return
     ensure_idf_modifier(client, name)
+    ensure_payload_indexes(client, name)
 
 
 def ensure_idf_modifier(client: QdrantClient, name: str) -> bool:
@@ -82,6 +85,51 @@ def ensure_idf_modifier(client: QdrantClient, name: str) -> bool:
         sparse_vectors_config={"sparse": SparseVectorParams(modifier=Modifier.IDF)},
     )
     return True
+
+
+#: I campi su cui si cerca **per valore** invece che per vettore, e che quindi
+#: hanno bisogno di un indice payload. Sono due, e non sono una scelta di
+#: performance generica: sono i due percorsi in cui il progetto interroga
+#: l'indice senza un embedding in mano.
+#:
+#: - `chunk_id` — ogni citazione cliccata in U-06 passa da `get_by_chunk_id`,
+#:   che senza indice **scandisce i payload** della collection.
+#: - `doc_id` — `documents()` e `document_chunks()` di A-07, cioe' l'intero
+#:   esploratore del corpus.
+PAYLOAD_INDEXED_FIELDS: tuple[str, ...] = ("chunk_id", "doc_id")
+
+
+def ensure_payload_indexes(client: QdrantClient, name: str) -> list[str]:
+    """Crea gli indici payload mancanti. Restituisce quelli aggiunti.
+
+    **Si aggiunge a una collection esistente senza rifare i vettori**, esattamente
+    come il modificatore IDF di R-08 — e per la stessa ragione vale la pena
+    dirlo: le collection di questo progetto sono ore di GPU, e un rimedio che
+    richiedesse di ricostruirle non sarebbe un rimedio.
+
+    Misurato il 2026-08-14 su `ledger` (47.110 punti): la creazione costa 0,77 s
+    una volta sola, e la domanda «quali documenti ci sono e con quanti chunk»
+    passa da **2,07 s a 0,025 s**. Su `ledger_routed` (228.331 punti) la
+    scansione sarebbe dell'ordine dei 10 s, cioe' una pagina inusabile.
+
+    Idempotente: si puo' chiamare a ogni ingestione senza pensarci. Il confronto
+    e' con lo schema che Qdrant riporta, non con una lista tenuta da noi — cosi'
+    un indice cancellato a mano dalla console viene ricreato invece di essere
+    dato per esistente.
+    """
+    presenti = set(client.get_collection(name).payload_schema or {})
+    aggiunti = []
+    for campo in PAYLOAD_INDEXED_FIELDS:
+        if campo in presenti:
+            continue
+        client.create_payload_index(
+            collection_name=name,
+            field_name=campo,
+            field_schema=PayloadSchemaType.KEYWORD,
+            wait=True,
+        )
+        aggiunti.append(campo)
+    return aggiunti
 
 
 def delete_collection(client: QdrantClient, name: str) -> None:
@@ -181,6 +229,57 @@ def get_by_chunk_id(client: QdrantClient, collection: str, chunk_id: str) -> dic
         with_vectors=False,
     )
     return points[0].payload if points else None
+
+
+def list_documents(client: QdrantClient, collection: str, limit: int = 2000) -> list[tuple[str, int]]:
+    """`(doc_id, n_chunk)` per ogni documento della collection, in ordine.
+
+    Usa `facet`, che conta lato server sull'indice payload: su `ledger` sono
+    0,025 s contro i 2,07 s di una scansione dei payload (A-07). Richiede
+    l'indice su `doc_id` — vedi `ensure_payload_indexes`.
+
+    `exact=True` perche' il numero e' cio' che si mostra: un conteggio
+    approssimato in una lista di documenti si legge come esatto e non lo e'.
+
+    L'ordine e' alfabetico, non quello di `facet` (che ordina per conteggio
+    decrescente): una lista che si riordina quando cambia l'indicizzazione fa
+    perdere il posto a chi la sta sfogliando.
+    """
+    risposta = client.facet(collection_name=collection, key="doc_id", limit=limit, exact=True)
+    return sorted((str(h.value), int(h.count)) for h in risposta.hits)
+
+
+def payloads_of_document(
+    client: QdrantClient, collection: str, doc_id: str, limit: int = 2000
+) -> list[dict]:
+    """I payload dei chunk di un documento, **in ordine di sequenza**.
+
+    L'ordinamento e' lessicografico sul `chunk_id` e non e' un ripiego: lo
+    schema del §3 impone `{dataset_id}:{doc_id}:{seq}` con `seq` a quattro cifre
+    zero-riempite, quindi l'ordine dei caratteri e' l'ordine dei numeri. Qdrant
+    non puo' ordinare per questo campo (e' keyword, non numerico), e ordinare in
+    Python qualche centinaio di chunk costa niente.
+
+    Serve all'esploratore del corpus: mostrare **come** un documento e' stato
+    spezzato ha senso solo nell'ordine in cui e' stato spezzato.
+    """
+    trovati: list[dict] = []
+    offset = None
+    while True:
+        punti, offset = client.scroll(
+            collection_name=collection,
+            scroll_filter=Filter(
+                must=[FieldCondition(key="doc_id", match=MatchValue(value=doc_id))]
+            ),
+            limit=min(256, limit - len(trovati)),
+            offset=offset,
+            with_payload=True,
+            with_vectors=False,
+        )
+        trovati.extend(p.payload for p in punti)
+        if offset is None or len(trovati) >= limit:
+            break
+    return sorted(trovati, key=lambda p: p["chunk_id"])
 
 
 def search_params(exact: bool, hnsw_ef: int | None) -> SearchParams | None:

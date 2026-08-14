@@ -9,11 +9,20 @@ di un indice acceso.
 from __future__ import annotations
 
 from dataclasses import dataclass
+from types import SimpleNamespace
 
 import pytest
 import src.config as cfg
 from src.datasets import registry
-from src.service import chunk, dataset_of, datasets, models
+from src.service import (
+    DocumentInfo,
+    chunk,
+    dataset_of,
+    datasets,
+    document_chunks,
+    documents,
+    models,
+)
 
 
 @dataclass
@@ -207,3 +216,80 @@ class TestModelli:
 
         models("http://altrove:8000/v1/", fetch=spia)
         assert visti == ["http://altrove:8000/v1/models"]
+
+
+class TestDocumenti:
+    """A-07: sfogliare il corpus, non solo cercarlo.
+
+    `/chunk/{id}` sa rispondere su **uno**, `/retrieve` su una query. Nessuno
+    dei due sa dire cosa c'e' dentro una collection — e senza, l'esploratore
+    puo' solo cercare, mai mostrare come un documento e' stato spezzato.
+    """
+
+    class FakeQdrant:
+        """Un Qdrant che conosce `facet` e `scroll`, e ricorda a chi ha chiesto."""
+
+        def __init__(self, conteggi: dict[str, int], payloads: list[dict] | None = None):
+            self._conteggi = conteggi
+            self._payloads = payloads or []
+            self.collections_viste: list[str] = []
+
+        def facet(self, collection_name, key, limit, exact):
+            self.collections_viste.append(collection_name)
+            hits = [
+                SimpleNamespace(value=v, count=n) for v, n in self._conteggi.items()
+            ]
+            return SimpleNamespace(hits=hits)
+
+        def scroll(self, collection_name, scroll_filter, limit, offset,
+                   with_payload, with_vectors):
+            self.collections_viste.append(collection_name)
+            atteso = scroll_filter.must[0].match.value
+            punti = [
+                SimpleNamespace(payload=p)
+                for p in self._payloads if p["doc_id"] == atteso
+            ]
+            return punti, None
+
+    @staticmethod
+    def _payload(doc_id: str, seq: str) -> dict:
+        return {**payload(f"ledger:{doc_id}:{seq}"), "doc_id": doc_id}
+
+    def test_elenca_i_documenti_col_numero_di_chunk(self):
+        client = self.FakeQdrant({"NYSE_SHW_2017": 83, "AMEX_BRN_2017": 118})
+        out = documents("ledger", client=client)
+        assert [(d.doc_id, d.n_chunks) for d in out] == [
+            ("AMEX_BRN_2017", 118), ("NYSE_SHW_2017", 83),
+        ]
+
+    def test_il_genere_non_sta_sul_documento(self):
+        """Sarebbe un'aggregazione che il dato non garantisce: una collection
+        `_routed` puo' mescolare pipeline dentro lo stesso documento, ed e'
+        esattamente il caso che l'esploratore deve poter mostrare."""
+        campi = set(DocumentInfo.__dataclass_fields__)
+        assert campi == {"doc_id", "n_chunks"}
+
+    def test_una_collection_diversa_dal_dataset(self):
+        """`ledger_routed` non e' nel registro ma e' navigabile: la stessa
+        ragione per cui `collections()` esiste accanto a `datasets()`."""
+        client = self.FakeQdrant({"X": 1})
+        documents("ledger", collection="ledger_routed", client=client)
+        assert client.collections_viste == ["ledger_routed"]
+
+    def test_i_chunk_di_un_documento_tornano_come_Chunk(self):
+        client = self.FakeQdrant({}, [
+            self._payload("NYSE_SHW_2017", "0001"),
+            self._payload("NYSE_SHW_2017", "0000"),
+            self._payload("ALTRO", "0000"),
+        ])
+        out = document_chunks("NYSE_SHW_2017", "ledger", client=client)
+        assert [c.chunk_id for c in out] == [
+            "ledger:NYSE_SHW_2017:0000", "ledger:NYSE_SHW_2017:0001",
+        ]
+        assert out[0].pipeline and out[0].doc_genre
+
+    def test_un_documento_assente_da_una_lista_vuota_non_un_errore(self):
+        """Come `chunk()`: un `doc_id` copiato da una citazione vecchia e' una
+        domanda legittima, e va distinta da un guasto."""
+        client = self.FakeQdrant({}, [self._payload("ALTRO", "0000")])
+        assert document_chunks("NON_ESISTE", "ledger", client=client) == []

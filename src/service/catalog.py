@@ -25,7 +25,13 @@ import src.config as cfg
 from src.datasets import registry
 from src.datasets.schema import Chunk
 from src.generation import chat
-from src.index.store import chunk_from_payload, get_by_chunk_id, get_client
+from src.index.store import (
+    chunk_from_payload,
+    get_by_chunk_id,
+    get_client,
+    list_documents,
+    payloads_of_document,
+)
 
 
 @dataclass(frozen=True)
@@ -141,6 +147,55 @@ def models(
         return chat.list_models(base_url or cfg.LLM_BASE_URL, fetch=fetch)
     except RuntimeError:
         return []
+
+
+@dataclass(frozen=True)
+class DocumentInfo:
+    """Un documento della collection, e quanti chunk ne sono usciti.
+
+    **Il genere non e' qui, ed e' una decisione.** `doc_genre` e `pipeline`
+    stanno sul chunk perche' e' li' che sono veri: metterli sul documento
+    sarebbe un'aggregazione che il dato non garantisce — una collection
+    `_routed` puo' mescolare pipeline dentro lo stesso documento, ed e'
+    esattamente il caso che l'esploratore deve poter mostrare. Chi apre il
+    documento li vede sui chunk, dove non c'e' niente da riassumere.
+    """
+
+    doc_id: str
+    n_chunks: int
+
+
+def documents(
+    dataset_id: str, collection: str | None = None, client=None
+) -> list[DocumentInfo]:
+    """I documenti di una collection, in ordine alfabetico (A-07).
+
+    Il buco che disegnare la Fase 8 ha rivelato: c'era `/chunk/{id}` (uno, per
+    id) e `/retrieve` (per query), e nessun modo di **navigare**. Senza,
+    l'esploratore del corpus puo' solo cercare — mai mostrare come un documento
+    e' stato spezzato, che e' cio' che rende visibile il routing (U-05).
+    """
+    if client is None:
+        client = get_client(cfg.QDRANT_URL)
+    return [
+        DocumentInfo(doc_id=doc_id, n_chunks=n)
+        for doc_id, n in list_documents(client, collection or dataset_id)
+    ]
+
+
+def document_chunks(
+    doc_id: str, dataset_id: str, collection: str | None = None, client=None
+) -> list[Chunk]:
+    """I chunk di un documento, nell'ordine in cui sono stati prodotti.
+
+    Lista vuota quando il documento non c'e': come `chunk()`, e' una risposta
+    legittima a una domanda legittima — un `doc_id` copiato da una citazione
+    vecchia — e chi chiama deve poterla distinguere da un guasto.
+    """
+    if client is None:
+        client = get_client(cfg.QDRANT_URL)
+    payloads = payloads_of_document(client, collection or dataset_id, doc_id)
+    return [chunk_from_payload(p) for p in payloads]
 
 
 def dataset_of(chunk_id: str) -> str:
