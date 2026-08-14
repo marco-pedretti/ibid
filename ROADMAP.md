@@ -414,11 +414,20 @@ Il criterio è ridurre il lavoro rifatto, non la difficoltà crescente. Q-03 e Q
 | A-03 | Il **contratto UI ↔ API** del §3.5 è implementato: schema delle risposte ed eventi dello stream | Ogni stato dell'interfaccia previsto in Fase 8 è rappresentabile nello schema, incluse «attendo i verdetti» e «il modello si è astenuto» |
 | A-04 | Endpoint FastAPI: `/health`, `/datasets`, `/query` (SSE), `/chunk/{chunk_id}` | `docker compose up` e una query completa da `curl`, senza il frontend |
 | A-05 | Backend come servizio in `docker compose`, con `QDRANT_URL` e `LLM_BASE_URL` da ambiente | Backend su una macchina, Qdrant e LLM su un'altra, senza modifiche al sorgente |
-| A-06 | **La dashboard Streamlit passa dall'API** invece di importare `src.` | `grep -r "^from src\." dashboard/` non trova più niente |
+| A-06 | **La dashboard Streamlit passa dall'API** invece di eseguire la pipeline | Nessun modulo di `dashboard/` importa `src.index`, `src.retrieval`, `src.generation`, `src.service`, `src.config`, e nessuno apre un client Qdrant. Gli import rimasti sono **elencati con la loro ragione** in `tests/test_dashboard_boundary.py` |
 
 **A-02 è il task difficile, ed è bene saperlo prima.** Gli harness leggono `cfg` globale — è ciò che ha permesso a R-11 di passare `SEARCH_EXACT` da variabile d'ambiente senza toccare una firma. Comodo per uno script, **impossibile per un servizio**: due richieste concorrenti con `top_k` diverso condividerebbero lo stesso modulo. Finché A-02 non è fatto, l'API è monoutente e non lo sa.
 
 **A-06 è la verifica, non un extra.** La dashboard importa `src.` in **9 moduli, 22 volte**: è il consumatore più esigente che esista già. Se l'API le basta, basterà anche al frontend — e se non le basta, si scopre ora invece che a React scritto. Se dovesse rivelarsi sproporzionata, va **rimandata dichiarandolo**, non silenziosamente omessa: senza, il confine è affermato e non provato.
+
+**Il criterio è stato riscritto eseguendolo** (2026-08-14), e vale la pena dire perché. Era `grep -r "^from src\." dashboard/` — comodo da controllare, e **un proxy per la cosa che interessa**. Sbagliava in due direzioni:
+
+- **Troppo largo.** Catturava la lettura di `eval/results/` e `eval/golden/`, che sono file sul disco della dashboard e non stanno dietro nessun endpoint. Per leggerli servono i contratti dati del §3, e un contratto condiviso è il contrario di una duplicazione. Soddisfare il `grep` avrebbe richiesto o di ricopiare lo schema di `EvalRun` nella dashboard, o di far servire all'API l'archivio degli esperimenti — e la lista di ciò che la Fase 7 espone è dichiarata vincolante poche righe più su.
+- **Troppo stretto.** `^from src\.` non vede un import annidato dentro una funzione, che è esattamente dove `state.py` teneva il proprio client Qdrant.
+
+Il criterio nuovo dice la cosa che il vecchio approssimava: **la dashboard non deve *eseguire* la pipeline.** Gli import rimasti sono cinque, ciascuno con la ragione scritta accanto in un test che fallisce se ne compare un sesto senza che qualcuno l'abbia deciso.
+
+> **A-06 ha prodotto anche un endpoint.** Dall'API mancava la metà che non genera: l'unico modo di vedere dei chunk era `/query`, cioè pagare una generazione — 200 generazioni per un batch del Failure Explorer. Da qui `POST /retrieve`, che accetta **molte query in una chiamata** perché l'embedding è batch per natura. È esattamente l'esito che questo task esisteva per provocare.
 
 **Cosa questa fase NON fa**, e la lista è vincolante quanto quella sopra: nessuna astrazione del vector store, nessun harness a plugin, nessuna coda di messaggi, nessuna autenticazione, nessun multi-tenancy. Le ragioni stanno in §14 — sono la stessa decisione che ha tenuto fuori LangChain.
 

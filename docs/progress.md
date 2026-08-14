@@ -1444,3 +1444,85 @@ E uno che protegge una scelta di A-02: **`.env.example` non contiene configurazi
 **Nessun `uv.lock`.** Due build a distanza di mesi possono risolvere versioni diverse. Per un servizio che si vuole riproducibile il lock è il passo giusto, ed è un task suo.
 
 **L'immagine porta più dipendenze del necessario** — `streamlit`, `datasets`, `pandas` sono in `[project.dependencies]` e servono agli harness, non all'API. Separarle in extra è possibile e non è A-05.
+
+| A-06 | ✅ fatto (2026-08-14) | La dashboard smette di essere un secondo backend: le due copie della pipeline sparite, tutto passa da `dashboard/api_client.py`. Ha prodotto `POST /retrieve`, che dall'API mancava. **1620 test**. |
+
+### A-06 — il consumatore esigente ha chiesto una cosa che non c'era
+
+Il ROADMAP diceva perché questo task esiste: *«è il consumatore più esigente che esista già. Se l'API le basta, basterà anche al frontend — e se non le basta, si scopre ora invece che a React scritto.»*
+
+**Non le bastava.** Dall'API mancava la metà che non genera: l'unico modo di vedere dei chunk era `/query`, cioè pagare una generazione. Per un batch del Failure Explorer sarebbero **200 generazioni per un dato che esiste prima di ognuna**.
+
+Da qui `POST /retrieve`, che accetta molte query in una chiamata perché l'embedding è batch per natura: 200 query in un viaggio sono una passata di GPU, 200 viaggi sono 200 passate. È la differenza fra una pagina usabile e una che non lo è — ed è l'unico endpoint di tutta la Fase 7 che non è stato progettato a tavolino ma **chiesto da un consumatore**.
+
+#### Non era un client: era un secondo sistema
+
+La dashboard apriva il proprio client Qdrant, embeddava le query, fondeva con RRF, chiamava il cross-encoder. Due copie della pipeline — `retrieval_probe.py` e `failure_store.py` — accanto a quella del servizio.
+
+E **le copie erano già divergenti**: dopo A-02 la configurazione di richiesta ha smesso di stare in `cfg`, e queste continuavano a leggerla da lì. Il commento in cima a `retrieval_probe.py` diceva che i parametri venivano da `src.config` *«così che quello che vedi qui sia quello che l'eval ha misurato»* — la buona intenzione era scritta, e aveva smesso di essere vera.
+
+Nessun test poteva accorgersene: ognuno verificava la propria copia contro sé stessa.
+
+```
+probe(client, query, config)            →  probe(query, config)
+evaluate_queries(client, queries, ...)  →  evaluate_queries(queries, ...)
+```
+
+> Il `client` che sparisce dalla firma **è il criterio in una riga**: chi interroga Qdrant è il servizio.
+
+#### Il criterio del ROADMAP era un proxy, e si è visto eseguendolo
+
+Era `grep -r "^from src\." dashboard/`. Comodo da controllare, e sbagliato in due direzioni:
+
+| | |
+|---|---|
+| **troppo largo** | catturava la lettura di `eval/results/` e `eval/golden/` — file sul disco della dashboard, che non stanno dietro nessun endpoint. Soddisfarlo avrebbe richiesto o di ricopiare lo schema di `EvalRun`, o di far servire all'API l'archivio degli esperimenti — e la lista di ciò che la Fase 7 espone è dichiarata **vincolante** |
+| **troppo stretto** | `^from src\.` non vede un import annidato dentro una funzione, che è esattamente dove `state.py` teneva il proprio client Qdrant |
+
+Il criterio nuovo dice la cosa che il vecchio approssimava: **la dashboard non deve *eseguire* la pipeline.** I cinque import rimasti hanno la ragione scritta accanto, in un test che fallisce se ne compare un sesto senza che qualcuno l'abbia deciso:
+
+```python
+AMMESSI = {
+    "src.datasets.schema": "contratto dati del §3, per leggere eval/results/",
+    "src.ingestion.ocr_tables": "interpretare markup OCR è un formato, non la pipeline",
+    ...
+}
+```
+
+> È lo stesso movimento di I-07, dove il criterio «< 20 minuti» descriveva un modello che non era quello adottato e fu riscritto con i numeri veri. Un criterio che non sopravvive all'esecuzione va corretto, non aggirato.
+
+#### Il sesto chiamante attraverso l'underscore
+
+`_split_segments` viveva in `pipeline_table_heavy.py`. La importavano in **sei**, di cui quattro fuori dall'ingestione: il verificatore di entailment di C-03, quello numerico di C-09, un probe e la dashboard.
+
+È il caso peggiore della serie iniziata con `_RETRIEVERS` e proseguita con `_payload_to_chunk`: **il verificatore delle citazioni dipendeva da una pipeline di ingestione per leggere una premessa.** Ora è `split_segments` in `ocr_tables.py`, accanto al parser — un modulo che era già stato spostato una volta per la stessa ragione, e che porta scritto in cima *«serve a due cose che non si parlano»*.
+
+Spostamento puro: 1544 test non-dashboard invariati.
+
+#### La vista che era una console di un altro servizio
+
+Collection Stats leggeva la configurazione interna di Qdrant: dimensioni dei vettori, distanze, nomi degli indici sparsi. Era l'amministrazione di un altro servizio — che Qdrant la sua console ce l'ha già, su `:6333/dashboard`.
+
+Ora `/datasets` riporta anche le collection del server con **tre fatti che riguardano questo sistema**: punti, dimensione densa, presenza dell'indice sparso. Non è statistica per curiosità:
+
+- una `dense_size` diversa fra due collection significa che sono state costruite da modelli di embedding diversi, e **non sono confrontabili** — la vista ora lo dice invece di lasciarlo dedurre;
+- `has_sparse: false` distingue una collection su cui `hybrid` funziona da una su cui userebbe solo il ramo denso.
+
+#### I test si sono accorciati, ed è la cosa giusta da notare
+
+Verificavano che il probe usasse il vettore denso per `dense`, pescasse più a fondo col reranker, fondesse con RRF in `hybrid`. Cioè verificavano **una copia della pipeline contro sé stessa**.
+
+Quella copia non c'è più, e con lei quei test: il comportamento vive in `test_service_answer.py` e `test_index_search_params.py`, dove c'è un'implementazione sola da verificare invece di due che devono ricordarsi di essere d'accordo.
+
+Quel che resta è ciò che la dashboard fa davvero — chiedere la cosa giusta, e trasformare la risposta nella forma che le viste disegnano — più sette test nuovi sul confine.
+
+#### Provato contro l'API viva
+
+| | |
+|---|---|
+| `capabilities()` | 2 dataset, 7 collection con punti e dimensioni |
+| `probe()` | `open_ragbench:2412.20245v4:15` in testa, score 0,840 |
+| A/B `ledger` vs `ledger_routed` | jaccard chunk **0,00**, jaccard doc **0,00** — il caso R-07 per cui quella vista esiste |
+| Failure Explorer | 20 query golden in **0,7 s**, in 2 chiamate da 10 |
+
+> Lo `0,00` su entrambi i jaccard non è un difetto: le due collection usano pipeline di chunking diverse, quindi i `chunk_id` non coincidono per costruzione. È esattamente ciò che la vista è costruita per rendere leggibile, ed è la ragione per cui R-07 si misura su `doc_R@5`.
