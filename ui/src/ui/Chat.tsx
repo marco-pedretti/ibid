@@ -256,7 +256,10 @@ function Campo() {
             }
           }}
           placeholder={bloccato ? t("chat.noDataset") : t("chat.placeholder")}
-          className="max-h-40 min-h-[22px] flex-1 resize-none bg-transparent text-[12.5px] text-ink outline-none placeholder:text-muted disabled:cursor-not-allowed"
+          // `fuoco-delegato`: l'anello di fuoco lo disegna la cornice attorno,
+          // che reagisce a `focus-within`. Non si rinuncia al fuoco visibile,
+          // si sceglie dove disegnarlo.
+          className="fuoco-delegato max-h-40 min-h-[22px] flex-1 resize-none bg-transparent text-[12.5px] text-ink placeholder:text-muted disabled:cursor-not-allowed"
         />
 
         {occupato ? (

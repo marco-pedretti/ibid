@@ -141,6 +141,17 @@ body {
   outline-offset: 2px;
 }
 
+/* ...ma un controllo puo' **delegarlo** al proprio contenitore, non rinunciarci.
+   Il campo di scrittura sta dentro una cornice che gia' reagisce a
+   `focus-within`: due anelli concentrici non danno il doppio dell'informazione,
+   danno rumore attorno all'unica che serve.
+
+   Sta qui e non fra le utility perche' deve battere la regola qui sopra, che e'
+   fuori dai layer di Tailwind e vincerebbe su qualunque `outline-none`. */
+.fuoco-delegato:focus-visible {
+  outline: none;
+}
+
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,
