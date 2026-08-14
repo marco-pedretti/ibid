@@ -29,12 +29,19 @@ import { Marchio } from "./Marchio";
 import { SelettoreDataset } from "./SelettoreDataset";
 import { SelettoreNativo } from "./SelettoreNativo";
 
-export function Telaio({ children }: { children: ReactNode }) {
+export function Telaio({ children, fianco }: { children: ReactNode; fianco?: ReactNode }) {
   const { t } = usaLingua();
 
   return (
-    <div className="grid min-h-dvh grid-cols-[200px_1fr] bg-paper text-ink">
-      <aside className="flex flex-col gap-4 border-r border-line bg-surface px-3 py-3.5">
+    // `h-dvh` e non `min-h-dvh`: da qui in poi le colonne scorrono per conto
+    // loro, e con un'altezza minima scorrerebbe la pagina intera portandosi via
+    // la corsia e il campo di scrittura.
+    <div
+      className={`grid h-dvh overflow-hidden bg-paper text-ink ${
+        fianco ? "grid-cols-[200px_1fr_272px]" : "grid-cols-[200px_1fr]"
+      }`}
+    >
+      <aside className="flex flex-col gap-4 overflow-y-auto border-r border-line bg-surface px-3 py-3.5">
         <Marchio className="px-1 text-[19px]" />
 
         <div>
@@ -50,7 +57,8 @@ export function Telaio({ children }: { children: ReactNode }) {
         </div>
       </aside>
 
-      <main className="min-w-0">{children}</main>
+      <main className="min-h-0 min-w-0">{children}</main>
+      {fianco}
     </div>
   );
 }

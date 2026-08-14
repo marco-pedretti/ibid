@@ -56,9 +56,35 @@ export const it = {
   "index.sparse": "vettori sparsi",
   "index.missing": "Il server non elenca nessuna collection con questo nome.",
 
-  "chat.soon": "La chat arriva col prossimo task.",
-  "chat.soon.hint":
-    "Qui sotto c'è ciò che il backend risponde per il dataset scelto: cambiandolo cambia, senza riavviare niente.",
+  "chat.empty.title": "Chiedi qualcosa al corpus.",
+  "chat.empty.hint":
+    "Ogni frase della risposta porta la fonte da cui viene, e le fonti compaiono prima del testo.",
+  "chat.placeholder": "Scrivi una domanda…",
+  "chat.send": "Invia",
+  "chat.stop": "Ferma",
+  "chat.noDataset": "Scegli un dataset per poter chiedere.",
+  "chat.hint.invio": "Invio per mandare, Maiusc+Invio per andare a capo.",
+
+  "example.note.numbers": "Un numero preciso: la citazione deve reggerlo.",
+  "example.note.paper": "Sta dentro un paper: guarda da quale sezione arriva.",
+  "example.note.table": "La risposta sta in una tabella.",
+  "example.note.absent": "Non c'è nel corpus. Guarda cosa succede.",
+
+  "stato.attesa": "cerco nel corpus…",
+  "stato.fonti": "il modello sta scrivendo…",
+  "stato.scrittura": "scrivo… · marcatori non ancora attivi",
+  "stato.risposta": "testo definitivo · controllo le citazioni…",
+  "stato.citazioni": "verdetti arrivati",
+  "stato.interrotta": "fermata · resta la risposta parziale",
+  "stato.errore": "interrotto",
+  "stato.troncato": "risposta troncata: il limite di token è stato raggiunto",
+  "stato.riparato": "marcatori normalizzati dal parser",
+
+  "sources.title": "Fonti",
+  "sources.waiting":
+    "Le fonti compaiono qui appena il retrieval risponde, prima che il modello cominci a scrivere.",
+  "sources.none": "Nessuna fonte recuperata per questa domanda.",
+  "sources.uncited": "Frasi senza citazione",
 
   "yes": "sì",
   "no": "no",
@@ -116,9 +142,35 @@ export const en: Record<Chiave, string> = {
   "index.sparse": "sparse vectors",
   "index.missing": "The server lists no collection with this name.",
 
-  "chat.soon": "The chat arrives with the next task.",
-  "chat.soon.hint":
-    "Below is what the backend answers for the selected dataset: switch it and this changes, with nothing restarted.",
+  "chat.empty.title": "Ask the corpus something.",
+  "chat.empty.hint":
+    "Every sentence carries the source it came from, and the sources appear before the text does.",
+  "chat.placeholder": "Type a question…",
+  "chat.send": "Send",
+  "chat.stop": "Stop",
+  "chat.noDataset": "Pick a dataset before asking.",
+  "chat.hint.invio": "Enter to send, Shift+Enter for a new line.",
+
+  "example.note.numbers": "A precise number: the citation has to hold it up.",
+  "example.note.paper": "It sits inside a paper: look at which section it comes from.",
+  "example.note.table": "The answer is in a table.",
+  "example.note.absent": "It is not in the corpus. Watch what happens.",
+
+  "stato.attesa": "searching the corpus…",
+  "stato.fonti": "the model is writing…",
+  "stato.scrittura": "writing… · markers not reliable yet",
+  "stato.risposta": "final text · checking the citations…",
+  "stato.citazioni": "verdicts in",
+  "stato.interrotta": "stopped · the partial answer stays",
+  "stato.errore": "interrupted",
+  "stato.troncato": "answer truncated: the token limit was reached",
+  "stato.riparato": "markers normalised by the parser",
+
+  "sources.title": "Sources",
+  "sources.waiting":
+    "Sources show up here as soon as retrieval answers, before the model starts writing.",
+  "sources.none": "No sources retrieved for this question.",
+  "sources.uncited": "Sentences with no citation",
 
   "yes": "yes",
   "no": "no",
