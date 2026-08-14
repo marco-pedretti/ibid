@@ -1,4 +1,4 @@
-.PHONY: fetch-datasets ingest eval eval-generation eval-citations noise-floor dashboard demo \n	api api-local ui ui-types ui-check up down logs
+.PHONY: fetch-datasets ingest eval eval-generation eval-citations noise-floor dashboard demo \n	api api-local dev ui ui-types ui-check up down logs
 
 fetch-datasets:
 	python scripts/fetch_dataset.py
@@ -51,11 +51,17 @@ api-local:
 
 # --- Il frontend (U-00) ------------------------------------------------------
 #
-# Vuole `make api-local` gia' in ascolto: il backend non ha CORS, e non deve
-# averne. In sviluppo `/api/...` esce da Vite e arriva al backend come `/...`;
-# in produzione API e UI stanno dietro la stessa origine e il proxy non serve.
+# `make dev` e' il comando: avvia il backend, **aspetta** che risponda, poi
+# avvia Vite, e Ctrl-C ferma entrambi. L'attesa non e' cortesia -- senza, il
+# primo `/datasets` parte contro una porta chiusa e la pagina si apre gia' in
+# stato di guasto, che chi guarda legge come un bug del frontend.
 #
-# Contro un backend altrove, senza toccare un file:
+# Non e' il modo in cui il progetto si consegna: quello e'
+# `docker compose --profile demo up` (U-08). Questo serve a chi tocca il codice.
+dev:
+	python scripts/dev.py
+
+# Il solo frontend, contro un backend gia' in ascolto (anche altrove):
 #   VITE_API_TARGET=http://10.0.0.7:8000 make ui
 ui:
 	cd ui && npm install && npm run dev
