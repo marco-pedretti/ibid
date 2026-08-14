@@ -19,6 +19,7 @@ import { ProvvedeTema, usaTema } from "./app/theme";
 import type { SceltaTema } from "./app/theme";
 import { LINGUE } from "./i18n/strings";
 import type { Lingua } from "./i18n/strings";
+import { Etichetta } from "./ui/Etichetta";
 import { Marchio } from "./ui/Marchio";
 
 export function App() {
@@ -108,15 +109,6 @@ function Bottone({
     >
       {children}
     </button>
-  );
-}
-
-/** L'etichetta del mockup: mono, maiuscoletto, spaziata. */
-function Etichetta({ children }: { children: ReactNode }) {
-  return (
-    <h2 className="font-mono text-[9.5px] font-semibold tracking-[0.12em] text-muted uppercase">
-      {children}
-    </h2>
   );
 }
 
