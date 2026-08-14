@@ -32,22 +32,28 @@ from src.service import Answer, AnswerRequest, answer
 
 def render(result: Answer) -> None:
     """Il risultato, letto ad alta voce. Nessuna decisione presa qui."""
-    print(f"\nTop {len(result.chunks)} chunk recuperati:")
-    for item in result.chunks:
-        preview = item.chunk.text[:80].replace("\n", " ")
-        print(f"  [{item.marker}] {item.chunk.doc_id} (score={item.score:.3f}): {preview}...")
+    if not result.config.rag:
+        # U-03: qui non c'e' stato nessun recupero, e dirlo con "top 0 chunk"
+        # lo farebbe sembrare un recupero fallito.
+        print(f"\n[senza contesto, prompt {result.config.baseline_prompt}: "
+              "e' il braccio nudo del confronto]")
+    else:
+        print(f"\nTop {len(result.chunks)} chunk recuperati:")
+        for item in result.chunks:
+            preview = item.chunk.text[:80].replace("\n", " ")
+            print(f"  [{item.marker}] {item.chunk.doc_id} (score={item.score:.3f}): {preview}...")
 
-    if result.abstention == "retrieval":
-        print(f"\nASTENSIONE (C-04): punteggio massimo {result.gate.score:.4f} sotto la soglia "
-              f"{result.gate.threshold:.4f} per '{result.collection}'.")
-        print("=" * 60)
-        print(result.text)
-        print("=" * 60)
-        return
+        if result.abstention == "retrieval":
+            print(f"\nASTENSIONE (C-04): punteggio massimo {result.gate.score:.4f} sotto la soglia "
+                  f"{result.gate.threshold:.4f} per '{result.collection}'.")
+            print("=" * 60)
+            print(result.text)
+            print("=" * 60)
+            return
 
-    if not result.gate.active:
-        print(f"\n[gate di astensione non calibrato per ({result.collection}, dense): "
-              "non applicato]")
+        if not result.gate.active:
+            print(f"\n[gate di astensione non calibrato per "
+                  f"({result.collection}, {result.config.retrieval_mode}): non applicato]")
 
     print("\n" + "=" * 60)
     print("RISPOSTA:")
@@ -55,15 +61,20 @@ def render(result: Answer) -> None:
     print(result.text)
     print("=" * 60)
     if result.truncated:
-        print("\n[risposta troncata dal tetto di token: le citazioni mancanti "
-              "potrebbero non essere mai state scritte]")
+        coda = (
+            "le citazioni mancanti potrebbero non essere mai state scritte"
+            if result.config.rag
+            else "la risposta e' incompleta"
+        )
+        print(f"\n[risposta troncata dal tetto di token: {coda}]")
 
-    print("\nFonti citate:")
-    for marker in result.cited:
-        chunk = result.chunks[marker - 1].chunk
-        print(f"  [{marker}] {chunk.source_uri}  ({chunk.doc_id})")
-    if result.uncited:
-        print(f"\nChunk recuperati ma non citati: {result.uncited}")
+    if result.config.rag:
+        print("\nFonti citate:")
+        for marker in result.cited:
+            chunk = result.chunks[marker - 1].chunk
+            print(f"  [{marker}] {chunk.source_uri}  ({chunk.doc_id})")
+        if result.uncited:
+            print(f"\nChunk recuperati ma non citati: {result.uncited}")
 
     render_verdicts(result)
 
@@ -115,6 +126,17 @@ def main() -> None:
         default="",
         help="'auto' lo deduce dalla domanda; oppure text|table|mixed (R-04)",
     )
+    parser.add_argument(
+        "--no-rag",
+        action="store_true",
+        help="Risponde senza contesto: l'altro braccio del confronto di U-03",
+    )
+    parser.add_argument(
+        "--baseline-prompt",
+        default="strict",
+        choices=cfg.BASELINE_PROMPTS,
+        help="Con --no-rag: permissivo (E-04) o severo (E-05)",
+    )
     parser.add_argument("--search-exact", action="store_true", help="Salta HNSW (R-11)")
     parser.add_argument("--hnsw-ef", type=int, default=None)
     parser.add_argument(
@@ -134,6 +156,8 @@ def main() -> None:
         rerank=args.rerank,
         query_rewrite=args.query_rewrite,
         filter_content_type=args.filter_content_type,
+        rag=not args.no_rag,
+        baseline_prompt=args.baseline_prompt,
         verify=not args.no_verify,
         **({"search_exact": True} if args.search_exact else {}),
         **({"hnsw_ef": args.hnsw_ef} if args.hnsw_ef is not None else {}),

@@ -10,22 +10,27 @@ verra' comunque rifiutata costa ~11 s di GPU per essere prodotta, e un
 controllo che gira dopo non e' una garanzia, e' un filtro su qualcosa di gia'
 inventato (C-04).
 
-I parametri a `None` significano «prendi il default dalla configurazione», e
-sono risolti in un punto solo, all'inizio di `answer()`.  E' la cucitura su cui
-lavorera' A-02: quando la configurazione di richiesta smettera' di passare da
-`cfg` globale, cambia *come* questi valori vengono risolti, non le firme ne' i
-chiamanti.
+Da A-02 il «come rispondere» viaggia in un `RequestConfig` immutabile, risolto
+una volta sola all'inizio di `answer()`: e' cio' che permette a due richieste
+concorrenti di volere profondita' diverse senza contendersi un modulo.
+
+Da A-03 la stessa funzione risponde **anche senza contesto** (`rag=False`), che
+e' l'altra meta' del confronto affiancato di U-03.  Un parametro e non un
+secondo percorso di codice: con due percorsi ci sarebbero due modi di astenersi,
+due modi di contare i token e due modi di sbagliare.
 """
 
 from __future__ import annotations
 
 import time
+from collections.abc import Iterator
 from dataclasses import dataclass, field
 
 import src.config as cfg
 from src.datasets.schema import Chunk
 from src.eval.citation_metrics import verify_answer
-from src.generation.chat import Completion, generate_detailed
+from src.generation.baseline_prompts import BASELINE_A_SYSTEM, BASELINE_B_SYSTEM
+from src.generation.chat import Completion, Delta, generate_stream
 from src.generation.citation_format import is_abstention
 from src.generation.citations import extract_cited, parse
 from src.generation.prompt import ABSTENTION_ANSWER, SYSTEM, build_user_message
@@ -42,6 +47,25 @@ from src.retrieval.reranker import rerank as cross_encode
 NO_ABSTENTION = ""
 ABSTAINED_BY_GATE = "retrieval"
 ABSTAINED_BY_MODEL = "model"
+
+#: Il gate quando non c'e' niente da giudicare (U-03, risposta senza contesto).
+#: `active=False` dice «non ha girato», che e' diverso da «ha girato e ha
+#: lasciato passare» — la stessa distinzione che `threshold_for` fa quando una
+#: coppia (collection, modalita') non e' calibrata.
+_NO_GATE = AbstentionDecision(abstain=False, active=False, score=0.0, threshold=None)
+
+
+def system_prompt(config: cfg.RequestConfig) -> str:
+    """Il prompt di sistema del braccio chiesto (U-03, U-04).
+
+    Con il recupero acceso non e' una scelta dell'utente: il prompt e' quello
+    che impone il formato delle citazioni, ed e' cio' che C-01 misura. Spento,
+    i due prompt sono i bracci di E-04 ed E-05 — permissivo contro severo — e la
+    differenza fra loro e' il 45%→17% di invenzione che U-04 deve mostrare.
+    """
+    if config.rag:
+        return SYSTEM
+    return BASELINE_B_SYSTEM if config.baseline_prompt == "strict" else BASELINE_A_SYSTEM
 
 
 @dataclass(frozen=True)
@@ -165,6 +189,116 @@ class Answer:
         return [c.marker for c in self.chunks if c.marker not in self.cited]
 
 
+# ---------------------------------------------------------------------------
+# Gli eventi (§3.5)
+# ---------------------------------------------------------------------------
+# Perche' esistono, detto una volta. `verify_answer()` prende la risposta
+# **completa**: la spezza in frasi e per ogni coppia (frase, chunk citato) fa
+# girare il modello NLI. E' posteriore alla generazione per costruzione.
+#
+# Ma U-07 chiede che le citazioni non verificate siano marcate, e con lo
+# streaming il marcatore `[2]` compare **prima che il suo verdetto esista**. Ne
+# segue che lo stream non puo' essere una sequenza di token: deve poter dire
+# anche «ecco le fonti», «ecco il testo definitivo», «ecco i verdetti», «ho
+# finito». Sono stati diversi, e la UI deve poterli disegnare tutti.
+
+
+@dataclass(frozen=True)
+class ChunksEvent:
+    """Le fonti, appena il recupero e' finito. Prima della generazione."""
+
+    chunks: list[RetrievedChunk]
+
+
+@dataclass(frozen=True)
+class TokenEvent:
+    """Un pezzo di testo mentre il modello scrive.
+
+    **E' provvisorio, e il contratto lo dice.** Il parser di C-02 ripara i
+    marcatori (`[1] [2]` → `[1][2]`) e scarta quelli fuori contesto, quindi
+    quello che scorre qui non e' quello che restera'. Vedi `AnswerEvent`.
+    """
+
+    text: str
+
+
+@dataclass(frozen=True)
+class AnswerEvent:
+    """Il testo definitivo, quello riparato. Sostituisce cio' che e' scorso.
+
+    `verification_pending` e' il campo che rende disegnabile lo stato piu'
+    scomodo di §3.5: il testo c'e', i marcatori ci sono, i verdetti no. Senza,
+    la UI dovrebbe indovinare se aspettare un `CitationsEvent` o no — e
+    indovinare sbagliato significa o mostrare per sempre un caricamento, o
+    dichiarare verificata una citazione che nessuno ha guardato.
+    """
+
+    text: str
+    raw_text: str
+    repaired: bool
+    abstained: bool
+    abstention: str
+    truncated: bool
+    verification_pending: bool
+
+    @classmethod
+    def of(cls, risposta: "Answer") -> "AnswerEvent":
+        return cls(
+            text=risposta.text,
+            raw_text=risposta.raw_text,
+            repaired=risposta.repaired,
+            abstained=risposta.abstained,
+            abstention=risposta.abstention,
+            truncated=risposta.truncated,
+            verification_pending=risposta.verified and not risposta.abstained,
+        )
+
+
+@dataclass(frozen=True)
+class CitationsEvent:
+    """I verdetti, dopo la verifica. Nessuno viene filtrato (U-07)."""
+
+    citations: list[Citation]
+    uncited_claims: list[str]
+
+
+@dataclass(frozen=True)
+class DoneEvent:
+    """La fine, e cosa e' stato.
+
+    Porta l'`Answer` intera e non solo i tempi: e' cio' che permette a
+    `answer()` di essere una vista sullo stream invece di una seconda pipeline.
+    Chi streamma puo' ignorarne il contenuto — ha gia' ricevuto tutto — ma per
+    chi non streamma questo evento **e'** la risposta.
+    """
+
+    answer: "Answer"
+
+
+Event = ChunksEvent | TokenEvent | AnswerEvent | CitationsEvent | DoneEvent
+
+
+def _una_botta(generate):
+    """Un generatore non-streaming visto come uno stream di un pezzo solo.
+
+    Serve a tenere **una** pipeline. Senza, `answer()` e `answer_stream()`
+    sarebbero due implementazioni della stessa sequenza, e la seconda
+    divergerebbe dalla prima nel punto in cui nessuno guarda.
+    """
+
+    def _stream(**kwargs) -> Iterator[Delta]:
+        completion = generate(**kwargs)
+        if completion.content:
+            yield Delta(text=completion.content)
+        yield Delta(
+            final=True,
+            finish_reason=completion.finish_reason,
+            completion_tokens=completion.completion_tokens,
+        )
+
+    return _stream
+
+
 def _abstention_answer(
     request: AnswerRequest,
     config: cfg.RequestConfig,
@@ -237,31 +371,44 @@ def _verify(
     return citations, uncited
 
 
-def answer(
+def answer_stream(
     request: AnswerRequest,
     *,
     client=None,
     retrieve=None,
     generate=None,
     verify=None,
-) -> Answer:
-    """Recupera, decide se vale la pena rispondere, genera, ripara i marcatori.
+) -> Iterator[Event]:
+    """La pipeline, vista come la sequenza di cose che diventano note.
+
+    **E' il primitivo, e `answer()` e' una vista su di esso.** L'alternativa --
+    una funzione che risponde tutta insieme e una che risponde a pezzi -- sarebbe
+    stata due volte la stessa pipeline, cioe' il difetto che A-01 ha appena
+    tolto da `scripts/query.py`. Due copie partono identiche e poi divergono, e
+    la seconda diverge dove nessuno guarda.
+
+    L'ordine degli eventi non e' una preferenza, e' cio' che §3.5 richiede:
+    `chunks` prima di `answer` e' quello che rende realizzabile U-02, la lista
+    documenti visibile mentre il modello sta ancora scrivendo.
 
     Args:
         request: la domanda e i parametri che la riguardano.
         client: client Qdrant gia' aperto. `None` ne apre uno su `cfg.QDRANT_URL`.
         retrieve: `(client, collection, texts, fetch_k, filters, config)
             -> [Candidates]`. `None` usa il retriever della modalita' chiesta.
-            Iniettabile perche'
-            il caso d'uso sia verificabile senza un indice acceso — la stessa
-            ragione per cui `verify_answer` accetta un verificatore.
-        generate: `(...) -> Completion`. `None` chiama `LLM_BASE_URL`.
+            Iniettabile perche' il caso d'uso sia verificabile senza un indice
+            acceso — la stessa ragione per cui `verify_answer` accetta un
+            verificatore.
+        generate: `(...) -> Iterator[Delta]`. `None` chiama `LLM_BASE_URL` in
+            streaming.
         verify: `(testo_chunk, claim) -> Verdict`. `None` carica il modello NLI
             di `cfg.ENTAILMENT_MODEL`.
 
-    Returns:
-        Un `Answer` completo in ogni caso, astensione compresa: chi chiama non
-        deve mai dedurre uno stato dall'assenza di un campo.
+    Yields:
+        `ChunksEvent`, poi `TokenEvent` a ripetizione, poi `AnswerEvent`,
+        `CitationsEvent` se la verifica ha girato, e sempre `DoneEvent`.
+        **`DoneEvent` arriva in ogni caso**, astensione compresa: chi consuma
+        aspetta quello e non deve dedurre la fine dal silenzio.
     """
     # L'unico punto del percorso di servizio che sfiora ancora le costanti
     # globali, e ci arriva attraverso `from_defaults()`. Da qui in giu' esiste
@@ -273,44 +420,50 @@ def answer(
     if retrieve is None:
         retrieve = RETRIEVERS[config.retrieval_mode]
     if generate is None:
-        generate = generate_detailed
+        generate = generate_stream
 
     t0 = time.time()
-    text_query = request.query
-    if config.query_rewrite:
-        [text_query] = rewrite_batch(
-            [request.query], base_url=cfg.LLM_BASE_URL, model=config.rewrite_model
+    chunks: list[RetrievedChunk] = []
+    scores: list[float] = []
+    if config.rag:
+        text_query = request.query
+        if config.query_rewrite:
+            [text_query] = rewrite_batch(
+                [request.query], base_url=cfg.LLM_BASE_URL, model=config.rewrite_model
+            )
+
+        # R-04: il filtro sul tipo di contenuto, dedotto dalla query o imposto.
+        query_filter = None
+        if config.filter_content_type == "auto":
+            if (ct := infer_content_type(text_query)):
+                query_filter = build_content_type_filter(ct)
+        elif config.filter_content_type:
+            query_filter = build_content_type_filter(config.filter_content_type)
+
+        # Col reranker si pesca da un bacino piu' largo di quello che finira' nel
+        # prompt: il cross-encoder deve avere qualcosa fra cui scegliere.
+        fetch_k = max(config.rerank_fetch_k, config.top_k) if config.rerank else config.top_k
+        [candidates] = retrieve(
+            client, collection, [text_query], fetch_k,
+            [query_filter] if query_filter is not None else None, config,
         )
 
-    # R-04: il filtro sul tipo di contenuto, dedotto dalla query o imposto.
-    query_filter = None
-    if config.filter_content_type == "auto":
-        if (ct := infer_content_type(text_query)):
-            query_filter = build_content_type_filter(ct)
-    elif config.filter_content_type:
-        query_filter = build_content_type_filter(config.filter_content_type)
+        scores, payloads = candidates.scores, candidates.payloads
+        if config.rerank:
+            ranked = cross_encode(text_query, payloads, config.reranker_model, top_n=config.top_k)
+            scores = [r.score for r in ranked]
+            payloads = [r.payload for r in ranked]
 
-    # Col reranker si pesca da un bacino piu' largo di quello che finira' nel
-    # prompt: il cross-encoder deve avere qualcosa fra cui scegliere.
-    fetch_k = max(config.rerank_fetch_k, config.top_k) if config.rerank else config.top_k
-    [candidates] = retrieve(
-        client, collection, [text_query], fetch_k,
-        [query_filter] if query_filter is not None else None, config,
-    )
-
-    scores, payloads = candidates.scores, candidates.payloads
-    if config.rerank:
-        ranked = cross_encode(text_query, payloads, config.reranker_model, top_n=config.top_k)
-        scores = [r.score for r in ranked]
-        payloads = [r.payload for r in ranked]
-
-    chunks = [
-        RetrievedChunk(marker=i, score=score, chunk=chunk_from_payload(payload))
-        for i, (score, payload) in enumerate(
-            zip(scores[: config.top_k], payloads[: config.top_k]), 1
-        )
-    ]
+        chunks = [
+            RetrievedChunk(marker=i, score=score, chunk=chunk_from_payload(payload))
+            for i, (score, payload) in enumerate(
+                zip(scores[: config.top_k], payloads[: config.top_k]), 1
+            )
+        ]
     timings = {"retrieval_s": round(time.time() - t0, 3)}
+    # Appena il recupero e' finito, prima di spendere un secondo di GPU: e' cio'
+    # che permette a U-02 di mostrare i documenti mentre la risposta si scrive.
+    yield ChunksEvent(chunks=chunks)
 
     # Il gate legge i punteggi del recupero, non la risposta: e' l'unica cosa
     # che esiste prima di spendere la GPU. Sui punteggi **effettivi**, quindi
@@ -318,25 +471,55 @@ def answer(
     # per modalita': i punteggi di un cross-encoder non vivono nella stessa
     # scala di quelli del coseno, e `threshold_for` restituisce None fuori dalla
     # modalita' calibrata invece di applicare una soglia che non significa nulla.
-    gate = decide(scores, collection, config.retrieval_mode)
+    #
+    # Senza recupero (U-03) non ci sono punteggi da leggere, quindi il gate non
+    # e' "superato": e' **inattivo**, ed e' quello che `decide([])` dice.
+    gate = decide(scores, collection, config.retrieval_mode) if config.rag else _NO_GATE
     if gate.abstain:
         timings["total_s"] = timings["retrieval_s"]
-        return _abstention_answer(request, config, collection, chunks, gate, timings)
+        astensione = _abstention_answer(request, config, collection, chunks, gate, timings)
+        # Nessun token: non c'e' stata nessuna generazione, e fingerne uno
+        # farebbe sembrare che il modello abbia scritto quella frase.
+        yield AnswerEvent.of(astensione)
+        yield DoneEvent(answer=astensione)
+        return
 
     t1 = time.time()
-    completion: Completion = generate(
+    deltas = generate(
         base_url=cfg.LLM_BASE_URL,
         model=config.model,
-        system=SYSTEM,
-        user=build_user_message(request.query, [c.chunk for c in chunks]),
+        system=system_prompt(config),
+        user=build_user_message(request.query, [c.chunk for c in chunks])
+        if config.rag else request.query,
         temperature=config.temperature,
         max_tokens=config.max_new_tokens,
         reasoning_effort=config.reasoning_effort,
     )
+    # Una passata sola, due usi: ogni pezzo esce subito **e** viene tenuto. Se
+    # fossero due letture il testo mostrato e quello analizzato potrebbero
+    # differire, che e' il difetto peggiore possibile in un sistema che promette
+    # citazioni verificate — le si verificherebbe su una risposta diversa da
+    # quella che l'utente ha letto.
+    pezzi: list[str] = []
+    ultimo = Delta(final=True)
+    for delta in deltas:
+        if delta.final:
+            ultimo = delta
+        elif delta.text:
+            pezzi.append(delta.text)
+            yield TokenEvent(text=delta.text)
+    completion = Completion(
+        content="".join(pezzi).strip(),
+        finish_reason=ultimo.finish_reason,
+        completion_tokens=ultimo.completion_tokens,
+    )
     timings["generation_s"] = round(time.time() - t1, 3)
 
     raw = completion.content
-    text = parse(raw, len(chunks))
+    # Senza contesto nessun marcatore e' valido, e `parse` li toglierebbe tutti:
+    # il testo mostrato non sarebbe piu' quello che il modello ha scritto, che e'
+    # esattamente cio' che U-03 vuole far vedere.
+    text = parse(raw, len(chunks)) if config.rag else raw
     abstained = is_abstention(text)
 
     citations: list[Citation] = []
@@ -347,7 +530,7 @@ def answer(
         timings["verification_s"] = round(time.time() - t2, 3)
     timings["total_s"] = round(time.time() - t0, 3)
 
-    return Answer(
+    risposta = Answer(
         query=request.query,
         dataset_id=request.dataset_id,
         collection=collection,
@@ -367,3 +550,35 @@ def answer(
         completion_tokens=completion.completion_tokens,
         timings=timings,
     )
+    yield AnswerEvent.of(risposta)
+    if risposta.verified and (citations or uncited_claims):
+        yield CitationsEvent(citations=citations, uncited_claims=uncited_claims)
+    yield DoneEvent(answer=risposta)
+
+
+def answer(
+    request: AnswerRequest,
+    *,
+    client=None,
+    retrieve=None,
+    generate=None,
+    verify=None,
+) -> Answer:
+    """La stessa pipeline, letta tutta insieme.
+
+    `generate` qui restituisce una `Completion` e non dei `Delta`: e' la firma
+    che aveva prima di A-03, e resta perche' e' quella giusta per chi non
+    streamma -- un CLI, un harness, un test. La conversione e' `_una_botta`, e
+    il fatto che la risposta sia identica nei due casi e' verificato da un test
+    e non affermato qui.
+    """
+    for evento in answer_stream(
+        request,
+        client=client,
+        retrieve=retrieve,
+        generate=None if generate is None else _una_botta(generate),
+        verify=verify,
+    ):
+        if isinstance(evento, DoneEvent):
+            return evento.answer
+    raise RuntimeError("answer_stream e' finito senza DoneEvent")  # pragma: no cover

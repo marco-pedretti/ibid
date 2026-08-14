@@ -15,9 +15,10 @@ from pathlib import Path
 import pytest
 import src.config as cfg
 from src.config import RequestConfig
+from src.generation.baseline_prompts import BASELINE_A_SYSTEM, BASELINE_B_SYSTEM
 from src.generation.chat import Completion
 from src.generation.entailment import Verdict
-from src.generation.prompt import ABSTENTION_ANSWER
+from src.generation.prompt import ABSTENTION_ANSWER, SYSTEM
 from src.retrieval.backends import Candidates
 from src.service import AnswerRequest, answer
 
@@ -231,14 +232,15 @@ def test_modello_esplicito_arriva_alla_generazione():
     assert gen.calls[0]["model"] == "gemma4:12b"
 
 
-def test_modalita_di_retrieval_sconosciuta_fallisce_subito():
-    with pytest.raises(KeyError):
-        answer(
-            AnswerRequest(
-                query="q", config=RequestConfig.from_defaults(retrieval_mode="magica")
-            ),
-            client=object(),
-        )
+def test_modalita_di_retrieval_sconosciuta_non_si_costruisce():
+    """Rifiutata alla costruzione della configurazione, non alla prima ricerca.
+
+    Prima falliva con un `KeyError` dentro il retrieval, cioe' **dopo** aver
+    aperto un client e riscritto la query. Un valore che non esiste non deve
+    arrivare fin li'.
+    """
+    with pytest.raises(ValueError, match="retrieval_mode"):
+        RequestConfig.from_defaults(retrieval_mode="magica")
 
 
 # --- stati che la UI deve poter disegnare (§3.5) ---------------------------
@@ -455,3 +457,86 @@ class TestConcorrenza:
     def test_anche_l_astensione_riporta_la_configurazione(self):
         result, _, _ = run(scores=LOW, top_k=2)
         assert result.config.top_k == 2
+
+
+# --- A-03: la risposta senza contesto (U-03, U-04) --------------------------
+
+
+class TestSenzaRecupero:
+    """L'altra meta' del confronto affiancato che U-03 chiede.
+
+    E' un parametro e non un secondo percorso di codice di proposito: le due
+    risposte devono venire dalla stessa query, nella stessa sessione, o non
+    sono confrontabili — e con due percorsi diversi ci sarebbero due modi di
+    astenersi, due modi di contare i token, due modi di sbagliare.
+    """
+
+    def test_non_cerca_niente(self):
+        result, ret, gen = run(rag=False)
+        assert ret.calls == []
+        assert result.chunks == []
+        assert len(gen.calls) == 1
+
+    def test_il_gate_non_e_superato_ma_inattivo(self):
+        """Senza punteggi non c'e' niente da giudicare. `active=False` dice
+        «non ha girato», che e' diverso da «ha lasciato passare»."""
+        result, _, _ = run(rag=False)
+        assert not result.gate.active
+        assert not result.gate.abstain
+        assert result.gate.threshold is None
+
+    def test_il_prompt_severo_e_quello_di_e05(self):
+        _, _, gen = run(rag=False, baseline_prompt="strict")
+        assert gen.calls[0]["system"] == BASELINE_B_SYSTEM
+
+    def test_il_prompt_permissivo_e_quello_di_e04(self):
+        _, _, gen = run(rag=False, baseline_prompt="permissive")
+        assert gen.calls[0]["system"] == BASELINE_A_SYSTEM
+
+    def test_col_recupero_il_prompt_non_e_una_scelta_dell_utente(self):
+        """Acceso, il prompt e' quello che impone il formato delle citazioni:
+        e' cio' che C-01 misura, e non si cambia da una richiesta."""
+        _, _, gen = run(rag=True, baseline_prompt="permissive")
+        assert gen.calls[0]["system"] == SYSTEM
+
+    def test_la_domanda_arriva_nuda_senza_contesto(self):
+        _, _, gen = run(rag=False, query="quanto fa due piu' due")
+        assert gen.calls[0]["user"] == "quanto fa due piu' due"
+        assert "CHUNK" not in gen.calls[0]["user"]
+
+    def test_il_testo_non_viene_toccato_dal_parser(self):
+        """Senza contesto nessun marcatore e' valido, e `parse` li toglierebbe
+        tutti: il testo mostrato non sarebbe piu' quello che il modello ha
+        scritto, che e' esattamente cio' che U-03 vuole far vedere."""
+        result, _, _ = run(rag=False, content="Come mostrato in [12], il valore sale.")
+        assert result.text == "Come mostrato in [12], il valore sale."
+        assert not result.repaired
+
+    def test_ogni_affermazione_risulta_senza_fonte(self):
+        """Non e' un dettaglio: e' il confronto. La risposta nuda non ha una
+        sola citazione, e la lista delle affermazioni scoperte lo rende
+        visibile invece di lasciarlo dedurre da una lista vuota."""
+        result, _, _ = run(rag=False, content=f"{CLAIM} senza alcuna fonte.")
+        assert result.citations == []
+        assert len(result.uncited_claims) == 1
+
+    def test_l_astensione_del_modello_si_riconosce_lo_stesso(self):
+        """E' il numero di E-05: il prompt severo converte invenzioni in
+        astensioni, e senza questo la conversione non sarebbe osservabile."""
+        result, _, _ = run(rag=False, content="I cannot answer without more information.")
+        assert result.abstained
+        assert result.abstention == "model"
+
+    def test_la_configurazione_del_braccio_resta_nel_risultato(self):
+        """Due risposte affiancate devono poter dire quale braccio sono."""
+        nuda, _, _ = run(rag=False, baseline_prompt="permissive")
+        citata, _, _ = run(rag=True)
+        assert (nuda.config.rag, nuda.config.baseline_prompt) == (False, "permissive")
+        assert citata.config.rag is True
+
+
+def test_baseline_prompt_sconosciuto_non_si_costruisce():
+    """Ripiegare in silenzio sul permissivo mostrerebbe due volte lo stesso
+    braccio dicendo di mostrarne due diversi."""
+    with pytest.raises(ValueError, match="baseline_prompt"):
+        RequestConfig.from_defaults(baseline_prompt="severo")

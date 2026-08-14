@@ -236,6 +236,15 @@ DATA_DIR: Path = ROOT / "data"
 # ---------------------------------------------------------------------------
 # La configurazione di una richiesta (A-02)
 # ---------------------------------------------------------------------------
+#: Le modalita' di recupero, in un posto solo. Erano ripetute in ogni
+#: `choices=[...]` degli script — la stessa forma di duplicazione che Q-06 ha
+#: tolto per i dataset.
+RETRIEVAL_MODES: tuple[str, ...] = ("dense", "sparse", "hybrid")
+
+#: I due prompt del confronto E-04/E-05, che U-04 espone come toggle.
+BASELINE_PROMPTS: tuple[str, ...] = ("permissive", "strict")
+
+
 @dataclass(frozen=True)
 class RequestConfig:
     """Come rispondere a **questa** richiesta. Uno per richiesta, immutabile.
@@ -286,6 +295,19 @@ class RequestConfig:
     max_new_tokens: int
     reasoning_effort: str
 
+    # --- il braccio (U-03, U-04) ---
+    #: `False` risponde **senza contesto**: niente recupero, niente citazioni,
+    #: niente gate. E' l'altra meta' del confronto affiancato che U-03 chiede, e
+    #: la ragione per cui e' un parametro e non due percorsi di codice: la
+    #: risposta nuda e quella citata devono venire dalla stessa query, nella
+    #: stessa sessione, o non sono confrontabili.
+    rag: bool
+    #: Quale prompt usare quando `rag` e' spento: "permissive" (E-04) o
+    #: "strict" (E-05). Ignorato quando `rag` e' acceso — li' il prompt e' quello
+    #: che chiede le citazioni, e non e' una scelta dell'utente. E' il toggle di
+    #: U-04, e la differenza che mostra e' misurata: 45%→17% di invenzione.
+    baseline_prompt: str
+
     # --- verifica ---
     verify: bool
 
@@ -315,9 +337,29 @@ class RequestConfig:
             temperature=TEMPERATURE,
             max_new_tokens=MAX_NEW_TOKENS,
             reasoning_effort=REASONING_EFFORT,
+            rag=True,
+            baseline_prompt="strict",
             verify=True,
         )
         return cls(**{**base, **overrides})
+
+    def __post_init__(self) -> None:
+        """I valori che non esistono si rifiutano alla costruzione.
+
+        Un `baseline_prompt="severo"` scritto per sbaglio ripiegherebbe sul
+        permissivo, e il confronto di U-04 mostrerebbe due volte lo stesso
+        braccio dicendo di mostrarne due diversi. Meglio un errore subito.
+        """
+        if self.baseline_prompt not in BASELINE_PROMPTS:
+            raise ValueError(
+                f"baseline_prompt sconosciuto: {self.baseline_prompt!r} "
+                f"(ammessi: {', '.join(BASELINE_PROMPTS)})"
+            )
+        if self.retrieval_mode not in RETRIEVAL_MODES:
+            raise ValueError(
+                f"retrieval_mode sconosciuta: {self.retrieval_mode!r} "
+                f"(ammesse: {', '.join(RETRIEVAL_MODES)})"
+            )
 
     @property
     def reasoning_enabled(self) -> bool:

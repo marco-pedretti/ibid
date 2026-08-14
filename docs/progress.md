@@ -1237,3 +1237,65 @@ Poi la verifica per misura, stesso comando sui due rami:
 `src/eval/retrieval_backends.py` → `src/retrieval/backends.py`. La collocazione descriveva il primo chiamante, non la funzione: una richiesta HTTP che per recuperare dei chunk deve importare il pacchetto di valutazione ha le dipendenze rovesciate. 21 file aggiornati, **stesso numero di test prima e dopo** — che è il controllo che sia stato davvero solo uno spostamento.
 
 > Resta lo stesso problema per `verify_answer`, che vive in `src/eval/citation_metrics.py` ed è funzionalità, non misura. E `dashboard/failure_store.py` ha una **copia** della logica di retrieval invece di usare i backend: è il consumatore che A-06 farà passare dall'API, ed è lì che quella copia deve sparire.
+
+| A-03 | ✅ fatto (2026-08-14) | Il contratto UI ↔ API del §3.5 esiste come tipi (`src/api/schema.py`) e come sequenza di eventi (`answer_stream`). Streaming vero, non finto. La decisione lasciata aperta nel ROADMAP è stata presa e scritta lì. **1556 test**. |
+
+### A-03 — il criterio è «rappresentabile», e non voleva dire «c'è un campo»
+
+Il criterio del task è che ogni stato dell'interfaccia previsto in Fase 8 sia rappresentabile. Preso alla lettera significa una cosa più forte di quanto sembri: **chi consuma deve poterlo distinguere dagli altri senza indovinare.** Un campo che copre tre situazioni non le rappresenta, le nasconde.
+
+Due stati sono stati aggiunti proprio per questo, ed erano entrambi facili da credere deducibili:
+
+| stato | perché non si deduceva |
+|---|---|
+| «attendo i verdetti» | `citations == []` copre **tre** casi: verifica non chiesta, verifica fatta senza citazioni, verdetti in arrivo. Con lo streaming il terzo è la norma |
+| «chi si è astenuto» | il gate costa 0 s di GPU, il modello ~11: un booleano li sommava |
+
+Indovinare sbagliato sul primo significa o un caricamento eterno, o **dichiarare verificata una citazione che nessuno ha guardato**.
+
+#### La decisione che il ROADMAP lasciava aperta
+
+§3.5 diceva: *«La UI deve sapere che il testo verrà sostituito, o lo stream deve essere ritardato fino al parser — perdendo lo streaming. Va scelto, e la scelta va scritta qui.»*
+
+Scelto: **si streamma il grezzo, `answer` lo sostituisce.** Ritardare fino al parser costa lo streaming per intero — la prima parola arriverebbe *dopo* l'ultima, cioè dopo gli ~11 s che U-10 dice esplicitamente di non nascondere con tagli di montaggio.
+
+Ne discende una regola vincolante per la Fase 8, ora scritta nel ROADMAP: **finché `answer` non arriva, i marcatori che scorrono non sono cliccabili.** Renderli attivi prima significherebbe offrire un link a un `[2]` che il parser potrebbe scartare.
+
+#### Lo streaming non poteva essere finto
+
+`chat.py` chiamava sempre con `stream: false`. Con quella sola strada, l'unico streaming possibile era aspettare la risposta intera e poi spezzettarla: **identico dal lato del browser, e falso**.
+
+`generate_stream()` legge il flusso `data: {...}` del contratto OpenAI-compatibile. Due dettagli che valeva la pena scrivere una volta sola: il conteggio dei token arriva **solo** chiedendolo con `stream_options.include_usage`, in un ultimo pacchetto senza `choices`; e il primo pacchetto di molti backend porta solo il ruolo, che emesso come token darebbe alla UI un aggiornamento vuoto.
+
+Verificato contro l'Ollama vivo: **66 delta, il primo a 2,69 s e l'ultimo a 3,37 s.** Se fosse bufferizzato arriverebbero tutti insieme alla fine.
+
+> Il test che conta non è sullo streaming: è l'**equivalenza**. La somma dei pezzi dev'essere la stessa `Completion` della strada non-streaming. È l'unico modo per accorgersi che lo streaming perde qualcosa — un difetto che dal browser si vede come una frase che comincia a metà.
+
+#### Una pipeline sola, di nuovo
+
+Qui il difetto che A-01 aveva tolto stava per rientrare dalla finestra: una funzione che risponde tutta insieme e una che risponde a pezzi sarebbero state **due volte la stessa sequenza**.
+
+Quindi `answer_stream()` è il primitivo e `answer()` è una vista su di esso: `DoneEvent` porta la risposta intera, e la strada non-streaming passa un generatore di un pezzo solo. La prova è che i **42 test di servizio esistenti sono passati invariati** dopo la ristrutturazione — e due test nuovi confrontano le due strade campo per campo, e verificano che i token ricomposti siano esattamente il testo grezzo. Se divergessero, la verifica girerebbe su una risposta diversa da quella che l'utente ha letto.
+
+#### Il braccio nudo esce dalla valutazione
+
+U-03 chiede la stessa query affiancata con e senza RAG. Il braccio nudo esisteva solo dentro l'harness dei baseline. Ora è `rag=False` sulla stessa funzione — **un parametro e non un secondo percorso**, perché con due percorsi ci sarebbero due modi di astenersi, due modi di contare i token e due modi di sbagliare.
+
+Provato da riga di comando sulla stessa query citata nel commit di E-04/E-05:
+
+> **permissivo**: tabelle, LaTeX e una relazione causale inventata di sana pianta
+> **severo**: «I cannot answer without more information.»
+
+Senza contesto il parser non tocca il testo (nessun marcatore è valido, li toglierebbe tutti), il gate risulta **inattivo** e non «superato», e ogni affermazione compare nella lista di quelle senza fonte — che è il confronto, non un dettaglio.
+
+#### Due cose che al contratto mancavano
+
+**`ErrorEvent`.** Quando lo stream è cominciato gli header sono già partiti e un 500 non è più spedibile: un errore a metà risposta può solo essere un altro evento. Nasce nello schema e non nel servizio, che continua a sollevare — così un CLI vede la traccia di stack e un browser uno stato disegnabile, senza che nessuno dei due debba fingere. Porta anche lo `stage`, perché la UI possa dire «le fonti ci sono, la risposta no».
+
+**`Capabilities`.** Le modalità di retrieval e i prompt del baseline si leggono dal backend. Senza, il frontend porterebbe la quindicesima copia scritta a mano di quel `choices=[...]` che Q-06 ha appena tolto di mezzo.
+
+#### Il confine, difeso all'orlo HTTP
+
+`QueryRequest` accetta **solo** la configurazione di richiesta della classificazione di A-02. Niente `embedding_model` (l'indice è stato costruito con lui: un altro restituisce spazzatura *senza errore*), niente indirizzi, niente soglie calibrate. Tre test lo tengono chiuso, uno per ragione — perché sono tre ragioni diverse, non una regola sola.
+
+> Perché due insiemi di tipi accanto a quelli del servizio: sono due cose diverse che oggi si somigliano. Quelli del servizio sono la forma in cui la pipeline pensa; questi sono la forma che qualcun altro leggerà fra sei mesi con un client che non abbiamo scritto noi. Se fossero lo stesso oggetto, rinominare un campo interno cambierebbe il contratto pubblico senza che nessuno debba deciderlo.
