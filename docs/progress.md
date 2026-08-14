@@ -1599,6 +1599,7 @@ Per la stessa ragione `/document/{doc_id}/chunks` restituisce i chunk **in ordin
 |---|---|---|
 | U-00 | âœ… fatto (2026-08-14) | Scheletro `ui/`: Vite 8 + React 19 + TypeScript 7 + Tailwind 4, client SSE scritto a mano, temi, i18n IT/EN, `/datasets` all'avvio. **19 test Vitest** + 15 test Python sul contratto generato. `npm run typecheck && npm test && npm run build` verdi; catena provata contro l'API viva. Dettaglio sotto. |
 | U-01 | ✅ fatto (2026-08-14) | Selettore dataset nella corsia laterale del mockup, scelta ricordata in `localStorage` e **validata** contro `/datasets`. La regola di selezione è in funzioni pure: **9 test Vitest** in più (28 in tutto), senza jsdom. Provato contro l'API viva: `open_ragbench` 18.840 e `ledger` 47.110 chunk. Dettaglio sotto. |
+| U-02 | ✅ fatto (2026-08-14) | Schermata di chat con **pannello fonti sempre visibile** (nel telaio, non nella chat): otto stati, uno per evento del §3.5, macchina a stati in un reducer puro con **16 test** (44 lato Vitest). Marcatori inerti finché non arriva `answer`. I valori di `abstention` ora sono generati come i tipi. Esempi dello stato vuoto presi da `eval/golden`. Provato contro l'API viva su una query d'oro reale. Dettaglio sotto. |
 
 ### U-00 â€” il contratto esiste in due linguaggi, e uno dei due si genera
 
@@ -1697,3 +1698,75 @@ La colonna centrale mostra collection, punti, dimensione densa e presenza dei ve
 Provato contro l'API viva attraverso il proxy: `open_ragbench` 18.840 chunk, `ledger` 47.110, quattro modelli, sette collection. `npm run typecheck && npm test && npm run build` verdi, e i 15 test Python sul contratto generato restano verdi perché il contratto non è stato toccato.
 
 > **Un guasto raccolto per strada.** Avviare `python scripts/dev.py` con l'output rediretto su file lo faceva morire prima ancora di partire: su Windows `sys.stdout` prende `cp1252` quando non è una console, e la freccia `→` sollevava `UnicodeEncodeError`. In terminale non si vedeva — si vede solo in un log o in CI. Il messaggio è tornato ASCII invece di forzare l'encoding: un avvio che dipende da come è configurata la console è un avvio che funziona per caso.
+
+### U-02 — «visibile in ogni stato» è un vincolo di struttura, non di grafica
+
+Il criterio dice che la lista documenti è visibile **senza interazione, in ogni stato dell'interfaccia**. Letto alla lettera decide dove vive il pannello: non dentro la chat, ma dentro il telaio, accanto a essa. Uno stato in cui la chat non c'è — backend che non risponde, nessun dataset pronto — è comunque uno stato, e un pannello figlio della chat sparirebbe proprio lì.
+
+Da questo discende anche l'assenza di un selettore di modalità: non c'è un «modo documenti» e un «modo risposta» da alternare. Le fonti stanno sempre a destra, la sintesi sempre al centro, e non c'è niente da scegliere per vedere l'una o l'altra. Prima della prima domanda la colonna non è vuota: dice cosa comparirà, e quando.
+
+#### Otto stati, uno per evento
+
+Il §3.5 manda sei eventi in un ordine che **è** il contratto. L'interfaccia deve sapere cosa disegnare dopo ognuno, e la tabella è il task:
+
+| evento | riga di stato | corpo |
+|---|---|---|
+| *(richiesta partita)* | `cerco nel corpus…` | scheletro a tre righe |
+| `chunks` | `3 fonti · il modello sta scrivendo…` | scheletro a due righe, **pannello fonti pieno** |
+| `token` | `scrivo… · marcatori non ancora attivi` | testo che cresce, marcatori spenti |
+| `answer` | `testo definitivo · controllo le citazioni…` | testo riparato, marcatori accesi |
+| `citations` | `verdetti arrivati` | invariato (i verdetti sono U-07) |
+| `done` | `retrieval 0,02 s · generation 11,4 s · …` | pallino fermo, verde |
+| `error` | `interrotto · generation` | **parziale conservato** + avviso + «Riprova» |
+| *(«Ferma»)* | `fermata · resta la risposta parziale` | parziale conservato, nessun avviso |
+
+Otto e non «carica / non carica» perché chi guarda deve poter distinguere se il ritardo è il retrieval, il modello o la verifica. Trenta secondi senza articolazione si leggono tutti come un blocco.
+
+La macchina a stati sta in un reducer puro ([conversazione.ts](ui/src/app/conversazione.ts)), non nel componente, e per la stessa ragione di U-01: i test girano in ambiente `node`. **16 test** — 44 in tutto lato Vitest — e non provano «legge un evento», provano i casi che a mano non si riescono a riprodurre.
+
+**Tre decisioni che quei test fissano.**
+
+- **`answer` sostituisce il testo, non lo continua.** Durante lo stream si accumula il grezzo; `answer` porta il testo dopo la riparazione dei marcatori, ed è quello che si deve leggere. Da lì un token in ritardo viene ignorato: appenderlo scriverebbe in coda a una risposta già chiusa, ed è un guasto che si vede solo con una rete lenta.
+- **Il parziale non si butta mai.** Su `error`, su caduta del trasporto e su «Ferma» restano fonti e testo ricevuti. Una risposta interrotta è un dato.
+- **Tre esiti distinti dove uno solo sarebbe comodo:** `error` del server (che dice *cosa*), caduta del trasporto (che non lo dice, e `stage: "trasporto"` lo dichiara invece di inventarlo), «Ferma» (che non è un guasto ma una decisione di chi guarda). Mostrarli uguali manderebbe a cercare un guasto chi ha solo premuto un pulsante.
+
+E `verificate` resta separato da `citazioni` vuote: senza, «verificata, nessuna citazione» e «verdetti non disponibili» sarebbero la stessa lista vuota — che è esattamente la distinzione su cui poggerà U-07.
+
+#### I marcatori sono inerti finché `answer` non arriva
+
+È una regola del §3.5, non una scelta grafica. Mentre i token scorrono, `[2]` compare **prima** che il suo verdetto esista e prima che il parser abbia potuto normalizzarlo: disegnarlo subito come riferimento valido significherebbe promettere per una decina di secondi qualcosa che nessuno ha ancora controllato. Spenti sono grigi e sottolineati a puntini; accesi diventano accento su fondo accento.
+
+Si riconosce solo la forma contigua `[n]`, la stessa che il parser accetta. Se il modello scrive `[2, 3]` qui non si accende niente, esattamente come non si accende nel backend: **un'interfaccia più generosa del contratto mostrerebbe come citazione ciò che il contratto ha scartato.**
+
+#### Anche i valori di `abstention` si generano
+
+«Non ho trovato niente» (gate di C-04) e «il modello non se l'è sentita» sono due risposte diverse, e mostrarle uguali cancellerebbe proprio ciò che il gate misura. Distinguerle richiede i tre valori di `abstention` — `""`, `"retrieval"`, `"model"` — che stanno in `src/service/answer.py`.
+
+Scriverli a mano in TypeScript sarebbe la costante del backend che U-00 vieta al frontend. Quindi li emette `scripts/gen_api_types.py` come `export const ABSTENTION`, e un test in più li lega ai simboli Python: cambiarli senza rigenerare rompe la suite **Python**, non il browser.
+
+#### Gli esempi sono query d'oro vere, e vincolano U-08
+
+I tre esempi dello stato vuoto vengono da `eval/golden/*.jsonl`, per dataset, tranne il terzo di ogni coppia che è **fuori dal corpus di proposito**: l'unico modo di mostrare che il sistema si astiene è fargli una domanda senza risposta, e nasconderla renderebbe la demo una pubblicità.
+
+> **Vincolo su U-08, scritto ora perché lì sarà tardi.** Nel profilo `demo` l'indice conterrà solo i chunk d'oro di ~30 query. Se questi esempi non sono fra quelle, il primo clic di chi prova il progetto finisce in un'astensione. [esempi.ts](ui/src/app/esempi.ts) è il vincolo, non un suggerimento.
+
+#### Cosa non c'è, e non per dimenticanza
+
+Targhette `pipeline`/`doc_genre` sulle schede (U-05), verdetti per citazione (U-07), toggle RAG (U-03), prompt del baseline (U-04), parametri avanzati, cronologia. Ognuno arriva col proprio criterio e col proprio test; anticiparli significa consegnarli senza la verifica che li accompagna.
+
+Un debito invece è reale e va detto: i quattro dati dell'indice che U-01 mostrava nella colonna centrale — collection, punti, dimensione densa, vettori sparsi — sono usciti di scena quando la chat ha preso quel posto. Devono tornare sotto «Dettagli della run», che il §12 vuole sempre leggibile e che non esiste ancora.
+
+#### Provato contro l'API viva
+
+Una query d'oro vera (`open_ragbench`, `top_k 3`), attraverso il proxy:
+
+| | |
+|---|---|
+| eventi | `chunks` ×1, `token` ×128, `answer` ×1, `citations` ×1, `done` ×1 |
+| fonti | 3 chunk dallo stesso documento, score 0,875 / 0,862 / 0,855 |
+| citazioni | 3 verdetti, tutti `supported`, 0 frasi non citate |
+| tempi | retrieval 4,75 s · generation 19,16 s · verification 6,42 s · **total 30,32 s** |
+
+> **Quei tempi sono a freddo e non vanno confrontati con nessun altro numero.** Era la prima query dopo l'avvio: il retrieval include il caricamento del modello di embedding, la generazione il caricamento dei pesi. A caldo, in U-00, la stessa catena dava primo token a 3,01 s. È la trappola di A-05 per la quarta volta, e la regola che la disinnesca è sempre quella del §15 — un confronto è un confronto solo se i due lati differiscono in **esattamente** una cosa.
+
+Suite Python **1675 test verdi**; `npm run typecheck && npm test && npm run build` verdi.
