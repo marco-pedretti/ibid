@@ -14,6 +14,7 @@ import re
 import pytest
 from scripts.gen_api_types import OUT, TIPI_ESPLICITI, genera, tipo_ts
 from src.api.schema import EVENT_NAMES, AnswerResponse, Capabilities, QueryRequest
+from src.service.answer import ABSTAINED_BY_GATE, ABSTAINED_BY_MODEL, NO_ABSTENTION
 
 
 class TestFileGenerato:
@@ -89,6 +90,22 @@ class TestStream:
         """Lo stato piu' scomodo del §3.5 -- testo si', verdetti non ancora --
         e' disegnabile solo se questo campo arriva fino al client."""
         assert "verification_pending: boolean;" in OUT.read_text(encoding="utf-8")
+
+    def test_i_valori_di_abstention_arrivano_al_client(self):
+        """«Non ho trovato niente» e «il modello non se l'e' sentita» sono due
+        risposte diverse, e il client puo' distinguerle solo confrontando
+        `abstention` -- che nel contratto e' un `str` qualunque.
+
+        I tre valori vengono generati invece che ricopiati: cambiarli in
+        `src/service/answer.py` senza rigenerare rompe qui, prima del browser.
+        """
+        testo = OUT.read_text(encoding="utf-8")
+        for chiave, valore in (
+            ("nessuna", NO_ABSTENTION),
+            ("gate", ABSTAINED_BY_GATE),
+            ("modello", ABSTAINED_BY_MODEL),
+        ):
+            assert f'{chiave}: "{valore}",' in testo, f"{chiave} non e' nel file generato"
 
     def test_i_tipi_espliciti_sono_ancora_sul_filo(self):
         """`genera()` solleva se uno dei nomi dichiarati e' sparito da `to_wire()`.

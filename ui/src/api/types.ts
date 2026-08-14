@@ -224,3 +224,10 @@ export type SseEvent =
 
 /** I nomi degli eventi del §3.5, nell'ordine in cui uno stream li emette. */
 export const SSE_EVENTS = ["chunks", "token", "answer", "citations", "done", "error"] as const;
+
+/** I valori di `abstention`, da `src/service/answer.py`. */
+export const ABSTENTION = {
+  nessuna: "",
+  gate: "retrieval",
+  modello: "model",
+} as const;

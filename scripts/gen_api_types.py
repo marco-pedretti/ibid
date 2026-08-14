@@ -56,6 +56,9 @@ from src.api.schema import (  # noqa: E402
 )
 from src.retrieval.abstention import AbstentionDecision  # noqa: E402
 from src.service.answer import (  # noqa: E402
+    ABSTAINED_BY_GATE,
+    ABSTAINED_BY_MODEL,
+    NO_ABSTENTION,
     Answer,
     AnswerEvent,
     ChunksEvent,
@@ -309,6 +312,22 @@ def genera() -> str:
         "export const SSE_EVENTS = ["
         + ", ".join(f'"{n}"' for n in EVENT_NAMES.values())
         + "] as const;"
+    )
+
+    # `abstention` viaggia come `str` nel contratto, ma i suoi valori sono tre e
+    # decisi in `src/service/answer.py`. Il frontend deve distinguerli — «non ho
+    # trovato niente» e «il modello non se l'e' sentita» sono due risposte
+    # diverse, e mostrarle uguali cancellerebbe cio' che C-04 misura. Copiarli a
+    # mano sarebbe la costante del backend che U-00 vieta al frontend, quindi si
+    # generano: se un giorno cambiano, cambia questo file e la suite Python se ne
+    # accorge prima del browser.
+    parti.append(
+        "/** I valori di `abstention`, da `src/service/answer.py`. */\n"
+        "export const ABSTENTION = {\n"
+        f'  nessuna: "{NO_ABSTENTION}",\n'
+        f'  gate: "{ABSTAINED_BY_GATE}",\n'
+        f'  modello: "{ABSTAINED_BY_MODEL}",\n'
+        "} as const;"
     )
 
     return "\n\n".join(parti) + "\n"
