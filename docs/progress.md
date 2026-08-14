@@ -1526,3 +1526,67 @@ Quel che resta è ciò che la dashboard fa davvero — chiedere la cosa giusta, 
 | Failure Explorer | 20 query golden in **0,7 s**, in 2 chiamate da 10 |
 
 > Lo `0,00` su entrambi i jaccard non è un difetto: le due collection usano pipeline di chunking diverse, quindi i `chunk_id` non coincidono per costruzione. È esattamente ciò che la vista è costruita per rendere leggibile, ed è la ragione per cui R-07 si misura su `doc_R@5`.
+
+### A-07 — disegnare quattro schermate ha rivelato tre buchi
+
+A-06 ha esercitato **un** consumatore dell'API, non tutti. La bozza d'interfaccia della Fase 8 — quattro schermate disegnate prima di scrivere una riga di React — ne ha rivelati altri tre, ed è lo stesso meccanismo che il ROADMAP aveva previsto per A-06: *«se non le basta, si scopre ora invece che a React scritto.»*
+
+| serve a | mancava | conseguenza se restava |
+|---|---|---|
+| il menu dei modelli | `models` in `Capabilities` | una lista scritta a mano nel frontend, cioè la quindicesima copia di Q-06 |
+| il toggle «Ragionamento» | `reasoning_effort` in `QueryRequest` | un comando che non ha niente da mandare |
+| sfogliare il corpus | `GET /documents`, `GET /document/{doc_id}/chunks` | l'esploratore può solo cercare, mai **mostrare** |
+
+Sta in Fase 7 e non in Fase 8 perché la Fase 8 dice «il frontend non importa niente da `src/`»: mettere modifiche a `src/api/` dentro un task U-xx sarebbe stata la prima violazione di quella regola il giorno dopo averla scritta.
+
+#### Il criterio è che nessuno dei tre tocchi il contratto
+
+Due campi additivi e due endpoint nuovi. `TestContrattoAdditivo` lo verifica in tre punti: la richiesta minima `{"query": "..."}` basta ancora, i sette endpoint di A-04 ci sono tutti, nessun campo è sparito dalla risposta. Cambiare la forma di ciò che qualcosa ha già prodotto è la regola che ha reso caro il §3.2.
+
+#### La lista modelli, e perché la degradazione è una decisione
+
+`chat.list_models()` passa da `LLM_BASE_URL` e dal contratto OpenAI-compatibile come tutto il resto del modulo — non per stile: il browser può non raggiungere Ollama (in `compose.yml` è dietro `host.docker.internal`, e in un deployment reale è su un'altra macchina), e così la stessa funzione vale con vLLM o llama.cpp server al posto di Ollama.
+
+`catalog.models()` restituisce `[]` quando l'endpoint non risponde, **e non solleva**: `/datasets` serve anche i dataset, che con l'LLM non c'entrano niente. È lo stesso difetto per cui `/health` non interroga Qdrant. E la lista resta vuota invece di contenere il modello configurato — aggiungerlo affermerebbe che esiste, che è precisamente ciò che non si è potuto verificare.
+
+L'ordine è alfabetico e non quello di arrivo, perché `/v1/models` di Ollama ordina per data di download: un menu che si riordina da solo fa saltare la selezione a chi ha appena scaricato qualcosa.
+
+#### `reasoning_effort` si poteva vedere, non scegliere
+
+`ConfigView` lo restituiva già. Cioè l'asse che C-07 misura era leggibile a posteriori e non impostabile — un'asimmetria che nessuno aveva notato perché nessun client l'aveva ancora chiesto.
+
+`REASONING_EFFORTS` raccoglie i cinque valori che l'endpoint accetta davvero: non è una scelta nostra, è quello che Ollama verifica in `openai/openai.go` rispondendo 400 a tutto il resto. Un livello inventato diventa così un **422 col nome del campo** invece di un 400 del modello rimbalzato come 500 — cioè un guasto nostro per un errore di chi chiama.
+
+> **La stringa vuota resta fuori dall'elenco** pur essendo trattata come «spento» da `reasoning_enabled`. È raggiungibile solo da `REASONING_EFFORT=""` nell'ambiente, e sul filo produrrebbe proprio il 400 che l'elenco esiste per evitare. Latente, non introdotta qui, e ora scritta accanto alla costante invece che scoperta da chi la incontra.
+
+#### L'indice payload: 80× su una domanda che la UI fa a ogni pagina
+
+`GET /documents` deve contare i chunk per documento. `facet` di Qdrant lo fa lato server ma **richiede un indice payload** su `doc_id`; senza, l'unica strada è scandire i payload.
+
+E la stessa mancanza penalizzava già `get_by_chunk_id`, che sta sul percorso di **ogni citazione cliccata** in U-06. La sua docstring prevedeva questo rimedio da prima che servisse.
+
+| collection | punti | scansione | con indice |
+|---|---|---|---|
+| `ledger` | 47.110 | 2,07 s | **0,025 s** |
+| `ledger_routed` | 228.331 | ~10 s (stimata) | 0,21 s (misurata via API) |
+
+Un indice payload si aggiunge a una collection viva **senza rifare i vettori**, esattamente come il modificatore IDF di R-08 — e per la stessa ragione vale la pena ripeterlo: queste collection sono ore di GPU, e un rimedio che richiedesse di ricostruirle non sarebbe un rimedio.
+
+`ensure_collection` li crea da ora a ogni ingestione. `scripts/migrate_payload_indexes.py` serve alle collection indicizzate prima, e a chi ripristina uno snapshot anteriore ad A-07: **sette collection migrate in 14 s**, conteggi punti invariati, rilanciarlo non fa niente.
+
+#### `DocumentInfo` non porta il genere, ed è una decisione
+
+`doc_genre` e `pipeline` stanno sul chunk perché è lì che sono veri. Metterli sul documento sarebbe un'aggregazione che il dato non garantisce: una collection `_routed` può mescolare pipeline dentro lo stesso documento — ed è esattamente il caso che l'esploratore esiste per mostrare.
+
+Per la stessa ragione `/document/{doc_id}/chunks` restituisce i chunk **in ordine di sequenza**: mostrare come un documento è stato spezzato ha senso solo nella sequenza in cui è stato spezzato, ed è ciò che rende visibile il routing (U-05) a chi sfoglia invece di interrogare. `marker` e `score` valgono 0 su ognuno — qui non c'è stato nessun recupero, e un punteggio inventato farebbe leggere una classifica dove c'è solo una lettura.
+
+#### Il gate
+
+| | |
+|---|---|
+| `rescore_citations.py` | 16 dump a `+0.0000`, e il solo `+0.0052` preesistente |
+| smoke dense 50 query, open_ragbench | R@5 **0,8000** · doc_R@5 **0,9600** · nDCG@10 **0,7051** — identici al riferimento di A-06 |
+| suite | **1659 test**, `ruff check .` pulito |
+| CLI end-to-end | verificato eseguendo la **stessa query su `main` e su `A-07`**: output identico |
+
+> L'ultima riga merita la nota. La risposta non coincide con quella registrata in A-06 (`…0.0226 [1].`, `OK [1] p=0.606`): con `--top-k 3` il modello ne produce una più lunga, con due citazioni entrambe bocciate dal verificatore. Eseguire lo stesso comando su `main` dà **lo stesso output**, quindi la differenza viene dai flag e dallo stato del modello, non da A-07 — che è ciò che il gate deve accertare. Confrontare due comandi diversi e dichiarare una regressione sarebbe stato l'errore speculare a quello di A-05, dove un tempo a freddo era stato riportato come costo per richiesta.
