@@ -512,6 +512,19 @@ Ricavate disegnando quattro schermate prima di scrivere React. Quelle che vincol
 
 **Le query d'esempio dello stato vuoto vincolano U-08.** Tre esempi, uno per affermazione del §0, così che la demo *sia* l'argomento invece di illustrarlo — e il video di U-10 abbia già il suo copione. Ma nel profilo `demo` l'indice contiene solo i chunk d'oro di ~30 query: se gli esempi non sono **quelle**, il primo clic di chi prova il progetto finisce in un'astensione. I due task si decidono insieme.
 
+### Come si avvia, oggi e alla fine
+
+Due comandi diversi per due destinatari diversi, e confonderli è ciò che rende un progetto difficile da provare.
+
+| | comando | cosa serve prima |
+|---|---|---|
+| **chi tocca il codice** | `make dev` | Node, Qdrant e Ollama in ascolto |
+| **chi vuole solo vederlo** | `docker compose --profile demo up` (U-08) | Docker, e basta |
+
+`make dev` avvia l'API, **aspetta** che risponda, poi avvia Vite; chiudendo si porta via entrambi. L'attesa non è cortesia: senza, il primo `/datasets` parte contro una porta chiusa e la pagina si apre già in stato di guasto, che chi guarda legge come un bug del frontend.
+
+**Nella consegna il proxy non esiste.** Il frontend viene costruito (`vite build`) dentro l'immagine con uno stadio Node, e **l'API serve `ui/dist` come file statici**: stessa origine, un container in meno, e soprattutto la ragione per cui il backend non ha CORS smette di essere un'aspirazione e diventa vera. È una decisione di U-09, e va scritta ora perché è ciò che rende legittimo il proxy di sviluppo di U-00 — un proxy che nascondesse un problema di CORS destinato a ripresentarsi in produzione sarebbe un debito, non una comodità.
+
 ### U-08 in dettaglio — come e quando si pubblica l'indice
 
 **Il problema, detto una volta.** Chi arriva da GitHub trova il codice, non i vettori. Rigenerarli costa **~2 ore di GPU** (122 minuti misurati in I-07 per 65.950 chunk) più il download dei corpus da HuggingFace. Nessuno prova un progetto a quel prezzo, e un README che lo chiede sta dicendo «non provarlo».
