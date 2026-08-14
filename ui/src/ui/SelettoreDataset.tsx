@@ -1,8 +1,8 @@
 /**
  * Il selettore dataset del mockup: nome a sinistra, conteggio a destra.
  *
- * La meccanica — `<select>` nativo trasparente sopra il disegno — sta in
- * `SelettoreNativo`, che la spiega. Qui restano le decisioni sui dataset.
+ * La meccanica — apertura, tastiera, ARIA, animazione — sta in `Selettore`,
+ * che la spiega. Qui restano le decisioni sui dataset.
  *
  * I dataset con l'indice vuoto **compaiono, disabilitati, col motivo scritto**.
  * Toglierli direbbe che non esistono; lasciarli scegliere farebbe leggere come
@@ -16,8 +16,8 @@ import { usaBackend } from "../app/backend";
 import { usaDataset } from "../app/dataset";
 import { usaLingua } from "../app/i18n";
 import type { DatasetView } from "../api/types";
-import { SelettoreNativo } from "./SelettoreNativo";
-import type { Voce } from "./SelettoreNativo";
+import { Selettore } from "./Selettore";
+import type { Voce } from "./Selettore";
 
 const LOCALE = { it: "it-IT", en: "en-US" } as const;
 
@@ -66,7 +66,7 @@ export function SelettoreDataset() {
   }));
 
   return (
-    <SelettoreNativo
+    <Selettore
       etichetta={t("datasets.change")}
       valore={scelto.dataset_id}
       voci={voci}
@@ -80,6 +80,6 @@ export function SelettoreDataset() {
       <span className="ml-auto font-mono text-[10px] text-muted tabular-nums">
         {numero(scelto.n_chunks)}
       </span>
-    </SelettoreNativo>
+    </Selettore>
   );
 }

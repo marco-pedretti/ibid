@@ -29,7 +29,7 @@ import { Chiaro, Scuro, Sistema } from "./Icona";
 import type { PropsIcona } from "./Icona";
 import { Marchio } from "./Marchio";
 import { SelettoreDataset } from "./SelettoreDataset";
-import { SelettoreNativo } from "./SelettoreNativo";
+import { Selettore } from "./Selettore";
 
 export function Telaio({ children, fianco }: { children: ReactNode; fianco?: ReactNode }) {
   const { t } = usaLingua();
@@ -131,10 +131,10 @@ const SEGNO: Record<SceltaTema, (p: PropsIcona) => ReactNode> = {
  * cliccando finche' non ricompare — cioe' l'interfaccia si impara per tentativi.
  * La tendina mostra le tre voci insieme e ne fa scegliere una.
  *
- * Il caret `▾` lo mette `SelettoreNativo`, uguale su ogni tendina: nel mockup e'
- * il segno che distingue una pastiglia che apre un menu (`.tg.menu`) da una che
- * commuta e basta, ed e' il modo in cui questa e la lingua si dichiarano
- * diverse.
+ * Il caret lo mette `Selettore`, uguale su ogni tendina, e ruota di mezzo giro
+ * all'apertura: nel mockup e' il segno che distingue una pastiglia che apre un
+ * menu (`.tg.menu`) da una che commuta e basta, ed e' il modo in cui questa e
+ * la lingua si dichiarano diverse.
  *
  * Il **nome** dello stato sta accanto al glifo perche' «sistema» non e'
  * deducibile da un simbolo, ed e' proprio quello che va capito: e' l'unico che
@@ -145,21 +145,25 @@ function PastigliaTema() {
   const { scelta, imposta } = usaTema();
   const Segno = SEGNO[scelta];
 
-  // Le voci restano **sole parole**: un `<option>` nativo accetta testo e basta,
-  // quindi un glifo li' dentro sarebbe l'unico simbolo dell'interfaccia non
-  // disegnato — e la coerenza vale piu' di una decorazione nella tendina.
-  const voci = TEMI.map((s) => ({ valore: s, testo: t(`theme.${s}`) }));
+  // Le icone tornano nella lista: le voci di un `<option>` nativo potevano
+  // essere solo testo, ed era l'unico posto dell'interfaccia in cui il
+  // simbolo restava un glifo. Con la lista disegnata da noi, no.
+  const voci = TEMI.map((s) => {
+    const Segno = SEGNO[s];
+    return { valore: s, testo: t(`theme.${s}`), icona: <Segno size={12} /> };
+  });
 
   return (
-    <SelettoreNativo
+    <Selettore
       etichetta={t("theme.label")}
       valore={scelta}
       voci={voci}
       onCambia={imposta}
+      verso="su"
       className={`${PASTIGLIA} flex items-center gap-1.5`}
     >
       <Segno size={12} />
       <span className="lowercase">{t(`theme.${scelta}`)}</span>
-    </SelettoreNativo>
+    </Selettore>
   );
 }
