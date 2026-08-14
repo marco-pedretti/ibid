@@ -101,9 +101,10 @@ const GLIFO: Record<SceltaTema, string> = { light: "☀", dark: "☾", system: "
  * cliccando finche' non ricompare — cioe' l'interfaccia si impara per tentativi.
  * La tendina mostra le tre voci insieme e ne fa scegliere una.
  *
- * Il caret `▾` non e' decorazione: nel mockup e' il segno che distingue una
- * pastiglia che apre un menu (`.tg.menu`) da una che commuta e basta. Averlo
- * qui e non sulla lingua e' il modo in cui le due si dichiarano diverse.
+ * Il caret `▾` lo mette `SelettoreNativo`, uguale su ogni tendina: nel mockup e'
+ * il segno che distingue una pastiglia che apre un menu (`.tg.menu`) da una che
+ * commuta e basta, ed e' il modo in cui questa e la lingua si dichiarano
+ * diverse.
  *
  * Il **nome** dello stato sta accanto al glifo perche' «sistema» non e'
  * deducibile da un simbolo, ed e' proprio quello che va capito: e' l'unico che
@@ -125,7 +126,6 @@ function PastigliaTema() {
     >
       <span>{GLIFO[scelta]}</span>
       <span className="lowercase">{t(`theme.${scelta}`)}</span>
-      <span className="text-[8px] leading-none">▾</span>
     </SelettoreNativo>
   );
 }

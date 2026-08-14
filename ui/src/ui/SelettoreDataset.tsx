@@ -71,10 +71,13 @@ export function SelettoreDataset() {
       valore={scelto.dataset_id}
       voci={voci}
       onCambia={imposta}
-      className="flex items-center justify-between gap-2 rounded-[7px] border border-line-2 bg-surface px-[9px] py-[7px] text-[12px]"
+      className="flex items-center gap-2 rounded-[7px] border border-line-2 bg-surface px-[9px] py-[7px] text-[12px]"
     >
       <span className="truncate">{scelto.dataset_id}</span>
-      <span className="font-mono text-[10px] text-muted tabular-nums">
+      {/* `ml-auto` e non `justify-between` sul contenitore: il caret arriva dopo
+          questi due, e con `justify-between` finirebbe da solo a destra con il
+          conteggio staccato in mezzo. */}
+      <span className="ml-auto font-mono text-[10px] text-muted tabular-nums">
         {numero(scelto.n_chunks)}
       </span>
     </SelettoreNativo>

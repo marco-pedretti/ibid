@@ -52,6 +52,14 @@ export function SelettoreNativo<T extends string>({
         {children}
       </span>
 
+      {/* Il caret lo mette il componente, non il chiamante. Nel mockup `▾` e'
+          il segno che distingue una pastiglia che **apre** (`.tg.menu`) da una
+          che commuta e basta: e' una proprieta' del controllo, e lasciarla al
+          disegno significa che il prossimo selettore se la dimentica. */}
+      <span aria-hidden="true" className="shrink-0 text-[9px] leading-none text-muted">
+        ▾
+      </span>
+
       <select
         aria-label={etichetta}
         value={valore}
