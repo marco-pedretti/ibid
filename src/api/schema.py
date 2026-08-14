@@ -38,6 +38,7 @@ from src.service.answer import (
     DoneEvent,
     Event,
     RetrievedChunk,
+    RetrieveRequest,
     TokenEvent,
 )
 from src.service.catalog import DatasetInfo
@@ -135,6 +136,52 @@ class QueryRequest(BaseModel):
 # ---------------------------------------------------------------------------
 # Cosa si riceve
 # ---------------------------------------------------------------------------
+
+
+class RetrieveRequestBody(BaseModel):
+    """Cercare senza rispondere, per una o molte query.
+
+    Nato da A-06: la dashboard ha smesso di importare la pipeline e si è visto
+    che dall'API mancava la metà che non genera. Un client che vuole ispezionare
+    il recupero non deve pagare una generazione per averlo.
+
+    I parametri di generazione non ci sono — non perché siano dimenticati, ma
+    perché qui nessun modello viene chiamato. Chiederli renderebbe esprimibile
+    una richiesta che il servizio ignorerebbe.
+    """
+
+    queries: list[str] = Field(min_length=1, max_length=500)
+    dataset_id: str = "open_ragbench"
+    collection: str | None = None
+
+    top_k: int | None = Field(default=None, ge=1, le=200)
+    retrieval_mode: str | None = None
+    rerank: bool | None = None
+    query_rewrite: bool | None = None
+    filter_content_type: str | None = None
+    search_exact: bool | None = None
+    hnsw_ef: int | None = Field(default=None, ge=1)
+
+    @field_validator("retrieval_mode")
+    @classmethod
+    def _modalita_nota(cls, v: str | None) -> str | None:
+        return _fra(v, RETRIEVAL_MODES, "retrieval_mode")
+
+    def config(self) -> RequestConfig:
+        override = {
+            k: v for k, v in self.model_dump(
+                exclude={"queries", "dataset_id", "collection"}
+            ).items() if v is not None
+        }
+        return RequestConfig.from_defaults(**override)
+
+    def to_service(self) -> RetrieveRequest:
+        return RetrieveRequest(
+            queries=self.queries,
+            dataset_id=self.dataset_id,
+            collection=self.collection,
+            config=self.config(),
+        )
 
 
 class ConfigView(BaseModel):
@@ -312,6 +359,18 @@ class AnswerResponse(BaseModel):
             ),
             timings=risposta.timings,
         )
+
+
+class RetrieveResponse(BaseModel):
+    """I risultati, **nell'ordine delle query**.
+
+    Una lista di liste anche quando la query è una: chi chiama non deve scrivere
+    due strade a seconda di quante ne ha chieste, e un client che ne manda 200
+    deve poterle riallineare senza fidarsi di un id che non abbiamo inventato.
+    """
+
+    results: list[list[ChunkView]]
+    config: ConfigView
 
 
 class DatasetView(BaseModel):

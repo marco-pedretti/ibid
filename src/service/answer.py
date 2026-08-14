@@ -338,6 +338,112 @@ def _abstention_answer(
     )
 
 
+@dataclass(frozen=True)
+class RetrieveRequest:
+    """Cercare senza rispondere.
+
+    **Scoperto da A-06**, e il ROADMAP lo aveva previsto: la dashboard e' il
+    consumatore piu' esigente che esista gia', e quando ha smesso di importare
+    la pipeline si e' visto che dall'API mancava la meta' che non genera.
+
+    Non e' un caso d'uso da strumento interno. Chi vuole ispezionare il
+    recupero — perche' sta confrontando due configurazioni, o perche' vuole
+    mostrare le fonti prima di spendere la GPU — non deve pagare una
+    generazione per averlo. `answer_stream` emette `chunks` prima di generare
+    proprio per questa ragione; qui la stessa cosa e' disponibile da sola.
+
+    `queries` e' una lista e non una stringa perche' **l'embedding e' batch per
+    natura**: 200 query in una chiamata sono un viaggio di rete e una passata di
+    GPU, 200 chiamate sono 200 di entrambi. La differenza rende usabile o
+    inusabile una pagina che valuta una fetta del golden set.
+    """
+
+    queries: list[str]
+    dataset_id: str = "open_ragbench"
+    collection: str | None = None
+    config: cfg.RequestConfig | None = None
+
+
+def _retrieve_many(
+    queries: list[str],
+    config: cfg.RequestConfig,
+    collection: str,
+    *,
+    client=None,
+    retrieve=None,
+) -> list[list[RetrievedChunk]]:
+    """Il recupero, per N query. **L'unica copia**, condivisa con `answer_stream`.
+
+    Prima di A-06 questa sequenza — riscrittura, filtro, recupero, rerank —
+    esisteva in tre posti: qui dentro, in `dashboard/retrieval_probe.py` e in
+    `dashboard/failure_store.py`. Le tre copie erano gia' divergenti: due
+    leggevano `cfg` globale invece della configurazione di richiesta, e nessuna
+    delle due lo sapeva.
+    """
+    if client is None:
+        client = get_client(cfg.QDRANT_URL)
+    if retrieve is None:
+        retrieve = RETRIEVERS[config.retrieval_mode]
+
+    texts = queries
+    if config.query_rewrite:
+        texts = rewrite_batch(queries, base_url=cfg.LLM_BASE_URL, model=config.rewrite_model)
+
+    # R-04: il filtro sul tipo di contenuto. Con "auto" e' **per query**, perche'
+    # e' dedotto dal testo di ciascuna: un filtro solo, calcolato sulla prima,
+    # applicherebbe a tutte una scelta fatta guardando un'altra domanda.
+    filters: list | None = None
+    if config.filter_content_type == "auto":
+        filters = [
+            build_content_type_filter(ct) if (ct := infer_content_type(t)) else None
+            for t in texts
+        ]
+    elif config.filter_content_type:
+        filters = [build_content_type_filter(config.filter_content_type)] * len(texts)
+
+    # Col reranker si pesca da un bacino piu' largo di quello che finira' nel
+    # prompt: il cross-encoder deve avere qualcosa fra cui scegliere.
+    fetch_k = max(config.rerank_fetch_k, config.top_k) if config.rerank else config.top_k
+    tutti = retrieve(client, collection, texts, fetch_k, filters, config)
+
+    fuori: list[list[RetrievedChunk]] = []
+    for testo, candidates in zip(texts, tutti):
+        scores, payloads = candidates.scores, candidates.payloads
+        if config.rerank:
+            ranked = cross_encode(testo, payloads, config.reranker_model, top_n=config.top_k)
+            scores = [r.score for r in ranked]
+            payloads = [r.payload for r in ranked]
+        fuori.append([
+            RetrievedChunk(marker=i, score=score, chunk=chunk_from_payload(payload))
+            for i, (score, payload) in enumerate(
+                zip(scores[: config.top_k], payloads[: config.top_k]), 1
+            )
+        ])
+    return fuori
+
+
+def retrieve_chunks(
+    request: RetrieveRequest,
+    *,
+    client=None,
+    retrieve=None,
+) -> list[list[RetrievedChunk]]:
+    """Cosa il sistema recupererebbe, senza generare niente.
+
+    Returns:
+        Una lista di risultati **nell'ordine delle query**, una per query. Anche
+        quando la query e' una sola: chi chiama non deve scrivere due strade a
+        seconda di quante ne ha chieste.
+    """
+    config = request.config or cfg.RequestConfig.from_defaults()
+    collection = request.collection or request.dataset_id
+    if not request.queries:
+        return []
+    return _retrieve_many(
+        request.queries, config, collection, client=client, retrieve=retrieve
+    )
+
+
 def _verify(
     text: str,
     chunks: list[RetrievedChunk],
@@ -424,42 +530,11 @@ def answer_stream(
 
     t0 = time.time()
     chunks: list[RetrievedChunk] = []
-    scores: list[float] = []
     if config.rag:
-        text_query = request.query
-        if config.query_rewrite:
-            [text_query] = rewrite_batch(
-                [request.query], base_url=cfg.LLM_BASE_URL, model=config.rewrite_model
-            )
-
-        # R-04: il filtro sul tipo di contenuto, dedotto dalla query o imposto.
-        query_filter = None
-        if config.filter_content_type == "auto":
-            if (ct := infer_content_type(text_query)):
-                query_filter = build_content_type_filter(ct)
-        elif config.filter_content_type:
-            query_filter = build_content_type_filter(config.filter_content_type)
-
-        # Col reranker si pesca da un bacino piu' largo di quello che finira' nel
-        # prompt: il cross-encoder deve avere qualcosa fra cui scegliere.
-        fetch_k = max(config.rerank_fetch_k, config.top_k) if config.rerank else config.top_k
-        [candidates] = retrieve(
-            client, collection, [text_query], fetch_k,
-            [query_filter] if query_filter is not None else None, config,
+        [chunks] = _retrieve_many(
+            [request.query], config, collection, client=client, retrieve=retrieve
         )
-
-        scores, payloads = candidates.scores, candidates.payloads
-        if config.rerank:
-            ranked = cross_encode(text_query, payloads, config.reranker_model, top_n=config.top_k)
-            scores = [r.score for r in ranked]
-            payloads = [r.payload for r in ranked]
-
-        chunks = [
-            RetrievedChunk(marker=i, score=score, chunk=chunk_from_payload(payload))
-            for i, (score, payload) in enumerate(
-                zip(scores[: config.top_k], payloads[: config.top_k]), 1
-            )
-        ]
+    scores = [c.score for c in chunks]
     timings = {"retrieval_s": round(time.time() - t0, 3)}
     # Appena il recupero e' finito, prima di spendere un secondo di GPU: e' cio'
     # che permette a U-02 di mostrare i documenti mentre la risposta si scrive.

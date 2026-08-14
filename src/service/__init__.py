@@ -25,9 +25,11 @@ from src.service.answer import (
     DoneEvent,
     Event,
     RetrievedChunk,
+    RetrieveRequest,
     TokenEvent,
     answer,
     answer_stream,
+    retrieve_chunks,
 )
 from src.service.catalog import DatasetInfo, chunk, dataset_of, datasets
 
@@ -41,6 +43,7 @@ __all__ = [
     "DatasetInfo",
     "DoneEvent",
     "Event",
+    "RetrieveRequest",
     "RetrievedChunk",
     "TokenEvent",
     "answer",
@@ -48,4 +51,5 @@ __all__ = [
     "chunk",
     "dataset_of",
     "datasets",
+    "retrieve_chunks",
 ]

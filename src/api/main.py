@@ -23,13 +23,23 @@ from src.api.schema import (
     AnswerResponse,
     Capabilities,
     ChunkView,
+    ConfigView,
     DatasetView,
     ErrorEvent,
     QueryRequest,
+    RetrieveRequestBody,
+    RetrieveResponse,
     sse,
 )
 from src.datasets import registry
-from src.service import answer, answer_stream, chunk, dataset_of, datasets
+from src.service import (
+    answer,
+    answer_stream,
+    chunk,
+    dataset_of,
+    datasets,
+    retrieve_chunks,
+)
 
 app = FastAPI(
     title="ibid",
@@ -84,6 +94,29 @@ def get_chunk(
     if trovato is None:
         raise HTTPException(status_code=404, detail=f"chunk non trovato: {chunk_id!r}")
     return ChunkView.of_chunk(trovato)
+
+
+@app.post("/retrieve", response_model=RetrieveResponse)
+def post_retrieve(request: RetrieveRequestBody) -> RetrieveResponse:
+    """Cosa il sistema recupererebbe, senza generare niente.
+
+    L'endpoint che A-06 ha scoperto mancare. Serve a chi ispeziona il recupero —
+    la dashboard, un confronto A/B fra configurazioni, una UI che vuole mostrare
+    le fonti prima di spendere la GPU — e senza di lui l'unica strada era
+    `/query`, cioe' pagare una generazione per vedere dei chunk.
+
+    Accetta molte query in una chiamata perche' **l'embedding e' batch per
+    natura**: 200 query in un viaggio sono una passata di GPU, 200 viaggi sono
+    200 passate. E' la differenza fra una pagina usabile e una che non lo e'.
+    """
+    config = request.config()
+    return RetrieveResponse(
+        results=[
+            [ChunkView.of(c) for c in risultato]
+            for risultato in retrieve_chunks(request.to_service())
+        ],
+        config=ConfigView.of(config),
+    )
 
 
 @app.post("/query", response_model=AnswerResponse)
@@ -141,6 +174,4 @@ def effective_config() -> dict:
     endpoint che rivelasse `QDRANT_URL` racconterebbe la topologia della rete a
     chiunque.
     """
-    from src.api.schema import ConfigView
-
     return ConfigView.of(cfg.RequestConfig.from_defaults()).model_dump()
