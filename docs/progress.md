@@ -431,6 +431,8 @@ Ora l'espansione è condizionata: si applica solo se **ogni** numero è un indic
 
 **Aperto**: `parse()` è chiamato solo da `scripts/query.py`. Il percorso di servizio vero non esiste ancora (Fase 5); quando l'API arriva, la riparazione va agganciata lì e il testo grezzo va comunque conservato, perché è quello che C-01 misura.
 
+> **Chiuso da A-01** (2026-08-14). Il percorso di servizio è `src/service/answer.py`, la riparazione è agganciata lì, e `Answer` porta **entrambi** i testi — `raw_text` e `text` — proprio perché il grezzo è quello che C-01 misura.
+
 ### C-03 — Verifica di entailment: lo strumento misurato prima di usarlo
 
 Prima di costruire `citation_precision` sopra mDeBERTa-XNLI — il verificatore che STACK.md imponeva — lo strumento è stato misurato. Non reggeva. Il task è stato **sospeso**, e riaperto solo dopo aver sostituito il modello con una misura a supporto (§6 qui sotto, e la voce nuova in STACK.md).
@@ -1135,3 +1137,49 @@ Anche i file che leggeva erano relativi, tenuti in piedi proprio da quel `chdir`
 > **`fetch_dataset.py` è stato un commit a parte, e vale la pena dire perché.** Accettava `--dataset`, elencava solo `open_ragbench` fra i `choices`, e poi nominava `open_ragbench` sei volte nel corpo. Non poteva sbagliare — l'unico valore ammesso era anche l'unico implementato — ma l'opzione era decorativa. Collegarlo al registro gli fa **guadagnare** il supporto per ledger, che è un cambiamento di comportamento e non entra nel commit di un refactor. Verificato: `--dataset ledger` riporta 494 documenti e 47.110 chunk, cioè esattamente i punti della collection su Qdrant.
 
 **Gate superato.** `rescore_citations.py` restituisce un output **identico al riferimento riga per riga**, confronto automatico compreso. È il primo dei sei task a metterlo alla prova.
+
+---
+
+## Fase 7 — Servizio e API
+
+Il backend diventa sostituibile dal frontend e viceversa, e può girare su un'altra macchina. **Gate: nessuna metrica cambia, e la CLI continua a funzionare identica.**
+
+| Task | Stato | Note |
+|---|---|---|
+| A-01 | ✅ fatto (2026-08-14) | `src/service/` — tre casi d'uso, tre funzioni: `answer()`, `datasets()`, `chunk()`. `scripts/query.py` è passato da *essere* la pipeline a stamparla. Un test verifica il confine invece di affermarlo. **1438 test** (1401 → 1438). |
+
+### A-01 — cosa c'era davvero dentro il CLI
+
+Dalla T-05 `scripts/query.py` non era un client: **era** il percorso di servizio. Recupero, gate di astensione, generazione, riparazione dei marcatori e `print` nello stesso file, nella stessa funzione. Finché il consumatore era uno solo, nessuno se ne accorgeva.
+
+Il criterio di A-01 dice *«nessun endpoint contiene logica di pipeline»*, e da solo non basta: se la contiene l'altro consumatore, non c'è niente da confrontare. Quindi la verifica è scritta come test — `scripts/query.py` non importa più `src.index`, `src.retrieval`, `src.generation` — e non come promessa.
+
+**Quattro cose che il risultato deve saper dire, e prima non poteva:**
+
+| stato | perché non era rappresentabile |
+|---|---|
+| astensione **del gate** vs **del modello** | erano lo stesso booleano, e sono due eventi diversi: uno costa 0 s di GPU, l'altro 11 |
+| testo **grezzo** e testo **riparato** | il parser di C-02 cambia ciò che il modello ha scritto; tenerne uno solo perde o la prova o la leggibilità |
+| **troncamento** | una risposta tagliata non ha citazioni perché non è arrivata a scriverle — non è un difetto di formato |
+| **verdetti non ancora disponibili** | con lo streaming è la norma: il marcatore `[2]` compare prima che il suo verdetto esista (§3.5) |
+
+**La verifica NLI entra nel percorso di servizio.** Girava solo dentro l'harness di C-03: il sistema che si mostra a qualcuno produceva marcatori non verificati, cioè proprio la cosa che l'affermazione 1 del §0 dice di saper misurare. Ora ogni citazione porta il proprio verdetto, e **nessuna viene filtrata** — U-07 chiede che le non verificate siano marcate, non nascoste, e toglierle porterebbe la precisione apparente al 100% per costruzione. Accanto ai verdetti c'è l'elenco delle frasi che non citano niente: è il denominatore nascosto, perché la precisione si alza citando di meno.
+
+**`chunk()` non prende il dataset.** Lo schema del §3 impone `{dataset_id}:{doc_id}:{seq}`, quindi è già dentro l'id — ed è il motivo per cui l'endpoint del ROADMAP si chiama `/chunk/{chunk_id}` e non `/chunk/{dataset}/{chunk_id}`. Chiederlo a parte permetterebbe di passarne uno incoerente con l'id. Un test lega le due convenzioni: se un `chunk_id` smettesse di iniziare col dataset, `dataset_of()` mentirebbe in silenzio.
+
+**`datasets()` legge il registro di Q-06**, e chiede a Qdrant se quegli indici esistono. Senza, il frontend porterebbe la quindicesima copia di quel `choices=[...]`. Tre stati e non due: assente, presente e vuota, presente con N chunk — la collection vuota esiste davvero fra `ensure_collection` e la fine dell'ingestione.
+
+#### Una funzione privata con cinque chiamanti
+
+`_payload_to_chunk` esisteva in due copie identiche e **tre script la importavano attraverso l'underscore**. È la stessa storia di `_RETRIEVERS` prima di R-05: con cinque chiamanti non era privata, era scritta nel posto sbagliato. Ora è `chunk_from_payload` in `src/index/store.py`, accanto alla `upsert` che quel payload lo scrive — le due devono cambiare insieme, o un campo aggiunto sopra sparisce in silenzio al ritorno.
+
+Il test che l'ha trovata non cercava lei: cercava la separazione fra calibrazione e valutazione del gate di astensione, e si è rotto all'import.
+
+#### Due cambi di comportamento, dichiarati
+
+- **Il servizio passa `cfg.REASONING_EFFORT` alla generazione.** Il CLI lo ignorava da prima che quel parametro esistesse: col default `none` non cambia niente, con qualunque altro valore ora obbedisce alla configurazione invece di contraddirla.
+- **`--dataset` accetta i dataset del registro**, non più una stringa qualsiasi. La collection arbitraria non si perde — è `--collection`, che era il vero uso di quella libertà (`ledger_routed`).
+
+**Nessuna metrica si muove**: niente di `eval/` passa da qui.
+
+> **Cosa A-01 non ha fatto, e va detto.** Il criterio parla di *«la stessa richiesta dalla CLI e dall'API»*: l'endpoint `/query` non esiste ancora (è A-04), quindi il confronto ha per ora un braccio solo. Il test che li confronta va scritto lì, sulla stessa funzione — non su una seconda pipeline. Restano fuori anche i parametri di retrieval per richiesta (rerank, riscrittura, filtri): sono A-02, che è il posto dove la configurazione smette di passare da `cfg` globale.
