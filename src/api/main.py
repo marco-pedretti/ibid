@@ -26,6 +26,9 @@ from src.api.schema import (
     CollectionView,
     ConfigView,
     DatasetView,
+    DocumentChunksResponse,
+    DocumentsResponse,
+    DocumentView,
     ErrorEvent,
     QueryRequest,
     RetrieveRequestBody,
@@ -40,6 +43,8 @@ from src.service import (
     collections,
     dataset_of,
     datasets,
+    document_chunks,
+    documents,
     models,
     retrieve_chunks,
 )
@@ -101,6 +106,58 @@ def get_chunk(
     if trovato is None:
         raise HTTPException(status_code=404, detail=f"chunk non trovato: {chunk_id!r}")
     return ChunkView.of_chunk(trovato)
+
+
+@app.get("/documents", response_model=DocumentsResponse)
+def list_documents_endpoint(
+    dataset_id: str = Query(...),
+    collection: str | None = Query(default=None),
+) -> DocumentsResponse:
+    """Cosa c'e' dentro una collection (A-07).
+
+    Il buco che disegnare la Fase 8 ha rivelato: `/chunk/{id}` sa rispondere su
+    **uno**, `/retrieve` su una query, e nessuno dei due sa dire cosa c'e'
+    dentro. Senza, l'esploratore del corpus puo' solo cercare — mai mostrare.
+
+    E' una `GET` e non una `POST` come `/retrieve`, e non e' incoerenza: qui non
+    c'e' una configurazione di richiesta da mandare. Nessun embedding, nessun
+    modello, nessun parametro di recupero: e' una lettura, e una lettura si
+    puo' mettere in un link e in una cache.
+    """
+    if dataset_id not in registry.dataset_ids():
+        raise HTTPException(status_code=404, detail=f"dataset sconosciuto: {dataset_id!r}")
+    return DocumentsResponse(
+        collection=collection or dataset_id,
+        documents=[DocumentView.of(d) for d in documents(dataset_id, collection=collection)],
+    )
+
+
+@app.get("/document/{doc_id}/chunks", response_model=DocumentChunksResponse)
+def get_document_chunks(
+    doc_id: str,
+    dataset_id: str = Query(...),
+    collection: str | None = Query(default=None),
+) -> DocumentChunksResponse:
+    """Come un documento e' stato spezzato, nell'ordine in cui e' stato spezzato.
+
+    E' cio' che rende **visibile** il routing (U-05): ogni chunk porta la
+    propria `pipeline`, e vederli in sequenza mostra che una tabella non e'
+    stata tagliata a meta'. Un elenco senza ordine non lo mostrerebbe.
+
+    404 quando il documento non c'e', come per `/chunk/{id}`: un `doc_id`
+    copiato da una citazione vecchia e' una domanda legittima con una risposta
+    legittima, e va distinta da un guasto.
+    """
+    if dataset_id not in registry.dataset_ids():
+        raise HTTPException(status_code=404, detail=f"dataset sconosciuto: {dataset_id!r}")
+    chunks = document_chunks(doc_id, dataset_id, collection=collection)
+    if not chunks:
+        raise HTTPException(status_code=404, detail=f"documento non trovato: {doc_id!r}")
+    return DocumentChunksResponse(
+        collection=collection or dataset_id,
+        doc_id=doc_id,
+        chunks=[ChunkView.of_chunk(c) for c in chunks],
+    )
 
 
 @app.post("/retrieve", response_model=RetrieveResponse)

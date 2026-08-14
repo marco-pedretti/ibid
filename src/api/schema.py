@@ -46,7 +46,7 @@ from src.service.answer import (
     RetrieveRequest,
     TokenEvent,
 )
-from src.service.catalog import CollectionInfo, DatasetInfo
+from src.service.catalog import CollectionInfo, DatasetInfo, DocumentInfo
 
 # ---------------------------------------------------------------------------
 # Cosa si puo' chiedere
@@ -408,6 +408,49 @@ class CollectionView(BaseModel):
     def of(cls, info: CollectionInfo) -> "CollectionView":
         return cls(name=info.name, points=info.points,
                    dense_size=info.dense_size, has_sparse=info.has_sparse)
+
+
+class DocumentView(BaseModel):
+    """Un documento della collection, e quanti chunk ne sono usciti (A-07).
+
+    Due campi e non di piu': `doc_genre` e `pipeline` vivono sui chunk, e
+    metterli qui sarebbe un'aggregazione che il dato non garantisce. Una
+    collection `_routed` puo' mescolare pipeline dentro lo stesso documento —
+    ed e' proprio il caso che l'esploratore esiste per mostrare.
+    """
+
+    doc_id: str
+    n_chunks: int
+
+    @classmethod
+    def of(cls, info: DocumentInfo) -> "DocumentView":
+        return cls(doc_id=info.doc_id, n_chunks=info.n_chunks)
+
+
+class DocumentsResponse(BaseModel):
+    """I documenti di una collection, e da quale collection vengono.
+
+    `collection` torna indietro perche' la richiesta puo' non averla detta: chi
+    chiede `dataset_id=ledger` riceve `ledger`, chi passa `collection` riceve
+    quella. Senza, due elenchi diversi della stessa domanda non si distinguono.
+    """
+
+    collection: str
+    documents: list[DocumentView]
+
+
+class DocumentChunksResponse(BaseModel):
+    """I chunk di un documento, **nell'ordine in cui sono stati prodotti**.
+
+    L'ordine e' il dato: mostrare come un documento e' stato spezzato ha senso
+    solo nella sequenza in cui e' stato spezzato. `marker` e `score` valgono 0
+    su ognuno — qui non c'e' stato nessun recupero, e un punteggio inventato
+    farebbe leggere una classifica dove c'e' solo una lettura.
+    """
+
+    collection: str
+    doc_id: str
+    chunks: list[ChunkView]
 
 
 class DatasetView(BaseModel):
