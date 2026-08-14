@@ -31,7 +31,14 @@ from src.service.answer import (
     answer_stream,
     retrieve_chunks,
 )
-from src.service.catalog import DatasetInfo, chunk, dataset_of, datasets
+from src.service.catalog import (
+    CollectionInfo,
+    DatasetInfo,
+    chunk,
+    collections,
+    dataset_of,
+    datasets,
+)
 
 __all__ = [
     "Answer",
@@ -40,6 +47,7 @@ __all__ = [
     "ChunksEvent",
     "Citation",
     "CitationsEvent",
+    "CollectionInfo",
     "DatasetInfo",
     "DoneEvent",
     "Event",
@@ -49,6 +57,7 @@ __all__ = [
     "answer",
     "answer_stream",
     "chunk",
+    "collections",
     "dataset_of",
     "datasets",
     "retrieve_chunks",

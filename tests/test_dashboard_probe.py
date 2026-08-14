@@ -1,22 +1,30 @@
 ﻿"""Tests for dashboard/retrieval_probe.py — single-query interactive retrieval.
 
-All Qdrant and embedding calls are mocked: these assert the probe's *ordering
-semantics* match the eval harness, not that the models work.
+**Questi test si sono accorciati con A-06, ed e' la cosa giusta da notare.**
+Prima verificavano che il probe usasse il vettore denso per `dense`, pescasse
+piu' a fondo col reranker, fondesse con RRF in `hybrid`: cioe' verificavano una
+**copia** della pipeline contro se stessa. Quella copia non c'e' piu', e con
+lei quei test -- il comportamento vive ora in `test_service_answer.py` e
+`test_index_search_params.py`, dove c'e' una implementazione sola da
+verificare.
+
+Quel che resta e' cio' che la dashboard fa davvero: chiedere la cosa giusta al
+backend, e trasformare la risposta nella forma che le viste disegnano.
 """
 
 from __future__ import annotations
 
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
 
 import pytest
 
-import src.config as cfg
 from dashboard.retrieval_probe import (
     RETRIEVAL_MODES,
     ProbeConfig,
     ProbeHit,
     compare_hits,
     dataset_of_collection,
+    doc_of,
     fetch_chunks_by_id,
     list_collections,
     probe,
@@ -25,12 +33,10 @@ from dashboard.retrieval_probe import (
 KNOWN = ("open_ragbench", "ledger")
 
 
-def _point(chunk_id: str, score: float = 0.9, **payload) -> MagicMock:
-    p = MagicMock()
-    p.payload = {"chunk_id": chunk_id, "text": "t", "doc_id": chunk_id.split(":")[1],
-                 **payload}
-    p.score = score
-    return p
+def _chunk(chunk_id: str, score: float = 0.9, **extra) -> dict:
+    """Un chunk come l'API lo consegna: un dizionario, non un punto di Qdrant."""
+    return {"chunk_id": chunk_id, "score": score, "text": "t",
+            "doc_id": chunk_id.split(":")[1], **extra}
 
 
 def _hit(chunk_id: str, rank: int = 1, score: float = 0.9) -> ProbeHit:
@@ -43,27 +49,36 @@ def _hit(chunk_id: str, rank: int = 1, score: float = 0.9) -> ProbeHit:
 # ---------------------------------------------------------------------------
 
 class TestListCollections:
-    def _client(self, names):
-        client = MagicMock()
-        client.get_collections.return_value.collections = [
-            MagicMock(name=n) for n in names
-        ]
-        # MagicMock(name=...) sets the mock's repr, not .name — set explicitly.
-        for m, n in zip(client.get_collections.return_value.collections, names):
-            m.name = n
-        return client
+    """Le collection arrivano dal backend, non da un elenco scritto a mano.
 
-    def test_returns_sorted_names(self):
-        client = self._client(["open_ragbench", "ledger"])
-        assert list_collections(client) == ["ledger", "open_ragbench"]
+    La dashboard aveva `["open_ragbench", "ledger"]` cablato, il che rendeva le
+    collection `*_routed` di R-07 irraggiungibili dall'unico strumento
+    costruito per ispezionarle.
+    """
 
-    def test_includes_routed_collections(self):
-        """The whole point: *_routed must be reachable from the dashboard."""
-        client = self._client(["ledger", "ledger_routed"])
-        assert "ledger_routed" in list_collections(client)
+    def _caps(self, nomi):
+        from dashboard.api_client import Capabilities
+        return Capabilities(
+            datasets=[], collections=[{"name": n} for n in nomi],
+            retrieval_modes=[], baseline_prompts=[],
+        )
 
-    def test_empty_server(self):
-        assert list_collections(self._client([])) == []
+    def test_restituisce_quelle_del_backend(self):
+        with patch("dashboard.api_client.capabilities",
+                   return_value=self._caps(["ledger", "open_ragbench"])):
+            assert list_collections() == [{"name": "ledger"}, {"name": "open_ragbench"}]
+
+    def test_comprende_le_routed(self):
+        """Sono lo stesso dataset indicizzato da un'altra pipeline: senza, R-07
+        non e' ispezionabile."""
+        with patch("dashboard.api_client.capabilities",
+                   return_value=self._caps(["ledger", "ledger_routed"])):
+            nomi = [c["name"] for c in list_collections()]
+        assert "ledger_routed" in nomi
+
+    def test_server_vuoto(self):
+        with patch("dashboard.api_client.capabilities", return_value=self._caps([])):
+            assert list_collections() == []
 
 
 class TestDatasetOfCollection:
@@ -112,66 +127,62 @@ class TestProbeConfig:
 # ---------------------------------------------------------------------------
 
 class TestProbe:
-    def _run(self, config, points=None, rerank_out=None):
-        if points is None:  # [] is a meaningful input, not "unset"
-            points = [_point(f"ds:doc1:{i}", 0.9 - i / 100) for i in range(10)]
-        with patch("dashboard.retrieval_probe.encode", return_value=[[0.1] * 1024]), \
-             patch("dashboard.retrieval_probe.encode_sparse_query", return_value=[MagicMock()]), \
-             patch("dashboard.retrieval_probe.search", return_value=points) as mock_search, \
-             patch("dashboard.retrieval_probe.cross_encode",
-                   return_value=rerank_out if rerank_out is not None else []):
-            hits = probe(MagicMock(), "q", config)
-        return hits, mock_search
+    """Cosa la dashboard chiede, e cosa fa della risposta.
 
-    def test_dense_uses_dense_vector(self):
-        _, mock_search = self._run(ProbeConfig("ledger", "dense"))
-        assert mock_search.call_args.kwargs["using"] == "dense"
+    Non c'e' piu' un `client` fra i parametri: chi interroga Qdrant e' il
+    servizio. E' la differenza fra uno strumento che *usa* il sistema e uno che
+    lo **reimplementa** — ed e' il criterio di A-06 in una firma.
+    """
 
-    def test_sparse_uses_sparse_vector(self):
-        _, mock_search = self._run(ProbeConfig("ledger", "sparse"))
-        assert mock_search.call_args.kwargs["using"] == "sparse"
+    def _run(self, config, chunks=None):
+        if chunks is None:  # [] e' un input che significa qualcosa
+            chunks = [_chunk(f"ds:doc1:{i}", 0.9 - i / 100) for i in range(config.top_k)]
+        with patch("dashboard.api_client.retrieve", return_value=[chunks]) as chiamata:
+            hits = probe("q", config)
+        return hits, chiamata
 
-    def test_queries_the_named_collection(self):
-        _, mock_search = self._run(ProbeConfig("ledger_routed", "dense"))
-        assert mock_search.call_args[0][1] == "ledger_routed"
+    def test_la_modalita_arriva_al_backend(self):
+        _, chiamata = self._run(ProbeConfig("ledger", "sparse"))
+        assert chiamata.call_args.kwargs["retrieval_mode"] == "sparse"
 
-    def test_truncates_to_top_k(self):
-        hits, _ = self._run(ProbeConfig("ledger", "dense", top_k=3))
-        assert len(hits) == 3
+    def test_la_collection_arriva_al_backend(self):
+        _, chiamata = self._run(ProbeConfig("ledger_routed", "dense"))
+        assert chiamata.call_args.kwargs["collection"] == "ledger_routed"
 
-    def test_ranks_are_one_based_and_contiguous(self):
+    def test_il_rerank_arriva_al_backend(self):
+        _, chiamata = self._run(ProbeConfig("ledger", "dense", rerank=True))
+        assert chiamata.call_args.kwargs["rerank"] is True
+
+    def test_una_query_sola_ma_l_interfaccia_e_a_lista(self):
+        """`/retrieve` accetta molte query. Chiamarlo con una non e' un caso
+        speciale: e' una lista di uno, e la risposta e' una lista di uno."""
+        _, chiamata = self._run(ProbeConfig("ledger", "dense"))
+        assert chiamata.call_args[0][0] == ["q"]
+
+    def test_i_ranghi_sono_1_based_e_contigui(self):
+        """Il rango non arriva dal filo: e' la posizione nella lista. L'API
+        restituisce i chunk in ordine, e numerarli qui evita di dover credere a
+        un campo che potrebbe contraddire quell'ordine."""
         hits, _ = self._run(ProbeConfig("ledger", "dense", top_k=4))
         assert [h.rank for h in hits] == [1, 2, 3, 4]
 
-    def test_hybrid_queries_both_vectors(self):
-        _, mock_search = self._run(ProbeConfig("ledger", "hybrid"))
-        usings = [c.kwargs["using"] for c in mock_search.call_args_list]
-        assert set(usings) == {"dense", "sparse"}
-
-    def test_rerank_fetches_deeper_pool(self):
-        """A cross-encoder with only top_k candidates has nothing to rerank."""
-        _, mock_search = self._run(ProbeConfig("ledger", "dense", rerank=True, top_k=5))
-        assert mock_search.call_args.kwargs["top_k"] == max(cfg.RERANK_FETCH_K, 5)
-
-    def test_no_rerank_fetches_exactly_top_k(self):
-        _, mock_search = self._run(ProbeConfig("ledger", "dense", top_k=5))
-        assert mock_search.call_args.kwargs["top_k"] == 5
-
-    def test_rerank_output_replaces_ranking(self):
-        reranked = [_point("ds:doc9:0", 5.0), _point("ds:doc8:0", 4.0)]
-        hits, _ = self._run(
-            ProbeConfig("ledger", "dense", rerank=True, top_k=2), rerank_out=reranked
-        )
-        assert [h.chunk_id for h in hits] == ["ds:doc9:0", "ds:doc8:0"]
-
-    def test_payload_carried_through(self):
-        pts = [_point("ds:doc1:0", 0.9, section_path="Methods")]
-        hits, _ = self._run(ProbeConfig("ledger", "dense", top_k=1), points=pts)
+    def test_il_payload_arriva_intero(self):
+        chunks = [_chunk("ds:doc1:0", 0.9, section_path="Methods")]
+        hits, _ = self._run(ProbeConfig("ledger", "dense", top_k=1), chunks=chunks)
         assert hits[0].payload["section_path"] == "Methods"
 
-    def test_empty_result(self):
-        hits, _ = self._run(ProbeConfig("ledger", "dense"), points=[])
+    def test_risultato_vuoto(self):
+        hits, _ = self._run(ProbeConfig("ledger", "dense"), chunks=[])
         assert hits == []
+
+    def test_la_profondita_la_decide_il_backend(self):
+        """`top_k` viaggia nella richiesta e non viene ri-tagliato qui: due
+        troncamenti sono due posti in cui sbagliare, e il secondo nasconde il
+        primo."""
+        chunks = [_chunk(f"ds:doc1:{i}") for i in range(3)]
+        hits, chiamata = self._run(ProbeConfig("ledger", "dense", top_k=3), chunks=chunks)
+        assert chiamata.call_args.kwargs["top_k"] == 3
+        assert len(hits) == 3
 
 
 # ---------------------------------------------------------------------------
@@ -230,26 +241,51 @@ class TestCompareHits:
 # ---------------------------------------------------------------------------
 
 class TestFetchChunksById:
-    def test_empty_input_skips_the_call(self):
-        client = MagicMock()
-        assert fetch_chunks_by_id(client, "ledger", []) == {}
-        client.scroll.assert_not_called()
+    def test_input_vuoto_non_chiama_niente(self):
+        with patch("dashboard.api_client.chunk") as chiamata:
+            assert fetch_chunks_by_id("ledger", []) == {}
+        chiamata.assert_not_called()
 
-    def test_maps_id_to_payload(self):
-        client = MagicMock()
-        client.scroll.return_value = ([_point("ds:d1:0")], None)
-        out = fetch_chunks_by_id(client, "ledger", ["ds:d1:0"])
+    def test_mappa_id_a_payload(self):
+        with patch("dashboard.api_client.chunk", return_value=_chunk("ds:d1:0")):
+            out = fetch_chunks_by_id("ledger", ["ds:d1:0"])
         assert out["ds:d1:0"]["chunk_id"] == "ds:d1:0"
 
-    def test_missing_id_simply_absent(self):
-        """An id the collection does not contain is the answer, not an error."""
-        client = MagicMock()
-        client.scroll.return_value = ([_point("ds:d1:0")], None)
-        out = fetch_chunks_by_id(client, "ledger", ["ds:d1:0", "ds:d9:0"])
-        assert "ds:d9:0" not in out
+    def test_un_id_assente_semplicemente_non_c_e(self):
+        """Un `chunk_id` d'oro che la collection non contiene **e' il dato**: e'
+        la differenza fra un retrieval sbagliato e un'etichetta sbagliata, e le
+        due chiedono correzioni opposte."""
+        def _chunk_o_niente(cid, collection=None):
+            return _chunk(cid) if cid == "ds:d1:0" else None
 
-    def test_queries_the_named_collection(self):
-        client = MagicMock()
-        client.scroll.return_value = ([], None)
-        fetch_chunks_by_id(client, "ledger_routed", ["x"])
-        assert client.scroll.call_args.kwargs["collection_name"] == "ledger_routed"
+        with patch("dashboard.api_client.chunk", side_effect=_chunk_o_niente):
+            out = fetch_chunks_by_id("ledger", ["ds:d1:0", "ds:d9:0"])
+        assert "ds:d9:0" not in out and "ds:d1:0" in out
+
+    def test_la_collection_arriva_al_backend(self):
+        with patch("dashboard.api_client.chunk", return_value=None) as chiamata:
+            fetch_chunks_by_id("ledger_routed", ["x"])
+        assert chiamata.call_args[0][1] == "ledger_routed"
+
+
+class TestDocOf:
+    """Il documento si legge dall'id, che e' il contratto del §3."""
+
+    def test_estrae_il_documento(self):
+        assert doc_of("ledger:NASDAQ_AAPL_2022:0031") == "NASDAQ_AAPL_2022"
+
+    def test_un_doc_id_con_i_due_punti_sopravvive(self):
+        assert doc_of("ds:doc:con:due:punti") == "doc"
+
+    def test_resta_d_accordo_con_l_implementazione_del_servizio(self):
+        """Due implementazioni della stessa regola devono dire la stessa cosa.
+
+        La dashboard non importa quella di `src.retrieval` — sarebbe l'unica
+        riga di pipeline rimasta — ma un test le lega, cosi' che se una cambia
+        l'altra non resti indietro in silenzio.
+        """
+        from src.retrieval.doc_aggregation import doc_id_from_chunk_id
+
+        for cid in ("ledger:NASDAQ_AAPL_2022:0031", "ds:doc:con:due:punti",
+                    "senza_due_punti", "a:b"):
+            assert doc_of(cid) == doc_id_from_chunk_id(cid), cid

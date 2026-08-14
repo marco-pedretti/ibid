@@ -41,7 +41,7 @@ from src.service.answer import (
     RetrieveRequest,
     TokenEvent,
 )
-from src.service.catalog import DatasetInfo
+from src.service.catalog import CollectionInfo, DatasetInfo
 
 # ---------------------------------------------------------------------------
 # Cosa si puo' chiedere
@@ -373,6 +373,27 @@ class RetrieveResponse(BaseModel):
     config: ConfigView
 
 
+class CollectionView(BaseModel):
+    """Una collection e la forma del suo indice.
+
+    `dense_size` c'è perché è la sola cosa che smaschera l'errore più silenzioso
+    possibile: un indice costruito con un modello di embedding diverso da quello
+    che lo interroga restituisce risultati plausibili e privi di senso, senza
+    nessun errore. `has_sparse` distingue una collection su cui `hybrid`
+    funziona da una su cui userebbe solo il ramo denso.
+    """
+
+    name: str
+    points: int
+    dense_size: int
+    has_sparse: bool
+
+    @classmethod
+    def of(cls, info: CollectionInfo) -> "CollectionView":
+        return cls(name=info.name, points=info.points,
+                   dense_size=info.dense_size, has_sparse=info.has_sparse)
+
+
 class DatasetView(BaseModel):
     """Un dataset interrogabile, e lo stato del suo indice (U-01).
 
@@ -490,3 +511,8 @@ class Capabilities(BaseModel):
     retrieval_modes: list[str] = list(RETRIEVAL_MODES)
     baseline_prompts: list[str] = list(BASELINE_PROMPTS)
     datasets: list[DatasetView] = []
+    #: Le collection che esistono sul server, non solo quelle del registro.
+    #: Comprende le varianti `_routed` di R-07 e quelle nate da un esperimento:
+    #: sono interrogabili passando `collection`, e uno strumento che non le vede
+    #: non può metterle a confronto con l'originale.
+    collections: list[CollectionView] = []

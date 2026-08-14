@@ -8,7 +8,7 @@ this module exists to prevent.
 
 from __future__ import annotations
 
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
 
 
 from dashboard.failure_store import (
@@ -45,11 +45,9 @@ def _outcome(retrieved: list[str], golden: tuple[str, ...] = ("ds:doc1:0",),
     )
 
 
-def _point(chunk_id: str, score: float = 0.9) -> MagicMock:
-    p = MagicMock()
-    p.payload = {"chunk_id": chunk_id, "text": "t"}
-    p.score = score
-    return p
+def _chunk(chunk_id: str, score: float = 0.9) -> dict:
+    """Un chunk come l'API lo consegna: un dizionario, non un punto di Qdrant."""
+    return {"chunk_id": chunk_id, "score": score, "text": "t"}
 
 
 # ---------------------------------------------------------------------------
@@ -188,68 +186,95 @@ class TestChunkIdMismatch:
 # ---------------------------------------------------------------------------
 
 class TestEvaluateQueries:
-    def _run(self, config, queries, hits_per_query=None, rerank_out=None):
-        hits = hits_per_query if hits_per_query is not None else [
-            [_point("ds:doc1:0"), _point("ds:doc2:0")] for _ in queries
+    """Cosa resta a questa funzione dopo A-06: il **punteggio**, non il recupero.
+
+    I test che verificavano il vettore usato, la profondita' del bacino e la
+    fusione RRF sono spariti insieme alla copia della pipeline che li
+    giustificava. Quel comportamento vive ora in `test_service_answer.py`, dove
+    c'e' una implementazione sola da verificare invece di due che devono
+    ricordarsi di essere d'accordo.
+    """
+
+    def _run(self, config, queries, per_query=None, batch=64):
+        risultati = per_query if per_query is not None else [
+            [_chunk("ds:doc1:0"), _chunk("ds:doc2:0")] for _ in queries
         ]
-        with patch("dashboard.failure_store.encode", return_value=[[0.1] * 1024] * len(queries)), \
-             patch("dashboard.failure_store.encode_sparse_query",
-                   return_value=[MagicMock()] * len(queries)), \
-             patch("dashboard.failure_store.search_batch", return_value=hits) as mock_sb, \
-             patch("dashboard.failure_store.cross_encode",
-                   return_value=rerank_out if rerank_out is not None else []):
-            out = evaluate_queries(MagicMock(), queries, config)
-        return out, mock_sb
 
-    def test_empty_queries_short_circuits(self):
-        assert evaluate_queries(MagicMock(), [], ProbeConfig("ledger")) == []
+        def _retrieve(testi, **kwargs):
+            # Il finto backend risponde per la fetta che ha ricevuto, cosi' il
+            # batching e' osservabile invece che assunto.
+            n = len(testi)
+            fuori, self._offset = risultati[self._offset:self._offset + n], self._offset + n
+            return fuori
 
-    def test_one_outcome_per_query(self):
+        self._offset = 0
+        with patch("dashboard.api_client.retrieve", side_effect=_retrieve) as chiamata:
+            out = evaluate_queries(queries, config, batch=batch)
+        return out, chiamata
+
+    def test_nessuna_query_non_chiama_il_backend(self):
+        with patch("dashboard.api_client.retrieve") as chiamata:
+            assert evaluate_queries([], ProbeConfig("ledger")) == []
+        chiamata.assert_not_called()
+
+    def test_un_esito_per_query(self):
         queries = [_query(f"q{i}") for i in range(3)]
         out, _ = self._run(ProbeConfig("ledger", "dense"), queries)
         assert len(out) == 3
 
-    def test_single_batched_search_not_one_per_query(self):
-        """Per-query round trips make the page unusable on DirectML."""
+    def test_un_solo_viaggio_per_batch_non_uno_per_query(self):
+        """E' la ragione per cui `/retrieve` accetta una lista: 20 viaggi di
+        rete con 20 passate di embedding renderebbero la pagina inusabile."""
         queries = [_query(f"q{i}") for i in range(20)]
-        _, mock_sb = self._run(ProbeConfig("ledger", "dense"), queries)
-        assert mock_sb.call_count == 1
+        _, chiamata = self._run(ProbeConfig("ledger", "dense"), queries)
+        assert chiamata.call_count == 1
+        assert len(chiamata.call_args[0][0]) == 20
 
-    def test_queries_the_named_collection(self):
-        _, mock_sb = self._run(ProbeConfig("ledger_routed", "dense"), [_query()])
-        assert mock_sb.call_args[0][1] == "ledger_routed"
+    def test_batch_grandi_si_spezzano(self):
+        """Due ragioni che vanno insieme: l'avanzamento diventa visibile mentre
+        gira, e un blocco che fallisce non porta via i precedenti."""
+        queries = [_query(f"q{i}") for i in range(10)]
+        _, chiamata = self._run(ProbeConfig("ledger", "dense"), queries, batch=4)
+        assert chiamata.call_count == 3
+        assert [len(c[0][0]) for c in chiamata.call_args_list] == [4, 4, 2]
 
-    def test_sparse_mode_routed(self):
-        _, mock_sb = self._run(ProbeConfig("ledger", "sparse"), [_query()])
-        assert mock_sb.call_args.kwargs["using"] == "sparse"
+    def test_la_configurazione_arriva_al_backend(self):
+        _, chiamata = self._run(
+            ProbeConfig("ledger_routed", "sparse", rerank=True, top_k=7), [_query()]
+        )
+        kw = chiamata.call_args.kwargs
+        assert kw["collection"] == "ledger_routed"
+        assert kw["retrieval_mode"] == "sparse"
+        assert kw["rerank"] is True
+        assert kw["top_k"] == 7
 
-    def test_hybrid_hits_both_indexes(self):
-        _, mock_sb = self._run(ProbeConfig("ledger", "hybrid"), [_query()])
-        usings = [c.kwargs["using"] for c in mock_sb.call_args_list]
-        assert set(usings) == {"dense", "sparse"}
-
-    def test_truncates_to_top_k(self):
-        hits = [[_point(f"ds:doc1:{i}") for i in range(10)]]
-        out, _ = self._run(ProbeConfig("ledger", "dense", top_k=3), [_query()], hits)
-        assert len(out[0].retrieved_ids) == 3
-
-    def test_recall_computed(self):
+    def test_il_recall_viene_calcolato(self):
         out, _ = self._run(ProbeConfig("ledger", "dense"), [_query()])
         assert out[0].recall == 1.0
 
-    def test_progress_callback_fires_per_query(self):
-        seen = []
-        queries = [_query(f"q{i}") for i in range(3)]
-        with patch("dashboard.failure_store.encode", return_value=[[0.1] * 1024] * 3), \
-             patch("dashboard.failure_store.search_batch",
-                   return_value=[[_point("ds:doc1:0")]] * 3):
-            evaluate_queries(MagicMock(), queries, ProbeConfig("ledger"),
-                             on_progress=lambda i, n: seen.append((i, n)))
-        assert seen == [(1, 3), (2, 3), (3, 3)]
-
-    def test_rerank_replaces_ranking(self):
+    def test_le_query_restano_appaiate_ai_loro_risultati(self):
+        """Un risultato vuoto occupa comunque il suo posto: saltarlo farebbe
+        scivolare ogni query successiva sul risultato di un'altra."""
+        queries = [_query("q0", ("ds:doc1:0",)), _query("q1", ("ds:doc2:0",))]
         out, _ = self._run(
-            ProbeConfig("ledger", "dense", rerank=True, top_k=1), [_query()],
-            rerank_out=[_point("ds:doc5:0", 9.0)],
+            ProbeConfig("ledger", "dense"), queries,
+            per_query=[[], [_chunk("ds:doc2:0")]],
         )
-        assert out[0].retrieved_ids == ["ds:doc5:0"]
+        assert out[0].query.query_id == "q0" and out[0].retrieved_ids == []
+        assert out[1].query.query_id == "q1" and out[1].recall == 1.0
+
+    def test_l_avanzamento_si_vede(self):
+        queries = [_query(f"q{i}") for i in range(6)]
+        visti = []
+        self._offset = 0
+        risultati = [[_chunk("ds:doc1:0")] for _ in queries]
+
+        def _retrieve(testi, **kwargs):
+            n = len(testi)
+            fuori, self._offset = risultati[self._offset:self._offset + n], self._offset + n
+            return fuori
+
+        with patch("dashboard.api_client.retrieve", side_effect=_retrieve):
+            evaluate_queries(queries, ProbeConfig("ledger"), batch=2,
+                             on_progress=lambda i, n: visti.append((i, n)))
+        assert visti == [(2, 6), (4, 6), (6, 6)]

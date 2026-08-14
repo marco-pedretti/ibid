@@ -10,9 +10,9 @@ import re
 
 
 from src.datasets.schema import Chunk
+from src.ingestion.ocr_tables import split_segments
 from src.ingestion.pipeline_table_heavy import (
     _first_heading,
-    _split_segments,
     chunk_document,
 )
 
@@ -33,21 +33,21 @@ def _no_truncated_tables(chunks: list[Chunk]) -> bool:
     return True
 
 
-# --- _split_segments ---
+# --- split_segments (da A-06 in ocr_tables) ---
 
 def test_split_no_table():
-    segs = _split_segments("Just plain text.")
+    segs = split_segments("Just plain text.")
     assert segs == [("text", "Just plain text.")]
 
 
 def test_split_only_table():
-    segs = _split_segments(TABLE_SIMPLE)
+    segs = split_segments(TABLE_SIMPLE)
     assert segs == [("table", TABLE_SIMPLE)]
 
 
 def test_split_text_then_table():
     page = f"Intro paragraph.\n\n{TABLE_SIMPLE}"
-    segs = _split_segments(page)
+    segs = split_segments(page)
     assert segs[0] == ("text", "Intro paragraph.")
     assert segs[1][0] == "table"
     assert "<table" in segs[1][1]
@@ -55,34 +55,34 @@ def test_split_text_then_table():
 
 def test_split_table_then_text():
     page = f"{TABLE_SIMPLE}\n\nFootnote text."
-    segs = _split_segments(page)
+    segs = split_segments(page)
     assert segs[0][0] == "table"
     assert segs[1] == ("text", "Footnote text.")
 
 
 def test_split_two_tables():
     page = f"{TABLE_SIMPLE}\n\n{TABLE_ATTR}"
-    segs = _split_segments(page)
+    segs = split_segments(page)
     tables = [s for s in segs if s[0] == "table"]
     assert len(tables) == 2
 
 
 def test_split_text_table_text():
     page = f"Header.\n\n{TABLE_SIMPLE}\n\nFooter."
-    segs = _split_segments(page)
+    segs = split_segments(page)
     kinds = [k for k, _ in segs]
     assert kinds == ["text", "table", "text"]
 
 
 def test_split_discards_empty_segments():
     page = f"{TABLE_SIMPLE}{TABLE_ATTR}"  # no text between them
-    segs = _split_segments(page)
+    segs = split_segments(page)
     assert all(k == "table" for k, _ in segs)
     assert len(segs) == 2
 
 
 def test_split_table_with_attributes():
-    segs = _split_segments(TABLE_ATTR)
+    segs = split_segments(TABLE_ATTR)
     assert segs[0][0] == "table"
     assert "EBITDA" in segs[0][1]
 

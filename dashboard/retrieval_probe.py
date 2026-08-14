@@ -1,14 +1,19 @@
 """Single-query retrieval, for interactive debugging.
 
-Why this is not `src/eval/harness.py`: the harness embeds thousands of queries
-in one batch, streams progress, and reports IR metrics.  The dashboard needs the
-opposite — one query, every intermediate result kept, no metrics.  Sharing the
-code would mean bending the harness around a case it does not have.
+Da A-06 **non esegue più il recupero**: lo chiede al backend. Quel che resta qui
+è ciò che il backend non fa e non deve fare — mettere due risultati uno accanto
+all'altro e dire in cosa differiscono.
 
-What it does share is the *ordering semantics* (RRF fusion parameters, rerank
-fetch depth), so that what you see here is what the eval measured.  Those come
-from `src.config`, not from local constants — if they ever diverge, the config
-is the bug.
+Prima c'era una copia della pipeline: embedding, fusione RRF, cross-encoder,
+tutto riscritto. Il commento in cima diceva che i parametri venivano da
+`src.config` «così che quello che vedi qui sia quello che l'eval ha misurato»,
+e la buona intenzione non bastava — dopo A-02 la configurazione di richiesta ha
+smesso di stare in `cfg`, e questa copia continuava a leggerla da lì. Aveva già
+smesso di misurare la stessa cosa, e nessun test poteva accorgersene perché
+verificava la copia contro sé stessa.
+
+`ProbeConfig` sopravvive perché è la *domanda* — quale collection, quale
+modalità, quanto in profondità — e la domanda resta della dashboard.
 
 No Streamlit import: testable without a running app.
 """
@@ -18,12 +23,12 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any
 
-import src.config as cfg
-from src.index.embed import encode, encode_sparse_query
-from src.index.store import search
-from src.retrieval.hybrid import rrf_fuse
-from src.retrieval.reranker import rerank as cross_encode
+from dashboard import api_client
 
+#: Le modalità che il backend accetta. Il default esiste perché la dashboard
+#: deve poter disegnare i suoi controlli **prima** di aver parlato col backend;
+#: `capabilities().retrieval_modes` è la risposta vera, e `views/playground.py`
+#: la usa quando ce l'ha.
 RETRIEVAL_MODES = ("dense", "sparse", "hybrid")
 
 
@@ -51,14 +56,16 @@ class ProbeHit:
     payload: dict[str, Any]
 
 
-def list_collections(client) -> list[str]:
-    """Collection names present in Qdrant, sorted.
+def list_collections() -> list[str]:
+    """Le collection presenti sul server, ordinate.
 
-    The dashboard used to hardcode ["open_ragbench", "ledger"], which made the
-    R-07 `*_routed` collections unreachable from the only tool built to inspect
-    them.  Ask the server instead.
+    La dashboard aveva `["open_ragbench", "ledger"]` scritto a mano, il che
+    rendeva irraggiungibili le collection `*_routed` di R-07 proprio dall'unico
+    strumento costruito per ispezionarle. Poi lo chiedeva a Qdrant per conto
+    suo; ora lo chiede al backend, che è l'unico che deve sapere dove sta
+    Qdrant.
     """
-    return sorted(c.name for c in client.get_collections().collections)
+    return api_client.capabilities().collections
 
 
 def dataset_of_collection(collection: str, known_datasets: tuple[str, ...]) -> str:
@@ -73,99 +80,48 @@ def dataset_of_collection(collection: str, known_datasets: tuple[str, ...]) -> s
     return collection
 
 
-def fetch_chunks_by_id(client, collection: str, chunk_ids: list[str]) -> dict[str, dict]:
-    """Look up chunk payloads by their `chunk_id` field.
+def fetch_chunks_by_id(collection: str, chunk_ids: list[str]) -> dict[str, dict]:
+    """I payload dei chunk d'oro, per id.
 
-    Needed to show what the qrels actually point at.  Showing only the id (as
-    the old golden browser did) makes it impossible to tell a bad retrieval from
-    a bad label — the two demand opposite fixes.
+    Serve a mostrare cosa i qrels indicano davvero. Mostrare solo l'id — come
+    faceva il vecchio browser del golden set — rende impossibile distinguere un
+    retrieval sbagliato da un'etichetta sbagliata, e le due chiedono correzioni
+    opposte.
 
-    Returns {chunk_id: payload}; ids absent from the collection are simply
-    missing from the result, which is itself the answer when a golden chunk_id
-    does not exist in the collection being queried.
+    Gli id assenti mancano dal risultato, il che è **esso stesso la risposta**
+    quando un `chunk_id` d'oro non esiste nella collection interrogata.
     """
-    from qdrant_client.models import FieldCondition, Filter, MatchAny
-
-    if not chunk_ids:
-        return {}
-    points, _ = client.scroll(
-        collection_name=collection,
-        scroll_filter=Filter(
-            must=[FieldCondition(key="chunk_id", match=MatchAny(any=list(chunk_ids)))]
-        ),
-        limit=len(chunk_ids),
-        with_payload=True,
-    )
-    return {(p.payload or {}).get("chunk_id", ""): (p.payload or {}) for p in points}
+    return api_client.chunks(chunk_ids, collection)
 
 
-def _to_hits(points: list, start_rank: int = 1) -> list[ProbeHit]:
+def _hits_from(risultato: list[dict]) -> list[ProbeHit]:
+    """La risposta dell'API nella forma che le viste già disegnano.
+
+    Il rango non arriva dal filo: è la posizione nella lista. L'API restituisce
+    i chunk **in ordine**, e numerarli qui evita di dover credere a un campo che
+    potrebbe contraddire l'ordine in cui sono arrivati.
+    """
     return [
-        ProbeHit(
-            rank=start_rank + i,
-            chunk_id=(p.payload or {}).get("chunk_id", ""),
-            score=p.score,
-            payload=p.payload or {},
-        )
-        for i, p in enumerate(points)
+        ProbeHit(rank=i, chunk_id=c["chunk_id"], score=c["score"], payload=c)
+        for i, c in enumerate(risultato, 1)
     ]
 
 
-def probe(client, query_text: str, config: ProbeConfig) -> list[ProbeHit]:
-    """Run one query against one collection and return ranked hits.
+def probe(query_text: str, config: ProbeConfig) -> list[ProbeHit]:
+    """Una query contro una collection, dal backend.
 
-    Mirrors the harness paths: sparse uses BM25, hybrid fuses dense+sparse with
-    RRF, and reranking re-scores a deeper candidate pool before truncation.
+    Non c'è più un `client` fra i parametri: chi interroga Qdrant è il servizio,
+    e questa è la differenza fra uno strumento che *usa* il sistema e uno che lo
+    **reimplementa**.
     """
-    fetch_k = max(cfg.RERANK_FETCH_K, config.top_k) if config.rerank else config.top_k
-
-    if config.retrieval_mode == "hybrid":
-        hybrid_fetch = max(cfg.HYBRID_FETCH_K, fetch_k)
-        dense_vec = encode([query_text], cfg.EMBEDDING_MODEL, batch_size=1)[0]
-        sparse_vec = encode_sparse_query([query_text], cfg.SPARSE_EMBEDDING_MODEL)[0]
-        dense_pts = search(client, config.collection, dense_vec, top_k=hybrid_fetch, using="dense")
-        sparse_pts = search(client, config.collection, sparse_vec, top_k=hybrid_fetch, using="sparse")
-        payload_map = {
-            (p.payload or {}).get("chunk_id", ""): (p.payload or {})
-            for p in list(dense_pts) + list(sparse_pts)
-        }
-        fused = rrf_fuse(
-            [
-                [(p.payload or {}).get("chunk_id", "") for p in dense_pts],
-                [(p.payload or {}).get("chunk_id", "") for p in sparse_pts],
-            ],
-            k=cfg.RRF_K,
-            top_n=fetch_k,
-        )
-        hits = [
-            ProbeHit(rank=i, chunk_id=cid, score=score, payload=payload_map.get(cid, {}))
-            for i, (cid, score) in enumerate(fused, 1)
-        ]
-    else:
-        if config.retrieval_mode == "sparse":
-            vec = encode_sparse_query([query_text], cfg.SPARSE_EMBEDDING_MODEL)[0]
-        else:
-            vec = encode([query_text], cfg.EMBEDDING_MODEL, batch_size=1)[0]
-        points = search(
-            client, config.collection, vec, top_k=fetch_k, using=config.retrieval_mode
-        )
-        hits = _to_hits(list(points))
-
-    if config.rerank:
-        reranked = cross_encode(
-            query_text, [h.payload for h in hits], cfg.RERANKER_MODEL, top_n=config.top_k
-        )
-        hits = [
-            ProbeHit(
-                rank=i,
-                chunk_id=(r.payload or {}).get("chunk_id", ""),
-                score=r.score,
-                payload=r.payload or {},
-            )
-            for i, r in enumerate(reranked, 1)
-        ]
-
-    return hits[: config.top_k]
+    [risultato] = api_client.retrieve(
+        [query_text],
+        collection=config.collection,
+        top_k=config.top_k,
+        retrieval_mode=config.retrieval_mode,
+        rerank=config.rerank,
+    )
+    return _hits_from(risultato)
 
 
 @dataclass
@@ -180,10 +136,21 @@ class ProbeComparison:
     doc_jaccard: float
 
 
-def _doc_of(chunk_id: str) -> str:
-    from src.retrieval.doc_aggregation import doc_id_from_chunk_id
+def doc_of(chunk_id: str) -> str:
+    """Il documento da cui un chunk viene, letto dal suo id.
 
-    return doc_id_from_chunk_id(chunk_id)
+    Lo schema del §3 impone `{dataset_id}:{doc_id}:{seq}`, quindi il documento è
+    già dentro l'identificativo. `split(":", 2)` e non `split(":")` perché un
+    `doc_id` può contenere i due punti — è la stessa cautela di
+    `doc_id_from_chunk_id` in `src/retrieval/`, e le due devono restare
+    d'accordo: un test lega le due implementazioni.
+
+    Perché non importare quella: sarebbe l'unica riga di pipeline rimasta in
+    questo file, per una funzione che è **il contratto degli identificativi** e
+    non una decisione di recupero. Vedi la nota su A-06 in ROADMAP §12.
+    """
+    parti = chunk_id.split(":", 2)
+    return parti[1] if len(parti) >= 2 else chunk_id
 
 
 def compare_hits(a: list[ProbeHit], b: list[ProbeHit]) -> ProbeComparison:
@@ -197,8 +164,8 @@ def compare_hits(a: list[ProbeHit], b: list[ProbeHit]) -> ProbeComparison:
     ids_a = [h.chunk_id for h in a]
     ids_b = [h.chunk_id for h in b]
     set_a, set_b = set(ids_a), set(ids_b)
-    docs_a = {_doc_of(c) for c in ids_a if c}
-    docs_b = {_doc_of(c) for c in ids_b if c}
+    docs_a = {doc_of(c) for c in ids_a if c}
+    docs_b = {doc_of(c) for c in ids_b if c}
 
     def _jac(x: set, y: set) -> float:
         union = x | y

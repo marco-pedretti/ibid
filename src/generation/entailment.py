@@ -38,7 +38,7 @@ from tokenizers import Tokenizer
 
 import src.config as cfg
 from src.ingestion.ocr_tables import parse_html_table
-from src.ingestion.pipeline_table_heavy import _split_segments
+from src.ingestion.ocr_tables import split_segments
 
 from src.providers import onnx_providers
 
@@ -203,7 +203,7 @@ def render_tables(text: str) -> str:
     contro 129), che non e' una ragione sufficiente.
     """
     out: list[str] = []
-    for kind, segment in _split_segments(text):
+    for kind, segment in split_segments(text):
         if kind != "table":
             out.append(segment)
             continue

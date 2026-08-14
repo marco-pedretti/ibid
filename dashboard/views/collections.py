@@ -1,64 +1,77 @@
-"""Collection Stats — what is actually indexed in Qdrant."""
+"""Collection Stats — cosa è indicizzato, letto dal backend.
+
+Prima di A-06 questa pagina apriva un client Qdrant e ne leggeva la
+configurazione interna. Era la vista che più somigliava a una console di
+amministrazione di un altro servizio — e Qdrant la sua console ce l'ha già,
+su `:6333/dashboard`.
+
+Quel che resta è ciò che riguarda **questo** sistema: quanti chunk ci sono, con
+che dimensione di vettore sono stati costruiti, e se la collection ha anche
+l'indice sparso. Sono i tre fatti che dicono se l'indice è quello che si crede,
+ed è il motivo per cui `/datasets` li riporta.
+"""
 
 from __future__ import annotations
 
 import pandas as pd
 import streamlit as st
 
-import src.config as cfg
+from dashboard import api_client
 from dashboard.components import dataframe
-from dashboard.state import GOLDEN_DIR, client
-
-
-def _render_collection(qc, name: str) -> None:
-    with st.expander(f"**{name}**", expanded=True):
-        try:
-            info = qc.get_collection(name)
-        except Exception as e:
-            st.error(f"Errore per collection `{name}`: {e}")
-            return
-
-        points = info.points_count or 0
-        vectors = getattr(info, "vectors_count", None)
-        c = st.columns(2)
-        c[0].metric("Punti (chunk)", f"{points:,}")
-        c[1].metric("Vettori totali", f"{vectors:,}" if vectors is not None else "—")
-
-        vconf = info.config.params.vectors
-        if isinstance(vconf, dict):
-            rows = [
-                {
-                    "nome": vname,
-                    "dimensione": getattr(vparams, "size", "—"),
-                    "distanza": str(getattr(vparams, "distance", "—")),
-                }
-                for vname, vparams in vconf.items()
-            ]
-            if rows:
-                dataframe(pd.DataFrame(rows), hide_index=True)
-
-        sparse = getattr(info.config.params, "sparse_vectors", None)
-        if sparse:
-            st.write(f"**Sparse vectors:** {list(sparse.keys())}")
+from dashboard.state import GOLDEN_DIR, capabilities
 
 
 def render() -> None:
     st.title("Collection Stats")
-    st.caption(f"Qdrant: `{cfg.QDRANT_URL}`")
+    st.caption(f"Backend: `{api_client.BASE_URL}`")
 
-    try:
-        qc = client()
-        cols = qc.get_collections().collections
-    except Exception as e:
-        st.error(f"Impossibile connettersi a Qdrant: {e}")
+    caps = capabilities()
+    if caps is None:
+        st.error(
+            f"Il backend non risponde su `{api_client.BASE_URL}`.\n\n"
+            "Avvialo con `make api-local` (oppure `make api` in container), "
+            "o imposta `IBID_API_URL` se gira altrove."
+        )
         st.stop()
 
-    if not cols:
+    if not caps.collections:
         st.warning("Nessuna collection trovata. Esegui `make ingest` per indicizzare.")
         st.stop()
 
-    for info in sorted(cols, key=lambda c: c.name):
-        _render_collection(qc, info.name)
+    #: I dataset del registro, per marcare quali collection sono "quelle note".
+    del_registro = set(caps.dataset_ids)
+
+    dataframe(
+        pd.DataFrame([
+            {
+                "collection": c["name"],
+                "nel registro": "sì" if c["name"] in del_registro else "—",
+                "punti": f"{c['points']:,}",
+                "dim. densa": c["dense_size"],
+                "sparso": "sì" if c["has_sparse"] else "**no**",
+            }
+            for c in caps.collections
+        ]),
+        hide_index=True,
+    )
+
+    # Una dimensione diversa fra due collection è l'errore più silenzioso
+    # possibile: interrogare un indice con un embedder diverso da quello che
+    # l'ha costruito restituisce risultati plausibili e privi di senso.
+    dimensioni = {c["dense_size"] for c in caps.collections if c["dense_size"]}
+    if len(dimensioni) > 1:
+        st.warning(
+            f"Dimensioni dense diverse fra collection: {sorted(dimensioni)}. "
+            "Sono state costruite con modelli di embedding diversi, e non sono "
+            "confrontabili fra loro."
+        )
+
+    senza_sparso = [c["name"] for c in caps.collections if not c["has_sparse"]]
+    if senza_sparso:
+        st.caption(
+            "Senza indice sparso (su queste `hybrid` userebbe solo il ramo denso): "
+            + ", ".join(f"`{n}`" for n in senza_sparso)
+        )
 
     st.divider()
     st.caption("File golden disponibili:")

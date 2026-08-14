@@ -1,8 +1,21 @@
-"""Shared paths, cached loaders and the Qdrant client.
+"""Percorsi condivisi, caricatori in cache, e il backend.
 
-Everything that must exist exactly once per session lives here, so the view
-modules can import it without each building its own client or re-reading
-eval/results from disk on every rerun.
+Tutto ciò che deve esistere una volta sola per sessione sta qui, così le viste
+possono importarlo senza che ognuna rilegga `eval/results` a ogni rerun.
+
+**Da A-06 non c'è più un client Qdrant.** C'era, ed era il segno che la
+dashboard non era un consumatore del sistema ma un secondo backend: apriva la
+connessione al database, embeddava le query, fondeva i risultati. Ora chiede, e
+chi sa dove sta Qdrant è il servizio.
+
+Le due categorie di dati che la dashboard maneggia restano **distinte di
+proposito**, ed è la ragione per cui `src.` non è sparito del tutto da questo
+pacchetto:
+
+- **le misure** — `eval/results/`, `eval/golden/` — sono file locali, letti col
+  loro contratto dati. L'API non le serve, e non deve: la Fase 7 espone il
+  sistema, non l'archivio degli esperimenti;
+- **il sistema** — recupero, chunk, collection — passa dall'API, sempre.
 """
 
 from __future__ import annotations
@@ -11,17 +24,14 @@ from pathlib import Path
 
 import streamlit as st
 
-import src.config as cfg
+from dashboard import api_client
 from dashboard.eval_store import load_eval_runs, load_noise_floors
 from dashboard.golden_store import load_golden_queries
-from dashboard.retrieval_probe import ProbeConfig, ProbeHit, list_collections, probe
+from dashboard.retrieval_probe import ProbeConfig, ProbeHit, probe
 
 ROOT = Path(__file__).parent.parent
 RESULTS_DIR = ROOT / "eval" / "results"
 GOLDEN_DIR = ROOT / "eval" / "golden"
-
-#: Datasets with a golden set. Used to map a collection back to its qrels.
-KNOWN_DATASETS = ("open_ragbench", "ledger")
 
 PAGES = (
     "EvalRun Comparator",
@@ -46,26 +56,36 @@ def load_floors() -> list:
     return load_noise_floors(RESULTS_DIR)
 
 
-@st.cache_resource(show_spinner=False)
-def client():
-    """One Qdrant client for the session, not one per query."""
-    from src.index.store import get_client
-
-    return get_client(cfg.QDRANT_URL)
-
-
 @st.cache_data(show_spinner=False, ttl=30)
-def collections() -> list[str]:
-    """Collection names from the live server; empty list when unreachable.
+def capabilities():
+    """Cosa il backend accetta: dataset, collection, modalità.
 
-    Short TTL so a collection created while the dashboard is open shows up
-    without a restart.
+    TTL breve perché una collection creata mentre la dashboard è aperta compaia
+    senza riavviare. `None` quando il backend non risponde — una risposta che le
+    viste devono poter disegnare, non un'eccezione che le interrompe.
     """
     try:
-        return list_collections(client())
-    except Exception:
-        return []
+        return api_client.capabilities()
+    except (api_client.ApiError, api_client.ApiUnreachable):
+        return None
+
+
+def collections() -> list[str]:
+    """I nomi delle collection interrogabili; lista vuota se il backend tace."""
+    caps = capabilities()
+    return [c["name"] for c in caps.collections] if caps else []
+
+
+def known_datasets() -> tuple[str, ...]:
+    """I dataset con un golden set, **chiesti al backend**.
+
+    Erano `("open_ragbench", "ledger")` scritti a mano qui: la quindicesima
+    copia di quella lista, in un file che Q-06 non poteva raggiungere perché
+    non è uno script.
+    """
+    caps = capabilities()
+    return caps.dataset_ids if caps else ()
 
 
 def run_probe(query_text: str, conf: ProbeConfig) -> list[ProbeHit]:
-    return probe(client(), query_text, conf)
+    return probe(query_text, conf)

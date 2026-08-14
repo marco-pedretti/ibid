@@ -9,7 +9,8 @@ from __future__ import annotations
 
 import streamlit as st
 
-import src.config as cfg
+from dashboard import api_client
+from dashboard.api_client import DEFAULT_TOP_K
 from dashboard.components import render_hits
 from dashboard.golden_store import example_queries
 from dashboard.retrieval_probe import (
@@ -18,7 +19,7 @@ from dashboard.retrieval_probe import (
     compare_hits,
     dataset_of_collection,
 )
-from dashboard.state import KNOWN_DATASETS, collections, load_golden, run_probe
+from dashboard.state import collections, known_datasets, load_golden, run_probe
 
 FREE = "— inserisci query libera —"
 
@@ -49,7 +50,7 @@ def _render_single_tab(colls: list[str], top_k: int, query_text: str) -> None:
         try:
             render_hits(run_probe(query_text, conf))
         except Exception as e:
-            st.error(f"Errore: {e}\n\nQdrant su `{cfg.QDRANT_URL}`?")
+            st.error(f"Errore: {e}\n\nIl backend risponde su `{api_client.BASE_URL}`?")
 
 
 def _render_ab_tab(colls: list[str], top_k: int, query_text: str) -> None:
@@ -111,14 +112,14 @@ def render() -> None:
     colls = collections()
     if not colls:
         st.error(
-            f"Nessuna collection su `{cfg.QDRANT_URL}`. "
+            f"Nessuna collection dal backend su `{api_client.BASE_URL}`. "
             "Avvia Qdrant e lancia `make ingest`."
         )
         st.stop()
 
-    top_k = st.sidebar.slider("Top-k", min_value=1, max_value=20, value=cfg.TOP_K)
+    top_k = st.sidebar.slider("Top-k", min_value=1, max_value=20, value=DEFAULT_TOP_K)
 
-    dataset = dataset_of_collection(colls[0], KNOWN_DATASETS)
+    dataset = dataset_of_collection(colls[0], known_datasets())
     with st.spinner("Carico esempi dal golden set…"):
         golden = load_golden(dataset)
     examples = example_queries(golden, n=6)

@@ -23,6 +23,7 @@ from src.api.schema import (
     AnswerResponse,
     Capabilities,
     ChunkView,
+    CollectionView,
     ConfigView,
     DatasetView,
     ErrorEvent,
@@ -36,6 +37,7 @@ from src.service import (
     answer,
     answer_stream,
     chunk,
+    collections,
     dataset_of,
     datasets,
     retrieve_chunks,
@@ -70,7 +72,10 @@ def list_datasets() -> Capabilities:
     scritta a mano di quella lista, che e' esattamente cio' che Q-06 ha tolto di
     mezzo dal lato Python.
     """
-    return Capabilities(datasets=[DatasetView.of(d) for d in datasets()])
+    return Capabilities(
+        datasets=[DatasetView.of(d) for d in datasets()],
+        collections=[CollectionView.of(c) for c in collections()],
+    )
 
 
 @app.get("/chunk/{chunk_id:path}", response_model=ChunkView)

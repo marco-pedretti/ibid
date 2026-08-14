@@ -51,7 +51,7 @@ from qdrant_client import models
 from src.index.store import get_client
 from src.generation.numeric_verify import Outcome, verify_numeric
 from src.ingestion.ocr_tables import parse_html_table
-from src.ingestion.pipeline_table_heavy import _split_segments
+from src.ingestion.ocr_tables import split_segments
 
 DEFAULT = ROOT / "eval" / "results" / "verdicts" / "20260812_133954_ledger.jsonl"
 
@@ -109,7 +109,7 @@ def cells_by_number(chunk_text: str) -> dict[str, list[tuple[str, str | None]]]:
     `None` quando la tabella non espone una riga di anni riconoscibile.
     """
     out: dict[str, list[tuple[str, str | None]]] = {}
-    for kind, seg in _split_segments(chunk_text):
+    for kind, seg in split_segments(chunk_text):
         if kind != "table":
             continue
         rows = parse_html_table(seg)
