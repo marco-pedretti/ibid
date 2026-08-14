@@ -45,7 +45,7 @@ from qdrant_client.models import (
     Modifier,
     SparseVectorParams,
 )
-from src.eval.retrieval_backends import RETRIEVERS
+from src.retrieval.backends import RETRIEVERS
 from src.index.store import get_client
 
 

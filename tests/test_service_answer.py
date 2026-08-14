@@ -13,7 +13,7 @@ from pathlib import Path
 
 import pytest
 import src.config as cfg
-from src.eval.retrieval_backends import Candidates
+from src.retrieval.backends import Candidates
 from src.generation.chat import Completion
 from src.generation.entailment import Verdict
 from src.generation.prompt import ABSTENTION_ANSWER
@@ -310,7 +310,7 @@ PIPELINE_MODULES = (
     "src.index.store",
     "src.retrieval",
     "src.generation",
-    "src.eval.retrieval_backends",
+    "src.retrieval.backends",
 )
 
 

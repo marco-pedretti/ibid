@@ -33,7 +33,7 @@ sys.path.insert(0, str(ROOT))
 
 import src.config as cfg
 from src.datasets import registry
-from src.eval.retrieval_backends import RETRIEVERS
+from src.retrieval.backends import RETRIEVERS
 from src.index.store import get_client
 
 #: Answerable queries used to derive the threshold, and a disjoint set of the

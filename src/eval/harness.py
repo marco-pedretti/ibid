@@ -24,7 +24,7 @@ from src.eval.metrics import (
 )
 from src.eval.dump import JsonlWriter
 from src.eval.provenance import git_commit, load_golden
-from src.eval.retrieval_backends import RETRIEVERS
+from src.retrieval.backends import RETRIEVERS
 from src.eval.run_config import build_config, make_eval_run
 from src.index.store import get_client
 import ir_measures

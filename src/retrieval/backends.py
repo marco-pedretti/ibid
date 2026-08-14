@@ -7,6 +7,12 @@ harness needs the same candidates — with their payloads — to build a prompt.
 
 `Candidates` is what every mode returns, so whatever follows retrieval (metric
 scoring, reranking, prompt building) is written once instead of once per mode.
+
+**Stava in `src/eval/`, ed e' stato spostato qui da A-02.** La collocazione
+descriveva il primo chiamante, non la funzione: questo *e'* il retrieval, e da
+A-01 lo attraversa anche il percorso di servizio.  Una richiesta HTTP che per
+recuperare dei chunk deve passare dal pacchetto di valutazione ha il verso delle
+dipendenze rovesciato — la valutazione consuma la pipeline, non viceversa.
 """
 
 from __future__ import annotations

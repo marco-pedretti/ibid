@@ -25,7 +25,7 @@ from dataclasses import dataclass, field
 import src.config as cfg
 from src.datasets.schema import Chunk
 from src.eval.citation_metrics import verify_answer
-from src.eval.retrieval_backends import RETRIEVERS
+from src.retrieval.backends import RETRIEVERS
 from src.generation.chat import Completion, generate_detailed
 from src.generation.citation_format import is_abstention
 from src.generation.citations import extract_cited, parse

@@ -51,7 +51,7 @@ import src.config as cfg
 from src.eval.run_config import make_eval_run
 from src.datasets import registry
 from src.eval.provenance import git_commit
-from src.eval.retrieval_backends import RETRIEVERS
+from src.retrieval.backends import RETRIEVERS
 from src.generation.chat import generate_detailed
 from src.generation.citation_format import is_abstention
 from src.generation.prompt import SYSTEM, build_user_message

@@ -40,7 +40,7 @@ sys.path.insert(0, str(ROOT))
 
 import src.config as cfg
 from src.datasets import registry
-from src.eval.retrieval_backends import RETRIEVERS
+from src.retrieval.backends import RETRIEVERS
 from src.generation.chat import generate_detailed
 from src.generation.citation_format import check_format
 from src.generation.language import UNKNOWN, detect, profile

@@ -137,8 +137,8 @@ class TestRerankerHarness:
         hit = _fake_hit("open_ragbench:doc1:0")
 
         with patch("src.eval.harness.get_client"), \
-             patch("src.eval.retrieval_backends.encode", return_value=[[0.1] * 1024]), \
-             patch("src.eval.retrieval_backends.search_batch", return_value=[[hit]]):
+             patch("src.retrieval.backends.encode", return_value=[[0.1] * 1024]), \
+             patch("src.retrieval.backends.search_batch", return_value=[[hit]]):
             return run_retrieval_eval(
                 "open_ragbench", path,
                 retrieval_mode="dense",
@@ -183,8 +183,8 @@ class TestRerankerHarness:
         mock_result.score = 0.9
 
         with patch("src.eval.harness.get_client"), \
-             patch("src.eval.retrieval_backends.encode", return_value=[[0.1] * 1024]), \
-             patch("src.eval.retrieval_backends.search_batch", return_value=[[hit]]), \
+             patch("src.retrieval.backends.encode", return_value=[[0.1] * 1024]), \
+             patch("src.retrieval.backends.search_batch", return_value=[[hit]]), \
              patch("src.eval.harness.cross_encode", return_value=[mock_result]):
             run = run_retrieval_eval(
                 "open_ragbench", path,
@@ -205,8 +205,8 @@ class TestRerankerHarness:
         mock_result.score = 0.9
 
         with patch("src.eval.harness.get_client"), \
-             patch("src.eval.retrieval_backends.encode", return_value=[[0.1] * 1024]), \
-             patch("src.eval.retrieval_backends.search_batch", return_value=[[hit]]), \
+             patch("src.retrieval.backends.encode", return_value=[[0.1] * 1024]), \
+             patch("src.retrieval.backends.search_batch", return_value=[[hit]]), \
              patch("src.eval.harness.cross_encode", return_value=[mock_result]):
             run_reranked = run_retrieval_eval(
                 "open_ragbench", path, retrieval_mode="dense",
@@ -214,8 +214,8 @@ class TestRerankerHarness:
             )
 
         with patch("src.eval.harness.get_client"), \
-             patch("src.eval.retrieval_backends.encode", return_value=[[0.1] * 1024]), \
-             patch("src.eval.retrieval_backends.search_batch", return_value=[[hit]]):
+             patch("src.retrieval.backends.encode", return_value=[[0.1] * 1024]), \
+             patch("src.retrieval.backends.search_batch", return_value=[[hit]]):
             run_plain = run_retrieval_eval(
                 "open_ragbench", path, retrieval_mode="dense",
                 pipeline_mode="generic", rerank=False, limit=1,
@@ -233,8 +233,8 @@ class TestRerankerHarness:
         mock_result.score = 0.9
 
         with patch("src.eval.harness.get_client"), \
-             patch("src.eval.retrieval_backends.encode", return_value=[[0.1] * 1024]), \
-             patch("src.eval.retrieval_backends.search_batch", return_value=[[hit]]), \
+             patch("src.retrieval.backends.encode", return_value=[[0.1] * 1024]), \
+             patch("src.retrieval.backends.search_batch", return_value=[[hit]]), \
              patch("src.eval.harness.cross_encode", return_value=[mock_result]) as mock_ce:
             run_retrieval_eval(
                 "open_ragbench", path, retrieval_mode="dense", rerank=True, limit=1,
@@ -256,9 +256,9 @@ class TestRerankerHarness:
         mock_result.score = 0.9
 
         with patch("src.eval.harness.get_client"), \
-             patch("src.eval.retrieval_backends.encode", return_value=[[0.1] * 1024]), \
-             patch("src.eval.retrieval_backends.encode_sparse_query", return_value=[sparse_vec]), \
-             patch("src.eval.retrieval_backends.search_batch", return_value=[[hit]]), \
+             patch("src.retrieval.backends.encode", return_value=[[0.1] * 1024]), \
+             patch("src.retrieval.backends.encode_sparse_query", return_value=[sparse_vec]), \
+             patch("src.retrieval.backends.search_batch", return_value=[[hit]]), \
              patch("src.eval.harness.cross_encode", return_value=[mock_result]) as mock_ce:
             run_retrieval_eval(
                 "open_ragbench", path,

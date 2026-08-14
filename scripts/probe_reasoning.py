@@ -49,7 +49,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 
 import src.config as cfg
 from src.eval.provenance import load_golden
-from src.eval.retrieval_backends import RETRIEVERS
+from src.retrieval.backends import RETRIEVERS
 from src.generation.chat import generate_detailed
 from src.generation.citation_format import check_format
 from src.generation.prompt import SYSTEM, build_user_message

@@ -26,7 +26,7 @@ import src.config as cfg
 from src.datasets.schema import Chunk, EvalRun
 from src.eval.dump import JsonlWriter, write_all
 from src.eval.provenance import git_commit, load_golden
-from src.eval.retrieval_backends import RETRIEVERS
+from src.retrieval.backends import RETRIEVERS
 from src.eval.run_config import build_config, make_eval_run
 from src.generation.chat import generate_detailed
 from src.generation.citation_format import ComplianceSummary, check_format, summarize

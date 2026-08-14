@@ -32,7 +32,7 @@ sys.path.insert(0, str(ROOT))
 import src.config as cfg
 from src.datasets import registry
 from src.eval.harness import load_golden
-from src.eval.retrieval_backends import RETRIEVERS
+from src.retrieval.backends import RETRIEVERS
 from src.eval.metrics import METRIC_DEPTH
 from src.eval.paired import compare_paired
 from src.index.store import get_client
