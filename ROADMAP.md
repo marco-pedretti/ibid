@@ -165,21 +165,35 @@ Ma l'architettura prevede **SSE streaming**, e U-07 chiede che le citazioni non 
 Ne segue che lo stream **non è una sequenza di token**. Il minimo indispensabile:
 
 ```
-event: token      { "text": "..." }                     n volte
 event: chunks     { "chunks": [...] }                   una volta, appena il retrieval è finito
-event: answer     { "text": "...", "repaired": true }   il testo dopo il parser di C-02
-event: citations  { "citations": [...] }                dopo la verifica
-event: done       { "abstained": false, "timings": {...} }
+event: token      { "text": "..." }                     n volte, testo grezzo e provvisorio
+event: answer     { "text": "...", "raw_text": "...", "repaired": true,
+                    "verification_pending": true, ... }  il testo dopo il parser di C-02
+event: citations  { "citations": [...], "uncited_claims": [...] }   dopo la verifica
+event: done       { "abstained": false, "timings": {...}, "config": {...} }
+event: error      { "message": "...", "stage": "retrieval" }
 ```
 
-Due conseguenze che vanno decise una volta sola, non scoperte a frontend scritto:
+Tre conseguenze decise una volta sola, non scoperte a frontend scritto:
 
-1. **Il testo grezzo non è il testo finale.** Il parser di C-02 ripara i marcatori (`[1] [2]` → `[1][2]`), quindi ciò che scorre in `token` differisce da `answer`. La UI deve sapere che il testo verrà sostituito, o lo stream deve essere ritardato fino al parser — perdendo lo streaming. **Va scelto, e la scelta va scritta qui.**
+1. **Il testo grezzo non è il testo finale, e si è scelto di streammarlo comunque.** Il parser di C-02 ripara i marcatori (`[1] [2]` → `[1][2]`) e scarta quelli fuori contesto, quindi ciò che scorre in `token` differisce da `answer`. L'alternativa — ritardare lo stream fino al parser — costa lo streaming per intero: la prima parola arriverebbe **dopo** l'ultima, cioè dopo gli ~11 s che U-10 dice esplicitamente di non nascondere.
+
+   Quindi il contratto è: **`token` è provvisorio, `answer` lo sostituisce.** Ne discende una regola per la UI, ed è vincolante: **finché `answer` non arriva, i marcatori che scorrono non sono cliccabili.** Renderli attivi prima significherebbe offrire un link a un `[2]` che il parser potrebbe scartare. `raw_text` viaggia comunque in `answer`, perché è ciò che C-01 misura e perché una UI che voglia mostrare la riparazione deve poter mostrare da cosa.
+
 2. **`chunks` arriva prima di `answer`.** È ciò che rende U-02 realizzabile: la lista documenti compare mentre il modello sta ancora scrivendo.
+
+3. **Il guasto è un evento, non uno stato HTTP.** Quando lo stream è cominciato gli header sono già partiti, e un 500 non è più spedibile: un errore a metà risposta può solo essere un altro evento. Il servizio continua a sollevare — è l'orlo HTTP che traduce — così un CLI vede la traccia di stack e un browser uno stato disegnabile. `stage` esiste perché la UI possa dire «le fonti ci sono, la risposta no» invece di buttare via tutto.
 
 #### Il criterio di completezza
 
 **La UI deve poter leggere lo schema e sapere cosa disegnare in ogni stato**, inclusi «sto aspettando i verdetti», «il modello si è astenuto» e «il retrieval non ha trovato niente». Se uno stato non è rappresentabile, manca un campo — e si scopre ora invece che a frontend scritto.
+
+Due stati meritano di essere nominati, perché è facile crederli deducibili e non lo sono:
+
+- **«Attendo i verdetti»** non è `citations == []`. Quella lista vuota copre tre situazioni diverse: verifica non chiesta, verifica fatta senza citazioni da giudicare, verdetti in arrivo. Con lo streaming la terza è la norma, quindi `answer` porta `verification_pending`.
+- **«Chi si è astenuto»** non è un booleano. Il gate di C-04 rifiuta prima di chiamare il modello — costo 0 s di GPU — e il modello che dichiara di non sapere costa ~11 s. Sono eventi diversi, quindi `abstention` vale `""` | `"retrieval"` | `"model"`.
+
+Analogamente **`gate.active: false`** significa «non c'era una soglia calibrata per questa collection e questa modalità», che non è «i punteggi erano alti abbastanza». Confonderle farebbe leggere come garanzia una cosa che non è avvenuta.
 
 #### Cosa il contratto NON copre
 
