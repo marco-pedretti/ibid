@@ -51,10 +51,13 @@ export function Chat() {
 /* --- lo stato iniziale --------------------------------------------------- */
 
 function Vuoto() {
-  const { t } = usaLingua();
+  const { t, lingua } = usaLingua();
   const { scelto } = usaDataset();
   const { invia } = usaChat();
   const esempi = esempiDi(scelto?.dataset_id ?? null);
+  // Vero quando la lingua dell'interfaccia non e' quella del corpus: solo
+  // allora la riga in mono aggiunge qualcosa, e solo allora la nota va spiegata.
+  const tradotti = esempi.some((e) => e.testo[lingua] !== e.query);
 
   return (
     <div className="my-auto py-2">
@@ -73,12 +76,22 @@ function Vuoto() {
           >
             <span className="mt-px font-mono text-[10px] text-accent tabular-nums">{i + 1}</span>
             <span className="text-[12.5px] text-ink">
-              {e.query}
+              {e.testo[lingua]}
+              {/* La query com'e' scritta sul filo. In mono perche' nel §12 il
+                  mono e' il ruolo dei dati, e questo e' letteralmente il dato
+                  che parte: si vede prima di cliccare, non dopo. */}
+              {e.testo[lingua] !== e.query && (
+                <span className="mt-1 block font-mono text-[10.5px] text-ink-2">{e.query}</span>
+              )}
               <span className="mt-1 block text-[11px] text-muted">{t(e.nota)}</span>
             </span>
           </button>
         ))}
       </div>
+
+      {tradotti && (
+        <p className="mt-3 max-w-[62ch] text-[11px] text-muted">{t("lang.note")}</p>
+      )}
     </div>
   );
 }

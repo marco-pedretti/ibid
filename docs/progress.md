@@ -1746,6 +1746,8 @@ Scriverli a mano in TypeScript sarebbe la costante del backend che U-00 vieta al
 
 #### Gli esempi sono query d'oro vere, e vincolano U-08
 
+Si **leggono nella lingua dell'interfaccia e partono in quella del corpus**: sotto la traduzione compare la query vera, in mono, così si vede prima di cliccare invece di scoprirla dopo nella propria domanda. Tradurre anche il testo mandato farebbe rispondere in italiano su un corpus inglese, con le citazioni a sostenere un testo tradotto — e sarebbe il primo clic di chi prova il progetto a produrlo.
+
 I tre esempi dello stato vuoto vengono da `eval/golden/*.jsonl`, per dataset, tranne il terzo di ogni coppia che è **fuori dal corpus di proposito**: l'unico modo di mostrare che il sistema si astiene è fargli una domanda senza risposta, e nasconderla renderebbe la demo una pubblicità.
 
 > **Vincolo su U-08, scritto ora perché lì sarà tardi.** Nel profilo `demo` l'indice conterrà solo i chunk d'oro di ~30 query. Se questi esempi non sono fra quelle, il primo clic di chi prova il progetto finisce in un'astensione. [esempi.ts](ui/src/app/esempi.ts) è il vincolo, non un suggerimento.
