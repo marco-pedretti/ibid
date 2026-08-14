@@ -502,6 +502,14 @@ Ricavate disegnando quattro schermate prima di scrivere React. Quelle che vincol
 
 **I parametri di retrieval stanno sotto «Avanzate»**, chiusi. Un muro di manopole mostra l'ablation, che è il lavoro della dashboard. Restano sempre leggibili in «Dettagli della run», così la configurazione che ha girato non è mai un mistero.
 
+**Il riferimento visivo è [`docs/ui-mockup.html`](docs/ui-mockup.html), ed è vincolante.** Non è un'illustrazione: è dove palette, tipografia e forme sono state decise, e ogni task U-xx ne eredita i token invece di sceglierne di propri. Tre cose in particolare non si cambiano senza dirlo:
+
+- **inchiostro indaco su carta** — accento `#3C4CA8` chiaro / `#97A5F7` scuro, carta `#F7F7F5` / `#131421`. La carta scura è indaco profondo e non grigio neutro: è la stessa tinta dell'accento portata al fondo della scala, ed è ciò che tiene insieme i due temi invece di farli sembrare due progetti;
+- **tre ruoli tipografici veri**, e la distinzione non è decorativa: **serif** per il marchio e i titoli (il nome viene da *ibidem*, e la grazia appartiene al mondo bibliografico da cui arriva), **sans** per ciò che si opera, **mono** per i dati — `chunk_id`, marcatori, punteggi, etichette. Tutti font di sistema: U-08 chiede il profilo `demo` senza rete;
+- **il marchio** `ib`·`i`·`d` con la **`i` centrale in accento**, serif, weight 600. Quella lettera è il punto in cui *ibidem* si lascia intravedere — è l'unica parte dell'interfaccia che spiega il proprio nome senza una nota.
+
+`ok` / `warn` / `wait` restano separati dall'accento: un verdetto colorato con l'accento smette di essere un verdetto e diventa decorazione.
+
 **Le query d'esempio dello stato vuoto vincolano U-08.** Tre esempi, uno per affermazione del §0, così che la demo *sia* l'argomento invece di illustrarlo — e il video di U-10 abbia già il suo copione. Ma nel profilo `demo` l'indice contiene solo i chunk d'oro di ~30 query: se gli esempi non sono **quelle**, il primo clic di chi prova il progetto finisce in un'astensione. I due task si decidono insieme.
 
 ### U-08 in dettaglio — come e quando si pubblica l'indice

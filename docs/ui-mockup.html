@@ -1,0 +1,1183 @@
+<title>Ibid, quattro schermate</title>
+<style>
+/* ------------------------------------------------------------------ *
+ * Palette: inchiostro indaco su carta. Il verdetto "non supportata"
+ * NON e' rosso: U-07 dice che non e' un errore da nascondere, e' il
+ * dato. Rosso contraddirebbe la tesi del progetto.
+ * ------------------------------------------------------------------ */
+:root {
+  --paper:      #F7F7F5;
+  --surface:    #FFFFFF;
+  --surface-2:  #EFEFEB;
+  --ink:        #17181F;
+  --ink-2:      #45475A;
+  --muted:      #74768A;
+  --line:       #E3E3DE;
+  --line-2:     #CFCFC8;
+  --accent:     #3C4CA8;
+  --accent-2:   #6472CC;
+  --accent-soft:#E8EAF7;
+  --ok:         #2F6B54;
+  --ok-soft:    #E1EFE8;
+  --warn:       #8E5C1B;
+  --warn-soft:  #F5EAD7;
+  --wait:       #74768A;
+  --wait-soft:  #EBEBE7;
+  --shadow:     0 1px 2px rgba(23,24,31,.06), 0 8px 24px -12px rgba(23,24,31,.18);
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --paper:      #131421;
+    --surface:    #1A1B29;
+    --surface-2:  #232437;
+    --ink:        #E9E9F1;
+    --ink-2:      #B7B9CA;
+    --muted:      #8B8DA2;
+    --line:       #2B2C3E;
+    --line-2:     #3B3C52;
+    --accent:     #97A5F7;
+    --accent-2:   #B3BDFA;
+    --accent-soft:#232649;
+    --ok:         #74C69F;
+    --ok-soft:    #17342A;
+    --warn:       #E2AC63;
+    --warn-soft:  #37290F;
+    --wait:       #8B8DA2;
+    --wait-soft:  #262739;
+    --shadow:     0 1px 2px rgba(0,0,0,.4), 0 8px 24px -12px rgba(0,0,0,.6);
+  }
+}
+:root[data-theme="dark"] {
+  --paper:      #131421;
+  --surface:    #1A1B29;
+  --surface-2:  #232437;
+  --ink:        #E9E9F1;
+  --ink-2:      #B7B9CA;
+  --muted:      #8B8DA2;
+  --line:       #2B2C3E;
+  --line-2:     #3B3C52;
+  --accent:     #97A5F7;
+  --accent-2:   #B3BDFA;
+  --accent-soft:#232649;
+  --ok:         #74C69F;
+  --ok-soft:    #17342A;
+  --warn:       #E2AC63;
+  --warn-soft:  #37290F;
+  --wait:       #8B8DA2;
+  --wait-soft:  #262739;
+  --shadow:     0 1px 2px rgba(0,0,0,.4), 0 8px 24px -12px rgba(0,0,0,.6);
+}
+
+/* La cornice e' bibliografica (serif). Cio' che sta dentro i mockup e'
+   interfaccia (sans). La distinzione e' vera, non decorativa. */
+:root {
+  --serif: "Iowan Old Style", "Palatino Linotype", Palatino, "Book Antiqua", Georgia, serif;
+  --sans:  system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
+  --mono:  ui-monospace, "SF Mono", "Cascadia Mono", "Consolas", monospace;
+}
+
+[hidden] { display: none !important; }
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  background: var(--paper);
+  color: var(--ink);
+  font-family: var(--serif);
+  font-size: 17px;
+  line-height: 1.62;
+  -webkit-font-smoothing: antialiased;
+}
+
+.wrap { max-width: 1080px; margin: 0 auto; padding: 0 24px 120px; }
+.prosa { max-width: 68ch; }
+
+/* ---------------- intestazione ---------------- */
+.testata { padding: 72px 0 40px; border-bottom: 1px solid var(--line); margin-bottom: 56px; }
+.marchio {
+  font-family: var(--mono); font-size: 12px; letter-spacing: .18em;
+  text-transform: uppercase; color: var(--accent); margin: 0 0 20px;
+  display: flex; align-items: center; gap: 10px;
+}
+.marchio::after { content: ""; flex: 1; height: 1px; background: var(--line); max-width: 120px; }
+h1 {
+  font-size: clamp(2.4rem, 5.5vw, 3.6rem); line-height: 1.06; margin: 0 0 20px;
+  font-weight: 600; letter-spacing: -.018em; text-wrap: balance;
+}
+.occhiello { font-size: 1.18rem; color: var(--ink-2); max-width: 60ch; margin: 0; }
+
+/* ---------------- tipografia ---------------- */
+h2 {
+  font-size: 1.72rem; font-weight: 600; letter-spacing: -.012em;
+  margin: 76px 0 8px; text-wrap: balance;
+}
+h2 .num {
+  font-family: var(--mono); font-size: .58em; color: var(--accent);
+  letter-spacing: .1em; margin-right: .7em; vertical-align: .18em;
+}
+h3 { font-size: 1.16rem; font-weight: 600; margin: 40px 0 10px; letter-spacing: -.006em; }
+h2 + .sotto { color: var(--muted); font-size: 1.02rem; margin: 0 0 28px; max-width: 62ch; }
+p { margin: 0 0 18px; }
+a { color: var(--accent); }
+strong { font-weight: 600; }
+em { font-style: italic; color: var(--ink-2); }
+code {
+  font-family: var(--mono); font-size: .86em;
+  background: var(--surface-2); padding: .12em .38em; border-radius: 4px;
+  border: 1px solid var(--line);
+}
+
+.nota {
+  border-left: 2px solid var(--accent); padding: 2px 0 2px 20px;
+  margin: 26px 0; color: var(--ink-2); font-size: .97rem; max-width: 62ch;
+}
+.nota strong { color: var(--ink); }
+
+/* ---------------- tabelle ---------------- */
+.tab-scroll { overflow-x: auto; margin: 26px 0 30px; }
+table { border-collapse: collapse; width: 100%; font-family: var(--sans); font-size: .875rem; min-width: 560px; }
+th, td { text-align: left; padding: 11px 14px; border-bottom: 1px solid var(--line); vertical-align: top; }
+th {
+  font-size: .69rem; text-transform: uppercase; letter-spacing: .1em;
+  color: var(--muted); font-weight: 600; border-bottom: 1px solid var(--line-2);
+}
+td code { font-size: .84em; }
+tbody tr:last-child td { border-bottom: none; }
+
+/* ================================================================== *
+ *  MOCKUP
+ * ================================================================== */
+.schermo {
+  border: 1px solid var(--line-2); border-radius: 10px; overflow: hidden;
+  background: var(--surface); box-shadow: var(--shadow);
+  font-family: var(--sans); margin: 24px 0 14px;
+}
+.schermo-barra {
+  display: flex; align-items: center; gap: 8px;
+  padding: 9px 14px; background: var(--surface-2); border-bottom: 1px solid var(--line);
+}
+.pallino { width: 9px; height: 9px; border-radius: 50%; background: var(--line-2); }
+.schermo-nome {
+  margin-left: 8px; font-size: 11px; font-family: var(--mono);
+  color: var(--muted); letter-spacing: .04em;
+}
+.didascalia {
+  font-family: var(--sans); font-size: .82rem; color: var(--muted);
+  margin: 0 0 40px; max-width: 66ch;
+}
+
+.app { display: grid; min-height: 400px; }
+.app.tre { grid-template-columns: 190px 1fr 268px; }
+.app.due { grid-template-columns: 190px 1fr; }
+
+/* --- corsia sinistra --- */
+.rail {
+  border-right: 1px solid var(--line); padding: 14px 12px;
+  display: flex; flex-direction: column; gap: 16px; background: var(--surface);
+}
+.rail-logo {
+  font-family: var(--serif); font-size: 19px; font-weight: 600;
+  letter-spacing: -.01em; padding: 0 4px;
+}
+.rail-logo span { color: var(--accent); }
+.etichetta {
+  font-size: 9.5px; text-transform: uppercase; letter-spacing: .12em;
+  color: var(--muted); font-weight: 600; margin: 0 0 7px; padding: 0 4px;
+}
+.select {
+  display: flex; align-items: center; justify-content: space-between;
+  border: 1px solid var(--line-2); border-radius: 7px; padding: 7px 9px;
+  font-size: 12px; background: var(--surface); color: var(--ink);
+}
+.select small { color: var(--muted); font-size: 10px; }
+.bottone-esplora {
+  display: flex; align-items: center; gap: 7px;
+  border: 1px solid var(--accent); color: var(--accent); background: var(--accent-soft);
+  border-radius: 7px; padding: 8px 10px; font-size: 12px; font-weight: 500;
+}
+.cronologia { display: flex; flex-direction: column; gap: 2px; }
+.crono-voce {
+  font-size: 11.5px; color: var(--ink-2); padding: 6px 8px; border-radius: 6px;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.crono-voce.attiva { background: var(--surface-2); color: var(--ink); font-weight: 500; }
+.rail-fondo { margin-top: auto; display: flex; gap: 6px; padding: 0 4px; }
+.chip-mini {
+  font-size: 10px; border: 1px solid var(--line-2); border-radius: 5px;
+  padding: 4px 7px; color: var(--muted);
+}
+
+/* --- colonna chat --- */
+.chat { display: flex; flex-direction: column; background: var(--paper); }
+.chat-corpo { flex: 1; padding: 20px 22px; display: flex; flex-direction: column; gap: 16px; overflow: hidden; }
+
+.vuoto { margin: auto 0; padding: 8px 0; }
+.vuoto h4 {
+  font-family: var(--serif); font-size: 21px; font-weight: 600;
+  margin: 0 0 6px; letter-spacing: -.01em;
+}
+.vuoto p { font-size: 12.5px; color: var(--muted); margin: 0 0 18px; }
+.esempi { display: flex; flex-direction: column; gap: 8px; }
+.esempio {
+  border: 1px solid var(--line); border-radius: 8px; padding: 11px 13px;
+  background: var(--surface); display: flex; gap: 11px; align-items: flex-start;
+}
+.esempio .indice {
+  font-family: var(--mono); font-size: 10px; color: var(--accent);
+  border: 1px solid var(--accent); border-radius: 4px; padding: 1px 5px;
+  flex-shrink: 0; margin-top: 2px;
+}
+.esempio-testo { font-size: 12.5px; color: var(--ink); line-height: 1.45; }
+.esempio-testo small { display: block; color: var(--muted); font-size: 10.5px; margin-top: 3px; }
+
+.msg-utente {
+  align-self: flex-end; max-width: 78%; background: var(--accent-soft);
+  border: 1px solid var(--line); border-radius: 12px 12px 3px 12px;
+  padding: 9px 13px; font-size: 13px; color: var(--ink);
+}
+.msg-bot { max-width: 92%; display: flex; flex-direction: column; gap: 9px; }
+
+.riga-stato {
+  display: flex; align-items: center; gap: 8px;
+  font-size: 11px; color: var(--muted); font-family: var(--mono); letter-spacing: .02em;
+}
+.puntino {
+  width: 6px; height: 6px; border-radius: 50%; background: var(--accent);
+  flex-shrink: 0; animation: pulsa 1.4s ease-in-out infinite;
+}
+.puntino.fermo { animation: none; background: var(--ok); }
+.puntino.guasto { animation: none; background: var(--warn); }
+@keyframes pulsa { 0%,100% { opacity: .25; } 50% { opacity: 1; } }
+@media (prefers-reduced-motion: reduce) { .puntino { animation: none; } }
+
+.testo-risposta { font-size: 13.5px; line-height: 1.66; color: var(--ink); }
+.testo-risposta p { margin: 0 0 9px; }
+.testo-risposta p:last-child { margin: 0; }
+
+/* marcatori: inerti finche' `answer` non arriva (regola §3.5) */
+.mk {
+  font-family: var(--mono); font-size: 10px; vertical-align: .32em;
+  padding: 0 1px; color: var(--muted); border-bottom: 1px dotted var(--line-2);
+}
+.mk.viva {
+  color: var(--accent); border-bottom: 1px solid var(--accent);
+  background: var(--accent-soft); border-radius: 3px; padding: 1px 3px;
+}
+.mk.dubbia {
+  color: var(--warn); border-bottom: 1px solid var(--warn);
+  background: var(--warn-soft); border-radius: 3px; padding: 1px 3px;
+}
+.cursore {
+  display: inline-block; width: 6px; height: 13px; background: var(--accent);
+  vertical-align: -2px; animation: pulsa 1s steps(2) infinite;
+}
+.senza-cit {
+  border-bottom: 2px dotted var(--warn); padding-bottom: 1px;
+}
+
+.avviso {
+  display: flex; gap: 10px; align-items: flex-start;
+  border: 1px solid var(--line-2); border-left: 3px solid var(--warn);
+  background: var(--warn-soft); border-radius: 7px; padding: 10px 12px;
+}
+.avviso.neutro { border-left-color: var(--wait); background: var(--wait-soft); }
+.avviso-titolo { font-size: 12px; font-weight: 600; margin: 0 0 3px; color: var(--ink); }
+.avviso-testo { font-size: 11.5px; color: var(--ink-2); margin: 0; line-height: 1.5; }
+.avviso-icona { font-family: var(--mono); font-size: 13px; color: var(--warn); line-height: 1.3; }
+.avviso.neutro .avviso-icona { color: var(--wait); }
+
+.azioni-risposta { display: flex; gap: 6px; flex-wrap: wrap; }
+.azione {
+  font-size: 11px; border: 1px solid var(--line-2); border-radius: 6px;
+  padding: 5px 9px; color: var(--ink-2); background: var(--surface);
+  display: inline-flex; align-items: center; gap: 5px;
+}
+.azione.primaria { border-color: var(--accent); color: var(--accent); background: var(--accent-soft); font-weight: 500; }
+
+/* --- barra di composizione --- */
+.composer { border-top: 1px solid var(--line); padding: 12px 22px 14px; background: var(--surface); }
+.composer-campo {
+  border: 1px solid var(--line-2); border-radius: 9px; padding: 10px 12px;
+  font-size: 12.5px; color: var(--muted); background: var(--paper);
+  display: flex; justify-content: space-between; align-items: center; gap: 12px;
+}
+.invia {
+  width: 26px; height: 26px; border-radius: 6px; background: var(--accent);
+  color: #fff; display: grid; place-items: center; font-size: 12px; flex-shrink: 0;
+}
+.toggles { display: flex; gap: 6px; margin-top: 9px; flex-wrap: wrap; align-items: center; }
+.tg {
+  display: inline-flex; align-items: center; gap: 6px;
+  border: 1px solid var(--line-2); border-radius: 999px;
+  padding: 4px 10px 4px 7px; font-size: 11px; color: var(--ink-2); background: var(--surface);
+}
+.tg .led { width: 6px; height: 6px; border-radius: 50%; background: var(--line-2); }
+.tg.on { border-color: var(--accent); color: var(--accent); background: var(--accent-soft); }
+.tg.on .led { background: var(--accent); }
+.tg.spento { opacity: .45; }
+.tg.menu::after { content: "▾"; font-size: 9px; color: var(--muted); margin-left: 1px; }
+
+/* --- pannello fonti --- */
+.fonti {
+  border-left: 1px solid var(--line); background: var(--surface);
+  padding: 14px 12px; display: flex; flex-direction: column; gap: 11px; overflow: hidden;
+}
+.fonti-testata { display: flex; align-items: baseline; justify-content: space-between; }
+.fonti-testata .etichetta { margin: 0; padding: 0; }
+.conteggio { font-family: var(--mono); font-size: 10px; color: var(--muted); }
+
+.scheda {
+  border: 1px solid var(--line); border-radius: 8px; padding: 9px 10px;
+  display: flex; flex-direction: column; gap: 6px; background: var(--surface);
+}
+.scheda.citata { border-color: var(--accent); background: var(--accent-soft); }
+.scheda-capo { display: flex; align-items: center; gap: 6px; }
+.num-marcatore {
+  font-family: var(--mono); font-size: 10px; font-weight: 600;
+  background: var(--ink); color: var(--paper); border-radius: 4px; padding: 1px 5px;
+}
+.scheda.citata .num-marcatore { background: var(--accent); color: #fff; }
+.doc-nome {
+  font-size: 11px; color: var(--ink); font-weight: 500;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.punteggio { font-family: var(--mono); font-size: 10px; color: var(--muted); margin-left: auto; font-variant-numeric: tabular-nums; }
+.estratto {
+  font-size: 11px; color: var(--ink-2); line-height: 1.5;
+  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+}
+.targhe { display: flex; gap: 4px; flex-wrap: wrap; }
+.targa {
+  font-family: var(--mono); font-size: 9px; letter-spacing: .03em;
+  border: 1px solid var(--line-2); border-radius: 4px; padding: 2px 5px; color: var(--muted);
+}
+.targa.pipeline { border-color: var(--accent-2); color: var(--accent); }
+
+.verdetto {
+  display: inline-flex; align-items: center; gap: 5px;
+  font-size: 10px; font-family: var(--mono); border-radius: 4px;
+  padding: 2px 6px; border: 1px solid;
+}
+.verdetto.ok    { color: var(--ok);   border-color: var(--ok);   background: var(--ok-soft); }
+.verdetto.no    { color: var(--warn); border-color: var(--warn); background: var(--warn-soft); }
+.verdetto.attesa{ color: var(--wait); border-color: var(--line-2); background: var(--wait-soft); }
+.verdetto .glifo { font-weight: 700; }
+
+.fonti-vuote {
+  border: 1px dashed var(--line-2); border-radius: 8px; padding: 16px 12px;
+  text-align: center; font-size: 11px; color: var(--muted); line-height: 1.5;
+}
+.scheletro { display: flex; flex-direction: column; gap: 7px; }
+.osso { height: 9px; border-radius: 4px; background: var(--surface-2); }
+.osso.corto { width: 55%; }
+
+/* --- comandi dello stepper --- */
+.stepper {
+  display: flex; flex-wrap: wrap; gap: 6px; margin: 30px 0 0;
+  font-family: var(--sans);
+}
+.passo {
+  font-family: var(--sans); font-size: 12px; cursor: pointer;
+  border: 1px solid var(--line-2); background: var(--surface); color: var(--ink-2);
+  border-radius: 7px; padding: 7px 11px; display: inline-flex; align-items: center; gap: 7px;
+  transition: border-color .12s, color .12s;
+}
+.passo:hover { border-color: var(--accent); color: var(--accent); }
+.passo:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.passo .t {
+  font-family: var(--mono); font-size: 9.5px; color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+.passo[aria-pressed="true"] {
+  background: var(--accent); border-color: var(--accent); color: #fff;
+}
+.passo[aria-pressed="true"] .t { color: rgba(255,255,255,.72); }
+.stepper-nota { font-family: var(--sans); font-size: 11.5px; color: var(--muted); margin: 12px 0 40px; max-width: 62ch; }
+
+/* --- confronto U-03 --- */
+.confronto { display: grid; grid-template-columns: 1fr 1fr; }
+.colonna { padding: 16px 18px; display: flex; flex-direction: column; gap: 10px; }
+.colonna + .colonna { border-left: 1px solid var(--line); }
+.colonna-capo { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.colonna-titolo { font-size: 12px; font-weight: 600; color: var(--ink); }
+.query-comune {
+  padding: 12px 18px; border-bottom: 1px solid var(--line); background: var(--surface-2);
+  font-size: 12.5px; color: var(--ink); display: flex; align-items: center; gap: 10px;
+}
+.query-comune .etichetta { margin: 0; padding: 0; flex-shrink: 0; }
+
+/* --- esploratore --- */
+.esp { display: grid; grid-template-columns: 200px 1fr 250px; min-height: 420px; }
+.esp-lista { border-right: 1px solid var(--line); padding: 13px 11px; display: flex; flex-direction: column; gap: 9px; }
+.doc-voce {
+  border: 1px solid transparent; border-radius: 7px; padding: 7px 8px;
+  display: flex; flex-direction: column; gap: 3px;
+}
+.doc-voce.attiva { border-color: var(--accent); background: var(--accent-soft); }
+.doc-voce b { font-size: 11.5px; font-weight: 500; color: var(--ink); }
+.doc-voce span { font-size: 10px; color: var(--muted); font-family: var(--mono); }
+.esp-centro { padding: 16px 18px; display: flex; flex-direction: column; gap: 14px; background: var(--paper); }
+.ricerca {
+  display: flex; align-items: center; gap: 8px;
+  border: 1px solid var(--line-2); border-radius: 8px; padding: 8px 11px;
+  background: var(--surface); font-size: 12px; color: var(--muted);
+}
+.mappa { display: flex; flex-direction: column; gap: 6px; }
+.mappa-riga { display: flex; gap: 3px; align-items: center; }
+.tessera {
+  height: 22px; border-radius: 3px; border: 1px solid var(--line-2);
+  background: var(--surface-2); flex: 1;
+}
+.tessera.tabella { background: var(--accent-soft); border-color: var(--accent-2); flex: 2; }
+.tessera.scelta { outline: 2px solid var(--accent); outline-offset: 1px; }
+.legenda { display: flex; gap: 12px; font-size: 10px; color: var(--muted); font-family: var(--mono); }
+.legenda i { display: inline-block; width: 9px; height: 9px; border-radius: 2px; margin-right: 4px; vertical-align: -1px; border: 1px solid var(--line-2); }
+.legenda i.t { background: var(--surface-2); }
+.legenda i.b { background: var(--accent-soft); border-color: var(--accent-2); }
+.esp-dettaglio { border-left: 1px solid var(--line); padding: 14px 12px; display: flex; flex-direction: column; gap: 10px; }
+.tabella-finta { width: 100%; border-collapse: collapse; font-size: 10.5px; min-width: 0; }
+.tabella-finta td { padding: 4px 6px; border: 1px solid var(--line); font-family: var(--mono); }
+.tabella-finta td:last-child { text-align: right; font-variant-numeric: tabular-nums; }
+
+/* --- lista puntata di decisioni --- */
+.decisioni { list-style: none; padding: 0; margin: 24px 0 0; display: flex; flex-direction: column; gap: 20px; }
+.decisioni > li { display: grid; grid-template-columns: 34px 1fr; gap: 16px; align-items: start; }
+.dec-num {
+  font-family: var(--mono); font-size: 11px; color: var(--accent);
+  border: 1px solid var(--accent); border-radius: 5px; padding: 2px 0;
+  text-align: center; margin-top: 3px;
+}
+.dec-corpo h4 { margin: 0 0 5px; font-size: 1.02rem; font-weight: 600; }
+.dec-corpo p { margin: 0; font-size: .95rem; color: var(--ink-2); max-width: 60ch; }
+
+.piede {
+  margin-top: 90px; padding-top: 26px; border-top: 1px solid var(--line);
+  font-size: .86rem; color: var(--muted); font-family: var(--sans);
+  display: flex; justify-content: space-between; gap: 20px; flex-wrap: wrap;
+}
+
+@media (max-width: 860px) {
+  .app.tre, .app.due { grid-template-columns: 1fr; }
+  .rail, .fonti, .esp-lista, .esp-dettaglio { border: none; border-top: 1px solid var(--line); }
+  .rail { border-top: none; border-bottom: 1px solid var(--line); }
+  .esp { grid-template-columns: 1fr; }
+  .confronto { grid-template-columns: 1fr; }
+  .colonna + .colonna { border-left: none; border-top: 1px solid var(--line); }
+}
+</style>
+
+<div class="wrap">
+
+<header class="testata">
+  <p class="marchio">ibid · fase 8 · bozza d'interfaccia</p>
+  <h1>Ibid, quattro schermate</h1>
+  <p class="occhiello">
+    Una proposta di layout per la demo, ricavata dai vincoli già presi: il contratto
+    §3.5, i criteri U-01…U-07, e la regola che dice che dashboard e demo restano due
+    interfacce separate. Tutto ciò che si vede qui è disegnabile con l'API della Fase 7
+    — salvo tre buchi, elencati alla fine.
+  </p>
+</header>
+
+<section class="prosa">
+  <h2><span class="num">01</span>Il principio</h2>
+  <p class="sotto">Una decisione da cui discende quasi tutto il resto.</p>
+  <p>
+    La demo non deve <em>illustrare</em> le tre affermazioni del §0: deve <strong>metterle
+    in atto</strong>. Ogni elemento di questa bozza guadagna il suo posto rispondendo a
+    una domanda sola — <em>quale affermazione rende verificabile a chi guarda?</em>
+  </p>
+  <div class="tab-scroll">
+    <table>
+      <thead><tr><th style="width:44%">Affermazione del §0</th><th>Cosa la rende visibile</th></tr></thead>
+      <tbody>
+        <tr><td>La precisione di citazione a livello di frase è misurabile, e i modelli non verificati sbagliano sistematicamente</td><td>Il pannello fonti mostra il verdetto <em>di ogni</em> citazione, comprese quelle non supportate (U-07)</td></tr>
+        <tr><td>Il routing per genere batte una pipeline generica</td><td>La targhetta <code>pipeline</code> su ogni chunk, e l'esploratore che mostra come lo stesso documento è stato spezzato (U-05)</td></tr>
+        <tr><td>Con un buon retrieval la taglia del modello conta meno del previsto</td><td>Il selettore modello nella barra, e il confronto affiancato con RAG spento (U-03)</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<section>
+  <h2 class="prosa"><span class="num">02</span>Chat — lo stato iniziale</h2>
+  <p class="sotto prosa">
+    Prima domanda: cosa vede chi arriva. Tre query d'esempio, una per affermazione,
+    scelte perché il risultato <em>è</em> l'argomento.
+  </p>
+
+  <div class="schermo">
+    <div class="schermo-barra">
+      <span class="pallino"></span><span class="pallino"></span><span class="pallino"></span>
+      <span class="schermo-nome">ibid — chat</span>
+    </div>
+    <div class="app due">
+      <aside class="rail">
+        <div class="rail-logo">ib<span>i</span>d</div>
+        <div>
+          <p class="etichetta">Dataset</p>
+          <div class="select"><span>open_ragbench</span><small>18.840</small></div>
+        </div>
+        <div class="bottone-esplora"><span>⌗</span><span>Esplora il corpus</span></div>
+        <div>
+          <p class="etichetta">Cronologia</p>
+          <div class="cronologia">
+            <div class="crono-voce attiva">Nuova conversazione</div>
+            <div class="crono-voce">RMSE Ridge vs Lasso</div>
+            <div class="crono-voce">Ricavi Sherwin-Williams 2017</div>
+            <div class="crono-voce">Chi ha scritto il paper su Mistral</div>
+          </div>
+        </div>
+        <div class="rail-fondo">
+          <span class="chip-mini">IT / EN</span>
+          <span class="chip-mini">◐ tema</span>
+        </div>
+      </aside>
+
+      <main class="chat">
+        <div class="chat-corpo">
+          <div class="vuoto">
+            <h4>Chiedi qualcosa al corpus.</h4>
+            <p>Ogni frase della risposta porta la fonte da cui viene, e il verdetto di chi l'ha controllata.</p>
+            <div class="esempi">
+              <div class="esempio">
+                <span class="indice">1</span>
+                <span class="esempio-testo">What is the standard deviation of RMSE for Ridge Regression?
+                  <small>Poi spegni il RAG: il modello risponde lo stesso, con un numero diverso.</small></span>
+              </div>
+              <div class="esempio">
+                <span class="indice">2</span>
+                <span class="esempio-testo">What were Sherwin-Williams' total assets in 2017?
+                  <small>La risposta sta in una tabella. Guarda quale pipeline l'ha recuperata.</small></span>
+              </div>
+              <div class="esempio">
+                <span class="indice">3</span>
+                <span class="esempio-testo">Which university funded the 2019 replication study?
+                  <small>Non c'è nel corpus. Guarda cosa succede.</small></span>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="composer">
+          <div class="composer-campo"><span>Scrivi una domanda…</span><span class="invia">↑</span></div>
+          <div class="toggles">
+            <span class="tg on"><span class="led"></span>RAG</span>
+            <span class="tg"><span class="led"></span>Ragionamento</span>
+            <span class="tg menu">gemma4:e4b</span>
+            <span class="tg spento">Prompt: permissivo</span>
+            <span class="tg menu">Avanzate</span>
+          </div>
+        </div>
+      </main>
+    </div>
+  </div>
+  <p class="didascalia">
+    <strong>Il toggle «Prompt» è spento di proposito:</strong> <code>baseline_prompt</code> ha
+    effetto solo con il RAG disattivato. Un comando che gira a vuoto è lo stesso difetto di un
+    campo che il servizio ignora — meglio disabilitarlo e dire perché al passaggio del mouse.
+  </p>
+</section>
+
+<section>
+  <h2 class="prosa"><span class="num">03</span>Chat — gli otto stati</h2>
+  <p class="sotto prosa">
+    Il §3.5 chiede che l'interfaccia sappia cosa disegnare <em>in ogni</em> stato. Sono
+    otto, e questo è il punto in cui la bozza va decisa: premi un passo e guarda.
+  </p>
+
+  <div class="schermo">
+    <div class="schermo-barra">
+      <span class="pallino"></span><span class="pallino"></span><span class="pallino"></span>
+      <span class="schermo-nome" id="nome-stato">ibid — chat · evento: chunks</span>
+    </div>
+    <div class="app tre" id="app">
+      <aside class="rail">
+        <div class="rail-logo">ib<span>i</span>d</div>
+        <div>
+          <p class="etichetta">Dataset</p>
+          <div class="select"><span>open_ragbench</span><small>18.840</small></div>
+        </div>
+        <div class="bottone-esplora"><span>⌗</span><span>Esplora il corpus</span></div>
+        <div>
+          <p class="etichetta">Cronologia</p>
+          <div class="cronologia">
+            <div class="crono-voce attiva">RMSE Ridge vs Lasso</div>
+            <div class="crono-voce">Ricavi Sherwin-Williams 2017</div>
+          </div>
+        </div>
+        <div class="rail-fondo">
+          <span class="chip-mini">IT / EN</span>
+          <span class="chip-mini">◐ tema</span>
+        </div>
+      </aside>
+
+      <main class="chat">
+        <div class="chat-corpo">
+          <div class="msg-utente">What is the standard deviation of RMSE for Ridge Regression?</div>
+
+          <div class="msg-bot">
+            <!-- riga di stato: un evento, un messaggio -->
+            <div class="riga-stato" data-mostra="attesa">
+              <span class="puntino"></span><span>cerco nel corpus…</span>
+            </div>
+            <div class="riga-stato" data-mostra="chunks">
+              <span class="puntino"></span><span>3 fonti · il modello sta scrivendo…</span>
+            </div>
+            <div class="riga-stato" data-mostra="token">
+              <span class="puntino"></span><span>scrivo… · marcatori non ancora attivi</span>
+            </div>
+            <div class="riga-stato" data-mostra="answer">
+              <span class="puntino"></span><span>testo definitivo · controllo le citazioni…</span>
+            </div>
+            <div class="riga-stato" data-mostra="citations">
+              <span class="puntino fermo"></span><span>retrieval 0,02 s · generazione 11,4 s · verifica 0,83 s</span>
+            </div>
+            <div class="riga-stato" data-mostra="gate">
+              <span class="puntino fermo"></span><span>retrieval 0,02 s · nessuna chiamata al modello</span>
+            </div>
+            <div class="riga-stato" data-mostra="modello">
+              <span class="puntino fermo"></span><span>retrieval 0,02 s · generazione 9,1 s</span>
+            </div>
+            <div class="riga-stato" data-mostra="errore">
+              <span class="puntino guasto"></span><span>interrotto durante la generazione</span>
+            </div>
+
+            <!-- corpo -->
+            <div class="scheletro" data-mostra="attesa">
+              <div class="osso"></div><div class="osso"></div><div class="osso corto"></div>
+            </div>
+
+            <div class="testo-risposta" data-mostra="chunks">
+              <div class="scheletro"><div class="osso"></div><div class="osso corto"></div></div>
+            </div>
+
+            <div class="testo-risposta" data-mostra="token">
+              <p>The standard deviation of RMSE for Ridge Regression is 0.0226
+                <span class="mk">[1]</span>. This is lower than the value repo<span class="cursore"></span></p>
+            </div>
+
+            <div class="testo-risposta" data-mostra="answer citations">
+              <p>The standard deviation of RMSE for Ridge Regression is 0.0226
+                <span class="mk viva">[1]</span>. This is lower than the value reported for
+                Lasso over the same folds <span class="mk viva">[1]</span><span class="mk dubbia" data-mostra="citations">[3]</span><span class="mk viva" data-mostra="answer">[3]</span>.
+                <span class="senza-cit" data-mostra="citations">Both were computed on the held-out split.</span><span data-mostra="answer">Both were computed on the held-out split.</span></p>
+            </div>
+
+            <div class="avviso" data-mostra="citations">
+              <span class="avviso-icona">!</span>
+              <div>
+                <p class="avviso-titolo">Una citazione non regge, e una frase non ne ha nessuna.</p>
+                <p class="avviso-testo">Il marcatore <code>[3]</code> punta a un chunk che non sostiene
+                l'affermazione (0,21). L'ultima frase è sottolineata perché non cita niente.</p>
+              </div>
+            </div>
+
+            <div class="avviso neutro" data-mostra="gate">
+              <span class="avviso-icona">∅</span>
+              <div>
+                <p class="avviso-titolo">Non rispondo: nel corpus non c'è abbastanza.</p>
+                <p class="avviso-testo">Il punteggio migliore è 0,18, sotto la soglia calibrata di 0,31
+                per questa collection. Il modello non è stato interrogato — le fonti trovate restano
+                a destra, giudicale tu.</p>
+              </div>
+            </div>
+
+            <div class="testo-risposta" data-mostra="modello">
+              <p>The retrieved passages do not report a replication study funded in 2019.</p>
+            </div>
+            <div class="avviso neutro" data-mostra="modello">
+              <span class="avviso-icona">∅</span>
+              <div>
+                <p class="avviso-titolo">Si è astenuto il modello, non il filtro.</p>
+                <p class="avviso-testo">Le fonti superavano la soglia, ma il modello ha dichiarato di
+                non trovarci la risposta. È uno stato diverso dal precedente, e costa 9 secondi in più.</p>
+              </div>
+            </div>
+
+            <div class="avviso" data-mostra="errore">
+              <span class="avviso-icona">×</span>
+              <div>
+                <p class="avviso-titolo">La generazione si è interrotta. Le fonti ci sono.</p>
+                <p class="avviso-testo">Il modello ha smesso di rispondere dopo 4 s. I documenti
+                recuperati restano nel pannello: riprova, oppure leggili direttamente.</p>
+              </div>
+            </div>
+
+            <div class="azioni-risposta" data-mostra="citations modello">
+              <span class="azione primaria">⇄ Confronta senza fonti</span>
+              <span class="azione">⟲ Rigenera</span>
+              <span class="azione">⌄ Dettagli della run</span>
+            </div>
+            <div class="azioni-risposta" data-mostra="gate">
+              <span class="azione primaria">⇄ Chiedi lo stesso senza fonti</span>
+              <span class="azione">⌄ Dettagli della run</span>
+            </div>
+            <div class="azioni-risposta" data-mostra="errore">
+              <span class="azione primaria">⟲ Riprova</span>
+              <span class="azione">⌄ Dettagli della run</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="composer">
+          <div class="composer-campo"><span>Scrivi una domanda…</span><span class="invia">↑</span></div>
+          <div class="toggles">
+            <span class="tg on"><span class="led"></span>RAG</span>
+            <span class="tg"><span class="led"></span>Ragionamento</span>
+            <span class="tg menu">gemma4:e4b</span>
+            <span class="tg spento">Prompt: permissivo</span>
+            <span class="tg menu">Avanzate</span>
+          </div>
+        </div>
+      </main>
+
+      <aside class="fonti">
+        <div class="fonti-testata">
+          <p class="etichetta">Fonti</p>
+          <span class="conteggio" data-mostra="chunks token answer citations gate modello errore">3</span>
+        </div>
+
+        <div class="fonti-vuote" data-mostra="attesa">
+          Le fonti compaiono qui<br>prima che il modello scriva.
+        </div>
+
+        <div class="scheda citata" data-mostra="chunks token answer citations errore">
+          <div class="scheda-capo">
+            <span class="num-marcatore">1</span>
+            <span class="doc-nome">2310.06825 · §4.2</span>
+            <span class="punteggio">0,606</span>
+          </div>
+          <p class="estratto">Ridge Regression attains a mean RMSE of 0.184 with a standard deviation of 0.0226 across the five folds…</p>
+          <div class="targhe">
+            <span class="targa pipeline">structured_hierarchical</span>
+            <span class="targa">p. 7</span>
+          </div>
+          <span class="verdetto ok" data-mostra="citations"><span class="glifo">✓</span>sostiene · 0,606</span>
+          <span class="verdetto attesa" data-mostra="answer"><span class="glifo">·</span>controllo…</span>
+        </div>
+
+        <div class="scheda" data-mostra="chunks token answer citations errore">
+          <div class="scheda-capo">
+            <span class="num-marcatore">2</span>
+            <span class="doc-nome">2310.06825 · §4.2</span>
+            <span class="punteggio">0,541</span>
+          </div>
+          <p class="estratto">Table 3 summarises the cross-validation results for all four regularised estimators…</p>
+          <div class="targhe">
+            <span class="targa pipeline">structured_hierarchical</span>
+            <span class="targa">p. 7</span>
+          </div>
+          <span class="verdetto attesa" data-mostra="citations"><span class="glifo">–</span>non citata</span>
+        </div>
+
+        <div class="scheda citata" data-mostra="chunks token answer citations errore">
+          <div class="scheda-capo">
+            <span class="num-marcatore">3</span>
+            <span class="doc-nome">1904.02766 · Introduzione</span>
+            <span class="punteggio">0,498</span>
+          </div>
+          <p class="estratto">Lasso and Ridge behave differently under collinearity, as several authors have observed…</p>
+          <div class="targhe">
+            <span class="targa pipeline">continuous_text</span>
+            <span class="targa">p. 3</span>
+          </div>
+          <span class="verdetto no" data-mostra="citations"><span class="glifo">✕</span>non sostiene · 0,212</span>
+          <span class="verdetto attesa" data-mostra="answer"><span class="glifo">·</span>controllo…</span>
+        </div>
+
+        <div class="scheda" data-mostra="gate modello">
+          <div class="scheda-capo">
+            <span class="num-marcatore">1</span>
+            <span class="doc-nome">1904.02766 · Ringraziamenti</span>
+            <span class="punteggio">0,181</span>
+          </div>
+          <p class="estratto">The authors thank the anonymous reviewers for their comments on an earlier draft…</p>
+          <div class="targhe">
+            <span class="targa pipeline">continuous_text</span>
+            <span class="targa">p. 12</span>
+          </div>
+        </div>
+      </aside>
+    </div>
+  </div>
+
+  <div class="stepper" role="group" aria-label="Stati dello stream">
+    <button class="passo" data-stato="attesa"    aria-pressed="false"><span>Attendo</span><span class="t">0,00 s</span></button>
+    <button class="passo" data-stato="chunks"    aria-pressed="true"><span>chunks</span><span class="t">0,02 s</span></button>
+    <button class="passo" data-stato="token"     aria-pressed="false"><span>token</span><span class="t">3,1 s</span></button>
+    <button class="passo" data-stato="answer"    aria-pressed="false"><span>answer</span><span class="t">11,4 s</span></button>
+    <button class="passo" data-stato="citations" aria-pressed="false"><span>citations</span><span class="t">12,3 s</span></button>
+    <button class="passo" data-stato="gate"      aria-pressed="false"><span>astensione · gate</span><span class="t">0,02 s</span></button>
+    <button class="passo" data-stato="modello"   aria-pressed="false"><span>astensione · modello</span><span class="t">9,1 s</span></button>
+    <button class="passo" data-stato="errore"    aria-pressed="false"><span>error</span><span class="t">4,0 s</span></button>
+  </div>
+  <p class="stepper-nota">
+    I tempi sono quelli misurati in A-05 sull'host, non inventati: è la stessa onestà che
+    U-10 chiede al video di 90 secondi.
+  </p>
+
+  <div class="prosa">
+    <h3>Le tre regole che questi stati impongono</h3>
+    <div class="nota">
+      <strong>1. Fra <code>token</code> e <code>answer</code> i marcatori non sono cliccabili.</strong>
+      Il parser di C-02 può ancora scartarne uno: offrire un link a un <code>[3]</code> che
+      sparirà è promettere una fonte che non esiste. Restano visibili ma spenti — sottolineatura
+      punteggiata, nessun cursore a manina.
+    </div>
+    <div class="nota">
+      <strong>2. Il verdetto in attesa non è l'assenza di verdetto.</strong>
+      Fra <code>answer</code> e <code>citations</code> ogni citazione porta un pallino neutro
+      «controllo…». Lasciare il posto vuoto la farebbe leggere come verificata.
+    </div>
+    <div class="nota">
+      <strong>3. Le due astensioni si vedono diverse.</strong>
+      Il filtro rifiuta prima di chiamare il modello e costa zero; il modello che dichiara di
+      non sapere costa nove secondi. Scriverle uguali nasconde il pezzo di sistema che ha
+      lavorato — e nel caso del filtro le fonti scartate restano mostrate, perché il giudizio
+      possa essere contestato.
+    </div>
+  </div>
+</section>
+
+<section>
+  <h2 class="prosa"><span class="num">04</span>Confronto — U-03</h2>
+  <p class="sotto prosa">
+    Non un toggle: un layout. «Affiancate, dalla stessa query, nella stessa sessione» non
+    si ottiene con due messaggi consecutivi nella cronologia.
+  </p>
+
+  <div class="schermo">
+    <div class="schermo-barra">
+      <span class="pallino"></span><span class="pallino"></span><span class="pallino"></span>
+      <span class="schermo-nome">ibid — confronto</span>
+    </div>
+    <div class="query-comune">
+      <span class="etichetta">Stessa domanda</span>
+      <span>What is the standard deviation of RMSE for Ridge Regression?</span>
+    </div>
+    <div class="confronto">
+      <div class="colonna">
+        <div class="colonna-capo">
+          <span class="colonna-titolo">Con le fonti</span>
+          <span class="verdetto ok"><span class="glifo">✓</span>1 su 2 sostenute</span>
+        </div>
+        <div class="testo-risposta">
+          <p>The standard deviation of RMSE for Ridge Regression is <strong>0.0226</strong>
+          <span class="mk viva">[1]</span>.</p>
+        </div>
+        <div class="scheda citata">
+          <div class="scheda-capo">
+            <span class="num-marcatore">1</span>
+            <span class="doc-nome">2310.06825 · §4.2</span>
+            <span class="punteggio">0,606</span>
+          </div>
+          <p class="estratto">…a mean RMSE of 0.184 with a standard deviation of 0.0226 across the five folds…</p>
+          <div class="targhe"><span class="targa pipeline">structured_hierarchical</span><span class="targa">p. 7</span></div>
+        </div>
+        <div class="riga-stato"><span class="puntino fermo"></span><span>11,4 s · gemma4:e4b</span></div>
+      </div>
+
+      <div class="colonna">
+        <div class="colonna-capo">
+          <span class="colonna-titolo">Senza fonti · prompt permissivo</span>
+          <span class="verdetto no"><span class="glifo">✕</span>nessuna fonte</span>
+        </div>
+        <div class="testo-risposta">
+          <p>The standard deviation of RMSE for Ridge Regression is typically around
+          <strong>0.03–0.05</strong>, depending on the dataset and the regularisation
+          strength used during cross-validation.</p>
+        </div>
+        <div class="avviso">
+          <span class="avviso-icona">!</span>
+          <div>
+            <p class="avviso-titolo">Plausibile, e sbagliato.</p>
+            <p class="avviso-testo">Niente in questa risposta è verificabile: non c'è una fonte
+            da aprire. È esattamente ciò che il progetto misura.</p>
+          </div>
+        </div>
+        <div class="toggles">
+          <span class="tg spento">permissivo</span>
+          <span class="tg menu">severo</span>
+        </div>
+        <div class="riga-stato"><span class="puntino fermo"></span><span>6,2 s · gemma4:e4b</span></div>
+      </div>
+    </div>
+  </div>
+  <p class="didascalia">
+    Il selettore <strong>permissivo / severo</strong> vive dentro la colonna «senza fonti»,
+    l'unico posto dove ha effetto: è U-04, e con un clic mostra la differenza fra inventare
+    e astenersi <em>sulla stessa domanda già sullo schermo</em>.
+  </p>
+</section>
+
+<section>
+  <h2 class="prosa"><span class="num">05</span>Esploratore del corpus</h2>
+  <p class="sotto prosa">
+    Non la dashboard. Qui non si confrontano configurazioni: si guarda il corpus e come
+    è stato spezzato — cioè si rende visibile il routing a chi non sa cosa sia un nDCG.
+  </p>
+
+  <div class="schermo">
+    <div class="schermo-barra">
+      <span class="pallino"></span><span class="pallino"></span><span class="pallino"></span>
+      <span class="schermo-nome">ibid — corpus</span>
+    </div>
+    <div class="esp">
+      <aside class="esp-lista">
+        <div>
+          <p class="etichetta">Dataset</p>
+          <div class="select"><span>ledger</span><small>47.110</small></div>
+        </div>
+        <p class="etichetta">Documenti</p>
+        <div class="doc-voce attiva">
+          <b>NYSE_SHW_2017</b><span>table_heavy · 214 chunk</span>
+        </div>
+        <div class="doc-voce"><b>NASDAQ_AAPL_2022</b><span>table_heavy · 331 chunk</span></div>
+        <div class="doc-voce"><b>NYSE_KO_2019</b><span>table_heavy · 189 chunk</span></div>
+        <div class="doc-voce"><b>NASDAQ_MSFT_2021</b><span>table_heavy · 402 chunk</span></div>
+      </aside>
+
+      <div class="esp-centro">
+        <div class="ricerca"><span>⌕</span><span>Cerca nel documento — nessuna risposta generata</span></div>
+        <div>
+          <p class="etichetta">Com'è stato spezzato</p>
+          <div class="mappa">
+            <div class="mappa-riga">
+              <span class="tessera"></span><span class="tessera"></span>
+              <span class="tessera tabella scelta"></span><span class="tessera"></span>
+            </div>
+            <div class="mappa-riga">
+              <span class="tessera"></span><span class="tessera tabella"></span>
+              <span class="tessera"></span><span class="tessera"></span><span class="tessera"></span>
+            </div>
+            <div class="mappa-riga">
+              <span class="tessera tabella"></span><span class="tessera"></span>
+              <span class="tessera"></span><span class="tessera tabella"></span>
+            </div>
+          </div>
+          <div class="legenda" style="margin-top:9px">
+            <span><i class="t"></i>testo</span>
+            <span><i class="b"></i>tabella · mai spezzata</span>
+          </div>
+        </div>
+        <div class="avviso neutro">
+          <span class="avviso-icona">⌗</span>
+          <div>
+            <p class="avviso-titolo">Pipeline <code>table_heavy</code>, scelta dal profilatore.</p>
+            <p class="avviso-testo">Le tabelle restano intere anche quando sono lunghe: spezzarle
+            renderebbe la riga illeggibile senza l'intestazione. Un chunker generico qui taglia a
+            metà — è la differenza che la seconda affermazione del §0 misura.</p>
+          </div>
+        </div>
+      </div>
+
+      <aside class="esp-dettaglio">
+        <p class="etichetta">Chunk selezionato</p>
+        <div class="targhe">
+          <span class="targa pipeline">table_heavy</span>
+          <span class="targa">table</span>
+          <span class="targa">p. 34</span>
+        </div>
+        <table class="tabella-finta">
+          <tr><td>Total assets</td><td>$33,020</td></tr>
+          <tr><td>Long-term debt</td><td>$8,290</td></tr>
+          <tr><td>Net earnings</td><td>$1,171</td></tr>
+        </table>
+        <div class="targhe"><span class="targa">ledger:NYSE_SHW_2017:0031</span></div>
+        <div class="azioni-risposta">
+          <span class="azione">↗ Apri la fonte</span>
+        </div>
+        <div class="avviso neutro">
+          <span class="avviso-icona">◇</span>
+          <div>
+            <p class="avviso-testo">Nessuna coordinata di pagina per questo dataset: l'evidenziazione
+            sul PDF non è disponibile. Dichiarata, non simulata.</p>
+          </div>
+        </div>
+      </aside>
+    </div>
+  </div>
+  <p class="didascalia">
+    <strong>U-06, per intero.</strong> Dove le coordinate non ci sono, l'interfaccia lo dice
+    e non disegna un rettangolo vuoto. Un evidenziatore che evidenzia il posto sbagliato è
+    peggio di nessun evidenziatore, in un progetto che si presenta come verificabile.
+  </p>
+</section>
+
+<section class="prosa">
+  <h2><span class="num">06</span>Cosa manca all'API</h2>
+  <p class="sotto">
+    Tre buchi, trovati disegnando. È lo stesso meccanismo di A-06: un consumatore vero
+    rivela cosa non c'è.
+  </p>
+  <div class="tab-scroll">
+    <table>
+      <thead><tr><th style="width:26%">Serve a</th><th style="width:34%">Manca</th><th>Perché non si può aggirare</th></tr></thead>
+      <tbody>
+        <tr>
+          <td>Il menu dei modelli</td>
+          <td><code>models</code> in <code>Capabilities</code>, dal proxy di <code>GET {LLM_BASE_URL}/v1/models</code></td>
+          <td>Il browser non deve parlare con Ollama: può non raggiungerlo, e la regola è che l'LLM si passa da <code>LLM_BASE_URL</code>. Una lista scritta a mano nel frontend è la lezione di Q-06 che si ripete.</td>
+        </tr>
+        <tr>
+          <td>Il toggle «Ragionamento»</td>
+          <td><code>reasoning_effort</code> in <code>QueryRequest</code></td>
+          <td>Oggi <code>ConfigView</code> lo <em>restituisce</em> ma la richiesta non lo accetta: si può vedere quale ha girato, non sceglierlo.</td>
+        </tr>
+        <tr>
+          <td>Sfogliare il corpus</td>
+          <td><code>GET /documents?dataset_id=</code> e <code>GET /document/{doc_id}/chunks</code></td>
+          <td>C'è <code>/chunk/{id}</code> (uno, per id) e <code>/retrieve</code> (per query). Non c'è modo di <em>navigare</em> — e senza, l'esploratore può solo cercare, mai mostrare.</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+  <div class="nota">
+    <strong>Nessuno tocca il contratto esistente.</strong> Sono due campi additivi e due
+    endpoint nuovi: un client scritto contro la Fase 7 continua a funzionare. Vale la pena
+    dirlo perché la regola inversa — cambiare la forma di ciò che è già stato prodotto — è
+    quella che ha reso caro il §3.2.
+  </div>
+</section>
+
+<section class="prosa">
+  <h2><span class="num">07</span>Decisioni da fissare ora</h2>
+  <p class="sotto">Sette scelte che è meglio prendere qui che a frontend scritto.</p>
+
+  <ol class="decisioni">
+    <li>
+      <span class="dec-num">01</span>
+      <div class="dec-corpo">
+        <h4>Lo stream non si legge con <code>EventSource</code></h4>
+        <p><code>/query/stream</code> è una <code>POST</code>, e l'<code>EventSource</code> del
+        browser fa solo <code>GET</code>. Serve <code>fetch</code> + <code>ReadableStream</code> con
+        un parser SSE scritto a mano (~40 righe). L'alternativa — accettare anche <code>GET</code>
+        con la configurazione in query string — costringerebbe a serializzare quindici parametri
+        in un URL: non si fa.</p>
+      </div>
+    </li>
+    <li>
+      <span class="dec-num">02</span>
+      <div class="dec-corpo">
+        <h4>Nessuna riconnessione automatica</h4>
+        <p>Con <code>fetch</code> non c'è il retry gratuito dell'<code>EventSource</code>, ed è
+        un bene: riconnettersi rilancerebbe una generazione da 11 secondi e produrrebbe una
+        risposta <em>diversa</em>. Su caduta di rete si mostra il parziale, marcato incompleto,
+        con un pulsante «Riprova» esplicito. Serve un <code>AbortController</code> anche per il
+        pulsante «Ferma».</p>
+      </div>
+    </li>
+    <li>
+      <span class="dec-num">03</span>
+      <div class="dec-corpo">
+        <h4>La cronologia vive nel browser</h4>
+        <p><code>localStorage</code>, nessun endpoint, nessuna sessione. Non c'è autenticazione
+        né database nello stack, e una demo che ha bisogno di un database per ricordarsi è un
+        altro progetto. Va scritto nella UI, non lasciato dedurre: chi cambia macchina non
+        ritrova le sue conversazioni.</p>
+      </div>
+    </li>
+    <li>
+      <span class="dec-num">04</span>
+      <div class="dec-corpo">
+        <h4>La lingua dell'interfaccia non è la lingua della risposta</h4>
+        <p>Il selettore IT/EN traduce la cornice — etichette, avvisi, stati. <strong>Non</strong>
+        traduce il testo del modello, gli estratti dei chunk o i messaggi di errore del backend:
+        quelli seguono la lingua della domanda e del corpus, che è inglese. Confonderli
+        porterebbe a tradurre una citazione, cioè a rompere proprio la cosa che il progetto
+        garantisce.</p>
+      </div>
+    </li>
+    <li>
+      <span class="dec-num">05</span>
+      <div class="dec-corpo">
+        <h4>I verdetti non si distinguono solo per colore</h4>
+        <p>✓ sostiene / ✕ non sostiene / · in attesa portano <em>glifo, colore e parola</em>. Un
+        verdetto leggibile solo da chi distingue verde e ambra escluderebbe circa un uomo su
+        dodici — su un'interfaccia il cui unico scopo è far leggere quel verdetto. E il «non
+        sostiene» non è rosso: U-07 dice che non è un errore da nascondere, è il dato.</p>
+      </div>
+    </li>
+    <li>
+      <span class="dec-num">06</span>
+      <div class="dec-corpo">
+        <h4>I parametri di retrieval stanno sotto «Avanzate»</h4>
+        <p><code>retrieval_mode</code>, <code>rerank</code>, <code>top_k</code>, <code>hnsw_ef</code>
+        esistono nell'API e la demo li accetta — ma chiusi. Un muro di manopole mostra
+        l'ablation, che è il lavoro della dashboard. Restano sempre leggibili in «Dettagli della
+        run», così la configurazione che ha girato non è mai un mistero.</p>
+      </div>
+    </li>
+    <li>
+      <span class="dec-num">07</span>
+      <div class="dec-corpo">
+        <h4>Le query d'esempio vincolano U-08</h4>
+        <p>Nel profilo <code>demo</code> l'indice contiene solo i chunk d'oro di ~30 query più
+        distrattori. Se gli esempi della schermata iniziale non sono <em>quelle</em> query, il
+        primo clic di chi prova il progetto finisce in un'astensione. I due task vanno decisi
+        insieme.</p>
+      </div>
+    </li>
+  </ol>
+</section>
+
+<section class="prosa">
+  <h2><span class="num">08</span>Ordine di lavoro</h2>
+  <p class="sotto">
+    Le dipendenze non sono l'ordine del ROADMAP: i tre buchi dell'API vengono prima di
+    tutto ciò che li usa.
+  </p>
+  <div class="tab-scroll">
+    <table>
+      <thead><tr><th style="width:16%">Prima</th><th style="width:42%">Cosa</th><th>Sblocca</th></tr></thead>
+      <tbody>
+        <tr><td><code>A-07</code></td><td>I tre campi/endpoint mancanti, additivi</td><td>il selettore modello, il toggle ragionamento, l'esploratore</td></tr>
+        <tr><td><code>U-00</code></td><td>Scheletro React+Vite, client SSE, temi, i18n, <code>/datasets</code> all'avvio</td><td>tutto il resto — e nessuna costante nel frontend, per U-01</td></tr>
+        <tr><td><code>U-01/02/05/07</code></td><td>La schermata chat con gli otto stati e il pannello fonti</td><td>è il grosso: quattro criteri in una schermata</td></tr>
+        <tr><td><code>U-03/04</code></td><td>La vista confronto</td><td>«la feature che fa capire il progetto a chiunque»</td></tr>
+        <tr><td><code>U-06</code></td><td>Link profondi, e l'assenza di bbox dichiarata</td><td>—</td></tr>
+        <tr><td><code>U-08…U-12</code></td><td>Profilo demo, video, README, Linux</td><td>presentabilità</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <div class="nota">
+    <strong>U-02 costa meno di quanto il ROADMAP lasci pensare</strong>, e U-05 e U-07 quasi
+    niente: sono tre criteri che vivono nello stesso pannello, alimentato da due eventi che
+    l'API già manda. Il lavoro vero è la macchina a stati — otto stati, tre dei quali
+    (attesa dei verdetti, le due astensioni) esistono solo perché il §3.5 li ha nominati
+    prima che qualcuno provasse a disegnarli.
+  </div>
+</section>
+
+<footer class="piede">
+  <span>ibid — fase 8, bozza d'interfaccia · 14 agosto 2026</span>
+  <span>Vincoli: ROADMAP §3.5 e §12, CLAUDE.md</span>
+</footer>
+
+</div>
+
+<script>
+(function () {
+  var app = document.getElementById("app");
+  var nome = document.getElementById("nome-stato");
+  var bottoni = Array.prototype.slice.call(document.querySelectorAll(".passo"));
+  var variabili = Array.prototype.slice.call(app.querySelectorAll("[data-mostra]"));
+
+  function applica(stato) {
+    app.setAttribute("data-stato", stato);
+    variabili.forEach(function (el) {
+      el.hidden = el.getAttribute("data-mostra").split(" ").indexOf(stato) === -1;
+    });
+    bottoni.forEach(function (b) {
+      b.setAttribute("aria-pressed", String(b.getAttribute("data-stato") === stato));
+    });
+    nome.textContent = "ibid — chat · evento: " + stato;
+  }
+
+  bottoni.forEach(function (b) {
+    b.addEventListener("click", function () { applica(b.getAttribute("data-stato")); });
+  });
+
+  applica("chunks");
+})();
+</script>

@@ -7,63 +7,106 @@
 @custom-variant dark (&:where([data-theme="dark"], [data-theme="dark"] *));
 
 /* --- I colori -----------------------------------------------------------
-   Due insiemi con gli stessi nomi. Un componente non sa in che tema sta, e non
-   deve saperlo: chiede `bg-surface` e riceve quello del tema corrente.
+   **Inchiostro indaco su carta**, presi da `docs/ui-mockup.html`: quello e' il
+   riferimento della Fase 8, e questi token sono la sua traduzione. Cambiarli
+   qui cambia tutte le schermate, quindi non si cambiano per una schermata sola.
 
-   `supported` / `unsupported` / `abstain` sono semantici e **separati
-   dall'accento**: un verdetto colorato con l'accento smette di essere un
-   verdetto e diventa decorazione. E l'insostenuto non e' rosso -- U-07 dice che
-   non e' un errore da nascondere, e' il dato. */
+   La carta scura e' indaco profondo (#131421) e non grigio neutro: e' la stessa
+   tinta dell'accento portata al fondo della scala, ed e' cio' che tiene insieme
+   i due temi invece di farli sembrare due progetti.
+
+   `ok` / `warn` / `wait` sono semantici e **separati dall'accento**: un verdetto
+   colorato con l'accento smette di essere un verdetto e diventa decorazione.
+   E `warn` **non e' rosso** — U-07 dice che una citazione non sostenuta non e'
+   un errore da nascondere, e' il dato. Rosso contraddirebbe la tesi del §0.
+
+   Le varianti `-soft` sono i fondi: un verdetto si legge da glifo, colore e
+   parola insieme, e il fondo e' cio' che lo rende visibile senza urlare. */
 :root {
-  --ground: #f6f7f9;
+  --paper: #f7f7f5;
   --surface: #ffffff;
-  --surface-2: #eef0f4;
-  --ink: #15171c;
-  --muted: #5f6673;
-  --line: #dfe3e9;
-  --accent: #0f6d70;
+  --surface-2: #efefeb;
+  --ink: #17181f;
+  --ink-2: #45475a;
+  --muted: #74768a;
+  --line: #e3e3de;
+  --line-2: #cfcfc8;
+  --accent: #3c4ca8;
+  --accent-2: #6472cc;
+  --accent-soft: #e8eaf7;
   --accent-ink: #ffffff;
-  --supported: #14804a;
-  --unsupported: #8a5a00;
-  --abstain: #5b6470;
+  --ok: #2f6b54;
+  --ok-soft: #e1efe8;
+  --warn: #8e5c1b;
+  --warn-soft: #f5ead7;
+  --wait: #74768a;
+  --wait-soft: #ebebe7;
+  --shadow: 0 1px 2px rgba(23, 24, 31, 0.06), 0 8px 24px -12px rgba(23, 24, 31, 0.18);
 }
 
 [data-theme="dark"] {
-  --ground: #0f1115;
-  --surface: #161920;
-  --surface-2: #1e222b;
-  --ink: #e7eaef;
-  --muted: #99a1af;
-  --line: #272c36;
-  --accent: #3fb6b8;
-  --accent-ink: #08161a;
-  --supported: #4ec98a;
-  --unsupported: #d9a441;
-  --abstain: #8b95a3;
+  --paper: #131421;
+  --surface: #1a1b29;
+  --surface-2: #232437;
+  --ink: #e9e9f1;
+  --ink-2: #b7b9ca;
+  --muted: #8b8da2;
+  --line: #2b2c3e;
+  --line-2: #3b3c52;
+  --accent: #97a5f7;
+  --accent-2: #b3bdfa;
+  --accent-soft: #232649;
+  --accent-ink: #131421;
+  --ok: #74c69f;
+  --ok-soft: #17342a;
+  --warn: #e2ac63;
+  --warn-soft: #37290f;
+  --wait: #8b8da2;
+  --wait-soft: #262739;
+  --shadow: 0 1px 2px rgba(0, 0, 0, 0.4), 0 8px 24px -12px rgba(0, 0, 0, 0.6);
 }
 
 /* `inline` perche' i valori sono `var(...)`: senza, Tailwind congelerebbe il
    colore del tema chiaro dentro le utility e il tema scuro non arriverebbe. */
 @theme inline {
-  --color-ground: var(--ground);
+  --color-paper: var(--paper);
   --color-surface: var(--surface);
   --color-surface-2: var(--surface-2);
   --color-ink: var(--ink);
+  --color-ink-2: var(--ink-2);
   --color-muted: var(--muted);
   --color-line: var(--line);
+  --color-line-2: var(--line-2);
   --color-accent: var(--accent);
+  --color-accent-2: var(--accent-2);
+  --color-accent-soft: var(--accent-soft);
   --color-accent-ink: var(--accent-ink);
-  --color-supported: var(--supported);
-  --color-unsupported: var(--unsupported);
-  --color-abstain: var(--abstain);
+  --color-ok: var(--ok);
+  --color-ok-soft: var(--ok-soft);
+  --color-warn: var(--warn);
+  --color-warn-soft: var(--warn-soft);
+  --color-wait: var(--wait);
+  --color-wait-soft: var(--wait-soft);
 
-  /* Nessun webfont, ed e' una decisione: U-08 chiede `docker compose --profile
-     demo up` in meno di due minuti **senza rete**, e un font scaricato da un CDN
-     e' una richiesta di rete al primo caricamento. */
-  --font-sans: ui-sans-serif, system-ui, "Segoe UI", Roboto, "Helvetica Neue",
-    Arial, sans-serif;
-  --font-mono: ui-monospace, "Cascadia Code", "SF Mono", Menlo, Consolas,
-    monospace;
+  --shadow-carta: var(--shadow);
+
+  /* --- Tre ruoli, e la distinzione e' vera, non decorativa -----------------
+     **serif** e' bibliografico: il marchio e i titoli. Il nome del progetto
+     viene da *ibidem*, e una grazia dice da sola di che famiglia di oggetti si
+     sta parlando.
+     **sans** e' interfaccia: tutto cio' che si opera invece di leggere.
+     **mono** e' dato: `chunk_id`, marcatori, punteggi, etichette. Le cifre
+     incolonnate hanno bisogno di larghezza fissa, e un id in proporzionale si
+     legge come prosa quando non lo e'.
+
+     Tutti font di sistema. U-08 chiede `--profile demo` in meno di due minuti
+     **senza rete**, e un webfont da CDN e' una richiesta di rete al primo
+     caricamento. */
+  --font-serif: "Iowan Old Style", "Palatino Linotype", Palatino, "Book Antiqua",
+    Georgia, serif;
+  --font-sans: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue",
+    sans-serif;
+  --font-mono: ui-monospace, "SF Mono", "Cascadia Mono", Consolas, monospace;
 }
 
 html {
@@ -75,7 +118,7 @@ html {
 }
 
 body {
-  background-color: var(--ground);
+  background-color: var(--paper);
   color: var(--ink);
   font-family: var(--font-sans);
   -webkit-font-smoothing: antialiased;
