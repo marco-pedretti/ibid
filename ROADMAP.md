@@ -447,6 +447,64 @@ Il criterio è ridurre il lavoro rifatto, non la difficoltà crescente. Q-03 e Q
 
 **U-03 è la feature che fa capire il progetto a chiunque**, ed è quasi gratis: i baseline li state già calcolando in Fase 2.
 
+### U-08 in dettaglio — come e quando si pubblica l'indice
+
+**Il problema, detto una volta.** Chi arriva da GitHub trova il codice, non i vettori. Rigenerarli costa **~2 ore di GPU** (122 minuti misurati in I-07 per 65.950 chunk) più il download dei corpus da HuggingFace. Nessuno prova un progetto a quel prezzo, e un README che lo chiede sta dicendo «non provarlo».
+
+**Le tre strade non sono alternative: sono tre bisogni diversi**, e vanno tutte e tre documentate perché chi arriva non sa quale è la sua.
+
+| bisogno | cosa riceve | costo | dove sta |
+|---|---|---|---|
+| **vedere com'è** | indice `demo` committato | < 2 min, zero rete | in git, `data/demo/` |
+| **provare sul dataset vero** | snapshot Qdrant | 161 MB da scaricare | asset di **GitHub Release** |
+| **riprodurre le misure** | ingestione completa | ~2 h di GPU | `make fetch-datasets && make ingest` |
+
+Solo la terza rigenera i vettori, ed è quella su cui poggia ogni numero in `docs/progress.md`. Le prime due servono a **mostrare**, e vanno dichiarate come tali: un demo che sembra riprodurre le misure è peggio di nessun demo.
+
+#### Misure, prese il 2026-08-14 su cui la scelta si basa
+
+| collection | punti | su disco | snapshot | compresso |
+|---|---|---|---|---|
+| `open_ragbench` | 18.840 | 212 MB | 212 MB | **161 MB** |
+| `ledger` | 47.110 | 445 MB | — | ~340 MB |
+| `open_ragbench_routed` | 98.312 | 683 MB | — | — |
+| `ledger_routed` | 228.331 | 1,4 GB | — | — |
+
+I vettori densi sono 1024 dimensioni × 4 byte per punto e **non comprimono**: 161 su 212 MB è il 76%, cioè quasi niente. Ogni piano che assuma una compressione migliore è sbagliato.
+
+#### La licenza permette di ridistribuire, ed è la prima cosa da verificare
+
+Uno snapshot contiene **il testo dei chunk**, non solo i vettori. Non è un artefatto derivato opaco: è il corpus, riorganizzato.
+
+| dataset | licenza | ridistribuibile | obbligo |
+|---|---|---|---|
+| `vectara/open_ragbench` | Apache 2.0 | sì | licenza + NOTICE accanto all'artefatto |
+| `artefactory/ledger-long-context-KPI-QA` | CC-BY-4.0 | sì | attribuzione accanto all'artefatto |
+
+**«Accanto all'artefatto» e non solo nel repo**: chi scarica uno snapshot da una release può non aver mai visto `data/README.md`. L'attribuzione va nel corpo della release e in un file dentro l'archivio.
+
+#### Come — il meccanismo
+
+Qdrant ripristina **direttamente da un URL**, quindi non c'è nessun file da maneggiare a mano:
+
+```
+POST /collections/open_ragbench/snapshots/recover
+{"location": "https://github.com/<org>/ibid/releases/download/<tag>/open_ragbench.snapshot"}
+```
+
+Cosa pubblicare, e cosa no: `open_ragbench` e `ledger`. **Non** le varianti `_routed` (2,1 GB insieme) — servono all'ablation R-07, cioè a chi riproduce, e chi riproduce ingerisce.
+
+#### Quando
+
+- **L'indice `demo`**: dentro U-08, perché è ciò che quel task consegna. Va costruito dai chunk d'oro di ~30 query più distrattori — ordine di 1.500–2.000 chunk, ~10–15 MB, che stanno in git senza LFS. `dataset_id: "demo"` è già nello schema `Chunk` del §3: era previsto.
+- **Lo snapshot su Release**: al primo tag pubblico, insieme a U-11 (il README che presenta il progetto). Prima non ha destinatari, e uno snapshot pubblicato prima delle misure definitive invecchia male — va rigenerato a ogni re-ingestione che cambia i vettori.
+
+#### Cosa non fare, e perché
+
+- **Committare lo snapshot in git.** GitHub rifiuta i file oltre 100 MB, e anche sotto quella soglia un binario nella storia la gonfia per sempre: si cancella dal working tree, non dai commit.
+- **Git LFS sul piano gratuito.** 1 GB di banda al mese: si esaurisce dopo sei cloni, e dal settimo chi clona vede un errore invece del dataset. È il modo peggiore di fallire — sembra funzionare finché il progetto non interessa a nessuno.
+- **Pubblicare uno snapshot senza dire da quale commit e con quale modello di embedding è stato costruito.** Un indice è legato al modello che l'ha prodotto (§A-02: interrogarlo con un altro embedder restituisce spazzatura *senza errore*). Il tag della release e il nome del modello vanno nel corpo della release.
+
 **U-12 sta in Fase 7 e non in Fase 8** perché il criterio di U-09 è "primo avvio pulito su macchina vergine", e una macchina Linux è una macchina vergine: un progetto MIT pensato per essere provato da altri non è presentabile se gira su un sistema operativo solo. Non è però un lavoro grande, ed è più piccolo di quanto sembri: `src/index/embed.py` sceglie già `DmlExecutionProvider` solo se disponibile e ripiega su CPU, quindi su Linux il codice **gira già**. Mancano due cose, misurate il 2026-08-10: la lista provider non contiene `ROCMExecutionProvider`/`CUDAExecutionProvider`, quindi su Linux si finisce su CPU anche con GPU capace (2,38 embed/s contro ~10: l'ingestion passa da ~2 a ~8 ore); e `onnxruntime-directml` non è dichiarato in `pyproject.toml`, quindi la dipendenza GPU esiste solo nella tabella di `STACK.md`. L'inferenza LLM non è coinvolta: Ollama gira su Vulkan, che è lo stesso codice llama.cpp sui due sistemi.
 
 ---
