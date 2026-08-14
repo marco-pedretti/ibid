@@ -65,6 +65,16 @@ const PASTIGLIA = "rounded-[5px] border border-line-2 px-[7px] py-1 text-[10px] 
  * quale e' vivo, e un clic porta all'altro senza aprire niente. Una tendina di
  * due voci farebbe fare due gesti dove ne basta uno, e nasconderebbe meta'
  * dell'informazione dietro il primo.
+ *
+ * La lingua viva e' **accento su fondo accento**, che nel mockup e' il modo in
+ * cui un controllo dice «questo e' acceso» (`.tg.on`). Prima era solo un grigio
+ * un po' meno spento di un altro: a 10 px la differenza fra `ink` e `muted`
+ * esiste sulla carta e non sullo schermo, e chi guardava doveva indovinare.
+ *
+ * L'`aria-label` porta il valore corrente perche' **sostituisce** il testo
+ * dentro il bottone: senza, chi ascolta sentirebbe il nome del comando e mai la
+ * lingua in cui si trova — proprio il dato che l'evidenziazione aggiunge per
+ * chi guarda.
  */
 function PastigliaLingua() {
   const { t, lingua, imposta } = usaLingua();
@@ -74,13 +84,19 @@ function PastigliaLingua() {
     <button
       type="button"
       onClick={() => imposta(altra)}
-      aria-label={t("lang.label")}
-      className={`${PASTIGLIA} transition-colors hover:text-ink`}
+      aria-label={`${t("lang.label")}: ${lingua.toUpperCase()}`}
+      className={`${PASTIGLIA} flex items-center gap-0.5 transition-colors hover:border-line`}
     >
       {LINGUE.map((l, i) => (
-        <span key={l}>
-          {i > 0 && <span className="text-line-2"> / </span>}
-          <span className={l === lingua ? "font-medium text-ink" : undefined}>
+        <span key={l} className="flex items-center gap-0.5">
+          {i > 0 && <span className="text-line-2">/</span>}
+          <span
+            className={
+              l === lingua
+                ? "rounded-[3px] bg-accent-soft px-[3px] py-px font-semibold text-accent"
+                : "px-[3px] py-px"
+            }
+          >
             {l.toUpperCase()}
           </span>
         </span>
