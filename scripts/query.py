@@ -1,14 +1,21 @@
 #!/usr/bin/env python3
-"""T-05: CLI query — retrieves chunks and generates answer with citation markers.
+"""CLI di interrogazione: stampa cio' che `src/service` decide.
 
-Prerequisites:
+Dalla T-05 questo file *era* la pipeline. Da A-01 non lo e' piu': la sequenza
+recupero → gate → generazione → riparazione vive in `src.service.answer`, e qui
+resta solo la formattazione per un terminale. E' il criterio di A-01 preso alla
+lettera — se un endpoint HTTP non deve contenere logica di pipeline, non deve
+contenerla nemmeno l'altro consumatore, altrimenti non c'e' niente da
+confrontare.
+
+Prerequisiti:
     1. docker compose --profile full up qdrant -d
     2. python scripts/ingest.py --skip-download
-    3. Ollama running with gemma4 loaded
+    3. Ollama in ascolto con gemma4 caricato
 
-Usage:
-    python scripts/query.py "your question here"
-    python scripts/query.py --top-k 3 "What is the standard deviation of RMSE for Ridge Regression?"
+Uso:
+    python scripts/query.py "la tua domanda"
+    python scripts/query.py --top-k 3 "What is the SD of RMSE for Ridge Regression?"
 """
 
 import argparse
@@ -19,95 +26,67 @@ ROOT = Path(__file__).parent.parent
 sys.path.insert(0, str(ROOT))
 
 import src.config as cfg
-from src.datasets.schema import Chunk
-from src.generation.chat import generate
-from src.generation.citations import extract_cited, parse
-from src.generation.prompt import ABSTENTION_ANSWER, SYSTEM, build_user_message
-from src.index.embed import encode
-from src.index.store import get_client, search
-from src.retrieval.abstention import decide
+from src.datasets.registry import dataset_ids
+from src.service import Answer, AnswerRequest, answer
 
 
-def _payload_to_chunk(p: dict) -> Chunk:
-    return Chunk(
-        chunk_id=p["chunk_id"],
-        dataset_id=p["dataset_id"],
-        doc_id=p["doc_id"],
-        doc_genre=p.get("doc_genre", ""),
-        pipeline=p.get("pipeline", ""),
-        section_path=p.get("section_path", ""),
-        page=p.get("page", 0),
-        bbox=None,
-        content_type=p.get("content_type", "text"),
-        text=p["text"],
-        source_uri=p["source_uri"],
-    )
+def render(result: Answer) -> None:
+    """Il risultato, letto ad alta voce. Nessuna decisione presa qui."""
+    print(f"\nTop {len(result.chunks)} chunk recuperati:")
+    for item in result.chunks:
+        preview = item.chunk.text[:80].replace("\n", " ")
+        print(f"  [{item.marker}] {item.chunk.doc_id} (score={item.score:.3f}): {preview}...")
 
-
-def main() -> None:
-    parser = argparse.ArgumentParser(description="T-05 query CLI")
-    parser.add_argument("query", help="Question to answer")
-    parser.add_argument("--dataset", default="open_ragbench")
-    parser.add_argument("--top-k", type=int, default=cfg.TOP_K)
-    parser.add_argument("--model", default=cfg.LLM_MODEL)
-    args = parser.parse_args()
-
-    # 1. Embed query
-    print(f"Encoding query con {cfg.EMBEDDING_MODEL} ...", flush=True)
-    [q_vec] = encode([args.query], cfg.EMBEDDING_MODEL)
-
-    # 2. Retrieve
-    client = get_client(cfg.QDRANT_URL)
-    hits = search(client, args.dataset, q_vec, args.top_k, using="dense")
-    chunks = [_payload_to_chunk(h.payload) for h in hits]
-
-    print(f"\nTop {len(chunks)} chunk recuperati:")
-    for i, (chunk, hit) in enumerate(zip(chunks, hits)):
-        preview = chunk.text[:80].replace("\n", " ")
-        print(f"  [{i+1}] {chunk.doc_id} (score={hit.score:.3f}): {preview}...")
-
-    # 3. Abstain before generating, on the retrieval scores alone (C-04).
-    # Before the LLM call, not after: an answer that is going to be refused
-    # anyway costs ~11s of GPU to produce, and a gate that runs afterwards is
-    # not a guarantee, it is a filter on something already invented.
-    gate = decide([h.score for h in hits], args.dataset, "dense")
-    if gate.abstain:
-        print(f"\nASTENSIONE (C-04): punteggio massimo {gate.score:.4f} sotto la soglia "
-              f"{gate.threshold:.4f} per '{args.dataset}'.")
+    if result.abstention == "retrieval":
+        print(f"\nASTENSIONE (C-04): punteggio massimo {result.gate.score:.4f} sotto la soglia "
+              f"{result.gate.threshold:.4f} per '{result.collection}'.")
         print("=" * 60)
-        print(ABSTENTION_ANSWER)
+        print(result.text)
         print("=" * 60)
         return
-    if not gate.active:
-        print(f"\n[gate di astensione non calibrato per ({args.dataset}, dense): non applicato]")
 
-    # 4. Generate
-    print(f"\nGenerazione risposta con {args.model} ...")
-    user_msg = build_user_message(args.query, chunks)
-    answer = generate(
-        base_url=cfg.LLM_BASE_URL,
-        model=args.model,
-        system=SYSTEM,
-        user=user_msg,
-        temperature=cfg.TEMPERATURE,
-        max_tokens=cfg.MAX_NEW_TOKENS,
-    )
-    answer = parse(answer, len(chunks))
+    if not result.gate.active:
+        print(f"\n[gate di astensione non calibrato per ({result.collection}, dense): "
+              "non applicato]")
 
     print("\n" + "=" * 60)
     print("RISPOSTA:")
     print("=" * 60)
-    print(answer)
+    print(result.text)
     print("=" * 60)
+    if result.truncated:
+        print("\n[risposta troncata dal tetto di token: le citazioni mancanti "
+              "potrebbero non essere mai state scritte]")
 
-    cited = extract_cited(answer)
     print("\nFonti citate:")
-    for i in cited:
-        chunk = chunks[i - 1]
-        print(f"  [{i}] {chunk.source_uri}  ({chunk.doc_id})")
-    uncited = [i + 1 for i in range(len(chunks)) if i + 1 not in cited]
-    if uncited:
-        print(f"\nChunk recuperati ma non citati: {uncited}")
+    for marker in result.cited:
+        chunk = result.chunks[marker - 1].chunk
+        print(f"  [{marker}] {chunk.source_uri}  ({chunk.doc_id})")
+    if result.uncited:
+        print(f"\nChunk recuperati ma non citati: {result.uncited}")
+
+
+def main() -> None:
+    parser = argparse.ArgumentParser(description="Interrogazione da riga di comando")
+    parser.add_argument("query", help="Domanda a cui rispondere")
+    parser.add_argument("--dataset", default="open_ragbench", choices=dataset_ids())
+    parser.add_argument(
+        "--collection",
+        default=None,
+        help="Collection Qdrant, se diversa dal dataset (es. 'ledger_routed')",
+    )
+    parser.add_argument("--top-k", type=int, default=cfg.TOP_K)
+    parser.add_argument("--model", default=cfg.LLM_MODEL)
+    args = parser.parse_args()
+
+    print(f"Encoding query con {cfg.EMBEDDING_MODEL} ...", flush=True)
+    render(answer(AnswerRequest(
+        query=args.query,
+        dataset_id=args.dataset,
+        collection=args.collection,
+        top_k=args.top_k,
+        model=args.model,
+    )))
 
 
 if __name__ == "__main__":

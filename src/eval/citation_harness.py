@@ -31,7 +31,7 @@ from src.eval.run_config import build_config, make_eval_run
 from src.generation.chat import generate_detailed
 from src.generation.citation_format import ComplianceSummary, check_format, summarize
 from src.generation.prompt import SYSTEM, build_user_message
-from src.index.store import get_client
+from src.index.store import chunk_from_payload, get_client
 
 
 @dataclass
@@ -54,22 +54,6 @@ class GenerationRecord:
     latency_s: float = 0.0
     finish_reason: str = ""
     completion_tokens: int = 0
-
-
-def _payload_to_chunk(p: dict) -> Chunk:
-    return Chunk(
-        chunk_id=p["chunk_id"],
-        dataset_id=p["dataset_id"],
-        doc_id=p["doc_id"],
-        doc_genre=p.get("doc_genre", ""),
-        pipeline=p.get("pipeline", ""),
-        section_path=p.get("section_path", ""),
-        page=p.get("page", 0),
-        bbox=None,
-        content_type=p.get("content_type", "text"),
-        text=p["text"],
-        source_uri=p["source_uri"],
-    )
 
 
 def prompt_hash(system_prompt: str) -> str:
@@ -304,7 +288,7 @@ def run_citation_eval(
     reports = []
     t0 = time.time()
     for i, (query, cand) in enumerate(zip(answerable, all_candidates), 1):
-        chunks = [_payload_to_chunk(p) for p in cand.payloads[:top_k]]
+        chunks = [chunk_from_payload(p) for p in cand.payloads[:top_k]]
         t_q = time.time()
         completion = generate_detailed(
             base_url=cfg.LLM_BASE_URL,

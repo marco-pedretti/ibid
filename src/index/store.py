@@ -122,6 +122,39 @@ def upsert(
         )
 
 
+def chunk_from_payload(payload: dict) -> Chunk:
+    """L'inverso di `upsert`: il payload di Qdrant torna a essere un `Chunk`.
+
+    Sta qui accanto alla funzione che quel payload lo scrive, perche' le due
+    devono cambiare insieme: un campo aggiunto sopra e non letto qui sparisce
+    silenziosamente al ritorno.
+
+    Ne esistevano due copie identiche -- in `scripts/query.py` e in
+    `citation_harness.py` -- entrambe chiamate `_payload_to_chunk` ed entrambe
+    private.  Private per modo di dire: tre script la importavano attraverso
+    l'underscore, esattamente come `_RETRIEVERS` prima che diventasse
+    `RETRIEVERS`.  Una funzione con cinque chiamanti non e' privata, e' solo
+    scritta nel posto sbagliato.
+
+    `bbox` e' sempre `None`: nel payload non c'e' (I-06 e' rinviato, nessun
+    dataset attuale fornisce PDF con coordinate).  Dichiararlo assente e'
+    diverso dal simularlo -- vedi §3.5.
+    """
+    return Chunk(
+        chunk_id=payload["chunk_id"],
+        dataset_id=payload["dataset_id"],
+        doc_id=payload["doc_id"],
+        doc_genre=payload.get("doc_genre", ""),
+        pipeline=payload.get("pipeline", ""),
+        section_path=payload.get("section_path", ""),
+        page=payload.get("page", 0),
+        bbox=None,
+        content_type=payload.get("content_type", "text"),
+        text=payload["text"],
+        source_uri=payload["source_uri"],
+    )
+
+
 def search_params() -> SearchParams | None:
     """Come cercare nel grafo HNSW, o se saltarlo del tutto (R-11).
 
