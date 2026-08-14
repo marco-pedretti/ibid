@@ -71,14 +71,29 @@ export function SelettoreDataset() {
         {numero(scelto.n_chunks)}
       </span>
 
+      {/* `bg-surface text-ink` su un elemento a `opacity: 0` non e' una
+          dimenticanza da ripulire: **la tendina e' un widget nativo a parte**, e
+          l'opacita' non la tocca. Senza colori dichiarati eredita il testo
+          (`--ink`, quasi bianco nel tema scuro) e dipinge il fondo col default
+          dell'agente utente, che resta chiaro: bianco su bianco per ogni voce
+          non evidenziata. Il colore va detto qui anche se qui non si vede. */}
       <select
         aria-label={t("datasets.change")}
         value={scelto.dataset_id}
         onChange={(e) => imposta(e.target.value)}
-        className="absolute inset-0 w-full cursor-pointer opacity-0"
+        className="absolute inset-0 w-full cursor-pointer bg-surface text-ink opacity-0"
       >
         {elenco.map((d) => (
-          <option key={d.dataset_id} value={d.dataset_id} disabled={!interrogabile(d)}>
+          <option
+            key={d.dataset_id}
+            value={d.dataset_id}
+            disabled={!interrogabile(d)}
+            // Ripetuti sull'opzione perche' Chromium dipinge le voci col loro
+            // stile, non con quello del `<select>`. Il disabilitato resta
+            // leggibile e non invisibile: e' uno stato da capire, non da
+            // indovinare.
+            className={interrogabile(d) ? "bg-surface text-ink" : "bg-surface text-muted"}
+          >
             {interrogabile(d)
               ? `${d.dataset_id} · ${numero(d.n_chunks)} ${t("datasets.chunks")}`
               : `${d.dataset_id} · ${t("datasets.notQueryable")}`}
