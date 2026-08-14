@@ -79,6 +79,29 @@ Rules:
 - Delete the branch immediately after merging with `git branch -d`.
 - Small fixes or enhancements to an already-merged task (not a new ROADMAP task) may go directly to main without a branch.
 
+### Fase 8 (U-xx): the merge waits for Marco's approval
+
+**Agreed 2026-08-14, after U-01 and U-02.** For UI tasks, "done" is not something the
+implementer can determine: those two shipped to main and were then followed by seven
+rounds of visual corrections — icon legibility, dark-mode contrast, dropdown width,
+animation jank. Each landed on main as a loose commit, detached from the task that
+caused it.
+
+So for every `U-xx` task:
+
+1. implement on the branch, committing as usual (one decision per commit);
+2. run it and **tell Marco it is ready to look at**, with what changed and what to try;
+3. corrections go on the **same branch**, as their own commits;
+4. merge `--no-ff` only once Marco says it is good.
+
+The point is not ceremony: it makes the merge commit the real boundary of the task
+again — the corrections belong to it, and reverting the merge reverts the whole thing.
+A branch that stays open two days costs nothing here (single worktree, no parallel
+work); a task whose corrections are scattered across main costs a reader every time.
+
+This does not change anything for non-UI phases, where "done" is a passing acceptance
+criterion and not a judgement about how something looks.
+
 ### Commit granularity: one decision per commit
 
 A task does not land as one block. Split it into commits that can each be **reviewed and reverted on their own**:
