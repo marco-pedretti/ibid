@@ -1788,6 +1788,19 @@ Separazione perfetta contro separazione mediocre, e in tutti e due i versi. La g
 
 `katex` 0.18.4 (MIT) è **l'unica dipendenza che finisce nel bundle servito**, e porta i propri font: +260 kB di JS e +190 kB di font, emessi da `vite build` come file locali — nessuna richiesta a un CDN, quindi U-08 resta avviabile senza rete. È una deroga dichiarata al «tutti font di sistema» del §12, e la ragione è la stessa per cui i simboli sono disegnati e non scritti: un carattere risolto dal sistema è diverso su ogni macchina, e una formula lo è in modo molto più visibile di un caret. `trust: false` resta il default e resta scritto: senza, `\href` darebbe a un testo **generato dal modello** un modo per iniettare markup.
 
+#### Il formato si decide nel prompt, e lascia una misura in sospeso
+
+Il rendering descritto sopra era tarato su ciò che **gemma4** scrive: prosa e il LaTeX del corpus. Ma il modello è un parametro della richiesta, e uno diverso che rispondesse con una tabella Markdown arriverebbe come pipe letterali sullo schermo. Quindi due righe in `SYSTEM` — prosa piana, niente Markdown né HTML, formule fra `$…$` — che nominano solo i tre formati misurati sui 1200 chunk. Un test tiene la sezione entro quattro righe: l'attenzione del modello serve alle citazioni.
+
+**Markdown pieno è stato valutato e scartato, e non per estetica.** In CommonMark `[2][3]` è un *reference link*: un renderer Markdown standard non disegna due marcatori, cerca una definizione di link chiamata `3`. La forma contigua che il §3.2 impone è esattamente quella che Markdown reinterpreta, e l'unica uscita sarebbe tokenizzare i marcatori **prima** del Markdown — cioè una seconda implementazione del contratto di citazione, che è ciò che il §3.2 esiste per impedire.
+
+Le tabelle sarebbero peggio del disordine che risolvono: la verifica di C-03 è **a livello di frase**, e una riga di tabella non è una frase. Una risposta con una tabella di KPI verrebbe fuori più bella e **meno verificata** — celle senza citazione, o citazioni che il verificatore non sa attribuire. È barattare la prima affermazione del §0 per un bordo. E c'è una ragione di sostanza sotto la meccanica: una tabella generata **fonde** numeri presi da chunk diversi in una struttura che il modello ha inventato, cioè nasconde proprio il punto in cui la tracciabilità si perde.
+
+Il grassetto inline resta possibile in futuro — dieci righe, nessuna dipendenza, `**` non collide con `[n]` — ma va aggiunto come cambiamento **isolato**, con la sua misura: gli asterischi finiscono nel testo che `claims.py` spezza in frasi e che l'NLI giudica. Oggi il guadagno sarebbe comunque piccolo: le risposte misurate sono di due-quattro frasi, e l'unico accento che serve ce l'ha già il marcatore acceso.
+
+> **Debito aperto, scritto qui perché non si perda.** `prompt_hash` entra nel `config_hash` di C-01, quindi il test d'ancora ora **salta** — come era stato scritto per fare — e il **98% di conformità vale per il prompt vecchio**. Per riaffermarlo al nuovo: `python scripts/eval_citations.py --dataset open_ragbench --limit 200`, ~65–70 minuti di GPU. Finché non gira, quel numero va citato insieme al prompt a cui si riferisce.
+
+
 #### Provato contro l'API viva
 
 Una query d'oro vera (`open_ragbench`, `top_k 3`), attraverso il proxy:
