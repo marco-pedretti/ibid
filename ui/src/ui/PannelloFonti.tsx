@@ -17,7 +17,7 @@ import { usaChat } from "../app/chat";
 import { usaLingua } from "../app/i18n";
 import type { ChunkView } from "../api/types";
 import { Etichetta } from "./Etichetta";
-import { marcatoriCitati } from "./Testo";
+import { Estratto, marcatoriCitati } from "./Testo";
 
 export function PannelloFonti() {
   const { t } = usaLingua();
@@ -109,7 +109,7 @@ function Scheda({ chunk, citata }: { chunk: ChunkView; citata: boolean }) {
         </p>
       )}
 
-      <p className="line-clamp-2 text-[11px] leading-[1.5] text-ink-2">{chunk.text}</p>
+      <Estratto testo={chunk.text} />
     </article>
   );
 }

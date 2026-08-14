@@ -152,6 +152,22 @@ body {
   outline: none;
 }
 
+/* Una formula che KaTeX non riesce a comporre viene disegnata col suo sorgente:
+   il colore e' quello degli avvisi e non un rosso proprio della libreria, perche'
+   nella palette del §12 il rosso non esiste — un TeX malformato non e' piu' grave
+   di una citazione non sostenuta, e non deve sembrarlo. */
+.katex-error {
+  color: var(--warn) !important;
+}
+
+/* Le formule in display possono essere piu' larghe della colonna: scorre la
+   formula, non la pagina. */
+.katex-display {
+  overflow-x: auto;
+  overflow-y: hidden;
+  padding-block: 2px;
+}
+
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,
