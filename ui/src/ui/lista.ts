@@ -16,6 +16,11 @@ export interface Voce<T extends string> {
    *  `<select>` nativo accettava solo testo: era l'unico posto dell'interfaccia
    *  in cui il simbolo doveva restare un glifo. */
   icona?: ReactNode;
+  /** Il dato che sta a destra, in mono: il conteggio dei chunk, non una
+   *  seconda riga di prosa. Separato da `testo` perche' e' `testo` a dover
+   *  troncare quando la corsia e' stretta -- un numero troncato non e' un
+   *  numero. */
+  dettaglio?: string;
   /** Visibile e leggibile, ma non scegliibile: uno stato da capire, non da
    *  indovinare. La tastiera la salta, come farebbe il controllo nativo. */
   disabilitata?: boolean;

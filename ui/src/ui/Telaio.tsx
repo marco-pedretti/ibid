@@ -43,7 +43,11 @@ export function Telaio({ children, fianco }: { children: ReactNode; fianco?: Rea
         fianco ? "grid-cols-[200px_1fr_272px]" : "grid-cols-[200px_1fr]"
       }`}
     >
-      <aside className="flex flex-col gap-4 overflow-y-auto border-r border-line bg-surface px-3 py-3.5">
+      {/* Niente `overflow-y-auto` qui: un contenitore di scorrimento ritaglia
+          cio' che esce dai suoi bordi, e la tendina del dataset -- che e' posizionata
+          in assoluto -- ne veniva tagliata. Quando arrivera' la cronologia lo
+          scorrimento andra' su quella lista, che e' la sola parte che cresce. */}
+      <aside className="flex flex-col gap-4 border-r border-line bg-surface px-3 py-3.5">
         <Marchio className="px-1 text-[19px]" />
 
         <div>

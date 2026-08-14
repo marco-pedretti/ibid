@@ -57,11 +57,15 @@ export function SelettoreDataset() {
     );
   }
 
+  // Nome e conteggio separati, come sul bottone: nella corsia da 200 px una
+  // riga sola andrebbe troncata a meta' del numero, e un numero troncato non e'
+  // un numero -- e' un numero sbagliato.
   const voci: Voce<string>[] = elenco.map((d) => ({
     valore: d.dataset_id,
-    testo: interrogabile(d)
-      ? `${d.dataset_id} · ${numero(d.n_chunks)} ${t("datasets.chunks")}`
-      : `${d.dataset_id} · ${t("datasets.notQueryable")}`,
+    testo: d.dataset_id,
+    dettaglio: interrogabile(d)
+      ? `${numero(d.n_chunks)} ${t("datasets.chunks")}`
+      : t("datasets.empty"),
     disabilitata: !interrogabile(d),
   }));
 
@@ -71,6 +75,7 @@ export function SelettoreDataset() {
       valore={scelto.dataset_id}
       voci={voci}
       onCambia={imposta}
+      larghezza="bottone"
       className="flex items-center gap-2 rounded-[7px] border border-line-2 bg-surface px-[9px] py-[7px] text-[12px]"
     >
       <span className="truncate">{scelto.dataset_id}</span>

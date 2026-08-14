@@ -42,6 +42,7 @@ export function Selettore<T extends string>({
   onCambia,
   className = "",
   verso = "giu",
+  larghezza = "contenuto",
   children,
 }: {
   etichetta: string;
@@ -52,6 +53,11 @@ export function Selettore<T extends string>({
   /** Dove si apre il pannello. In fondo alla corsia `"su"` e' l'unica scelta
    *  possibile: verso il basso finirebbe fuori dalla finestra. */
   verso?: "giu" | "su";
+  /** `"bottone"` incolla il pannello alla larghezza del controllo: dentro una
+   *  corsia di 200 px e' l'unica misura che non sfonda. `"contenuto"` lo lascia
+   *  crescere, e serve a un controllo piccolo (la pastiglia del tema) le cui
+   *  voci sono piu' larghe di lui. */
+  larghezza?: "bottone" | "contenuto";
   children: ReactNode;
 }) {
   const [aperto, setAperto] = useState(false);
@@ -174,7 +180,8 @@ export function Selettore<T extends string>({
           role="listbox"
           aria-label={etichetta}
           className={[
-            "absolute z-20 min-w-full overflow-hidden rounded-lg border border-line-2 bg-surface p-1 shadow-carta",
+            "absolute z-20 overflow-hidden rounded-lg border border-line-2 bg-surface p-1 shadow-carta",
+            larghezza === "bottone" ? "w-full" : "min-w-full w-max",
             verso === "giu" ? "top-full mt-1.5 origin-top" : "bottom-full mb-1.5 origin-bottom",
             "transition-[opacity,transform]",
             aperto
@@ -193,7 +200,7 @@ export function Selettore<T extends string>({
               onClick={() => scegli(i)}
               onPointerEnter={() => !v.disabilitata && setAttivo(i)}
               className={[
-                "flex items-center gap-2 rounded-md px-2 py-1.5 text-[11.5px] whitespace-nowrap",
+                "flex items-center gap-2 rounded-md px-2 py-1.5 text-[11.5px]",
                 v.disabilitata
                   ? "cursor-not-allowed text-muted"
                   : "cursor-pointer text-ink-2 transition-colors duration-100",
@@ -203,8 +210,18 @@ export function Selettore<T extends string>({
             >
               {v.icona}
               <span className="truncate">{v.testo}</span>
+              {v.dettaglio !== undefined && (
+                <span className="ml-auto shrink-0 font-mono text-[10px] text-muted tabular-nums">
+                  {v.dettaglio}
+                </span>
+              )}
               {i === scelta && (
-                <span aria-hidden="true" className="ml-auto font-mono text-[10px] text-accent">
+                <span
+                  aria-hidden="true"
+                  className={`shrink-0 font-mono text-[10px] text-accent ${
+                    v.dettaglio === undefined ? "ml-auto" : ""
+                  }`}
+                >
                   •
                 </span>
               )}
