@@ -54,6 +54,24 @@ def test_system_prompt_warns_against_the_documents_own_references():
     assert "corollary" in lowered
 
 
+def test_system_prompt_names_the_three_formats_the_corpora_produce():
+    # U-02: the renderer must not be tuned to whatever the current model emits.
+    # The three named formats are the ones measured on 1200 real chunks:
+    # Markdown headings, HTML tables (Mathpix Markdown in `ledger`), LaTeX.
+    lowered = SYSTEM.lower()
+    assert "markdown" in lowered
+    assert "html" in lowered
+    assert "latex" in lowered
+    assert "$...$" in SYSTEM
+
+
+def test_the_format_rules_stay_short():
+    # Attention is finite and the citation rules are the ones that carry §3.2:
+    # a formatting section that grows past a few lines is spending it elsewhere.
+    sezione = SYSTEM.split("OUTPUT FORMAT")[1].split("If the context")[0]
+    assert 0 < len(sezione.strip().splitlines()) <= 4
+
+
 def test_system_prompt_keeps_the_exact_abstention_phrase():
     # is_abstention() matches on this string; rewording it silently reclassifies
     # every refusal as a format failure.

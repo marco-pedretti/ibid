@@ -21,6 +21,19 @@ academic papers and that is how papers cite.  A prompt that says "cite with [n]"
 without saying which [n] is competing with the document for the same notation.
 This is a property of the `academic_pdf` genre, not of the model.
 
+**The output format is decided here, not observed in the UI (U-02).**  Two lines,
+added once the chat screen had to draw what the model writes.  Without them the
+renderer is tuned to whatever the *current* model happens to emit: gemma4 answers
+in prose and echoes the corpus' LaTeX, so `$…$` and plain paragraphs were enough
+— but the model is a request parameter, and a larger one that replies with a
+Markdown table would arrive as literal pipes on screen.  This is the same rule
+already applied to citations: the format is a contract, not a habit we measured.
+
+The rules name only what the corpora actually produce, measured on 1200 chunks:
+Markdown headings (100% of `open_ragbench` chunks, 77% of `ledger`), HTML tables
+(39% of `ledger`, Mathpix Markdown), and LaTeX (83% of `open_ragbench`).  A
+longer list would spend attention on formats nobody has seen.
+
 **The output language (C-05).**  "Respond in the same language as the question"
 was carried here from an early refactor and was never verified until C-05.  It
 works: on 20 golden queries hand-translated into it/es/fr/de and asked against
@@ -67,6 +80,10 @@ SYSTEM = (
     "  The maximum value is 400ms [2-3].      <- range\n"
     "  As shown in [Corollary 4.5], ...       <- the document's own label\n"
     "  As shown in [17], ...                  <- the document's own bibliography\n\n"
+    "OUTPUT FORMAT\n"
+    "Plain prose: no Markdown headings, lists, tables or bold, and no HTML tags, "
+    "even when the context contains them.\n"
+    "Keep formulas in LaTeX between $...$, as they appear in the context.\n\n"
     "If the context does not contain sufficient information, reply exactly: "
     f"'{ABSTENTION_ANSWER}'\n\n"
     "Respond in the same language as the question."
