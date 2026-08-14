@@ -239,11 +239,36 @@ function Avviso({
 
 /* --- il campo ------------------------------------------------------------ */
 
+/** Quante righe prima che il campo smetta di crescere e cominci a scorrere.
+ *  Otto perche' e' l'altezza oltre la quale il campo mangia le fonti e la
+ *  risposta: cresce finche' vedere cio' che si scrive conta piu' di vedere cio'
+ *  a cui si sta rispondendo. */
+const RIGHE_MASSIME = 8;
+
 function Campo() {
   const { t } = usaLingua();
   const { scelto } = usaDataset();
   const { occupato, invia, ferma } = usaChat();
   const [testo, setTesto] = useState("");
+  const campo = useRef<HTMLTextAreaElement>(null);
+
+  // Un `<textarea>` non cresce col contenuto: `rows` fissa l'altezza e basta.
+  // Si azzera e si rimisura, perche' senza `auto` lo `scrollHeight` non cala
+  // mai — cancellando una riga il campo resterebbe alto.
+  //
+  // In CSS esisterebbe `field-sizing: content`, che fa esattamente questo senza
+  // JavaScript, ma non e' ancora ovunque: la demo deve aprirsi su qualunque
+  // browser, e un campo che non cresce e' un difetto visibile. Quando sara'
+  // diffuso, queste dieci righe diventano una dichiarazione.
+  useEffect(() => {
+    const el = campo.current;
+    if (!el) return;
+    const stile = getComputedStyle(el);
+    const riga = parseFloat(stile.lineHeight) || 19;
+    const bordi = parseFloat(stile.paddingTop) + parseFloat(stile.paddingBottom);
+    el.style.height = "auto";
+    el.style.height = `${Math.min(el.scrollHeight, riga * RIGHE_MASSIME + bordi)}px`;
+  }, [testo]);
 
   const spedisci = () => {
     if (testo.trim() === "") return;
@@ -257,6 +282,7 @@ function Campo() {
     <div className="border-t border-line bg-surface px-[22px] pt-3 pb-3.5">
       <div className="flex items-end gap-3 rounded-[9px] border border-line-2 bg-paper px-3 py-2.5 focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-accent">
         <textarea
+          ref={campo}
           rows={1}
           value={testo}
           disabled={bloccato}
@@ -273,7 +299,11 @@ function Campo() {
           // `fuoco-delegato`: l'anello di fuoco lo disegna la cornice attorno,
           // che reagisce a `focus-within`. Non si rinuncia al fuoco visibile,
           // si sceglie dove disegnarlo.
-          className="fuoco-delegato max-h-40 min-h-[22px] flex-1 resize-none bg-transparent text-[12.5px] text-ink placeholder:text-muted disabled:cursor-not-allowed"
+          // `leading-[1.5]` esplicito: senza, l'altezza di riga calcolata e'
+          // `normal` e la misura sopra dovrebbe indovinarla. Il massimo lo mette
+          // il JavaScript, quindi qui non c'e' `max-h`: due limiti che possono
+          // divergere sono un limite che prima o poi sbaglia.
+          className="fuoco-delegato flex-1 resize-none overflow-y-auto bg-transparent text-[12.5px] leading-[1.5] text-ink placeholder:text-muted disabled:cursor-not-allowed"
         />
 
         {occupato ? (
