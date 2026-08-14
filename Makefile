@@ -1,4 +1,4 @@
-.PHONY: fetch-datasets ingest eval eval-generation eval-citations noise-floor dashboard demo
+.PHONY: fetch-datasets ingest eval eval-generation eval-citations noise-floor dashboard demo \n	api api-local up down logs
 
 fetch-datasets:
 	python scripts/fetch_dataset.py
@@ -30,3 +30,31 @@ dashboard:
 
 demo:
 	docker compose --profile demo up
+
+# --- Il servizio (A-05) ------------------------------------------------------
+#
+# `api` mette il backend in un container e lo fa parlare con Qdrant e l'LLM
+# sulla macchina che ospita. Dal punto di vista del container quello **e' un
+# altro host**: e' il modo in cui questo setup verifica il criterio di A-05 pur
+# girando tutto su un PC solo.
+#
+# Per servizi davvero altrove basta l'ambiente, e nessun file cambia:
+#   QDRANT_URL=http://10.0.0.5:6333 LLM_BASE_URL=http://10.0.0.7:11434/v1 make api
+api:
+	QDRANT_URL=$${QDRANT_URL:-http://host.docker.internal:6333} 	docker compose up --build api
+
+# Senza container, contro i servizi gia' in ascolto: il giro di sviluppo.
+# `--reload` non c'e' di proposito -- ricaricare a ogni salvataggio rilegge da
+# capo ~2,5 GB di pesi, e l'attesa non si distingue da un blocco.
+api-local:
+	python -m uvicorn src.api.main:app --host 127.0.0.1 --port 8000
+
+# Tutto: Qdrant nella rete di compose piu' il backend.
+up:
+	docker compose --profile full up -d --build
+
+down:
+	docker compose --profile full down
+
+logs:
+	docker compose logs -f api

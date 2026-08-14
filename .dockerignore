@@ -1,0 +1,44 @@
+# Cosa NON entra nel contesto di build (A-05).
+#
+# Senza questo file `docker build` spedisce al demone 2,3 GB: `data/` da sola
+# pesa quanto i due corpus scaricati, e nessuno di quei byte serve al backend --
+# l'API legge da Qdrant, non dal disco. Il contesto si paga a ogni build, anche
+# quando la cache dei layer rende la build stessa istantanea.
+#
+# La regola per decidere: **entra solo cio' che il servizio esegue.** Tutto il
+# resto -- corpus, risultati, notebook di analisi, la dashboard, il frontend --
+# ha altri modi di arrivare dove serve.
+
+# I corpus scaricati e gli indici. 2,3 GB.
+data/
+
+# Le misure. Sono la memoria del progetto e non il codice del servizio: il
+# backend non le legge, e la dashboard che le legge non gira in questa immagine.
+eval/
+
+# Storia e strumenti di sviluppo.
+.git/
+.github/
+.venv/
+*.egg-info/
+
+# Artefatti Python
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.ruff_cache/
+
+# Consumatori che non sono questo servizio.
+ui/
+dashboard/
+notebooks/
+
+# Segreti e configurazione locale: `compose.yml` li passa per ambiente, e una
+# copia dentro l'immagine sopravviverebbe a chi la riceve.
+.env
+.env.local
+
+# Documentazione
+docs/
+*.md
+!README.md
