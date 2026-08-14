@@ -24,7 +24,7 @@ from scripts.query import build_parser, request_from_args
 from src.config import RequestConfig
 from src.datasets.schema import Chunk
 from src.service import AnswerRequest, answer_stream
-from src.service.catalog import DatasetInfo
+from src.service.catalog import DatasetInfo, DocumentInfo
 
 from src.api import main as api
 from tests.test_service_answer import CLAIM, HIGH, LOW, fake_retrieve, fake_verify
@@ -93,6 +93,10 @@ class TestHealth:
 # ---------------------------------------------------------------------------
 
 
+def _llm_spento(url, timeout):
+    raise RuntimeError(f"LLM irraggiungibile su {url}")
+
+
 class TestDatasets:
     def test_elenca_i_dataset_con_lo_stato_dell_indice(self, client, monkeypatch):
         monkeypatch.setattr(api, "datasets", lambda: [
@@ -110,6 +114,27 @@ class TestDatasets:
         corpo = client.get("/datasets").json()
         assert corpo["retrieval_modes"] == ["dense", "sparse", "hybrid"]
         assert corpo["baseline_prompts"] == ["permissive", "strict"]
+
+    def test_elenca_i_modelli_installati(self, client, monkeypatch):
+        """A-07: il menu dei modelli viene da qui, non da una lista scritta a
+        mano nel frontend — che e' la quindicesima copia di Q-06."""
+        monkeypatch.setattr(api, "datasets", list)
+        monkeypatch.setattr(api, "models", lambda: ["gemma4:12b", "gemma4:e4b"])
+        assert client.get("/datasets").json()["models"] == ["gemma4:12b", "gemma4:e4b"]
+
+    def test_con_l_llm_spento_i_dataset_arrivano_lo_stesso(self, client, monkeypatch):
+        """I dataset non dipendono dall'LLM. Se la lista modelli facesse
+        fallire tutta la risposta, sarebbe lo stesso difetto per cui `/health`
+        non interroga Qdrant."""
+        monkeypatch.setattr(api, "datasets", lambda: [
+            DatasetInfo("open_ragbench", "open_ragbench", True, 18840),
+        ])
+        monkeypatch.setattr("src.generation.chat._get_json", _llm_spento)
+        risposta = client.get("/datasets")
+        assert risposta.status_code == 200
+        corpo = risposta.json()
+        assert corpo["models"] == []
+        assert corpo["datasets"][0]["n_chunks"] == 18840
 
 
 # ---------------------------------------------------------------------------
@@ -353,6 +378,107 @@ class TestStessaRichiesta:
             # `answer` venga da `src.service` e non sia ricostruito sul posto.
             blocco = re.search(r"from src\.service import \(?([^)\n]|\n(?!\n))*", sorgente)
             assert blocco and re.search(r"\banswer\b", blocco.group(0))
+
+
+# ---------------------------------------------------------------------------
+# /documents e /document/{doc_id}/chunks — A-07
+# ---------------------------------------------------------------------------
+
+
+class TestDocumenti:
+    def test_elenca_i_documenti_della_collection(self, client, monkeypatch):
+        monkeypatch.setattr(api, "documents", lambda ds, collection=None: [
+            DocumentInfo("AMEX_BRN_2017", 118), DocumentInfo("NYSE_SHW_2017", 83),
+        ])
+        corpo = client.get("/documents", params={"dataset_id": "ledger"}).json()
+        assert corpo["collection"] == "ledger"
+        assert [d["doc_id"] for d in corpo["documents"]] == ["AMEX_BRN_2017", "NYSE_SHW_2017"]
+        assert corpo["documents"][1]["n_chunks"] == 83
+
+    def test_la_collection_torna_indietro_quando_e_forzata(self, client, monkeypatch):
+        """Senza, due elenchi diversi della stessa domanda non si distinguono."""
+        visti: list[str | None] = []
+        monkeypatch.setattr(
+            api, "documents",
+            lambda ds, collection=None: visti.append(collection) or [],
+        )
+        corpo = client.get(
+            "/documents", params={"dataset_id": "ledger", "collection": "ledger_routed"}
+        ).json()
+        assert visti == ["ledger_routed"]
+        assert corpo["collection"] == "ledger_routed"
+
+    def test_un_dataset_sconosciuto_e_404(self, client):
+        assert client.get("/documents", params={"dataset_id": "inventato"}).status_code == 404
+
+    def test_i_chunk_di_un_documento_arrivano_in_ordine(self, client, monkeypatch):
+        """Mostrare **come** un documento e' stato spezzato ha senso solo nella
+        sequenza in cui e' stato spezzato."""
+        monkeypatch.setattr(api, "document_chunks", lambda doc, ds, collection=None: [
+            un_chunk("ledger:NYSE_SHW_2017:0000"),
+            un_chunk("ledger:NYSE_SHW_2017:0001"),
+        ])
+        corpo = client.get(
+            "/document/NYSE_SHW_2017/chunks", params={"dataset_id": "ledger"}
+        ).json()
+        assert corpo["doc_id"] == "NYSE_SHW_2017"
+        assert [c["chunk_id"].rsplit(":", 1)[1] for c in corpo["chunks"]] == ["0000", "0001"]
+
+    def test_ogni_chunk_dice_la_sua_pipeline(self, client, monkeypatch):
+        """E' cio' che rende visibile il routing (U-05) a chi sfoglia invece di
+        interrogare."""
+        monkeypatch.setattr(
+            api, "document_chunks",
+            lambda doc, ds, collection=None: [un_chunk()],
+        )
+        chunk_view = client.get(
+            "/document/NASDAQ_AAPL_2022/chunks", params={"dataset_id": "ledger"}
+        ).json()["chunks"][0]
+        assert chunk_view["pipeline"] and chunk_view["doc_genre"]
+
+    def test_qui_non_c_e_stato_nessun_recupero_e_si_vede(self, client, monkeypatch):
+        """`marker` e `score` a zero: un punteggio inventato farebbe leggere una
+        classifica dove c'e' solo una lettura."""
+        monkeypatch.setattr(
+            api, "document_chunks",
+            lambda doc, ds, collection=None: [un_chunk()],
+        )
+        c = client.get(
+            "/document/X/chunks", params={"dataset_id": "ledger"}
+        ).json()["chunks"][0]
+        assert (c["marker"], c["score"]) == (0, 0.0)
+
+    def test_un_documento_che_non_c_e_e_404_non_una_lista_vuota(self, client, monkeypatch):
+        """Come `/chunk/{id}`: un `doc_id` copiato da una citazione vecchia e'
+        una domanda legittima, e va distinta da un guasto."""
+        monkeypatch.setattr(api, "document_chunks", lambda doc, ds, collection=None: [])
+        r = client.get("/document/NON_ESISTE/chunks", params={"dataset_id": "ledger"})
+        assert r.status_code == 404
+
+
+class TestContrattoAdditivo:
+    """Il criterio di A-07: un client scritto contro A-04 continua a funzionare.
+
+    Cambiare la forma di cio' che qualcosa ha gia' prodotto e' la regola che ha
+    reso caro il §3.2. Qui si aggiunge, e questo test dice che si e' solo
+    aggiunto.
+    """
+
+    def test_la_richiesta_minima_basta_ancora(self, client, registra_answer):
+        """`{"query": "..."}` e niente altro: nessuno dei campi nuovi e'
+        obbligatorio."""
+        assert client.post("/query", json={"query": "domanda"}).status_code == 200
+
+    def test_gli_endpoint_di_a04_ci_sono_tutti(self, client):
+        percorsi = {r.path for r in api.app.routes}
+        assert {"/health", "/datasets", "/chunk/{chunk_id:path}",
+                "/query", "/query/stream", "/config", "/retrieve"} <= percorsi
+
+    def test_i_campi_di_a04_non_sono_spariti_dalla_risposta(self, client, registra_answer):
+        corpo = client.post("/query", json={"query": "domanda"}).json()
+        assert {"text", "raw_text", "repaired", "abstained", "abstention", "truncated",
+                "chunks", "cited", "citations", "uncited_claims", "verified", "gate",
+                "timings", "config"} <= set(corpo)
 
 
 class TestNienteLogicaNegliEndpoint:

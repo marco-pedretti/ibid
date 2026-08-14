@@ -26,7 +26,12 @@ import json
 from dataclasses import dataclass
 
 from pydantic import BaseModel, Field, field_validator
-from src.config import BASELINE_PROMPTS, RETRIEVAL_MODES, RequestConfig
+from src.config import (
+    BASELINE_PROMPTS,
+    REASONING_EFFORTS,
+    RETRIEVAL_MODES,
+    RequestConfig,
+)
 from src.datasets.schema import Chunk
 from src.service.answer import (
     Answer,
@@ -41,7 +46,7 @@ from src.service.answer import (
     RetrieveRequest,
     TokenEvent,
 )
-from src.service.catalog import CollectionInfo, DatasetInfo
+from src.service.catalog import CollectionInfo, DatasetInfo, DocumentInfo
 
 # ---------------------------------------------------------------------------
 # Cosa si puo' chiedere
@@ -93,6 +98,10 @@ class QueryRequest(BaseModel):
     model: str | None = None
     temperature: float | None = Field(default=None, ge=0.0, le=2.0)
     max_new_tokens: int | None = Field(default=None, ge=1)
+    #: Il toggle «Ragionamento» (A-07). C'era gia' in `ConfigView`, cioe' si
+    #: poteva **vedere** quale aveva girato senza poterlo scegliere. E' l'asse
+    #: che C-07 misura, e su Gemma 4 e' binario: `"none"` contro il resto.
+    reasoning_effort: str | None = None
 
     # --- il braccio e la verifica ---
     #: `false` risponde senza contesto: l'altro lato del confronto di U-03.
@@ -110,6 +119,13 @@ class QueryRequest(BaseModel):
     @classmethod
     def _prompt_noto(cls, v: str | None) -> str | None:
         return _fra(v, BASELINE_PROMPTS, "baseline_prompt")
+
+    @field_validator("reasoning_effort")
+    @classmethod
+    def _sforzo_noto(cls, v: str | None) -> str | None:
+        """Qui e' un 422 col nome del campo; senza, sarebbe un 400 del modello
+        rimbalzato come 500 — cioe' un guasto nostro per un errore altrui."""
+        return _fra(v, REASONING_EFFORTS, "reasoning_effort")
 
     def config(self) -> RequestConfig:
         """I campi valorizzati diventano override; gli altri restano ai default.
@@ -394,6 +410,49 @@ class CollectionView(BaseModel):
                    dense_size=info.dense_size, has_sparse=info.has_sparse)
 
 
+class DocumentView(BaseModel):
+    """Un documento della collection, e quanti chunk ne sono usciti (A-07).
+
+    Due campi e non di piu': `doc_genre` e `pipeline` vivono sui chunk, e
+    metterli qui sarebbe un'aggregazione che il dato non garantisce. Una
+    collection `_routed` puo' mescolare pipeline dentro lo stesso documento —
+    ed e' proprio il caso che l'esploratore esiste per mostrare.
+    """
+
+    doc_id: str
+    n_chunks: int
+
+    @classmethod
+    def of(cls, info: DocumentInfo) -> "DocumentView":
+        return cls(doc_id=info.doc_id, n_chunks=info.n_chunks)
+
+
+class DocumentsResponse(BaseModel):
+    """I documenti di una collection, e da quale collection vengono.
+
+    `collection` torna indietro perche' la richiesta puo' non averla detta: chi
+    chiede `dataset_id=ledger` riceve `ledger`, chi passa `collection` riceve
+    quella. Senza, due elenchi diversi della stessa domanda non si distinguono.
+    """
+
+    collection: str
+    documents: list[DocumentView]
+
+
+class DocumentChunksResponse(BaseModel):
+    """I chunk di un documento, **nell'ordine in cui sono stati prodotti**.
+
+    L'ordine e' il dato: mostrare come un documento e' stato spezzato ha senso
+    solo nella sequenza in cui e' stato spezzato. `marker` e `score` valgono 0
+    su ognuno — qui non c'e' stato nessun recupero, e un punteggio inventato
+    farebbe leggere una classifica dove c'e' solo una lettura.
+    """
+
+    collection: str
+    doc_id: str
+    chunks: list[ChunkView]
+
+
 class DatasetView(BaseModel):
     """Un dataset interrogabile, e lo stato del suo indice (U-01).
 
@@ -510,6 +569,12 @@ class Capabilities(BaseModel):
 
     retrieval_modes: list[str] = list(RETRIEVAL_MODES)
     baseline_prompts: list[str] = list(BASELINE_PROMPTS)
+    reasoning_efforts: list[str] = list(REASONING_EFFORTS)
+    #: I modelli che l'endpoint di inferenza dichiara di avere (A-07). **Vuota
+    #: quando non e' raggiungibile**, e non e' un errore: i dataset non
+    #: dipendono dall'LLM e devono arrivare comunque. Chi la riceve vuota
+    #: ripiega sul modello di `/config`, l'unico di cui si sappia il nome.
+    models: list[str] = []
     datasets: list[DatasetView] = []
     #: Le collection che esistono sul server, non solo quelle del registro.
     #: Comprende le varianti `_routed` di R-07 e quelle nate da un esperimento:

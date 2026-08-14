@@ -415,6 +415,7 @@ Il criterio è ridurre il lavoro rifatto, non la difficoltà crescente. Q-03 e Q
 | A-04 | Endpoint FastAPI: `/health`, `/datasets`, `/query` (SSE), `/chunk/{chunk_id}` | `docker compose up` e una query completa da `curl`, senza il frontend |
 | A-05 | Backend come servizio in `docker compose`, con `QDRANT_URL` e `LLM_BASE_URL` da ambiente | Backend su una macchina, Qdrant e LLM su un'altra, senza modifiche al sorgente |
 | A-06 | **La dashboard Streamlit passa dall'API** invece di eseguire la pipeline | Nessun modulo di `dashboard/` importa `src.index`, `src.retrieval`, `src.generation`, `src.service`, `src.config`, e nessuno apre un client Qdrant. Gli import rimasti sono **elencati con la loro ragione** in `tests/test_dashboard_boundary.py` |
+| A-07 | **I tre buchi trovati disegnando la Fase 8**: lista modelli, `reasoning_effort` in richiesta, navigazione del corpus | Nessuna delle quattro schermate della bozza ha bisogno di una costante scritta a mano nel frontend né di una chiamata che non sia all'API. Le aggiunte sono **additive**: un client scritto contro A-04 continua a funzionare, verificato da un test che manda la richiesta minima `{"query": "..."}` |
 
 **A-02 è il task difficile, ed è bene saperlo prima.** Gli harness leggono `cfg` globale — è ciò che ha permesso a R-11 di passare `SEARCH_EXACT` da variabile d'ambiente senza toccare una firma. Comodo per uno script, **impossibile per un servizio**: due richieste concorrenti con `top_k` diverso condividerebbero lo stesso modulo. Finché A-02 non è fatto, l'API è monoutente e non lo sa.
 
@@ -428,6 +429,20 @@ Il criterio è ridurre il lavoro rifatto, non la difficoltà crescente. Q-03 e Q
 Il criterio nuovo dice la cosa che il vecchio approssimava: **la dashboard non deve *eseguire* la pipeline.** Gli import rimasti sono cinque, ciascuno con la ragione scritta accanto in un test che fallisce se ne compare un sesto senza che qualcuno l'abbia deciso.
 
 > **A-06 ha prodotto anche un endpoint.** Dall'API mancava la metà che non genera: l'unico modo di vedere dei chunk era `/query`, cioè pagare una generazione — 200 generazioni per un batch del Failure Explorer. Da qui `POST /retrieve`, che accetta **molte query in una chiamata** perché l'embedding è batch per natura. È esattamente l'esito che questo task esisteva per provocare.
+
+**A-07 è lo stesso meccanismo una seconda volta** (2026-08-14), e questo dice qualcosa che va scritto: A-06 ha esercitato *un* consumatore, non tutti. La bozza d'interfaccia della Fase 8 — quattro schermate disegnate prima di scrivere React — ne ha rivelati altri tre.
+
+| serve a | manca | perché non si può aggirare |
+|---|---|---|
+| il menu dei modelli | `models` in `Capabilities`, dal proxy di `GET {LLM_BASE_URL}/v1/models` | il browser **non deve parlare con Ollama**: può non raggiungerlo, e §STACK impone che l'inferenza passi da `LLM_BASE_URL`. Una lista di modelli scritta a mano nel frontend è la lezione di Q-06 che si ripete |
+| il toggle «Ragionamento» | `reasoning_effort` in `QueryRequest` | `ConfigView` lo **restituisce** già ma la richiesta non lo accetta: si può vedere quale ha girato, non sceglierlo. È l'asse che C-07 misura, e la UI non può toccarlo |
+| sfogliare il corpus | `GET /documents` e `GET /document/{doc_id}/chunks` | c'è `/chunk/{id}` (uno, per id) e `/retrieve` (per query): non c'è modo di **navigare**. Senza, l'esploratore può solo cercare, mai mostrare come un documento è stato spezzato — cioè non può rendere visibile il routing, che è U-05 |
+
+**Perché sta in Fase 7 e non in Fase 8.** La Fase 8 dice «il frontend non importa niente da `src/`»: queste sono modifiche a `src/api/` e `src/service/`, e metterle dentro un task U-xx sarebbe la prima violazione di quella regola il giorno dopo averla scritta.
+
+**Nessuna tocca il contratto esistente**, ed è il criterio: due campi additivi e due endpoint nuovi. La regola inversa — cambiare la forma di ciò che è già stato prodotto — è quella che ha reso caro il §3.2.
+
+> **Un effetto collaterale che vale da solo.** `GET /documents` ha bisogno di contare i chunk per documento, e su `ledger` una scansione dei payload costa 2,07 s (10 s su `ledger_routed`). Con un indice payload su `doc_id` la stessa domanda costa **0,025 s** — 80×. L'indice si aggiunge a una collection esistente **senza rifare i vettori**, esattamente come il modificatore IDF di R-08, e `get_by_chunk_id()` prevedeva questo rimedio nella propria docstring da prima che servisse: ogni citazione cliccata in U-06 passa di lì.
 
 **Cosa questa fase NON fa**, e la lista è vincolante quanto quella sopra: nessuna astrazione del vector store, nessun harness a plugin, nessuna coda di messaggi, nessuna autenticazione, nessun multi-tenancy. Le ragioni stanno in §14 — sono la stessa decisione che ha tenuto fuori LangChain.
 
@@ -455,6 +470,28 @@ Il criterio nuovo dice la cosa che il vecchio approssimava: **la dashboard non d
 | U-12 | **Portabilità Linux**: provider ONNX scelto dalla piattaforma, dipendenze GPU come extra opzionali, nessun percorso che assuma Windows | Suite verde e `docker compose --profile demo up` su Linux x86_64, senza modifiche al sorgente |
 
 **U-03 è la feature che fa capire il progetto a chiunque**, ed è quasi gratis: i baseline li state già calcolando in Fase 2.
+
+### Decisioni d'interfaccia prese il 2026-08-14
+
+Ricavate disegnando quattro schermate prima di scrivere React. Quelle che vincolano l'implementazione, non l'estetica.
+
+**La lingua della risposta segue il prompt, non l'interfaccia.** Il selettore IT/EN traduce la cornice — etichette, avvisi, nomi degli stati. Non tocca il testo del modello, gli estratti dei chunk né i messaggi di errore del backend: quelli seguono la lingua della domanda e del corpus. La ragione non è di comodità: far rispondere in italiano su un corpus inglese significherebbe che le citazioni sostengono un testo **tradotto**, e il verificatore NLI di C-03 dovrebbe giudicare cross-lingua un'implicazione che non ha mai misurato in quella condizione. La precisione di citazione è la prima affermazione del §0; non si baratta con una comodità di presentazione.
+
+**Il pannello fonti si apre su `chunks`, non a risposta finita.** Il criterio di U-02 dice «visibile senza interazione in ogni stato», e il protocollo del §3.5 manda `chunks` **prima** del primo token. Le fonti compaiono in ~0,1 s e il testo comincia a ~3 s: l'attesa si riempie invece di premiare, e si vede da dove nasce la risposta mentre nasce.
+
+**U-03 è un layout, non un toggle.** «Affiancate, dalla stessa query, nella stessa sessione» non si ottiene con due messaggi consecutivi in cronologia. Il toggle RAG decide il default della prossima domanda; il confronto è un'azione esplicita su una risposta già data, che la rilancia col RAG invertito e mette le due in due colonne. Il selettore permissivo/severo di U-04 vive **dentro** la colonna senza fonti, l'unico posto dove ha effetto.
+
+**L'esploratore del corpus non è la dashboard.** Vincolo di CLAUDE.md: due UI separate, non fuse. La dashboard confronta configurazioni di retrieval e fa failure analysis — serve a chi misura. L'esploratore mostra **il corpus e come è stato spezzato**: è ciò che rende visibile il routing (U-05) a chi non sa cosa sia un nDCG. Se diventa un confronto A/B di configurazioni, le due UI sono state fuse per sbaglio.
+
+**Lo stream non si legge con `EventSource`.** `/query/stream` è una `POST` e l'`EventSource` del browser fa solo `GET`: serve `fetch` + `ReadableStream` con un parser SSE scritto a mano. Accettare anche `GET` costringerebbe a serializzare quindici parametri in query string — non si fa. Conseguenza voluta: niente riconnessione automatica, che rilancerebbe una generazione da 11 s e produrrebbe una risposta **diversa**. Su caduta si mostra il parziale marcato incompleto, con un «Riprova» esplicito; serve un `AbortController` anche per il pulsante «Ferma».
+
+**La cronologia vive nel browser** (`localStorage`), nessun endpoint, nessuna sessione: non c'è autenticazione né database nello stack, e §14 li tiene fuori. Va **detto** nella UI, non lasciato dedurre — chi cambia macchina non ritrova le sue conversazioni.
+
+**I verdetti non si distinguono solo per colore**: glifo, colore e parola insieme. E il «non sostiene» non è rosso — U-07 dice che non è un errore da nascondere, è il dato.
+
+**I parametri di retrieval stanno sotto «Avanzate»**, chiusi. Un muro di manopole mostra l'ablation, che è il lavoro della dashboard. Restano sempre leggibili in «Dettagli della run», così la configurazione che ha girato non è mai un mistero.
+
+**Le query d'esempio dello stato vuoto vincolano U-08.** Tre esempi, uno per affermazione del §0, così che la demo *sia* l'argomento invece di illustrarlo — e il video di U-10 abbia già il suo copione. Ma nel profilo `demo` l'indice contiene solo i chunk d'oro di ~30 query: se gli esempi non sono **quelle**, il primo clic di chi prova il progetto finisce in un'astensione. I due task si decidono insieme.
 
 ### U-08 in dettaglio — come e quando si pubblica l'indice
 

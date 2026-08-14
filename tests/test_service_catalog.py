@@ -9,10 +9,20 @@ di un indice acceso.
 from __future__ import annotations
 
 from dataclasses import dataclass
+from types import SimpleNamespace
 
 import pytest
+import src.config as cfg
 from src.datasets import registry
-from src.service import chunk, dataset_of, datasets
+from src.service import (
+    DocumentInfo,
+    chunk,
+    dataset_of,
+    datasets,
+    document_chunks,
+    documents,
+    models,
+)
 
 
 @dataclass
@@ -142,3 +152,144 @@ class TestChunk:
         # I-06 e' rinviato: nessun dataset attuale porta coordinate. Dichiarato
         # assente, non simulato (§3.5).
         assert result.bbox is None
+
+
+class TestModelli:
+    """A-07: il menu dei modelli viene dal backend, non dal frontend.
+
+    Le due proprieta' che contano sono l'ordine (stabile) e la degradazione
+    (una lista vuota invece di un guasto): la prima perche' un menu che si
+    riordina fa saltare la selezione, la seconda perche' `/datasets` serve
+    anche i dataset, che con l'LLM non c'entrano niente.
+    """
+
+    @staticmethod
+    def _finto(*ids: str):
+        return lambda url, timeout: {"data": [{"id": i} for i in ids]}
+
+    def test_l_ordine_e_alfabetico_non_quello_di_arrivo(self):
+        """`/v1/models` di Ollama ordina per data di download, che cambia sotto
+        i piedi di chi ha appena scaricato qualcosa."""
+        fetch = self._finto("qwen3.5:latest", "gemma4:12b", "gemma4:e2b")
+        assert models("http://x/v1", fetch=fetch) == [
+            "gemma4:12b", "gemma4:e2b", "qwen3.5:latest",
+        ]
+
+    def test_un_endpoint_spento_da_una_lista_vuota_non_un_errore(self):
+        """Se sollevasse, `/datasets` fallirebbe per intero — dataset compresi.
+        E' lo stesso motivo per cui `/health` non interroga Qdrant."""
+        def esplode(url, timeout):
+            raise RuntimeError("LLM irraggiungibile")
+
+        assert models("http://x/v1", fetch=esplode) == []
+
+    def test_la_lista_vuota_resta_vuota(self):
+        """Non si aggiunge il modello configurato per non tornare mai vuoti:
+        affermerebbe che esiste, che e' cio' che non si e' potuto verificare."""
+        assert models("http://x/v1", fetch=self._finto()) == []
+        assert cfg.LLM_MODEL not in models("http://x/v1", fetch=self._finto())
+
+    def test_le_voci_senza_id_non_entrano(self):
+        fetch = lambda url, timeout: {  # noqa: E731
+            "data": [{"id": "a"}, {"object": "model"}, {"id": ""}, "non un dict"]
+        }
+        assert models("http://x/v1", fetch=fetch) == ["a"]
+
+    def test_usa_l_indirizzo_di_deployment_quando_non_gliene_danno_uno(self):
+        visti: list[str] = []
+
+        def spia(url, timeout):
+            visti.append(url)
+            return {"data": []}
+
+        models(fetch=spia)
+        assert visti == [f"{cfg.LLM_BASE_URL.rstrip('/')}/models"]
+
+    def test_l_endpoint_e_quello_openai_compatibile(self):
+        """Non `/api/tags`: STACK.md impone il contratto OpenAI, cosi' la stessa
+        funzione vale con vLLM o llama.cpp server al posto di Ollama."""
+        visti: list[str] = []
+
+        def spia(url, timeout):
+            visti.append(url)
+            return {"data": []}
+
+        models("http://altrove:8000/v1/", fetch=spia)
+        assert visti == ["http://altrove:8000/v1/models"]
+
+
+class TestDocumenti:
+    """A-07: sfogliare il corpus, non solo cercarlo.
+
+    `/chunk/{id}` sa rispondere su **uno**, `/retrieve` su una query. Nessuno
+    dei due sa dire cosa c'e' dentro una collection — e senza, l'esploratore
+    puo' solo cercare, mai mostrare come un documento e' stato spezzato.
+    """
+
+    class FakeQdrant:
+        """Un Qdrant che conosce `facet` e `scroll`, e ricorda a chi ha chiesto."""
+
+        def __init__(self, conteggi: dict[str, int], payloads: list[dict] | None = None):
+            self._conteggi = conteggi
+            self._payloads = payloads or []
+            self.collections_viste: list[str] = []
+
+        def facet(self, collection_name, key, limit, exact):
+            self.collections_viste.append(collection_name)
+            hits = [
+                SimpleNamespace(value=v, count=n) for v, n in self._conteggi.items()
+            ]
+            return SimpleNamespace(hits=hits)
+
+        def scroll(self, collection_name, scroll_filter, limit, offset,
+                   with_payload, with_vectors):
+            self.collections_viste.append(collection_name)
+            atteso = scroll_filter.must[0].match.value
+            punti = [
+                SimpleNamespace(payload=p)
+                for p in self._payloads if p["doc_id"] == atteso
+            ]
+            return punti, None
+
+    @staticmethod
+    def _payload(doc_id: str, seq: str) -> dict:
+        return {**payload(f"ledger:{doc_id}:{seq}"), "doc_id": doc_id}
+
+    def test_elenca_i_documenti_col_numero_di_chunk(self):
+        client = self.FakeQdrant({"NYSE_SHW_2017": 83, "AMEX_BRN_2017": 118})
+        out = documents("ledger", client=client)
+        assert [(d.doc_id, d.n_chunks) for d in out] == [
+            ("AMEX_BRN_2017", 118), ("NYSE_SHW_2017", 83),
+        ]
+
+    def test_il_genere_non_sta_sul_documento(self):
+        """Sarebbe un'aggregazione che il dato non garantisce: una collection
+        `_routed` puo' mescolare pipeline dentro lo stesso documento, ed e'
+        esattamente il caso che l'esploratore deve poter mostrare."""
+        campi = set(DocumentInfo.__dataclass_fields__)
+        assert campi == {"doc_id", "n_chunks"}
+
+    def test_una_collection_diversa_dal_dataset(self):
+        """`ledger_routed` non e' nel registro ma e' navigabile: la stessa
+        ragione per cui `collections()` esiste accanto a `datasets()`."""
+        client = self.FakeQdrant({"X": 1})
+        documents("ledger", collection="ledger_routed", client=client)
+        assert client.collections_viste == ["ledger_routed"]
+
+    def test_i_chunk_di_un_documento_tornano_come_Chunk(self):
+        client = self.FakeQdrant({}, [
+            self._payload("NYSE_SHW_2017", "0001"),
+            self._payload("NYSE_SHW_2017", "0000"),
+            self._payload("ALTRO", "0000"),
+        ])
+        out = document_chunks("NYSE_SHW_2017", "ledger", client=client)
+        assert [c.chunk_id for c in out] == [
+            "ledger:NYSE_SHW_2017:0000", "ledger:NYSE_SHW_2017:0001",
+        ]
+        assert out[0].pipeline and out[0].doc_genre
+
+    def test_un_documento_assente_da_una_lista_vuota_non_un_errore(self):
+        """Come `chunk()`: un `doc_id` copiato da una citazione vecchia e' una
+        domanda legittima, e va distinta da un guasto."""
+        client = self.FakeQdrant({}, [self._payload("ALTRO", "0000")])
+        assert document_chunks("NON_ESISTE", "ledger", client=client) == []

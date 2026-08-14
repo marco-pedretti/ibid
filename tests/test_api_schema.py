@@ -17,6 +17,7 @@ from __future__ import annotations
 import json
 
 import pytest
+import src.config as cfg
 from src.config import RequestConfig
 from src.datasets.schema import Chunk
 from src.service import AnswerRequest, answer_stream
@@ -29,6 +30,7 @@ from src.api.schema import (
     DatasetView,
     ErrorEvent,
     QueryRequest,
+    RetrieveRequestBody,
     sse,
     to_wire,
 )
@@ -82,6 +84,8 @@ class TestU01SelettoreDataset:
         c = Capabilities()
         assert c.retrieval_modes == ["dense", "sparse", "hybrid"]
         assert c.baseline_prompts == ["permissive", "strict"]
+        assert c.reasoning_efforts == ["none", "low", "medium", "high", "max"]
+        assert c.models == []
 
 
 # ---------------------------------------------------------------------------
@@ -309,6 +313,34 @@ class TestConfine:
     def test_una_profondita_assurda_e_rifiutata(self):
         with pytest.raises(ValueError):
             QueryRequest(query="q", top_k=0)
+
+
+class TestA07Ragionamento:
+    """Il toggle «Ragionamento» (A-07): si poteva vedere, non scegliere."""
+
+    def test_la_richiesta_lo_accetta(self):
+        assert QueryRequest(query="q", reasoning_effort="none").config().reasoning_effort == "none"
+        assert QueryRequest(query="q", reasoning_effort="high").config().reasoning_enabled
+
+    def test_un_livello_inventato_e_rifiutato_qui_non_dal_modello(self):
+        """Ollama risponde 400 a un valore fuori elenco: rimbalzato, sarebbe un
+        500 — un guasto nostro per un errore di chi chiama."""
+        with pytest.raises(ValueError, match="reasoning_effort"):
+            QueryRequest(query="q", reasoning_effort="altissimo")
+
+    def test_la_stringa_vuota_non_e_un_valore_del_filo(self):
+        """`reasoning_enabled` la tratta come «spento» per ragioni storiche, ma
+        sul filo produrrebbe il 400 che l'elenco esiste per evitare."""
+        with pytest.raises(ValueError):
+            QueryRequest(query="q", reasoning_effort="")
+
+    def test_non_chiederlo_lascia_il_default_del_deployment(self):
+        assert QueryRequest(query="q").config().reasoning_effort == cfg.REASONING_EFFORT
+
+    def test_cercare_non_lo_accetta_perche_non_genera(self):
+        """Stessa regola che tiene fuori `model` e `temperature` da `/retrieve`:
+        un campo che il servizio ignorerebbe non deve essere esprimibile."""
+        assert "reasoning_effort" not in set(RetrieveRequestBody.model_fields)
 
 
 # ---------------------------------------------------------------------------

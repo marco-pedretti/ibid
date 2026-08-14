@@ -244,6 +244,18 @@ RETRIEVAL_MODES: tuple[str, ...] = ("dense", "sparse", "hybrid")
 #: I due prompt del confronto E-04/E-05, che U-04 espone come toggle.
 BASELINE_PROMPTS: tuple[str, ...] = ("permissive", "strict")
 
+#: I livelli di ragionamento che l'endpoint accetta davvero. Non e' una scelta
+#: nostra: Ollama ne verifica cinque in `openai/openai.go` e risponde 400 a
+#: qualunque altro (la citazione del sorgente sta in `src/generation/chat.py`).
+#: Serve ad A-07 perche' la UI possa esporre il toggle senza portarsi dietro
+#: una copia dell'elenco — e perche' un valore inventato diventi un 422 con il
+#: nome del campo invece di un 400 opaco dal modello.
+#:
+#: `""` non e' qui pur essendo trattato come «spento» da `reasoning_enabled`:
+#: e' uno stato raggiungibile solo da `REASONING_EFFORT=""` nell'ambiente, e
+#: mandarlo sul filo produrrebbe proprio il 400 che questo elenco evita.
+REASONING_EFFORTS: tuple[str, ...] = ("none", "low", "medium", "high", "max")
+
 
 @dataclass(frozen=True)
 class RequestConfig:

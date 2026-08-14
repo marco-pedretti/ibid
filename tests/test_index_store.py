@@ -15,6 +15,9 @@ from src.index.store import (
     delete_collection,
     ensure_collection,
     ensure_idf_modifier,
+    ensure_payload_indexes,
+    list_documents,
+    payloads_of_document,
     upsert,
 )
 
@@ -238,3 +241,137 @@ class TestUpsert:
         client = MagicMock()
         upsert(client, "col", [], [], [])
         client.upsert.assert_not_called()
+
+
+# ---------------------------------------------------------------------------
+# ensure_payload_indexes (A-07)
+# ---------------------------------------------------------------------------
+
+def _info_con_schema(*campi: str) -> MagicMock:
+    info = MagicMock()
+    info.payload_schema = {c: MagicMock() for c in campi}
+    return info
+
+
+class TestEnsurePayloadIndexes:
+    """Gli indici sui due campi su cui si cerca **per valore**.
+
+    Non e' performance generica: sono i due percorsi in cui il progetto
+    interroga l'indice senza un embedding in mano — la citazione cliccata
+    (U-06) e l'esploratore del corpus (A-07).
+    """
+
+    def test_crea_quelli_mancanti(self):
+        client = MagicMock()
+        client.get_collection.return_value = _info_con_schema()
+
+        assert ensure_payload_indexes(client, "col") == ["chunk_id", "doc_id"]
+
+        creati = [c.kwargs["field_name"] for c in client.create_payload_index.call_args_list]
+        assert creati == ["chunk_id", "doc_id"]
+        assert all(c.kwargs["collection_name"] == "col"
+                   for c in client.create_payload_index.call_args_list)
+
+    def test_non_ricrea_quelli_presenti(self):
+        client = MagicMock()
+        client.get_collection.return_value = _info_con_schema("chunk_id", "doc_id")
+
+        assert ensure_payload_indexes(client, "col") == []
+        client.create_payload_index.assert_not_called()
+
+    def test_completa_quelli_a_meta(self):
+        """Lo stato reale di `ledger` prima della migrazione."""
+        client = MagicMock()
+        client.get_collection.return_value = _info_con_schema("doc_id")
+
+        assert ensure_payload_indexes(client, "col") == ["chunk_id"]
+
+    def test_una_collection_senza_schema_non_esplode(self):
+        client = MagicMock()
+        info = MagicMock()
+        info.payload_schema = None
+        client.get_collection.return_value = info
+
+        assert ensure_payload_indexes(client, "col") == ["chunk_id", "doc_id"]
+
+    def test_non_tocca_ne_punti_ne_vettori(self):
+        """Il valore dell'indice payload sta tutto qui: si aggiunge a una
+        collection viva, come il modificatore IDF di R-08."""
+        client = MagicMock()
+        client.get_collection.return_value = _info_con_schema()
+
+        ensure_payload_indexes(client, "col")
+
+        client.delete_collection.assert_not_called()
+        client.create_collection.assert_not_called()
+        client.upsert.assert_not_called()
+
+    def test_l_ingestione_li_crea_da_sola(self):
+        """Da A-07 una collection nuova nasce completa: la migrazione serve solo
+        a quelle indicizzate prima, e a chi ripristina uno snapshot vecchio."""
+        client = MagicMock()
+        client.collection_exists.return_value = False
+        client.get_collection.return_value = _info_con_schema()
+
+        ensure_collection(client, "col", dense_size=1024)
+
+        creati = [c.kwargs["field_name"] for c in client.create_payload_index.call_args_list]
+        assert creati == ["chunk_id", "doc_id"]
+
+
+# ---------------------------------------------------------------------------
+# list_documents / payloads_of_document (A-07)
+# ---------------------------------------------------------------------------
+
+class TestListDocuments:
+    @staticmethod
+    def _client(*coppie: tuple[str, int]) -> MagicMock:
+        client = MagicMock()
+        risposta = MagicMock()
+        risposta.hits = [MagicMock(value=v, count=n) for v, n in coppie]
+        client.facet.return_value = risposta
+        return client
+
+    def test_ordine_alfabetico_non_per_conteggio(self):
+        """`facet` ordina per conteggio decrescente. Una lista di documenti che
+        si riordina quando cambia l'indicizzazione fa perdere il posto a chi la
+        sta sfogliando."""
+        client = self._client(("NYSE_ZZZ_2020", 400), ("AMEX_BRN_2017", 118))
+        assert list_documents(client, "ledger") == [
+            ("AMEX_BRN_2017", 118), ("NYSE_ZZZ_2020", 400),
+        ]
+
+    def test_conta_esattamente(self):
+        """Un conteggio approssimato in una lista di documenti si legge come
+        esatto e non lo e'."""
+        client = self._client(("a", 1))
+        list_documents(client, "ledger")
+        assert client.facet.call_args.kwargs["exact"] is True
+        assert client.facet.call_args.kwargs["key"] == "doc_id"
+
+
+class TestPayloadsOfDocument:
+    @staticmethod
+    def _client(*chunk_ids: str) -> MagicMock:
+        client = MagicMock()
+        punti = [MagicMock(payload={"chunk_id": c}) for c in chunk_ids]
+        client.scroll.return_value = (punti, None)
+        return client
+
+    def test_ordine_di_sequenza(self):
+        """Lessicografico sul `chunk_id`: il §3 impone `seq` a quattro cifre
+        zero-riempite, quindi l'ordine dei caratteri e' l'ordine dei numeri."""
+        client = self._client("d:X:0010", "d:X:0002", "d:X:0001")
+        assert [p["chunk_id"] for p in payloads_of_document(client, "col", "X")] == [
+            "d:X:0001", "d:X:0002", "d:X:0010",
+        ]
+
+    def test_filtra_sul_documento_chiesto(self):
+        client = self._client("d:X:0000")
+        payloads_of_document(client, "col", "X")
+        cond = client.scroll.call_args.kwargs["scroll_filter"].must[0]
+        assert (cond.key, cond.match.value) == ("doc_id", "X")
+
+    def test_un_documento_che_non_c_e_da_una_lista_vuota(self):
+        client = self._client()
+        assert payloads_of_document(client, "col", "assente") == []

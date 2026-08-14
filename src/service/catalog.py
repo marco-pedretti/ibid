@@ -11,16 +11,27 @@ chiesto a Qdrant se sono stati indicizzati davvero.
 `chunk()` esiste per U-06: una citazione porta un `chunk_id`, e un link deve
 poter riportare al testo esatto che l'ha sostenuta.  Senza, la verifica e'
 un'affermazione che il lettore deve accettare sulla fiducia.
+
+`models()` e' arrivata con A-07, per la stessa ragione di `datasets()`: e' il
+backend a sapere cosa c'e', e il browser non deve parlare con Ollama.
 """
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from dataclasses import dataclass
 
 import src.config as cfg
 from src.datasets import registry
 from src.datasets.schema import Chunk
-from src.index.store import chunk_from_payload, get_by_chunk_id, get_client
+from src.generation import chat
+from src.index.store import (
+    chunk_from_payload,
+    get_by_chunk_id,
+    get_client,
+    list_documents,
+    payloads_of_document,
+)
 
 
 @dataclass(frozen=True)
@@ -111,6 +122,80 @@ def collections(client=None) -> list[CollectionInfo]:
             has_sparse=bool(info.config.params.sparse_vectors),
         ))
     return fuori
+
+
+def models(
+    base_url: str | None = None,
+    *,
+    fetch: Callable[[str, int], dict] | None = None,
+) -> list[str]:
+    """I modelli che l'endpoint di inferenza dichiara di avere (A-07).
+
+    **La lista vuota non e' un errore, ed e' una scelta.** `/datasets` la
+    include, e un frontend la chiede all'avvio: se questa funzione sollevasse
+    quando l'LLM e' spento, tutta la risposta fallirebbe — compresi i dataset,
+    che con l'LLM non c'entrano niente. E' lo stesso difetto per cui `/health`
+    non interroga Qdrant.
+
+    Chi la riceve vuota mostra il modello dei default (`/config`), che e'
+    l'unico di cui si sappia il nome con certezza, e dice che l'elenco non e'
+    disponibile. **Dichiarare l'assenza, non simularla**: aggiungere qui il
+    modello configurato per non restituire mai una lista vuota affermerebbe
+    che esiste, che e' precisamente cio' che non si e' potuto verificare.
+    """
+    try:
+        return chat.list_models(base_url or cfg.LLM_BASE_URL, fetch=fetch)
+    except RuntimeError:
+        return []
+
+
+@dataclass(frozen=True)
+class DocumentInfo:
+    """Un documento della collection, e quanti chunk ne sono usciti.
+
+    **Il genere non e' qui, ed e' una decisione.** `doc_genre` e `pipeline`
+    stanno sul chunk perche' e' li' che sono veri: metterli sul documento
+    sarebbe un'aggregazione che il dato non garantisce — una collection
+    `_routed` puo' mescolare pipeline dentro lo stesso documento, ed e'
+    esattamente il caso che l'esploratore deve poter mostrare. Chi apre il
+    documento li vede sui chunk, dove non c'e' niente da riassumere.
+    """
+
+    doc_id: str
+    n_chunks: int
+
+
+def documents(
+    dataset_id: str, collection: str | None = None, client=None
+) -> list[DocumentInfo]:
+    """I documenti di una collection, in ordine alfabetico (A-07).
+
+    Il buco che disegnare la Fase 8 ha rivelato: c'era `/chunk/{id}` (uno, per
+    id) e `/retrieve` (per query), e nessun modo di **navigare**. Senza,
+    l'esploratore del corpus puo' solo cercare — mai mostrare come un documento
+    e' stato spezzato, che e' cio' che rende visibile il routing (U-05).
+    """
+    if client is None:
+        client = get_client(cfg.QDRANT_URL)
+    return [
+        DocumentInfo(doc_id=doc_id, n_chunks=n)
+        for doc_id, n in list_documents(client, collection or dataset_id)
+    ]
+
+
+def document_chunks(
+    doc_id: str, dataset_id: str, collection: str | None = None, client=None
+) -> list[Chunk]:
+    """I chunk di un documento, nell'ordine in cui sono stati prodotti.
+
+    Lista vuota quando il documento non c'e': come `chunk()`, e' una risposta
+    legittima a una domanda legittima — un `doc_id` copiato da una citazione
+    vecchia — e chi chiama deve poterla distinguere da un guasto.
+    """
+    if client is None:
+        client = get_client(cfg.QDRANT_URL)
+    payloads = payloads_of_document(client, collection or dataset_id, doc_id)
+    return [chunk_from_payload(p) for p in payloads]
 
 
 def dataset_of(chunk_id: str) -> str:
