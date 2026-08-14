@@ -119,11 +119,22 @@ class TestImmagine:
             assert not TestNienteIndirizziCablati.INDIRIZZO.search(riga.replace("localhost:8000", "")), \
                 f"Dockerfile:{n}"
 
-    def test_l_acceleratore_gpu_non_e_nell_immagine(self):
+    def test_nessun_acceleratore_nell_immagine_di_default(self):
         """Gli extra ONNX si escludono a vicenda e dipendono dalla piattaforma
-        (Q-05): un'immagine che ne cablasse uno girerebbe su una macchina sola."""
-        assert "gpu-directml" not in self.DOCKERFILE
-        assert "onnxruntime-directml" not in self.DOCKERFILE
+        (Q-05): un'immagine che ne cablasse uno girerebbe su una macchina sola.
+
+        Resta **raggiungibile senza toccare il file**, che è tutto ciò che una
+        cucitura deve fare — la stessa forma di `PREFERRED_ACCELERATORS`.
+        """
+        assert re.search(r'^ARG GPU_EXTRA=""', self.DOCKERFILE, re.M)
+        istruzioni = [riga for _, riga in righe_di_codice(ROOT / "Dockerfile")]
+        assert not [r for r in istruzioni if "onnxruntime" in r or "gpu-" in r]
+
+    def test_l_extra_non_installa_anche_il_progetto(self):
+        """`.[extra]` installerebbe `src` in site-packages accanto a quello in
+        `/app`, con la garanzia che prima o poi si importi quello sbagliato."""
+        assert '".[' not in self.DOCKERFILE
+        assert "--extra" in self.DOCKERFILE
 
     def test_non_gira_da_root(self):
         assert re.search(r"^USER \w+", self.DOCKERFILE, re.M)

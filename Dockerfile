@@ -17,16 +17,39 @@ RUN pip install --no-cache-dir uv
 WORKDIR /app
 COPY pyproject.toml ./
 
+# Quale acceleratore ONNX mettere nell'immagine. **Vuoto di default, e non e'
+# timidezza**: gli extra si escludono a vicenda (forniscono tutti il modulo
+# `onnxruntime`), dipendono dalla piattaforma, e un'immagine che ne cablasse uno
+# girerebbe su una macchina sola -- il contrario di cio' che A-05 deve ottenere.
+#
+#   docker build --build-arg GPU_EXTRA=gpu-cuda .     # Linux + NVIDIA
+#   docker build --build-arg GPU_EXTRA=gpu-rocm .     # Linux + AMD supportata
+#
+# `gpu-directml` **non e' un valore utile qui**: quel wheel esiste solo per
+# Windows, e questa immagine e' Linux. Verificato il 2026-08-14 con
+# `pip download --platform manylinux_2_28_x86_64`, che non trova nulla. Su
+# Windows la strada e' `make api-local`, fuori dal container.
+#
+# Il container ha comunque bisogno che l'host gli passi la GPU (`--gpus all`,
+# oppure `/dev/kfd` e `/dev/dri` per ROCm). Docker Desktop su Windows non lo fa
+# per schede non-NVIDIA: nel container di sviluppo non c'e' nessun dispositivo.
+# Provare davvero questi due extra e' U-12 -- qui sono **dichiarati, non
+# verificati**, con la stessa onesta' di `PREFERRED_ACCELERATORS` in Q-05.
+ARG GPU_EXTRA=""
+
 # Le sole dipendenze, non il progetto. `-r pyproject.toml` legge
-# `[project.dependencies]`; l'acceleratore ONNX resta fuori di proposito -- e'
-# un extra che dipende dalla piattaforma (Q-05), e un'immagine che lo cablasse
-# girerebbe su una macchina sola.
+# `[project.dependencies]`.
 #
 # **Senza lockfile, e va detto**: `uv.lock` non esiste in questo repo, quindi due
 # build a distanza di mesi possono risolvere versioni diverse. Per un servizio
 # che si vuole riproducibile il lock e' il passo giusto, ed e' un task suo.
+#
+# `--extra` e non `.[extra]`: il secondo installerebbe anche **il progetto**, e
+# a quel punto `src` esisterebbe due volte -- in `/app` e in site-packages --
+# con la garanzia che prima o poi si importi quello sbagliato.
 RUN uv venv /opt/venv \
- && VIRTUAL_ENV=/opt/venv uv pip install --no-cache -r pyproject.toml
+ && VIRTUAL_ENV=/opt/venv uv pip install --no-cache -r pyproject.toml \
+      ${GPU_EXTRA:+--extra $GPU_EXTRA}
 
 FROM python:3.12-slim
 

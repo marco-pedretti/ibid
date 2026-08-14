@@ -1394,19 +1394,42 @@ Sono ~2,5 GB fra embedding, reranker e verificatore NLI. Le tre strade possibili
 
 E il percorso è dichiarato (`FASTEMBED_CACHE_PATH`, `HF_HOME`). Il default di fastembed è `%TEMP%`, che Windows ha già svuotato *durante* I-10 uccidendo una valutazione dopo 80 minuti di GPU. In un container il default è peggio ancora: sparisce a ogni riavvio.
 
-#### Il costo del container, misurato e non nascosto
+#### Il costo del container, misurato — e la prima misura era sbagliata
 
-Nel container non c'è GPU. Embedding, reranker e verificatore girano su CPU:
+Nel container non c'è GPU: embedding, reranker e verificatore girano su CPU. La prima versione di questa sezione riportava così il costo:
 
 | stadio | fuori | dentro |
 |---|---|---|
-| retrieval | 2,5 s | **14,4 s** |
-| verifica | 5,2 s | **21,8 s** |
-| generazione | 9–12 s | invariata — l'LLM è fuori, con la sua GPU |
+| retrieval | 2,5 s | 14,4 s |
+| verifica | 5,2 s | 21,8 s |
+
+**Erano tempi di prima query, cioè caricamento dei modelli riportato come costo per richiesta.** Il difetto è lo stesso di sempre in questo progetto — una misura presa una volta e generalizzata — ed è comparso in un posto dove il rimedio è ovvio: chiedere tre volte invece di una.
+
+Ripetuto, tre query di fila per arma, la stessa domanda:
+
+| stadio | host (DirectML) | container (CPU) | prima query, container |
+|---|---|---|---|
+| retrieval | 0,020 s | 0,072 s | 11,0 s |
+| verifica | 0,095 s | 0,825 s | 17,1 s |
+| **totale** | **~3,0 s** | **~1,7 s** | 37,8 s |
+
+Il totale del container è **più basso** di quello dell'host, il che chiude la questione da solo: la differenza fra GPU e CPU su *una* query è ~0,7 s di verifica e ~0,05 s di recupero. Un embedding e tre coppie NLI non saturano niente — la GPU serve quando il lavoro è in blocco (66k chunk da indicizzare, 3045 query da valutare), non quando è una domanda.
+
+> La generazione misura 2,85 s dall'host e 0,77 s dal container, contro **la stessa Ollama sulla stessa GPU**. Stabile su tre ripetizioni in entrambi i casi, quindi non è rumore. **Non è spiegato**, e non è attribuibile al container: è segnato qui perché un numero stabile che non si sa spiegare è una domanda aperta, non un dettaglio.
 
 Il `NoAcceleratorWarning` di Q-05 è comparso nei log del container esattamente come doveva, dichiarando il ripiego invece di degradare in silenzio. È la prima volta che quel warning serve a qualcuno che non lo stava cercando.
 
-> **Ne segue una regola: le run di valutazione non si lanciano dal container.** Il servizio sì — è quello il suo mestiere, e la latenza in demo resta dominata dall'LLM, che la GPU ce l'ha.
+> **Ne segue la regola, e con i numeri veri è più netta: le run di valutazione non si lanciano dal container** — lì il fattore 3–10× su ogni embedding si moltiplica per migliaia di query. **Il servizio sì**, e senza riserve.
+
+#### Perché la GPU nel container non è una configurazione che manca
+
+Verificato, non ricordato, il 2026-08-14:
+
+- **`onnxruntime-directml` non ha wheel Linux.** `pip download --platform manylinux_2_28_x86_64` risponde *«No matching distribution found»*: DirectML è un'API Windows, e il container è Linux.
+- **Il container non vede nessun dispositivo GPU**: niente `/dev/dxg`, `/dev/kfd`, `/dev/dri`. Docker Desktop su Windows non li espone per schede non-NVIDIA.
+- **ROCm non è una via d'uscita su questa macchina**: la RX 6750 XT è gfx1031, fuori dal supporto ufficiale, e comunque servirebbe `/dev/kfd`.
+
+Due ragioni indipendenti, ciascuna sufficiente. La strada esiste ma è **un'altra macchina**: Linux nativo con NVIDIA (`--gpus all` + `onnxruntime-gpu`) o con una AMD supportata da ROCm. È lo stesso confine di U-12, e l'immagine è predisposta — vedi `GPU_EXTRA` nel `Dockerfile`.
 
 L'acceleratore ONNX resta fuori dall'immagine di proposito: gli extra si escludono a vicenda e dipendono dalla piattaforma (Q-05), e un'immagine che ne cablasse uno girerebbe su **una macchina sola** — cioè il contrario del criterio di questo task.
 
