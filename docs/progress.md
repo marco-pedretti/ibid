@@ -1299,3 +1299,55 @@ Senza contesto il parser non tocca il testo (nessun marcatore è valido, li togl
 `QueryRequest` accetta **solo** la configurazione di richiesta della classificazione di A-02. Niente `embedding_model` (l'indice è stato costruito con lui: un altro restituisce spazzatura *senza errore*), niente indirizzi, niente soglie calibrate. Tre test lo tengono chiuso, uno per ragione — perché sono tre ragioni diverse, non una regola sola.
 
 > Perché due insiemi di tipi accanto a quelli del servizio: sono due cose diverse che oggi si somigliano. Quelli del servizio sono la forma in cui la pipeline pensa; questi sono la forma che qualcun altro leggerà fra sei mesi con un client che non abbiamo scritto noi. Se fossero lo stesso oggetto, rinominare un campo interno cambierebbe il contratto pubblico senza che nessuno debba deciderlo.
+
+| A-04 | ✅ fatto (2026-08-14) | `/health`, `/datasets`, `/chunk/{chunk_id}`, `/query`, `/query/stream`, `/config`. Il confronto CLI ↔ API che ad A-01 aveva un braccio solo ora li ha entrambi. Query completa da `curl` verificata contro Qdrant e Ollama vivi. **1585 test**. |
+
+### A-04 — l'endpoint che non decide niente
+
+Il criterio di A-01 era *«nessun endpoint contiene logica di pipeline»*. Qui si vede se reggeva: gli endpoint sono cinque righe l'uno, perché la pipeline sta in `src/service/` e la forma in `src/api/schema.py`. Un test lo verifica invece di affermarlo — `src/api/main.py` non importa `src.index`, `src.retrieval`, `src.generation`, `src.eval`.
+
+E i test degli endpoint **non hanno bisogno di Qdrant**. Se ne avessero bisogno, direbbero che l'endpoint contiene ancora della pipeline.
+
+#### Il confronto che aspettava dal 14 agosto mattina
+
+A-01 chiedeva *«la stessa richiesta dalla CLI e dall'API produce lo stesso risultato»*, e l'endpoint non esisteva ancora: quel confronto aveva un braccio solo.
+
+Ora ne ha due, e confronta **l'oggetto giusto**. Confrontare le due *risposte* non basterebbe: coinciderebbero anche se le due strade costruissero richieste diverse che per caso danno lo stesso esito. Ciò che va confrontato è la `AnswerRequest` che arriva al caso d'uso — ed è lo stesso tipo da entrambe le parti, perché la pipeline è una sola.
+
+Quattro confronti: richiesta minima, parametri di retrieval, braccio nudo di U-03, parametri di ricerca di R-11. Perché fosse possibile, `scripts/query.py` ha dovuto esporre `build_parser()` e `request_from_args()` — estrarli è ciò che rende il criterio **verificabile** invece che affermato.
+
+#### Quattro decisioni piccole con una ragione ciascuna
+
+**`/health` non interroga Qdrant.** U-09 lo usa per `depends_on: service_healthy`; se rispondesse solo con l'indice acceso, un avvio in cui Qdrant parte dopo si bloccherebbe a vicenda. La domanda «i dati ci sono?» ha già una risposta migliore in `/datasets`, dove `ready` la dà **per dataset**.
+
+**`/chunk/{chunk_id:path}`.** Un `chunk_id` *contiene* i due punti per contratto (`{dataset_id}:{doc_id}:{seq}`); senza `:path` il routing lo taglierebbe al primo. È lo stesso motivo per cui l'endpoint non prende il dataset come secondo parametro: è già lì dentro.
+
+**Tre codici distinti dove sarebbe stato comodo uno.** `404` per un id che non c'è — un link vecchio dopo una re-ingestione è una domanda legittima con una risposta legittima. `400` per un id malformato, e dirlo costa **zero interrogazioni all'indice**. `500` resta il guasto.
+
+**Un valore inesistente è `422`, non `500`.** `RequestConfig` lo rifiutava già da A-03, ma sollevando *dentro* il servizio. Un client che manda `retrieval_mode: "magica"` ha sbagliato lui, e un 500 lo manderebbe a cercare nel posto sbagliato. Gli elenchi restano una tupla sola in `config.py`: cambia solo dove il rifiuto diventa leggibile.
+
+```
+{"detail":[{"loc":["body","retrieval_mode"],
+            "msg":"retrieval_mode sconosciuto: 'magica' (ammessi: dense, sparse, hybrid)"}]}
+```
+
+#### Sullo stream, due cose che si vedono solo in produzione
+
+**Un guasto a metà non butta via ciò che era arrivato.** Un test manda `chunks` e poi solleva: il client riceve `chunks`, poi `error`, e può dire «le fonti ci sono, la risposta no» invece di mostrare una pagina vuota.
+
+**`X-Accel-Buffering: no`.** Un proxy che bufferizza annulla lo streaming **senza rompere niente**: il client riceve tutto insieme alla fine e non ha modo di accorgersi che sarebbe dovuto arrivare a pezzi. È la stessa forma di guasto silenzioso dello streaming finto di A-03, un livello più in là.
+
+#### Il criterio, con `curl`
+
+Contro Qdrant e Ollama vivi, senza frontend:
+
+| | |
+|---|---|
+| `POST /query` | `The standard deviation of RMSE for Ridge Regression is 0.0226 [1].` — citazione verificata, `p=0,606` |
+| `POST /query/stream` | 19 eventi `token`, poi `answer` con `verification_pending: true`, poi `citations`, poi `done` |
+| `GET /chunk/...` | `open_ragbench:2412.20245v4:15`, con `doc_genre`, `pipeline`, `bbox: null` dichiarato |
+| `rag: false` | `I cannot answer without more information.` — 0 chunk, `gate.active: false` |
+
+> **0,0226 è lo stesso valore del gate della T-05**, per la stessa domanda. Il 4 agosto era la prova che la fetta verticale stava in piedi; oggi arriva su HTTP con la sua citazione verificata a fianco.
+
+`fastapi` e `uvicorn` erano dichiarati in `pyproject.toml` ma non installati in questo Python: installati.

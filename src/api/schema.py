@@ -25,7 +25,7 @@ from __future__ import annotations
 import json
 from dataclasses import dataclass
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 from src.config import BASELINE_PROMPTS, RETRIEVAL_MODES, RequestConfig
 from src.datasets.schema import Chunk
 from src.service.answer import (
@@ -45,6 +45,22 @@ from src.service.catalog import DatasetInfo
 # ---------------------------------------------------------------------------
 # Cosa si puo' chiedere
 # ---------------------------------------------------------------------------
+
+
+def _fra(valore: str | None, ammessi: tuple[str, ...], campo: str) -> str | None:
+    """Il valore, se e' uno di quelli che esistono.
+
+    Gli stessi elenchi che `RequestConfig` fa rispettare, applicati **prima**:
+    qui diventano un 422 con il nome del campo sbagliato, mentre piu' in basso
+    sarebbero un 500. Un client che manda un valore inventato ha sbagliato lui,
+    e un 500 gli direbbe che abbiamo sbagliato noi.
+
+    Non e' duplicazione: le tuple restano una sola: cambia solo dove il rifiuto
+    diventa leggibile.
+    """
+    if valore is not None and valore not in ammessi:
+        raise ValueError(f"{campo} sconosciuto: {valore!r} (ammessi: {', '.join(ammessi)})")
+    return valore
 
 
 class QueryRequest(BaseModel):
@@ -83,6 +99,16 @@ class QueryRequest(BaseModel):
     #: Con `rag: false`, quale prompt (U-04): "permissive" | "strict".
     baseline_prompt: str | None = None
     verify: bool | None = None
+
+    @field_validator("retrieval_mode")
+    @classmethod
+    def _modalita_nota(cls, v: str | None) -> str | None:
+        return _fra(v, RETRIEVAL_MODES, "retrieval_mode")
+
+    @field_validator("baseline_prompt")
+    @classmethod
+    def _prompt_noto(cls, v: str | None) -> str | None:
+        return _fra(v, BASELINE_PROMPTS, "baseline_prompt")
 
     def config(self) -> RequestConfig:
         """I campi valorizzati diventano override; gli altri restano ai default.

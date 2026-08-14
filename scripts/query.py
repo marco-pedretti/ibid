@@ -105,7 +105,11 @@ def render_verdicts(result: Answer) -> None:
             print(f"  --  {claim[:70]}")
 
 
-def main() -> None:
+def build_parser() -> argparse.ArgumentParser:
+    """Le opzioni del CLI. Estratte da `main()` cosi' che un test possa
+    costruire una richiesta senza far partire nulla — e' cio' che rende
+    verificabile il criterio di A-01, «la stessa richiesta dalla CLI e
+    dall'API»."""
     parser = argparse.ArgumentParser(description="Interrogazione da riga di comando")
     parser.add_argument("query", help="Domanda a cui rispondere")
     parser.add_argument("--dataset", default="open_ragbench", choices=dataset_ids())
@@ -144,11 +148,17 @@ def main() -> None:
         action="store_true",
         help="Salta la verifica NLI delle citazioni (piu' veloce, nessun verdetto)",
     )
-    args = parser.parse_args()
+    return parser
 
-    # Le opzioni del CLI diventano la configurazione della richiesta, e non
-    # variabili globali: e' lo stesso oggetto che l'API riempira' dal corpo
-    # della POST. Un solo posto decide cosa significano.
+
+def request_from_args(args: argparse.Namespace) -> AnswerRequest:
+    """Gli argomenti del CLI diventano una richiesta di servizio.
+
+    E' lo stesso oggetto che `QueryRequest.to_service()` costruisce dal corpo
+    della POST. Un solo posto decide cosa significano quei parametri, e due
+    strade che ci arrivano — che e' la condizione perche' «stesso risultato»
+    sia una proprieta' e non una coincidenza.
+    """
     config = cfg.RequestConfig.from_defaults(
         top_k=args.top_k,
         model=args.model,
@@ -163,13 +173,18 @@ def main() -> None:
         **({"hnsw_ef": args.hnsw_ef} if args.hnsw_ef is not None else {}),
     )
 
-    print(f"Encoding query con {cfg.EMBEDDING_MODEL} ...", flush=True)
-    render(answer(AnswerRequest(
+    return AnswerRequest(
         query=args.query,
         dataset_id=args.dataset,
         collection=args.collection,
         config=config,
-    )))
+    )
+
+
+def main() -> None:
+    args = build_parser().parse_args()
+    print(f"Encoding query con {cfg.EMBEDDING_MODEL} ...", flush=True)
+    render(answer(request_from_args(args)))
 
 
 if __name__ == "__main__":
