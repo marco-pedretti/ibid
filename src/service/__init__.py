@@ -16,5 +16,16 @@ stesso risultato» -- puo' essere verificato invece che sperato.
 """
 
 from src.service.answer import Answer, AnswerRequest, Citation, RetrievedChunk, answer
+from src.service.catalog import DatasetInfo, chunk, dataset_of, datasets
 
-__all__ = ["Answer", "AnswerRequest", "Citation", "RetrievedChunk", "answer"]
+__all__ = [
+    "Answer",
+    "AnswerRequest",
+    "Citation",
+    "DatasetInfo",
+    "RetrievedChunk",
+    "answer",
+    "chunk",
+    "dataset_of",
+    "datasets",
+]

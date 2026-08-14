@@ -13,7 +13,9 @@ import src.config as cfg
 from qdrant_client import QdrantClient
 from qdrant_client.models import (
     Distance,
+    FieldCondition,
     Filter,
+    MatchValue,
     Modifier,
     PointStruct,
     QueryRequest,
@@ -153,6 +155,33 @@ def chunk_from_payload(payload: dict) -> Chunk:
         text=payload["text"],
         source_uri=payload["source_uri"],
     )
+
+
+def get_by_chunk_id(client: QdrantClient, collection: str, chunk_id: str) -> dict | None:
+    """Il payload di un chunk dato il suo `chunk_id`, o `None` se non c'e'.
+
+    Non e' `retrieve()`: l'id del punto e' un intero progressivo assegnato
+    dall'ingestione, mentre `chunk_id` sta nel payload.  Sono due
+    identificatori diversi e solo il secondo e' stabile fra una re-ingestione e
+    l'altra, quindi e' il secondo che finisce nelle citazioni e nei link
+    profondi (U-06).
+
+    Il filtro scandisce i payload: senza indice il costo cresce con la
+    collection.  Accettabile per una lettura singola dietro un link; se
+    diventasse un percorso caldo, il rimedio e' `create_payload_index` su
+    `chunk_id`, che si aggiunge a una collection esistente senza rifare i
+    vettori — come l'IDF di R-08.
+    """
+    points, _ = client.scroll(
+        collection_name=collection,
+        scroll_filter=Filter(
+            must=[FieldCondition(key="chunk_id", match=MatchValue(value=chunk_id))]
+        ),
+        limit=1,
+        with_payload=True,
+        with_vectors=False,
+    )
+    return points[0].payload if points else None
 
 
 def search_params() -> SearchParams | None:
