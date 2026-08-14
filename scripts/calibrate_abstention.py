@@ -44,7 +44,8 @@ N_HOLDOUT = 150
 
 def top1_scores(client, collection, queries, mode, top_k):
     retrieve = RETRIEVERS[mode]
-    cands = retrieve(client, collection, [q["query_text"] for q in queries], top_k, None)
+    cands = retrieve(client, collection, [q["query_text"] for q in queries], top_k, None,
+                     cfg.RequestConfig.from_defaults(top_k=top_k, retrieval_mode=mode))
     return [c.scores[0] if c.scores else 0.0 for c in cands]
 
 

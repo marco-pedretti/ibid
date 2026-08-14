@@ -21,7 +21,7 @@ from typing import Callable
 import src.config as cfg
 from src.datasets.golden import GoldenQuery
 from src.index.embed import encode, encode_sparse_query
-from src.index.store import search_batch
+from src.index.store import search_batch, search_params
 from src.retrieval.doc_aggregation import doc_id_from_chunk_id
 from src.retrieval.hybrid import rrf_fuse
 from src.retrieval.reranker import rerank as cross_encode
@@ -96,11 +96,13 @@ def evaluate_queries(
             client, config.collection,
             encode(texts, cfg.EMBEDDING_MODEL, batch_size=cfg.EMBEDDING_BATCH),
             top_k=hybrid_fetch, using="dense",
+            params=search_params(cfg.SEARCH_EXACT, cfg.HNSW_EF),
         )
         sparse_all = search_batch(
             client, config.collection,
             encode_sparse_query(texts, cfg.SPARSE_EMBEDDING_MODEL),
             top_k=hybrid_fetch, using="sparse",
+            params=search_params(cfg.SEARCH_EXACT, cfg.HNSW_EF),
         )
         results_all = []
         for dense_hits, sparse_hits in zip(dense_all, sparse_all):
@@ -124,7 +126,8 @@ def evaluate_queries(
         else:
             vecs = encode(texts, cfg.EMBEDDING_MODEL, batch_size=cfg.EMBEDDING_BATCH)
         raw = search_batch(
-            client, config.collection, vecs, top_k=fetch_k, using=config.retrieval_mode
+            client, config.collection, vecs, top_k=fetch_k, using=config.retrieval_mode,
+            params=search_params(cfg.SEARCH_EXACT, cfg.HNSW_EF),
         )
         results_all = [
             [((h.payload or {}).get("chunk_id", ""), h.score, h.payload or {}) for h in hits]

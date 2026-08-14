@@ -261,6 +261,17 @@ def run_retrieval_eval(
     """
     if top_k is None:
         top_k = cfg.TOP_K
+    # Un harness ha **una** configurazione per tutta la sua vita: la costruisce
+    # qui dai propri flag e non la cambia piu'. E' la differenza con un servizio,
+    # e il motivo per cui leggere `cfg` dentro `_config_hash` resta corretto —
+    # non c'e' una seconda richiesta da cui distinguersi.
+    config = cfg.RequestConfig.from_defaults(
+        top_k=top_k,
+        retrieval_mode=retrieval_mode,
+        rerank=rerank,
+        query_rewrite=query_rewrite,
+        filter_content_type=filter_content_type or "",
+    )
     qdrant_collection = collection if collection else dataset_id
 
     # Evaluation depth is decoupled from serving depth. `top_k` is what the
@@ -271,7 +282,7 @@ def run_retrieval_eval(
 
     # When reranking, fetch a larger initial candidate pool so the cross-encoder
     # has more to choose from before truncating.
-    fetch_k = max(cfg.RERANK_FETCH_K, eval_depth) if rerank else eval_depth
+    fetch_k = max(config.rerank_fetch_k, eval_depth) if rerank else eval_depth
 
     # See citation_harness.run_citation_eval: captured before the run, not
     # when the EvalRun is built.
@@ -295,7 +306,7 @@ def run_retrieval_eval(
         texts = rewrite_batch(
             raw_texts,
             base_url=cfg.LLM_BASE_URL,
-            model=cfg.QUERY_REWRITE_MODEL or cfg.LLM_MODEL,
+            model=config.rewrite_model,
         )
         print(f"  Rewriting done in {time.time() - t_rw:.1f}s", flush=True)
     else:
@@ -314,14 +325,14 @@ def run_retrieval_eval(
         query_filters = None
 
     retrieve = RETRIEVERS[retrieval_mode]
-    all_candidates = retrieve(client, qdrant_collection, texts, fetch_k, query_filters)
+    all_candidates = retrieve(client, qdrant_collection, texts, fetch_k, query_filters, config)
 
     print(f"  Retrieval done, {'reranking' if rerank else 'scoring'} {n} queries...", flush=True)
     t0 = time.time()
     for i, (query, cand) in enumerate(zip(answerable, all_candidates), 1):
         if rerank:
             reranked = cross_encode(
-                query.query_text, cand.payloads, cfg.RERANKER_MODEL, top_n=eval_depth
+                query.query_text, cand.payloads, config.reranker_model, top_n=eval_depth
             )
             chunk_ids = [r.payload["chunk_id"] for r in reranked]
             scores = [r.score for r in reranked]
@@ -364,7 +375,7 @@ def run_retrieval_eval(
         # Il retrieval da solo non tocca l'LLM -- ma con `--query-rewrite` si',
         # e prima questa riga era un `model="retrieval_only"` cablato che lo
         # negava. Vedi `make_eval_run`: e' il difetto che quella firma corregge.
-        llm=(cfg.QUERY_REWRITE_MODEL or cfg.LLM_MODEL) if query_rewrite else None,
+        llm=config.rewrite_model if query_rewrite else None,
         pipeline_mode=pipeline_mode,
         config=build_config(
             top_k=top_k,

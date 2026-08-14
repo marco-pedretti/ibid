@@ -58,7 +58,10 @@ def _top_docs(chunk_ids: list[str], k: int) -> list[str]:
 def per_query_hits(client, dataset_id, collection, queries, mode, depth, k):
     """One boolean per query: was a relevant document retrieved in the top k."""
     texts = [q.query_text for q in queries]
-    candidates = RETRIEVERS[mode](client, collection, texts, depth, None)
+    candidates = RETRIEVERS[mode](
+        client, collection, texts, depth, None,
+        cfg.RequestConfig.from_defaults(top_k=depth, retrieval_mode=mode),
+    )
     hits = []
     for query, cand in zip(queries, candidates):
         gold = {doc_id_from_chunk_id(qr.chunk_id) for qr in query.qrels if qr.relevance > 0}

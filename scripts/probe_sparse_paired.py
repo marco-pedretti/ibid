@@ -72,7 +72,10 @@ def _hits(client, collection, texts, depth: int, mode: str) -> list[list[str]]:
     il guadagno dello sparso sopravvive, e riscriverla qui misurerebbe la mia
     copia della fusione, non quella del sistema.
     """
-    cands = RETRIEVERS[mode](client, collection, texts, depth, None)
+    cands = RETRIEVERS[mode](
+        client, collection, texts, depth, None,
+        cfg.RequestConfig.from_defaults(top_k=depth, retrieval_mode=mode),
+    )
     return [c.chunk_ids for c in cands]
 
 

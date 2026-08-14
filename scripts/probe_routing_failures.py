@@ -42,7 +42,7 @@ sys.path.insert(0, str(ROOT))
 import src.config as cfg
 from qdrant_client.models import FieldCondition, Filter, MatchAny
 from src.index.embed import encode
-from src.index.store import get_client, search_batch
+from src.index.store import get_client, search_batch, search_params
 
 _MARKUP = re.compile(r"<[^>]+>")
 
@@ -119,7 +119,8 @@ def main() -> None:
 
     client = get_client(cfg.QDRANT_URL)
     vecs = encode(queries, cfg.EMBEDDING_MODEL, batch_size=cfg.EMBEDDING_BATCH)
-    hits = search_batch(client, collection, vecs, top_k=5, using="dense")
+    hits = search_batch(client, collection, vecs, top_k=5, using="dense",
+                        params=search_params(cfg.SEARCH_EXACT, cfg.HNSW_EF))
 
     failed, ok = [], []
     for i, (points, gold) in enumerate(zip(hits, gold_docs)):

@@ -257,7 +257,8 @@ def cmd_eval(dataset: str, variant: str, top_k: int, limit: int | None = None) -
         texts = [g["query_text"] for g in queries]
         if var == "prefixed":
             texts = [f"query: {t}" for t in texts]
-        cands = RETRIEVERS["dense"](client, col, texts, top_k, None)
+        cands = RETRIEVERS["dense"](client, col, texts, top_k, None,
+                                   cfg.RequestConfig.from_defaults(top_k=top_k))
         ranks[var] = []
         for g, c in zip(queries, cands):
             docs: list[str] = []

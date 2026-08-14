@@ -69,7 +69,8 @@ CALIBRATION_RESERVED = 300
 
 def run_group(client, dataset, queries, top_k, model, use_gate, label):
     retrieve = RETRIEVERS["dense"]
-    cands = retrieve(client, dataset, [q["query_text"] for q in queries], top_k, None)
+    cands = retrieve(client, dataset, [q["query_text"] for q in queries], top_k, None,
+                     cfg.RequestConfig.from_defaults(top_k=top_k))
     rows = []
     t0 = time.time()
     for i, (q, cand) in enumerate(zip(queries, cands), 1):

@@ -41,7 +41,7 @@ sys.path.insert(0, str(ROOT))
 import src.config as cfg
 from qdrant_client.models import QueryRequest, SearchParams
 from src.index.embed import encode
-from src.index.store import get_client, search_batch
+from src.index.store import get_client, search_batch, search_params
 
 
 #: Soglia di "pari merito". E' il distacco mediano fra il chunk vincente e il
@@ -93,7 +93,8 @@ def main() -> None:
           f"{'recall@5':>9} {'perfette':>9}")
     for coll in colls:
         n = client.get_collection(coll).points_count
-        hits = search_batch(client, coll, vecs, args.depth, using="dense")
+        hits = search_batch(client, coll, vecs, args.depth, using="dense",
+                            params=search_params(cfg.SEARCH_EXACT, cfg.HNSW_EF))
         # Il numero che decide: quanta parte del **vero** top-5 l'ANN
         # restituisce. E' una proprieta' dell'indice, non del dataset d'oro --
         # si misura senza qrels, quindi si puo' calcolare su qualunque

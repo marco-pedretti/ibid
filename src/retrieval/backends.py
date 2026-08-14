@@ -21,8 +21,9 @@ import time
 from dataclasses import dataclass
 
 import src.config as cfg
+from src.config import RequestConfig
 from src.index.embed import encode, encode_sparse_query
-from src.index.store import search_batch
+from src.index.store import search_batch, search_params
 from src.retrieval.hybrid import rrf_fuse
 
 
@@ -40,6 +41,11 @@ class Candidates:
     payloads: list[dict]
 
 
+def _params(config: RequestConfig):
+    """Come cercare nel grafo, per **questa** richiesta (R-11, A-02)."""
+    return search_params(config.search_exact, config.hnsw_ef)
+
+
 def points_to_candidates(points: list) -> Candidates:
     return Candidates(
         chunk_ids=[p.payload["chunk_id"] for p in points],
@@ -48,40 +54,41 @@ def points_to_candidates(points: list) -> Candidates:
     )
 
 
-def retrieve_dense(client, collection, texts, fetch_k, filters) -> list[Candidates]:
+def retrieve_dense(client, collection, texts, fetch_k, filters, config) -> list[Candidates]:
     print(f"  Embedding {len(texts)} queries...", flush=True)
     t0 = time.time()
     vecs = encode(texts, cfg.EMBEDDING_MODEL, batch_size=cfg.EMBEDDING_BATCH)
     print(f"  Embeddings done in {time.time() - t0:.1f}s", flush=True)
     hits = search_batch(client, collection, vecs, top_k=fetch_k,
-                        using="dense", filters=filters)
+                        using="dense", filters=filters, params=_params(config))
     return [points_to_candidates(h) for h in hits]
 
 
-def retrieve_sparse(client, collection, texts, fetch_k, filters) -> list[Candidates]:
+def retrieve_sparse(client, collection, texts, fetch_k, filters, config) -> list[Candidates]:
     vecs = encode_sparse_query(texts, cfg.SPARSE_EMBEDDING_MODEL)
     hits = search_batch(client, collection, vecs, top_k=fetch_k,
-                        using="sparse", filters=filters)
+                        using="sparse", filters=filters, params=_params(config))
     return [points_to_candidates(h) for h in hits]
 
 
-def retrieve_hybrid(client, collection, texts, fetch_k, filters) -> list[Candidates]:
+def retrieve_hybrid(client, collection, texts, fetch_k, filters, config) -> list[Candidates]:
     """Dense and sparse fused with RRF (R-01).
 
-    Fetches at least HYBRID_FETCH_K from each index so the fusion has something
-    to work with even when fetch_k is small.
+    Fetches at least `config.hybrid_fetch_k` from each index so the fusion has
+    something to work with even when fetch_k is small.
     """
-    hybrid_fetch = max(cfg.HYBRID_FETCH_K, fetch_k)
+    hybrid_fetch = max(config.hybrid_fetch_k, fetch_k)
     print(f"  Embedding {len(texts)} queries (dense)...", flush=True)
     t0 = time.time()
     dense_vecs = encode(texts, cfg.EMBEDDING_MODEL, batch_size=cfg.EMBEDDING_BATCH)
     print(f"  Dense embeddings done in {time.time() - t0:.1f}s", flush=True)
     sparse_vecs = encode_sparse_query(texts, cfg.SPARSE_EMBEDDING_MODEL)
 
+    params = _params(config)
     dense_all = search_batch(client, collection, dense_vecs, top_k=hybrid_fetch,
-                             using="dense", filters=filters)
+                             using="dense", filters=filters, params=params)
     sparse_all = search_batch(client, collection, sparse_vecs, top_k=hybrid_fetch,
-                              using="sparse", filters=filters)
+                              using="sparse", filters=filters, params=params)
 
     out: list[Candidates] = []
     for dense_hits, sparse_hits in zip(dense_all, sparse_all):
@@ -90,7 +97,7 @@ def retrieve_hybrid(client, collection, texts, fetch_k, filters) -> list[Candida
         fused = rrf_fuse(
             [[h.payload["chunk_id"] for h in dense_hits],
              [h.payload["chunk_id"] for h in sparse_hits]],
-            k=cfg.RRF_K, top_n=fetch_k,
+            k=config.rrf_k, top_n=fetch_k,
         )
         out.append(Candidates(
             chunk_ids=[cid for cid, _ in fused],
@@ -102,6 +109,13 @@ def retrieve_hybrid(client, collection, texts, fetch_k, filters) -> list[Candida
 
 #: Mode name -> retriever.  The keys are the accepted values of
 #: `--retrieval-mode` everywhere in the repo.
+#:
+#: Ogni retriever ha la stessa firma
+#: `(client, collection, texts, fetch_k, filters, config)`.  `fetch_k` resta
+#: separato da `config.top_k` di proposito: e' la profondita' di *recupero*, che
+#: chi chiama calcola per conto suo — la valutazione scende a `METRIC_DEPTH`, il
+#: reranker pesca da un bacino piu' largo, il servizio prende esattamente
+#: quello che mettera' nel prompt.
 RETRIEVERS = {
     "dense": retrieve_dense,
     "sparse": retrieve_sparse,

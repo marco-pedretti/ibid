@@ -73,7 +73,8 @@ def _prompts(dataset: str, n: int) -> list[tuple[str, str, int]]:
     queries = [q for q in load_golden(golden) if q.answerable and q.dataset_id == dataset][:n]
     client = get_client(cfg.QDRANT_URL)
     cands = RETRIEVERS["dense"](
-        client, dataset, [q.query_text for q in queries], cfg.TOP_K, None
+        client, dataset, [q.query_text for q in queries], cfg.TOP_K, None,
+        cfg.RequestConfig.from_defaults(),
     )
     out = []
     for q, cand in zip(queries, cands):

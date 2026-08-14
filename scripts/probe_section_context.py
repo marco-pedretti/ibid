@@ -55,7 +55,7 @@ import src.config as cfg
 from qdrant_client.models import FieldCondition, Filter, MatchAny
 from src.eval.paired import compare_paired
 from src.index.embed import encode
-from src.index.store import get_client, search_batch
+from src.index.store import get_client, search_batch, search_params
 
 
 def _cos(a: list[float], b: list[float]) -> float:
@@ -133,7 +133,8 @@ def main() -> None:
 
     print(f"{args.dataset}: {len(queries)} query, cerco le fallite su {collection}", flush=True)
     qvecs = encode(queries, cfg.EMBEDDING_MODEL, batch_size=cfg.EMBEDDING_BATCH)
-    hits = search_batch(client, collection, qvecs, top_k=20, using="dense")
+    hits = search_batch(client, collection, qvecs, top_k=20, using="dense",
+                        params=search_params(cfg.SEARCH_EXACT, cfg.HNSW_EF))
 
     failed = [i for i, (pts, gold) in enumerate(zip(hits, gold_docs))
               if not (set(gold) & {(p.payload or {}).get("doc_id") for p in list(pts)[:5]})]

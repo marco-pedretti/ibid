@@ -278,9 +278,14 @@ def run_citation_eval(
         raise ValueError(f"No answerable queries for dataset {dataset_id!r}")
 
     client = get_client(cfg.QDRANT_URL)
+    # Come per l'harness di retrieval: una configurazione per tutta la run,
+    # costruita dai flag e mai piu' toccata.
+    config = cfg.RequestConfig.from_defaults(
+        top_k=top_k, retrieval_mode=retrieval_mode, model=model
+    )
     retrieve = RETRIEVERS[retrieval_mode]
     all_candidates = retrieve(
-        client, qdrant_collection, [q.query_text for q in answerable], top_k, None
+        client, qdrant_collection, [q.query_text for q in answerable], top_k, None, config
     )
 
     print(f"  Generating {n} answers with {model}...", flush=True)

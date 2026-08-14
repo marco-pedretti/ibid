@@ -126,6 +126,54 @@ class TestUnicoPuntoDiLettura:
     di servizio arriva e non se ne accorge nessuno.
     """
 
+    #: Le costanti che appartengono alla richiesta. Leggerle dal modulo, sul
+    #: percorso di servizio, e' il difetto che A-02 toglie.
+    PER_RICHIESTA = (
+        "TOP_K", "RERANKER_MODEL", "RERANK_FETCH_K", "HYBRID_FETCH_K", "RRF_K",
+        "SEARCH_EXACT", "HNSW_EF", "QUERY_REWRITE_MODEL", "LLM_MODEL",
+        "TEMPERATURE", "MAX_NEW_TOKENS", "REASONING_EFFORT",
+    )
+
+    #: I moduli che una richiesta attraversa. Gli harness non sono qui, e non e'
+    #: una svista: hanno **una** configurazione per tutta la loro vita, quindi
+    #: non c'e' una seconda richiesta da cui distinguersi. La regola nasce dalla
+    #: concorrenza, non dall'estetica.
+    PERCORSO_DI_SERVIZIO = (
+        "src/service/answer.py",
+        "src/service/catalog.py",
+        "src/retrieval/backends.py",
+        "src/index/store.py",
+    )
+
+    def test_il_percorso_di_servizio_non_legge_le_globali_per_richiesta(self):
+        pattern = re.compile(r"cfg\.(" + "|".join(self.PER_RICHIESTA) + r")\b")
+        colpevoli = []
+        for rel in self.PERCORSO_DI_SERVIZIO:
+            path = ROOT / rel
+            if not path.exists():
+                continue
+            for n, riga in enumerate(path.read_text(encoding="utf-8").splitlines(), 1):
+                if pattern.search(riga) and not riga.lstrip().startswith("#"):
+                    colpevoli.append(f"{rel}:{n}: {riga.strip()}")
+        assert colpevoli == [], (
+            "configurazione di richiesta letta dal modulo globale:\n" + "\n".join(colpevoli)
+        )
+
+    def test_l_unica_lettura_rimasta_e_dichiarata(self):
+        """`answer()` risolve i default una volta, in cima, e non altrove.
+
+        Non e' un'eccezione alla regola: e' la regola. Qualcuno deve pur
+        decidere cosa fare quando la richiesta non porta una configurazione, e
+        il valore di questo progetto e' che quel qualcuno sia **uno solo** e si
+        veda.
+        """
+        righe = (ROOT / "src" / "service" / "answer.py").read_text(encoding="utf-8").splitlines()
+        letture = [
+            r.strip() for r in righe
+            if "cfg.RequestConfig.from_defaults(" in r and not r.lstrip().startswith("#")
+        ]
+        assert len(letture) == 1, letture
+
     def test_from_defaults_e_l_unico_costruttore_in_src(self):
         """Costruire un `RequestConfig` a mano significherebbe scrivere quindici
         valori, e sbagliarne uno in silenzio."""
