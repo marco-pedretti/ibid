@@ -95,11 +95,11 @@ def main() -> int:
         return 1
 
     if not (UI / "node_modules").exists() and not args.no_install:
-        print("→ npm install (prima volta)")
+        print("-> npm install (prima volta)")
         if subprocess.run([npm, "install"], cwd=UI).returncode != 0:
             return 1
 
-    print(f"→ API su http://127.0.0.1:{args.api_port}")
+    print(f"-> API su http://127.0.0.1:{args.api_port}")
     api = subprocess.Popen(
         [sys.executable, "-m", "uvicorn", "src.api.main:app",
          "--host", "127.0.0.1", "--port", str(args.api_port)],
@@ -113,7 +113,7 @@ def main() -> int:
         # `localhost` e non `127.0.0.1`: Vite si lega a `::1`, e sull'indirizzo
         # IPv4 la connessione viene rifiutata. Stamparlo giusto qui evita il
         # quarto d'ora speso a cercare un guasto che non c'e'.
-        print(f"→ UI su http://localhost:{args.ui_port}   (Ctrl-C ferma tutto)\n")
+        print(f"-> UI su http://localhost:{args.ui_port}   (Ctrl-C ferma tutto)\n")
         esito = subprocess.run(
             [npm, "run", "dev", "--", "--port", str(args.ui_port), "--strictPort"],
             cwd=UI,

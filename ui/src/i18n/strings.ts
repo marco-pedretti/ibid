@@ -44,6 +44,24 @@ export const it = {
   "datasets.ready": "pronto",
   "datasets.empty": "indice vuoto",
   "datasets.chunks": "chunk",
+  "datasets.change": "Cambia dataset",
+  "datasets.notQueryable": "indice vuoto: non interrogabile",
+  "datasets.none": "Nessun indice pronto",
+  "datasets.none.hint": "Costruisci un indice con «make ingest», poi ricarica.",
+
+  "index.title": "Indice",
+  "index.collection": "Collection",
+  "index.points": "punti",
+  "index.dense": "dimensione densa",
+  "index.sparse": "vettori sparsi",
+  "index.missing": "Il server non elenca nessuna collection con questo nome.",
+
+  "chat.soon": "La chat arriva col prossimo task.",
+  "chat.soon.hint":
+    "Qui sotto c'è ciò che il backend risponde per il dataset scelto: cambiandolo cambia, senza riavviare niente.",
+
+  "yes": "sì",
+  "no": "no",
 
   "models.title": "Modelli",
   "models.none":
@@ -86,6 +104,24 @@ export const en: Record<Chiave, string> = {
   "datasets.ready": "ready",
   "datasets.empty": "empty index",
   "datasets.chunks": "chunks",
+  "datasets.change": "Change dataset",
+  "datasets.notQueryable": "empty index: not queryable",
+  "datasets.none": "No index ready",
+  "datasets.none.hint": "Build one with “make ingest”, then reload.",
+
+  "index.title": "Index",
+  "index.collection": "Collection",
+  "index.points": "points",
+  "index.dense": "dense size",
+  "index.sparse": "sparse vectors",
+  "index.missing": "The server lists no collection with this name.",
+
+  "chat.soon": "The chat arrives with the next task.",
+  "chat.soon.hint":
+    "Below is what the backend answers for the selected dataset: switch it and this changes, with nothing restarted.",
+
+  "yes": "yes",
+  "no": "no",
 
   "models.title": "Models",
   "models.none":
