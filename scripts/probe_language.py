@@ -40,13 +40,12 @@ sys.path.insert(0, str(ROOT))
 
 import src.config as cfg
 from src.datasets import registry
-from src.eval.citation_harness import _payload_to_chunk
 from src.eval.retrieval_backends import RETRIEVERS
 from src.generation.chat import generate_detailed
 from src.generation.citation_format import check_format
 from src.generation.language import UNKNOWN, detect, profile
 from src.generation.prompt import SYSTEM, build_user_message
-from src.index.store import get_client
+from src.index.store import chunk_from_payload, get_client
 
 FIXTURE = ROOT / "tests" / "fixtures" / "multilingual_queries.jsonl"
 
@@ -76,7 +75,7 @@ def main() -> None:
         # Retrieval on the ENGLISH query, held fixed across the comparison.
         cands = retrieve(client, dataset, [r["en"] for r in group], args.top_k, None)
         for row, cand in zip(group, cands):
-            chunks = [_payload_to_chunk(p) for p in cand.payloads[:args.top_k]]
+            chunks = [chunk_from_payload(p) for p in cand.payloads[:args.top_k]]
             completion = generate_detailed(
                 base_url=cfg.LLM_BASE_URL,
                 model=args.model,

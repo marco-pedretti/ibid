@@ -50,13 +50,12 @@ sys.path.insert(0, str(ROOT))
 import src.config as cfg
 from src.eval.run_config import make_eval_run
 from src.datasets import registry
-from src.eval.citation_harness import _payload_to_chunk
 from src.eval.provenance import git_commit
 from src.eval.retrieval_backends import RETRIEVERS
 from src.generation.chat import generate_detailed
 from src.generation.citation_format import is_abstention
 from src.generation.prompt import SYSTEM, build_user_message
-from src.index.store import get_client
+from src.index.store import chunk_from_payload, get_client
 from src.retrieval.abstention import decide
 
 RESULTS = ROOT / "eval" / "results"
@@ -79,7 +78,7 @@ def run_group(client, dataset, queries, top_k, model, use_gate, label):
             rows.append({"query_id": q["query_id"], "by": "gate", "abstained": True,
                          "top1": gate.score, "threshold": gate.threshold, "latency_s": 0.0})
         else:
-            chunks = [_payload_to_chunk(p) for p in cand.payloads[:top_k]]
+            chunks = [chunk_from_payload(p) for p in cand.payloads[:top_k]]
             t = time.time()
             comp = generate_detailed(
                 base_url=cfg.LLM_BASE_URL, model=model, system=SYSTEM,

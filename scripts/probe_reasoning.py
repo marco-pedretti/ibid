@@ -48,13 +48,12 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 import src.config as cfg
-from src.eval.citation_harness import _payload_to_chunk
 from src.eval.provenance import load_golden
 from src.eval.retrieval_backends import RETRIEVERS
 from src.generation.chat import generate_detailed
 from src.generation.citation_format import check_format
 from src.generation.prompt import SYSTEM, build_user_message
-from src.index.store import get_client
+from src.index.store import chunk_from_payload, get_client
 
 #: `None` means "omit the field entirely" — the state every generation before
 #: C-01 was in, and the one the docstring of chat.py calls invisible reasoning.
@@ -78,7 +77,7 @@ def _prompts(dataset: str, n: int) -> list[tuple[str, str, int]]:
     )
     out = []
     for q, cand in zip(queries, cands):
-        chunks = [_payload_to_chunk(p) for p in cand.payloads[: cfg.TOP_K]]
+        chunks = [chunk_from_payload(p) for p in cand.payloads[: cfg.TOP_K]]
         out.append((q.query_id, build_user_message(q.query_text, chunks), len(chunks)))
     return out
 
