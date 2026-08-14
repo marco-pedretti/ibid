@@ -49,7 +49,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 
 import src.config as cfg
 from src.eval.provenance import load_golden
-from src.eval.retrieval_backends import RETRIEVERS
+from src.retrieval.backends import RETRIEVERS
 from src.generation.chat import generate_detailed
 from src.generation.citation_format import check_format
 from src.generation.prompt import SYSTEM, build_user_message
@@ -73,7 +73,8 @@ def _prompts(dataset: str, n: int) -> list[tuple[str, str, int]]:
     queries = [q for q in load_golden(golden) if q.answerable and q.dataset_id == dataset][:n]
     client = get_client(cfg.QDRANT_URL)
     cands = RETRIEVERS["dense"](
-        client, dataset, [q.query_text for q in queries], cfg.TOP_K, None
+        client, dataset, [q.query_text for q in queries], cfg.TOP_K, None,
+        cfg.RequestConfig.from_defaults(),
     )
     out = []
     for q, cand in zip(queries, cands):

@@ -25,13 +25,16 @@ from dataclasses import dataclass, field
 import src.config as cfg
 from src.datasets.schema import Chunk
 from src.eval.citation_metrics import verify_answer
-from src.eval.retrieval_backends import RETRIEVERS
 from src.generation.chat import Completion, generate_detailed
 from src.generation.citation_format import is_abstention
 from src.generation.citations import extract_cited, parse
 from src.generation.prompt import ABSTENTION_ANSWER, SYSTEM, build_user_message
 from src.index.store import chunk_from_payload, get_client
 from src.retrieval.abstention import AbstentionDecision, decide
+from src.retrieval.backends import RETRIEVERS
+from src.retrieval.metadata_filter import build_content_type_filter, infer_content_type
+from src.retrieval.query_rewrite import rewrite_batch
+from src.retrieval.reranker import rerank as cross_encode
 
 #: Perche' il sistema si e' astenuto.  Tre stati distinti, non un booleano: il
 #: gate che scatta prima di generare e il modello che dichiara di non sapere
@@ -43,23 +46,27 @@ ABSTAINED_BY_MODEL = "model"
 
 @dataclass(frozen=True)
 class AnswerRequest:
-    """Cosa si puo' chiedere. Tutto il resto e' configurazione, non richiesta."""
+    """Cosa si chiede, e come rispondere.
+
+    I due lati sono separati di proposito. **Sopra** c'e' la domanda: il testo e
+    dove cercarlo. **Sotto**, in `config`, c'e' come rispondere: profondita',
+    modalita', modello, se verificare. La distinzione non e' estetica — `query` e
+    `dataset_id` non hanno un default sensato, `config` sì, e sono i secondi che
+    due richieste concorrenti possono volere diversi senza contendersi niente.
+
+    `config` a `None` significa «i default del deployment», risolti una volta
+    all'inizio di `answer()`. Non e' una scorciatoia: e' l'unico posto sul
+    percorso di servizio in cui le costanti globali vengono ancora sfiorate, e
+    ci arrivano attraverso `RequestConfig.from_defaults()`.
+    """
 
     query: str
     dataset_id: str = "open_ragbench"
-    top_k: int | None = None
-    retrieval_mode: str = "dense"
     #: Collection Qdrant da interrogare. `None` = `dataset_id`. Serve per le
     #: varianti `_routed` dell'ablation R-07, che sono lo stesso dataset
     #: indicizzato da una pipeline diversa.
     collection: str | None = None
-    model: str | None = None
-    #: Verificare ogni citazione con l'NLI (C-03). Acceso di default, perche' e'
-    #: la cosa che il progetto esiste per dimostrare: senza, il sistema e' un RAG
-    #: qualsiasi che scrive parentesi quadre. Si spegne dove la latenza conta
-    #: piu' del verdetto — il modello di verifica va caricato e gira per ogni
-    #: coppia (frase, chunk).
-    verify: bool = True
+    config: cfg.RequestConfig | None = None
 
 
 @dataclass(frozen=True)
@@ -118,6 +125,11 @@ class Answer:
     #: non sempre — e la soglia di astensione e' calibrata *per collection*, non
     #: per dataset. Riportarla e' cio' che rende il risultato ricostruibile.
     collection: str
+    #: La configurazione che ha davvero girato, risolta. Non quella chiesta: se
+    #: la richiesta non ne portava una, qui c'e' cosa il servizio ha deciso al
+    #: posto suo. Senza, due risposte diverse alla stessa domanda non sono
+    #: distinguibili da due risposte instabili.
+    config: cfg.RequestConfig
     chunks: list[RetrievedChunk]
     raw_text: str
     text: str
@@ -155,6 +167,7 @@ class Answer:
 
 def _abstention_answer(
     request: AnswerRequest,
+    config: cfg.RequestConfig,
     collection: str,
     chunks: list[RetrievedChunk],
     gate: AbstentionDecision,
@@ -170,6 +183,7 @@ def _abstention_answer(
         query=request.query,
         dataset_id=request.dataset_id,
         collection=collection,
+        config=config,
         chunks=chunks,
         raw_text=ABSTENTION_ANSWER,
         text=ABSTENTION_ANSWER,
@@ -236,8 +250,9 @@ def answer(
     Args:
         request: la domanda e i parametri che la riguardano.
         client: client Qdrant gia' aperto. `None` ne apre uno su `cfg.QDRANT_URL`.
-        retrieve: `(client, collection, texts, fetch_k, filters) -> [Candidates]`.
-            `None` usa il retriever della modalita' chiesta.  Iniettabile perche'
+        retrieve: `(client, collection, texts, fetch_k, filters, config)
+            -> [Candidates]`. `None` usa il retriever della modalita' chiesta.
+            Iniettabile perche'
             il caso d'uso sia verificabile senza un indice acceso — la stessa
             ragione per cui `verify_answer` accetta un verificatore.
         generate: `(...) -> Completion`. `None` chiama `LLM_BASE_URL`.
@@ -248,42 +263,75 @@ def answer(
         Un `Answer` completo in ogni caso, astensione compresa: chi chiama non
         deve mai dedurre uno stato dall'assenza di un campo.
     """
-    top_k = cfg.TOP_K if request.top_k is None else request.top_k
-    model = request.model or cfg.LLM_MODEL
+    # L'unico punto del percorso di servizio che sfiora ancora le costanti
+    # globali, e ci arriva attraverso `from_defaults()`. Da qui in giu' esiste
+    # solo `config`: quello che due richieste concorrenti non si scambiano.
+    config = request.config or cfg.RequestConfig.from_defaults()
     collection = request.collection or request.dataset_id
     if client is None:
         client = get_client(cfg.QDRANT_URL)
     if retrieve is None:
-        retrieve = RETRIEVERS[request.retrieval_mode]
+        retrieve = RETRIEVERS[config.retrieval_mode]
     if generate is None:
         generate = generate_detailed
 
     t0 = time.time()
-    [candidates] = retrieve(client, collection, [request.query], top_k, None)
+    text_query = request.query
+    if config.query_rewrite:
+        [text_query] = rewrite_batch(
+            [request.query], base_url=cfg.LLM_BASE_URL, model=config.rewrite_model
+        )
+
+    # R-04: il filtro sul tipo di contenuto, dedotto dalla query o imposto.
+    query_filter = None
+    if config.filter_content_type == "auto":
+        if (ct := infer_content_type(text_query)):
+            query_filter = build_content_type_filter(ct)
+    elif config.filter_content_type:
+        query_filter = build_content_type_filter(config.filter_content_type)
+
+    # Col reranker si pesca da un bacino piu' largo di quello che finira' nel
+    # prompt: il cross-encoder deve avere qualcosa fra cui scegliere.
+    fetch_k = max(config.rerank_fetch_k, config.top_k) if config.rerank else config.top_k
+    [candidates] = retrieve(
+        client, collection, [text_query], fetch_k,
+        [query_filter] if query_filter is not None else None, config,
+    )
+
+    scores, payloads = candidates.scores, candidates.payloads
+    if config.rerank:
+        ranked = cross_encode(text_query, payloads, config.reranker_model, top_n=config.top_k)
+        scores = [r.score for r in ranked]
+        payloads = [r.payload for r in ranked]
+
     chunks = [
         RetrievedChunk(marker=i, score=score, chunk=chunk_from_payload(payload))
         for i, (score, payload) in enumerate(
-            zip(candidates.scores[:top_k], candidates.payloads[:top_k]), 1
+            zip(scores[: config.top_k], payloads[: config.top_k]), 1
         )
     ]
     timings = {"retrieval_s": round(time.time() - t0, 3)}
 
     # Il gate legge i punteggi del recupero, non la risposta: e' l'unica cosa
-    # che esiste prima di spendere la GPU.
-    gate = decide(candidates.scores, collection, request.retrieval_mode)
+    # che esiste prima di spendere la GPU. Sui punteggi **effettivi**, quindi
+    # dopo il reranker — ed e' anche il motivo per cui la soglia e' calibrata
+    # per modalita': i punteggi di un cross-encoder non vivono nella stessa
+    # scala di quelli del coseno, e `threshold_for` restituisce None fuori dalla
+    # modalita' calibrata invece di applicare una soglia che non significa nulla.
+    gate = decide(scores, collection, config.retrieval_mode)
     if gate.abstain:
         timings["total_s"] = timings["retrieval_s"]
-        return _abstention_answer(request, collection, chunks, gate, timings)
+        return _abstention_answer(request, config, collection, chunks, gate, timings)
 
     t1 = time.time()
     completion: Completion = generate(
         base_url=cfg.LLM_BASE_URL,
-        model=model,
+        model=config.model,
         system=SYSTEM,
         user=build_user_message(request.query, [c.chunk for c in chunks]),
-        temperature=cfg.TEMPERATURE,
-        max_tokens=cfg.MAX_NEW_TOKENS,
-        reasoning_effort=cfg.REASONING_EFFORT,
+        temperature=config.temperature,
+        max_tokens=config.max_new_tokens,
+        reasoning_effort=config.reasoning_effort,
     )
     timings["generation_s"] = round(time.time() - t1, 3)
 
@@ -293,7 +341,7 @@ def answer(
 
     citations: list[Citation] = []
     uncited_claims: list[str] = []
-    if request.verify and not abstained:
+    if config.verify and not abstained:
         t2 = time.time()
         citations, uncited_claims = _verify(text, chunks, verify)
         timings["verification_s"] = round(time.time() - t2, 3)
@@ -303,6 +351,7 @@ def answer(
         query=request.query,
         dataset_id=request.dataset_id,
         collection=collection,
+        config=config,
         chunks=chunks,
         raw_text=raw,
         text=text,
@@ -313,7 +362,7 @@ def answer(
         cited=extract_cited(text),
         citations=citations,
         uncited_claims=uncited_claims,
-        verified=request.verify,
+        verified=config.verify,
         truncated=completion.truncated,
         completion_tokens=completion.completion_tokens,
         timings=timings,

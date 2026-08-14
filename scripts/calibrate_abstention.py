@@ -33,7 +33,7 @@ sys.path.insert(0, str(ROOT))
 
 import src.config as cfg
 from src.datasets import registry
-from src.eval.retrieval_backends import RETRIEVERS
+from src.retrieval.backends import RETRIEVERS
 from src.index.store import get_client
 
 #: Answerable queries used to derive the threshold, and a disjoint set of the
@@ -44,7 +44,8 @@ N_HOLDOUT = 150
 
 def top1_scores(client, collection, queries, mode, top_k):
     retrieve = RETRIEVERS[mode]
-    cands = retrieve(client, collection, [q["query_text"] for q in queries], top_k, None)
+    cands = retrieve(client, collection, [q["query_text"] for q in queries], top_k, None,
+                     cfg.RequestConfig.from_defaults(top_k=top_k, retrieval_mode=mode))
     return [c.scores[0] if c.scores else 0.0 for c in cands]
 
 

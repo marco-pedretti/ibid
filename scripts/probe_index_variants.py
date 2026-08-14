@@ -219,7 +219,7 @@ def cmd_index(dataset: str, variant: str, cap: int) -> None:
 # --------------------------------------------------------------------------
 
 def cmd_eval(dataset: str, variant: str, top_k: int, limit: int | None = None) -> None:
-    from src.eval.retrieval_backends import RETRIEVERS
+    from src.retrieval.backends import RETRIEVERS
 
     sample = json.loads((SAMPLES / f"{dataset}_sample.json").read_text(encoding="utf-8"))
     in_sample = set(sample["doc_ids"])
@@ -257,7 +257,8 @@ def cmd_eval(dataset: str, variant: str, top_k: int, limit: int | None = None) -
         texts = [g["query_text"] for g in queries]
         if var == "prefixed":
             texts = [f"query: {t}" for t in texts]
-        cands = RETRIEVERS["dense"](client, col, texts, top_k, None)
+        cands = RETRIEVERS["dense"](client, col, texts, top_k, None,
+                                   cfg.RequestConfig.from_defaults(top_k=top_k))
         ranks[var] = []
         for g, c in zip(queries, cands):
             docs: list[str] = []

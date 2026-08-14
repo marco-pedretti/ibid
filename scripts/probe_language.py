@@ -40,7 +40,7 @@ sys.path.insert(0, str(ROOT))
 
 import src.config as cfg
 from src.datasets import registry
-from src.eval.retrieval_backends import RETRIEVERS
+from src.retrieval.backends import RETRIEVERS
 from src.generation.chat import generate_detailed
 from src.generation.citation_format import check_format
 from src.generation.language import UNKNOWN, detect, profile
@@ -73,7 +73,8 @@ def main() -> None:
     for dataset in sorted({r["dataset_id"] for r in rows}):
         group = [r for r in rows if r["dataset_id"] == dataset]
         # Retrieval on the ENGLISH query, held fixed across the comparison.
-        cands = retrieve(client, dataset, [r["en"] for r in group], args.top_k, None)
+        cands = retrieve(client, dataset, [r["en"] for r in group], args.top_k, None,
+                         cfg.RequestConfig.from_defaults(top_k=args.top_k))
         for row, cand in zip(group, cands):
             chunks = [chunk_from_payload(p) for p in cand.payloads[:args.top_k]]
             completion = generate_detailed(

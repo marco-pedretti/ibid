@@ -105,6 +105,18 @@ def main() -> None:
     )
     parser.add_argument("--top-k", type=int, default=cfg.TOP_K)
     parser.add_argument("--model", default=cfg.LLM_MODEL)
+    parser.add_argument("--retrieval-mode", default="dense", choices=("dense", "sparse", "hybrid"))
+    parser.add_argument("--rerank", action="store_true", help="Cross-encoder dopo il recupero (R-02)")
+    parser.add_argument(
+        "--query-rewrite", action="store_true", help="L'LLM riscrive la query prima di cercare (R-03)"
+    )
+    parser.add_argument(
+        "--filter-content-type",
+        default="",
+        help="'auto' lo deduce dalla domanda; oppure text|table|mixed (R-04)",
+    )
+    parser.add_argument("--search-exact", action="store_true", help="Salta HNSW (R-11)")
+    parser.add_argument("--hnsw-ef", type=int, default=None)
     parser.add_argument(
         "--no-verify",
         action="store_true",
@@ -112,14 +124,27 @@ def main() -> None:
     )
     args = parser.parse_args()
 
+    # Le opzioni del CLI diventano la configurazione della richiesta, e non
+    # variabili globali: e' lo stesso oggetto che l'API riempira' dal corpo
+    # della POST. Un solo posto decide cosa significano.
+    config = cfg.RequestConfig.from_defaults(
+        top_k=args.top_k,
+        model=args.model,
+        retrieval_mode=args.retrieval_mode,
+        rerank=args.rerank,
+        query_rewrite=args.query_rewrite,
+        filter_content_type=args.filter_content_type,
+        verify=not args.no_verify,
+        **({"search_exact": True} if args.search_exact else {}),
+        **({"hnsw_ef": args.hnsw_ef} if args.hnsw_ef is not None else {}),
+    )
+
     print(f"Encoding query con {cfg.EMBEDDING_MODEL} ...", flush=True)
     render(answer(AnswerRequest(
         query=args.query,
         dataset_id=args.dataset,
         collection=args.collection,
-        top_k=args.top_k,
-        model=args.model,
-        verify=not args.no_verify,
+        config=config,
     )))
 
 

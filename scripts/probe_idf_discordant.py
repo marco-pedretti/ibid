@@ -45,7 +45,7 @@ from qdrant_client.models import (
     Modifier,
     SparseVectorParams,
 )
-from src.eval.retrieval_backends import RETRIEVERS
+from src.retrieval.backends import RETRIEVERS
 from src.index.store import get_client
 
 
@@ -105,13 +105,14 @@ def main() -> None:
     queries, gold = _load(args.dataset, args.limit)
     client = get_client(cfg.QDRANT_URL)
     retrieve = RETRIEVERS["sparse"]
+    config = cfg.RequestConfig.from_defaults(top_k=args.depth, retrieval_mode="sparse")
     print(f"{args.dataset}: {len(queries)} query, sparse @{args.depth}", flush=True)
 
     try:
         _set_modifier(client, collection, Modifier.NONE)
-        off = retrieve(client, collection, queries, args.depth, None)
+        off = retrieve(client, collection, queries, args.depth, None, config)
         _set_modifier(client, collection, Modifier.IDF)
-        on = retrieve(client, collection, queries, args.depth, None)
+        on = retrieve(client, collection, queries, args.depth, None, config)
     finally:
         _set_modifier(client, collection, Modifier.IDF)
 

@@ -30,7 +30,7 @@ from src.eval.citation_harness import (
 # perche' serviva anche agli altri due harness. `GenerationWriter` resta come
 # nome importabile da qui: e' quello che `scripts/eval_citations.py` usa.
 from src.eval.dump import partial_path
-from src.eval.retrieval_backends import Candidates
+from src.retrieval.backends import Candidates
 from src.generation.chat import Completion
 from src.generation.citation_format import VIOLATION_KINDS, check_format, summarize
 

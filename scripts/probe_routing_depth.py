@@ -32,7 +32,7 @@ sys.path.insert(0, str(ROOT))
 import src.config as cfg
 from src.eval.paired import compare_paired
 from src.index.embed import encode
-from src.index.store import get_client, search_batch
+from src.index.store import get_client, search_batch, search_params
 
 #: Fasce di rango riportate. Il confine a 20 e' quello che un reranker
 #: raggiunge con RERANK_FETCH_K senza cambiare niente altro.
@@ -71,7 +71,8 @@ def _first_gold_rank(client, collection, vecs, gold_docs, deep):
     guardando piu' in profondita' o deduplicando per documento; se e'
     rappresentazione, non si recupera affatto senza re-ingestare.
     """
-    hits = search_batch(client, collection, vecs, top_k=deep, using="dense")
+    hits = search_batch(client, collection, vecs, top_k=deep, using="dense",
+                        params=search_params(cfg.SEARCH_EXACT, cfg.HNSW_EF))
     ranks, distinct, ctypes = [], [], []
     for points, gold in zip(hits, gold_docs):
         rank = None

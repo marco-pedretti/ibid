@@ -9,7 +9,6 @@ This layout matches R-01 hybrid RRF: query both vectors, fuse results.
 
 from __future__ import annotations
 
-import src.config as cfg
 from qdrant_client import QdrantClient
 from qdrant_client.models import (
     Distance,
@@ -184,19 +183,24 @@ def get_by_chunk_id(client: QdrantClient, collection: str, chunk_id: str) -> dic
     return points[0].payload if points else None
 
 
-def search_params() -> SearchParams | None:
+def search_params(exact: bool, hnsw_ef: int | None) -> SearchParams | None:
     """Come cercare nel grafo HNSW, o se saltarlo del tutto (R-11).
 
-    `None` quando nessuno dei due parametri e' impostato: lascia a Qdrant il suo
-    default, che e' lo stato in cui e' stato misurato tutto ciò che precede
-    R-11.  Un `SearchParams` vuoto non sarebbe la stessa cosa da leggere, e
-    questa funzione esiste perche' la decisione stia in un posto solo invece che
+    `None` quando nessuno dei due e' impostato: lascia a Qdrant il suo default,
+    che e' lo stato in cui e' stato misurato tutto ciò che precede R-11.  Un
+    `SearchParams` vuoto non sarebbe la stessa cosa da leggere, e questa
+    funzione esiste perche' la decisione stia in un posto solo invece che
     ripetuta in ogni sito di ricerca.
+
+    **Leggeva `cfg` da sola fino ad A-02.** Ora i due valori arrivano da fuori:
+    su un servizio sono configurazione di richiesta -- non toccano l'indice e
+    cambiano a ogni chiamata -- e una funzione che li prende da un modulo
+    globale li avrebbe condivisi fra richieste concorrenti.
     """
-    if cfg.SEARCH_EXACT:
+    if exact:
         return SearchParams(exact=True)
-    if cfg.HNSW_EF is not None:
-        return SearchParams(hnsw_ef=cfg.HNSW_EF)
+    if hnsw_ef is not None:
+        return SearchParams(hnsw_ef=hnsw_ef)
     return None
 
 
@@ -207,6 +211,7 @@ def search(
     top_k: int,
     using: str = "dense",
     query_filter: Filter | None = None,
+    params: SearchParams | None = None,
 ) -> list[QueryResponse]:
     return client.query_points(
         collection_name=collection,
@@ -214,7 +219,7 @@ def search(
         using=using,
         limit=top_k,
         query_filter=query_filter,
-        search_params=search_params(),
+        search_params=params,
     ).points
 
 
@@ -225,6 +230,7 @@ def search_batch(
     top_k: int,
     using: str = "dense",
     filters: list[Filter | None] | None = None,
+    params: SearchParams | None = None,
 ) -> list[list[QueryResponse]]:
     """Batch search: sends vectors in chunks of _SEARCH_BATCH per HTTP request.
 
@@ -235,12 +241,15 @@ def search_batch(
         filters: optional per-query Filter list (same length as vectors). When
             provided, each query uses its corresponding filter; None entries in
             the list mean no filter for that query.
+        params: come cercare nel grafo (R-11). `None` lascia il default di
+            Qdrant. Da A-02 arriva da chi chiama e non piu' da `cfg`: chi cerca
+            senza dirlo sta accettando il default, e lo sta accettando **per
+            iscritto**.
     """
     all_results: list[list[QueryResponse]] = []
     for start in range(0, len(vectors), _SEARCH_BATCH):
         batch = vectors[start : start + _SEARCH_BATCH]
         batch_filters = filters[start : start + _SEARCH_BATCH] if filters else [None] * len(batch)
-        params = search_params()
         requests = [
             QueryRequest(query=vec, using=using, limit=top_k, with_payload=True,
                          filter=f, params=params)

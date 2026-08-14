@@ -9,14 +9,16 @@ che l'affermazione dipenda da cosa un modello ha risposto quel giorno.
 from __future__ import annotations
 
 import re
+import threading
 from pathlib import Path
 
 import pytest
 import src.config as cfg
-from src.eval.retrieval_backends import Candidates
+from src.config import RequestConfig
 from src.generation.chat import Completion
 from src.generation.entailment import Verdict
 from src.generation.prompt import ABSTENTION_ANSWER
+from src.retrieval.backends import Candidates
 from src.service import AnswerRequest, answer
 
 ROOT = Path(__file__).parent.parent
@@ -42,8 +44,8 @@ def fake_retrieve(scores: list[float], n: int | None = None):
     n = len(scores) if n is None else n
     calls: list[tuple] = []
 
-    def _retrieve(client, collection, texts, fetch_k, filters):
-        calls.append((collection, tuple(texts), fetch_k, filters))
+    def _retrieve(client, collection, texts, fetch_k, filters, config):
+        calls.append((collection, tuple(texts), fetch_k, filters, config))
         return [Candidates(
             chunk_ids=[f"c{i}" for i in range(n)],
             scores=scores,
@@ -84,12 +86,31 @@ LOW = [0.10, 0.09, 0.08, 0.07, 0.06]   # sotto
 CLAIM = "Il valore massimo misurato e' di quattrocento millisecondi"
 
 
-def run(query="domanda", scores=None, content="Risposta [1].", verifier=None, **request_kwargs):
+def run(
+    query="domanda",
+    scores=None,
+    content="Risposta [1].",
+    verifier=None,
+    dataset_id="open_ragbench",
+    collection=None,
+    **config_kwargs,
+):
+    """Una richiesta completa senza indice e senza LLM.
+
+    I parametri di configurazione si passano sciolti e finiscono in un
+    `RequestConfig`: e' il costruttore che il servizio si aspetta, e usarne un
+    altro nei test verificherebbe una strada che nessuno percorre.
+    """
     gen = fake_generate(content)
     ret = fake_retrieve(HIGH if scores is None else scores)
     ver = fake_verify() if verifier is None else verifier
     result = answer(
-        AnswerRequest(query=query, **request_kwargs),
+        AnswerRequest(
+            query=query,
+            dataset_id=dataset_id,
+            collection=collection,
+            config=RequestConfig.from_defaults(**config_kwargs),
+        ),
         client=object(),
         retrieve=ret,
         generate=gen,
@@ -212,7 +233,12 @@ def test_modello_esplicito_arriva_alla_generazione():
 
 def test_modalita_di_retrieval_sconosciuta_fallisce_subito():
     with pytest.raises(KeyError):
-        answer(AnswerRequest(query="q", retrieval_mode="magica"), client=object())
+        answer(
+            AnswerRequest(
+                query="q", config=RequestConfig.from_defaults(retrieval_mode="magica")
+            ),
+            client=object(),
+        )
 
 
 # --- stati che la UI deve poter disegnare (§3.5) ---------------------------
@@ -310,7 +336,7 @@ PIPELINE_MODULES = (
     "src.index.store",
     "src.retrieval",
     "src.generation",
-    "src.eval.retrieval_backends",
+    "src.retrieval.backends",
 )
 
 
@@ -334,3 +360,98 @@ def test_il_servizio_non_stampa():
     """
     source = (ROOT / "src" / "service" / "answer.py").read_text(encoding="utf-8")
     assert not re.search(r"^\s+print\(", source, re.M)
+
+
+# --- A-02: due richieste concorrenti non si contaminano ---------------------
+
+
+class TestConcorrenza:
+    """Il criterio di A-02, e l'unico modo di verificarlo e' farle correre insieme.
+
+    Prima di A-02 questi valori stavano in un modulo. Un modulo e' condiviso da
+    ogni thread del processo: due richieste con `top_k` diverso avrebbero letto
+    la stessa costante, e la seconda avrebbe visto la scelta della prima. Il
+    difetto non si riproduce da soli e non compare in nessun test sequenziale —
+    compare sotto carico, che e' il momento peggiore per scoprirlo.
+    """
+
+    def _corri(self, config, registro, barriera):
+        ret = fake_retrieve(HIGH)
+        gen = fake_generate(f"Risposta con top_k={config.top_k} [1].")
+
+        def _retrieve_lento(client, collection, texts, fetch_k, filters, cfg_ricevuta):
+            # Entrambe le richieste sono dentro il retrieval nello stesso
+            # istante: e' la finestra in cui una configurazione condivisa
+            # verrebbe sovrascritta dall'altra.
+            barriera.wait(timeout=5)
+            return ret(client, collection, texts, fetch_k, filters, cfg_ricevuta)
+
+        result = answer(
+            AnswerRequest(query="domanda", config=config),
+            client=object(),
+            retrieve=_retrieve_lento,
+            generate=gen,
+            verify=fake_verify(),
+        )
+        registro.append((config.top_k, result, ret.calls[0], gen.calls[0]))
+
+    def test_due_top_k_diversi_in_parallelo(self):
+        a = RequestConfig.from_defaults(top_k=2)
+        b = RequestConfig.from_defaults(top_k=5)
+        registro: list = []
+        barriera = threading.Barrier(2)
+
+        fili = [
+            threading.Thread(target=self._corri, args=(c, registro, barriera))
+            for c in (a, b)
+        ]
+        for f in fili:
+            f.start()
+        for f in fili:
+            f.join(timeout=10)
+
+        assert len(registro) == 2
+        per_top_k = {top_k: (res, chiamata) for top_k, res, chiamata, _ in registro}
+        assert set(per_top_k) == {2, 5}
+        for top_k, (res, chiamata) in per_top_k.items():
+            assert len(res.chunks) == top_k, "una richiesta ha visto la profondita' dell'altra"
+            assert chiamata[2] == top_k, "il retriever ha ricevuto la profondita' sbagliata"
+            assert res.config.top_k == top_k
+
+    def test_modelli_diversi_in_parallelo(self):
+        """La generazione e' l'altra meta': stesso rischio, altro parametro."""
+        a = RequestConfig.from_defaults(model="gemma4:e2b")
+        b = RequestConfig.from_defaults(model="gemma4:12b")
+        registro: list = []
+        barriera = threading.Barrier(2)
+
+        fili = [
+            threading.Thread(target=self._corri, args=(c, registro, barriera))
+            for c in (a, b)
+        ]
+        for f in fili:
+            f.start()
+        for f in fili:
+            f.join(timeout=10)
+
+        modelli = {chiamata_gen["model"] for _, _, _, chiamata_gen in registro}
+        assert modelli == {"gemma4:e2b", "gemma4:12b"}
+
+    def test_la_configurazione_arriva_intatta_al_retriever(self):
+        """Non basta che il risultato sia giusto: il retriever deve aver
+        ricevuto **quella** configurazione, non una ricostruita dai default."""
+        config = RequestConfig.from_defaults(top_k=3, search_exact=True, hnsw_ef=256)
+        _, ret, _ = run(top_k=3, search_exact=True, hnsw_ef=256)
+        ricevuta = ret.calls[0][4]
+        assert ricevuta == config
+
+    def test_il_risultato_riporta_la_configurazione_che_ha_girato(self):
+        """Senza, due risposte diverse alla stessa domanda non si distinguono
+        da due risposte instabili."""
+        result, _, _ = run(top_k=2, retrieval_mode="dense")
+        assert result.config.top_k == 2
+        assert result.config.retrieval_mode == "dense"
+
+    def test_anche_l_astensione_riporta_la_configurazione(self):
+        result, _, _ = run(scores=LOW, top_k=2)
+        assert result.config.top_k == 2

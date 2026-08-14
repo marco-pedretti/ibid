@@ -51,7 +51,7 @@ import src.config as cfg
 from src.eval.run_config import make_eval_run
 from src.datasets import registry
 from src.eval.provenance import git_commit
-from src.eval.retrieval_backends import RETRIEVERS
+from src.retrieval.backends import RETRIEVERS
 from src.generation.chat import generate_detailed
 from src.generation.citation_format import is_abstention
 from src.generation.prompt import SYSTEM, build_user_message
@@ -69,7 +69,8 @@ CALIBRATION_RESERVED = 300
 
 def run_group(client, dataset, queries, top_k, model, use_gate, label):
     retrieve = RETRIEVERS["dense"]
-    cands = retrieve(client, dataset, [q["query_text"] for q in queries], top_k, None)
+    cands = retrieve(client, dataset, [q["query_text"] for q in queries], top_k, None,
+                     cfg.RequestConfig.from_defaults(top_k=top_k))
     rows = []
     t0 = time.time()
     for i, (q, cand) in enumerate(zip(queries, cands), 1):

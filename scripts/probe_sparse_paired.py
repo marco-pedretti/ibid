@@ -37,9 +37,9 @@ sys.path.insert(0, str(ROOT))
 import src.config as cfg
 from src.datasets import registry
 from qdrant_client.models import Modifier, SparseVectorParams
-from src.eval import retrieval_backends
+from src.retrieval import backends
 from src.eval.paired import compare_paired
-from src.eval.retrieval_backends import RETRIEVERS
+from src.retrieval.backends import RETRIEVERS
 from src.index.embed import encode_sparse, encode_sparse_query
 from src.index.store import get_client
 
@@ -72,7 +72,10 @@ def _hits(client, collection, texts, depth: int, mode: str) -> list[list[str]]:
     il guadagno dello sparso sopravvive, e riscriverla qui misurerebbe la mia
     copia della fusione, non quella del sistema.
     """
-    cands = RETRIEVERS[mode](client, collection, texts, depth, None)
+    cands = RETRIEVERS[mode](
+        client, collection, texts, depth, None,
+        cfg.RequestConfig.from_defaults(top_k=depth, retrieval_mode=mode),
+    )
     return [c.chunk_ids for c in cands]
 
 
@@ -96,14 +99,14 @@ def _arms(client, collection, queries, depth, mode, vary) -> tuple[list, list]:
     # R-09 vive nel client: si sostituisce la funzione di codifica che i
     # RETRIEVERS chiamano, e l'indice resta quello che e'.
     _assert_encodings_differ()
-    original = retrieval_backends.encode_sparse_query
+    original = backends.encode_sparse_query
     try:
-        retrieval_backends.encode_sparse_query = encode_sparse  # lo stato pre-R-09
+        backends.encode_sparse_query = encode_sparse  # lo stato pre-R-09
         off = _hits(client, collection, queries, depth, mode)
-        retrieval_backends.encode_sparse_query = original
+        backends.encode_sparse_query = original
         on = _hits(client, collection, queries, depth, mode)
     finally:
-        retrieval_backends.encode_sparse_query = original
+        backends.encode_sparse_query = original
     return off, on
 
 

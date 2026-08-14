@@ -1,9 +1,41 @@
 """All retrieval and inference parameters live here.
 
 An ablation is a loop over config, not a code change — see ROADMAP §3.4.
+
+**Non tutti i parametri sono la stessa cosa, e A-02 e' il task che lo ha reso
+esplicito.** Le costanti di questo modulo si dividono in quattro categorie, e la
+differenza decide chi puo' cambiarle:
+
+1. **Per richiesta** — due richieste concorrenti possono legittimamente volerle
+   diverse: profondita', modalita' di retrieval, reranker, modello, temperatura,
+   budget di token. Vivono in `RequestConfig`, non qui, e **non vanno lette da
+   questo modulo lungo il percorso di servizio**: un modulo globale condiviso da
+   due richieste e' esattamente il modo in cui la configurazione dell'una
+   diventa quella dell'altra.
+
+2. **Legate all'indice** — `EMBEDDING_MODEL`, `SPARSE_EMBEDDING_MODEL`. Non
+   possono variare per richiesta perche' l'indice e' stato costruito con loro:
+   interrogarlo con un altro embedder restituisce spazzatura **senza errore**.
+   Metterle nella richiesta renderebbe esprimibile una richiesta sbagliata.
+
+3. **Di deployment** — `QDRANT_URL`, `LLM_BASE_URL`, `FASTEMBED_CACHE`,
+   `ONNX_PROVIDERS`, `DATA_DIR`. Una richiesta HTTP non puo' spostare la
+   macchina su cui gira il servizio.
+
+4. **Calibrate sui dati** — `ABSTENTION_THRESHOLDS`, `ENTAILMENT_THRESHOLD`,
+   `NUMERIC_ROW_MATCH_RATIO`, `ABSTENTION_BUDGET`. Sono **derivate da misure**,
+   non preferenze. Lasciarle scegliere a chi chiama permetterebbe di tarare la
+   soglia sulla stessa risposta che quella soglia deve giudicare — la trappola
+   che i commenti qui sotto passano il tempo a evitare.
+
+Le ultime tre restano costanti di modulo, ed e' la risposta giusta: non sono
+rimaste indietro, non appartengono alla richiesta.
 """
 
+from __future__ import annotations
+
 import os
+from dataclasses import dataclass
 from pathlib import Path
 
 ROOT = Path(__file__).parent.parent
@@ -199,3 +231,105 @@ QUERY_REWRITE_MODEL: str = os.getenv("QUERY_REWRITE_MODEL", "")  # "" = use LLM_
 # Paths
 # ---------------------------------------------------------------------------
 DATA_DIR: Path = ROOT / "data"
+
+
+# ---------------------------------------------------------------------------
+# La configurazione di una richiesta (A-02)
+# ---------------------------------------------------------------------------
+@dataclass(frozen=True)
+class RequestConfig:
+    """Come rispondere a **questa** richiesta. Uno per richiesta, immutabile.
+
+    Fino ad A-02 questi valori si leggevano dal modulo. Comodo per uno script,
+    che ne ha una configurazione sola per tutta la sua vita — e **impossibile per
+    un servizio**: due richieste concorrenti con `top_k` diverso condividerebbero
+    la stessa costante, e la seconda leggerebbe la scelta della prima. Il difetto
+    non e' teorico ed e' del tipo peggiore da diagnosticare, perche' compare solo
+    sotto carico e non si riproduce da soli.
+
+    **`frozen=True` non e' decorazione.** E' la garanzia: una configurazione che
+    nessuno puo' modificare non puo' essere modificata *da un'altra richiesta*.
+    Senza, basterebbe un `config.top_k = 3` in un ramo del codice per riportare
+    esattamente il problema che questa classe esiste per togliere.
+
+    **Nessun campo ha un default.** Si costruisce solo con `from_defaults()`, che
+    e' l'unico posto in tutto il repo dove queste costanti globali vengono
+    lette. Un default qui dentro sarebbe una seconda sorgente di verita', e la
+    prima cosa che farebbe e' divergere.
+
+    Cosa **non** c'e', e non e' una dimenticanza: modello di embedding (legato
+    all'indice), URL di Qdrant e dell'LLM (deployment), soglie calibrate. Le
+    ragioni stanno in cima al modulo.
+    """
+
+    # --- recupero ---
+    top_k: int
+    retrieval_mode: str
+    rerank: bool
+    reranker_model: str
+    rerank_fetch_k: int
+    hybrid_fetch_k: int
+    rrf_k: int
+    #: R-11: come cercare nel grafo HNSW, o se saltarlo. Per richiesta perche'
+    #: non tocca l'indice — si cambia a ogni chiamata e costa solo tempo.
+    search_exact: bool
+    hnsw_ef: int | None
+    query_rewrite: bool
+    #: "" significa "usa `model`", non "nessuno".
+    query_rewrite_model: str
+    #: "" nessun filtro, "auto" dedotto dalla query, altrimenti il tipo (R-04).
+    filter_content_type: str
+
+    # --- generazione ---
+    model: str
+    temperature: float
+    max_new_tokens: int
+    reasoning_effort: str
+
+    # --- verifica ---
+    verify: bool
+
+    @classmethod
+    def from_defaults(cls, **overrides) -> "RequestConfig":
+        """L'**unico** posto che legge le costanti di questo modulo.
+
+        Un `overrides` con una chiave sconosciuta solleva `TypeError` invece di
+        essere ignorato in silenzio: un parametro scritto male che non ha
+        effetto e' peggio di uno rifiutato, perche' la richiesta sembra
+        rispettata.
+        """
+        base = dict(
+            top_k=TOP_K,
+            retrieval_mode="dense",
+            rerank=False,
+            reranker_model=RERANKER_MODEL,
+            rerank_fetch_k=RERANK_FETCH_K,
+            hybrid_fetch_k=HYBRID_FETCH_K,
+            rrf_k=RRF_K,
+            search_exact=SEARCH_EXACT,
+            hnsw_ef=HNSW_EF,
+            query_rewrite=False,
+            query_rewrite_model=QUERY_REWRITE_MODEL,
+            filter_content_type="",
+            model=LLM_MODEL,
+            temperature=TEMPERATURE,
+            max_new_tokens=MAX_NEW_TOKENS,
+            reasoning_effort=REASONING_EFFORT,
+            verify=True,
+        )
+        return cls(**{**base, **overrides})
+
+    @property
+    def reasoning_enabled(self) -> bool:
+        """Il modello sta ragionando? Dedotto, mai asserito.
+
+        Scritto a mano come `False`, questo valore e' stato falso in ogni run
+        per un periodo: il modello ragionava attraverso l'intero budget di token
+        mentre il risultato diceva di no (C-01).
+        """
+        return self.reasoning_effort not in ("none", "", None)
+
+    @property
+    def rewrite_model(self) -> str:
+        """Il modello che riscrive le query: il suo, o quello di generazione."""
+        return self.query_rewrite_model or self.model

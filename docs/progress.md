@@ -1183,3 +1183,57 @@ Il test che l'ha trovata non cercava lei: cercava la separazione fra calibrazion
 **Nessuna metrica si muove**: niente di `eval/` passa da qui.
 
 > **Cosa A-01 non ha fatto, e va detto.** Il criterio parla di *«la stessa richiesta dalla CLI e dall'API»*: l'endpoint `/query` non esiste ancora (è A-04), quindi il confronto ha per ora un braccio solo. Il test che li confronta va scritto lì, sulla stessa funzione — non su una seconda pipeline. Restano fuori anche i parametri di retrieval per richiesta (rerank, riscrittura, filtri): sono A-02, che è il posto dove la configurazione smette di passare da `cfg` globale.
+
+| A-02 | ✅ fatto (2026-08-14) | La configurazione di richiesta esce da `cfg` globale: `RequestConfig`, immutabile, uno per richiesta. Il criterio — due richieste concorrenti che non si contaminano — è un test con due thread e una barriera. **1475 test**. |
+
+### A-02 — quattro categorie, non una
+
+Il task sembra «sposta i parametri dentro un oggetto». Il lavoro vero è stato **decidere quali**, e la risposta è che le costanti di `config.py` non sono la stessa cosa:
+
+| categoria | esempi | può variare per richiesta? |
+|---|---|---|
+| **per richiesta** | `top_k`, modalità, reranker, modello, temperatura, tetto di token | sì — è `RequestConfig` |
+| **legata all'indice** | `EMBEDDING_MODEL`, `SPARSE_EMBEDDING_MODEL` | **no**: l'indice è stato costruito con lei |
+| **di deployment** | `QDRANT_URL`, `LLM_BASE_URL`, `FASTEMBED_CACHE` | **no**: una richiesta non sposta la macchina |
+| **calibrata sui dati** | soglie di astensione, entailment, verifica numerica | **no**: sono derivate da misure |
+
+Le ultime tre restano costanti di modulo, e non è che siano rimaste indietro. Il modello di embedding nella richiesta renderebbe **esprimibile una richiesta sbagliata**: interrogare l'indice con un embedder diverso da quello che l'ha costruito restituisce spazzatura *senza errore*. E una soglia scelta da chi chiama permetterebbe di tararla sulla stessa risposta che deve giudicare — la trappola che i commenti di `config.py` passano il tempo a evitare. Una classe di test protegge queste assenze: le presenze si notano quando mancano, un campo aggiunto per comodità no.
+
+**`frozen=True` è la garanzia, non lo stile.** Ciò che nessuno può modificare non può essere modificato *da un'altra richiesta*. E nessun campo ha un default sulla classe: `from_defaults()` resta l'unico posto in tutto il repo che legge quelle costanti, verificato da un test — un default sul campo sarebbe una seconda sorgente di verità, e la prima cosa che farebbe è divergere.
+
+#### Il difetto che nessun test sequenziale trova
+
+Prima, due richieste concorrenti con `top_k` diverso leggevano la stessa costante di modulo. Non si riproduce da soli, non compare in nessuna suite sequenziale: **compare sotto carico**, che è il momento peggiore per scoprirlo.
+
+Il test lo forza invece di aspettarlo: due thread, una barriera che li tiene entrambi dentro il retrieval nello stesso istante, `top_k` 2 contro 5. Poi verifica tre cose diverse — che ogni risposta abbia la propria profondità, che il *retriever* abbia ricevuto la propria configurazione, e che il risultato riporti quella che ha davvero girato.
+
+#### Il percorso si è allungato, quindi i test lo seguono tutto
+
+`search_params()` leggeva `cfg` da sola. Ora i due valori di R-11 arrivano da fuori, e la catena è **config → backend → store → Qdrant**. Una dimenticanza in mezzo non darebbe nessun errore: darebbe una ricerca approssimata dove ne era stata chiesta una esatta — cioè il guasto silenzioso che R-11 esiste per rendere controllabile. Cinque test coprono la catena intera, `hybrid` compreso, dove i rami di ricerca sono due e uno solo sbagliato produrrebbe una fusione fra due ricerche diverse.
+
+#### Cosa il servizio ha guadagnato
+
+Reranker, riscrittura della query e filtro sui metadati ora funzionano **dal percorso di servizio**, non solo dall'harness: erano flag che solo la valutazione sapeva usare. Il gate di astensione legge i punteggi **dopo** il reranker — che è anche il motivo per cui la soglia è calibrata per modalità, e `threshold_for` restituisce `None` fuori da quella calibrata invece di applicare una soglia che non significa niente.
+
+#### Gli harness continuano a leggere `cfg`, ed è corretto
+
+`_config_hash` e `build_config` leggono ancora le costanti di modulo. Non è un residuo: un harness ha **una** configurazione per tutta la sua vita, quindi non c'è una seconda richiesta da cui distinguersi. La regola nasce dalla concorrenza, non dall'estetica — e il test che la fa rispettare elenca i moduli del percorso di servizio, non tutto `src/`.
+
+#### Il gate, e come è stato verificato
+
+Scritto **prima** della prima riga: sette run archiviate vengono rilette da disco, i loro argomenti ricostruiti dalla configurazione che ciascuna dichiara di aver usato, e l'hash ricalcolato. Un `config_hash` è **il nome di una misura**: un refactor che lo cambia rinomina tutto l'archivio in silenzio, perché nessun numero si muove — cambia solo il nome sotto cui è registrato. Le ancore coprono le tre modalità, il reranker e la collection diversa dal dataset; `query_rewrite` e `filter_content_type` non hanno una run su disco, e un test lo dichiara invece di lasciarli sembrare coperti.
+
+Poi la verifica per misura, stesso comando sui due rami:
+
+| | dense R@5 | dense doc_R@5 | hybrid R@5 | hybrid doc_R@5 |
+|---|---|---|---|---|
+| `main` (prima) | 0,8000 | 0,9600 | 0,8800 | 0,9800 |
+| `A-02` (dopo) | 0,8000 | 0,9600 | 0,8800 | 0,9800 |
+
+**Identici su tutte e sette le metriche**, in entrambe le modalità, 50 query su open_ragbench.
+
+#### Uno spostamento puro, per far tornare il verso
+
+`src/eval/retrieval_backends.py` → `src/retrieval/backends.py`. La collocazione descriveva il primo chiamante, non la funzione: una richiesta HTTP che per recuperare dei chunk deve importare il pacchetto di valutazione ha le dipendenze rovesciate. 21 file aggiornati, **stesso numero di test prima e dopo** — che è il controllo che sia stato davvero solo uno spostamento.
+
+> Resta lo stesso problema per `verify_answer`, che vive in `src/eval/citation_metrics.py` ed è funzionalità, non misura. E `dashboard/failure_store.py` ha una **copia** della logica di retrieval invece di usare i backend: è il consumatore che A-06 farà passare dall'API, ed è lì che quella copia deve sparire.
