@@ -303,7 +303,13 @@ function Campo() {
           // `normal` e la misura sopra dovrebbe indovinarla. Il massimo lo mette
           // il JavaScript, quindi qui non c'e' `max-h`: due limiti che possono
           // divergere sono un limite che prima o poi sbaglia.
-          className="fuoco-delegato flex-1 resize-none overflow-y-auto bg-transparent text-[12.5px] leading-[1.5] text-ink placeholder:text-muted disabled:cursor-not-allowed"
+          //
+          // `py-[3.6px]` non e' un ritocco a occhio: la riga di testo e' alta
+          // 18,75 px (12,5 x 1,5) e il bottone 26, quindi con `items-end` il
+          // testo si allineava al **fondo** del bottone invece che al suo centro.
+          // 3,6 px per parte pareggiano le due altezze — e quando il campo
+          // cresce restano, perche' il bottone deve restare in basso.
+          className="fuoco-delegato min-h-[26px] flex-1 resize-none overflow-y-auto bg-transparent py-[3.6px] text-[12.5px] leading-[1.5] text-ink placeholder:text-muted disabled:cursor-not-allowed"
         />
 
         {occupato ? (
