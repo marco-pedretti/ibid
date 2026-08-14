@@ -276,9 +276,24 @@ function Campo() {
             onClick={spedisci}
             disabled={bloccato || testo.trim() === ""}
             aria-label={t("chat.send")}
-            className="grid h-[26px] w-[26px] shrink-0 place-items-center rounded-md bg-accent text-[12px] text-accent-ink disabled:opacity-40"
+            className="grid h-[26px] w-[26px] shrink-0 place-items-center rounded-md bg-accent text-accent-ink disabled:opacity-40"
           >
-            ↑
+            {/* Disegnata, non scritta: `↑` e' un glifo di sistema, e come il
+                caret arriva sottile e piu' piccolo della sua dimensione
+                nominale. Un tratto ha lo spessore che gli si da'. */}
+            <svg
+              aria-hidden="true"
+              viewBox="0 0 16 16"
+              className="h-3.5 w-3.5"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            >
+              <path d="M8 12.5 L8 4" />
+              <path d="M4 8 L8 4 L12 8" />
+            </svg>
           </button>
         )}
       </div>
