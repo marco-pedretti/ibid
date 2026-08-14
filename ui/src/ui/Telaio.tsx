@@ -27,6 +27,7 @@ import { LINGUE } from "../i18n/strings";
 import { Etichetta } from "./Etichetta";
 import { Marchio } from "./Marchio";
 import { SelettoreDataset } from "./SelettoreDataset";
+import { SelettoreNativo } from "./SelettoreNativo";
 
 export function Telaio({ children }: { children: ReactNode }) {
   const { t } = usaLingua();
@@ -44,8 +45,8 @@ export function Telaio({ children }: { children: ReactNode }) {
         </div>
 
         <div className="mt-auto flex gap-1.5 px-1">
-          <ChipLingua />
-          <ChipTema />
+          <PastigliaLingua />
+          <PastigliaTema />
         </div>
       </aside>
 
@@ -55,34 +56,27 @@ export function Telaio({ children }: { children: ReactNode }) {
 }
 
 /** La pastiglia in fondo alla corsia: 10 px, bordo sottile, testo attenuato. */
-function Chip({
-  onClick,
-  etichetta,
-  children,
-}: {
-  onClick: () => void;
-  etichetta: string;
-  children: ReactNode;
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      aria-label={etichetta}
-      className="rounded-[5px] border border-line-2 px-[7px] py-1 text-[10px] text-muted transition-colors hover:text-ink"
-    >
-      {children}
-    </button>
-  );
-}
+const PASTIGLIA = "rounded-[5px] border border-line-2 px-[7px] py-1 text-[10px] text-muted";
 
-/** `IT / EN` come nel mockup: si vedono entrambe, e si vede quale e' viva. */
-function ChipLingua() {
+/**
+ * `IT / EN` come nel mockup, e resta un bottone.
+ *
+ * Con **due** stati il bottone e' la forma giusta: si vedono entrambi, si vede
+ * quale e' vivo, e un clic porta all'altro senza aprire niente. Una tendina di
+ * due voci farebbe fare due gesti dove ne basta uno, e nasconderebbe meta'
+ * dell'informazione dietro il primo.
+ */
+function PastigliaLingua() {
   const { t, lingua, imposta } = usaLingua();
   const altra = LINGUE[(LINGUE.indexOf(lingua) + 1) % LINGUE.length];
 
   return (
-    <Chip onClick={() => imposta(altra)} etichetta={t("lang.label")}>
+    <button
+      type="button"
+      onClick={() => imposta(altra)}
+      aria-label={t("lang.label")}
+      className={`${PASTIGLIA} transition-colors hover:text-ink`}
+    >
       {LINGUE.map((l, i) => (
         <span key={l}>
           {i > 0 && <span className="text-line-2"> / </span>}
@@ -91,27 +85,47 @@ function ChipLingua() {
           </span>
         </span>
       ))}
-    </Chip>
+    </button>
   );
 }
 
-const GIRO: SceltaTema[] = ["light", "dark", "system"];
+const TEMI: SceltaTema[] = ["light", "dark", "system"];
 const GLIFO: Record<SceltaTema, string> = { light: "☀", dark: "☾", system: "◐" };
 
 /**
- * Un solo bottone per tre stati, e il nome dello stato scritto accanto al
- * glifo: «sistema» non e' deducibile da un simbolo, ed e' proprio lo stato che
- * va capito — e' quello che continua a cambiare da solo.
+ * Il tema e' **una tendina**, non un bottone che cicla.
+ *
+ * Con tre stati un bottone che gira nasconde le opzioni: non si vede quante
+ * sono, non si sa dove si finisce, e per tornare indietro di uno si fa il giro.
+ * Chi non ha ancora capito che «sistema» esiste non ha modo di scoprirlo se non
+ * cliccando finche' non ricompare — cioe' l'interfaccia si impara per tentativi.
+ * La tendina mostra le tre voci insieme e ne fa scegliere una.
+ *
+ * Il caret `▾` non e' decorazione: nel mockup e' il segno che distingue una
+ * pastiglia che apre un menu (`.tg.menu`) da una che commuta e basta. Averlo
+ * qui e non sulla lingua e' il modo in cui le due si dichiarano diverse.
+ *
+ * Il **nome** dello stato sta accanto al glifo perche' «sistema» non e'
+ * deducibile da un simbolo, ed e' proprio quello che va capito: e' l'unico che
+ * continua a cambiare da solo.
  */
-function ChipTema() {
+function PastigliaTema() {
   const { t } = usaLingua();
   const { scelta, imposta } = usaTema();
-  const prossima = GIRO[(GIRO.indexOf(scelta) + 1) % GIRO.length];
+
+  const voci = TEMI.map((s) => ({ valore: s, testo: `${GLIFO[s]}  ${t(`theme.${s}`)}` }));
 
   return (
-    <Chip onClick={() => imposta(prossima)} etichetta={t("theme.label")}>
-      <span aria-hidden="true">{GLIFO[scelta]}</span>{" "}
+    <SelettoreNativo
+      etichetta={t("theme.label")}
+      valore={scelta}
+      voci={voci}
+      onCambia={imposta}
+      className={`${PASTIGLIA} flex items-center gap-1`}
+    >
+      <span>{GLIFO[scelta]}</span>
       <span className="lowercase">{t(`theme.${scelta}`)}</span>
-    </Chip>
+      <span className="text-[8px] leading-none">▾</span>
+    </SelettoreNativo>
   );
 }
