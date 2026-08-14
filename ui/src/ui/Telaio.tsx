@@ -25,6 +25,8 @@ import { usaTema } from "../app/theme";
 import type { SceltaTema } from "../app/theme";
 import { LINGUE } from "../i18n/strings";
 import { Etichetta } from "./Etichetta";
+import { Chiaro, Scuro, Sistema } from "./Icona";
+import type { PropsIcona } from "./Icona";
 import { Marchio } from "./Marchio";
 import { SelettoreDataset } from "./SelettoreDataset";
 import { SelettoreNativo } from "./SelettoreNativo";
@@ -114,7 +116,11 @@ function PastigliaLingua() {
 }
 
 const TEMI: SceltaTema[] = ["light", "dark", "system"];
-const GLIFO: Record<SceltaTema, string> = { light: "☀", dark: "☾", system: "◐" };
+const SEGNO: Record<SceltaTema, (p: PropsIcona) => ReactNode> = {
+  light: Chiaro,
+  dark: Scuro,
+  system: Sistema,
+};
 
 /**
  * Il tema e' **una tendina**, non un bottone che cicla.
@@ -137,8 +143,12 @@ const GLIFO: Record<SceltaTema, string> = { light: "☀", dark: "☾", system: "
 function PastigliaTema() {
   const { t } = usaLingua();
   const { scelta, imposta } = usaTema();
+  const Segno = SEGNO[scelta];
 
-  const voci = TEMI.map((s) => ({ valore: s, testo: `${GLIFO[s]}  ${t(`theme.${s}`)}` }));
+  // Le voci restano **sole parole**: un `<option>` nativo accetta testo e basta,
+  // quindi un glifo li' dentro sarebbe l'unico simbolo dell'interfaccia non
+  // disegnato — e la coerenza vale piu' di una decorazione nella tendina.
+  const voci = TEMI.map((s) => ({ valore: s, testo: t(`theme.${s}`) }));
 
   return (
     <SelettoreNativo
@@ -146,9 +156,9 @@ function PastigliaTema() {
       valore={scelta}
       voci={voci}
       onCambia={imposta}
-      className={`${PASTIGLIA} flex items-center gap-1`}
+      className={`${PASTIGLIA} flex items-center gap-1.5`}
     >
-      <span>{GLIFO[scelta]}</span>
+      <Segno size={12} />
       <span className="lowercase">{t(`theme.${scelta}`)}</span>
     </SelettoreNativo>
   );

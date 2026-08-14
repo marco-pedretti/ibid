@@ -20,6 +20,7 @@ import { usaDataset } from "../app/dataset";
 import { esempiDi } from "../app/esempi";
 import { usaLingua } from "../app/i18n";
 import type { Scambio } from "../app/chat";
+import { Astensione, Avvertimento, FrecciaSu, Troncato } from "./Icona";
 import { Testo } from "./Testo";
 
 export function Chat() {
@@ -157,17 +158,19 @@ function Corpo({ scambio }: { scambio: Scambio }) {
       )}
 
       {astensione !== null && (
-        <Avviso tono="neutro" glifo="⌀">
+        <Avviso tono="neutro" icona={<Astensione size={13} />}>
           {astensione === "gate" ? t("abstention.gate") : t("abstention.model")}
         </Avviso>
       )}
 
-      {r.troncato && <Avviso glifo="⋯">{t("stato.troncato")}</Avviso>}
+      {r.troncato && <Avviso icona={<Troncato size={13} />}>{t("stato.troncato")}</Avviso>}
       {r.riparato && (
         <p className="font-mono text-[10px] text-muted">{t("stato.riparato")}</p>
       )}
 
-      {r.errore !== null && <Avviso glifo="!">{r.errore.message}</Avviso>}
+      {r.errore !== null && (
+        <Avviso icona={<Avvertimento size={13} />}>{r.errore.message}</Avviso>
+      )}
 
       {(r.fase === "errore" || r.fase === "interrotta") && (
         <div>
@@ -200,11 +203,11 @@ function Scheletro({ righe }: { righe: number }) {
 
 function Avviso({
   tono = "attenzione",
-  glifo,
+  icona,
   children,
 }: {
   tono?: "attenzione" | "neutro";
-  glifo: string;
+  icona: ReactNode;
   children: ReactNode;
 }) {
   const stile =
@@ -215,9 +218,7 @@ function Avviso({
     <div
       className={`flex items-start gap-2.5 rounded-[7px] border border-line-2 border-l-[3px] px-3 py-2.5 ${stile}`}
     >
-      <span aria-hidden="true" className="font-mono text-[13px] leading-[1.3]">
-        {glifo}
-      </span>
+      <span className="mt-px">{icona}</span>
       <p className="text-[11.5px] leading-[1.5] text-ink-2">{children}</p>
     </div>
   );
@@ -278,22 +279,7 @@ function Campo() {
             aria-label={t("chat.send")}
             className="grid h-[26px] w-[26px] shrink-0 place-items-center rounded-md bg-accent text-accent-ink disabled:opacity-40"
           >
-            {/* Disegnata, non scritta: `↑` e' un glifo di sistema, e come il
-                caret arriva sottile e piu' piccolo della sua dimensione
-                nominale. Un tratto ha lo spessore che gli si da'. */}
-            <svg
-              aria-hidden="true"
-              viewBox="0 0 16 16"
-              className="h-3.5 w-3.5"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            >
-              <path d="M8 12.5 L8 4" />
-              <path d="M4 8 L8 4 L12 8" />
-            </svg>
+            <FrecciaSu size={14} />
           </button>
         )}
       </div>
