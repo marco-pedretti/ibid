@@ -240,6 +240,22 @@ Alternative permissive già in tabella: **pypdfium2** per rendering e bbox, **pd
 | pdfplumber, Docling | MIT | sì |
 | **PyMuPDF** | **AGPL-3.0** | **no** |
 
+Frontend (`ui/`, introdotto in U-00 il 2026-08-14). Licenze lette dai `package.json` in `node_modules`, non dedotte:
+
+| Componente | Versione | Licenza | Compatibile MIT |
+|---|---|---|---|
+| react, react-dom | 19.2.8 | MIT | sì |
+| vite, @vitejs/plugin-react | 8.2.1 / 6.0.5 | MIT | sì |
+| tailwindcss, @tailwindcss/vite | 4.3.3 | MIT | sì |
+| vitest | 4.1.10 | MIT | sì |
+| typescript | 7.0.2 | Apache-2.0 | sì — solo build |
+| @types/react, @types/react-dom | 19.2.x | MIT | sì — solo tipi |
+| **lightningcss** | 1.32.0 | **MPL-2.0** | sì, **ma va detto** — vedi sotto |
+
+**`lightningcss` è l'unica dipendenza copyleft dell'albero**, tirata dentro da Tailwind 4 come trasformatore CSS. È MPL-2.0, cioè copyleft **a livello di file**: obbliga a mantenere sotto MPL i file di *quella* libreria se modificati e ridistribuiti, e non si propaga al progetto che la usa. Non è nella lista vietata (GPL / AGPL / LGPL-static), è una dipendenza di *build* che non finisce nel bundle servito, e il CSS che produce è un output, non un'opera derivata dei suoi sorgenti. Resta segnalata qui perché la regola dice di segnalare, non di valutare in silenzio: toglierla richiederebbe rinunciare a Tailwind, che STACK indica come scelta di stile.
+
+Nessuna GPL, AGPL o LGPL nell'albero: 56 pacchetti MIT, 4 Apache-2.0, 3 ISC, 2 MPL-2.0 (lo stesso `lightningcss` e il suo binario per piattaforma), 1 BSD-3-Clause.
+
 **Verifica T-07 (2026-08-04):** tutte le dipendenze in `pyproject.toml` controllate; nessuna copyleft in albero. Licenze confermate da LICENSE file nelle dist-info: pydantic MIT, uvicorn/starlette BSD-3-Clause, ruff MIT, pytest MIT.
 
 **Regola per chi aggiunge dipendenze** (persone e coding agent): prima di introdurre una libreria, verificarne la licenza e aggiornare questa tabella. Qualsiasi licenza copyleft (GPL, AGPL, LGPL con linking statico) va segnalata e discussa prima dell'inserimento, non dopo.

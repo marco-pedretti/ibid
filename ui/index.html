@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="it">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>ibid</title>
+    <meta name="description" content="RAG con citazioni verificate a livello di frase" />
+    <!--
+      Il tema viene stampato prima della prima pittura, non da React: montare il
+      componente e poi cambiare sfondo produce un lampo bianco su tema scuro.
+      Tre righe qui valgono piu' di qualsiasi rimedio a valle.
+    -->
+    <script>
+      (function () {
+        var scelto = null;
+        try {
+          scelto = localStorage.getItem("ibid.theme");
+        } catch (e) {
+          /* localStorage negato (modalita' privata, iframe): si segue il sistema */
+        }
+        var sistema = window.matchMedia("(prefers-color-scheme: dark)").matches
+          ? "dark"
+          : "light";
+        document.documentElement.dataset.theme =
+          scelto === "dark" || scelto === "light" ? scelto : sistema;
+      })();
+    </script>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>
