@@ -38,6 +38,7 @@ from src.service.catalog import (
     collections,
     dataset_of,
     datasets,
+    models,
 )
 
 __all__ = [
@@ -60,5 +61,6 @@ __all__ = [
     "collections",
     "dataset_of",
     "datasets",
+    "models",
     "retrieve_chunks",
 ]

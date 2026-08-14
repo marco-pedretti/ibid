@@ -11,8 +11,9 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 import pytest
+import src.config as cfg
 from src.datasets import registry
-from src.service import chunk, dataset_of, datasets
+from src.service import chunk, dataset_of, datasets, models
 
 
 @dataclass
@@ -142,3 +143,67 @@ class TestChunk:
         # I-06 e' rinviato: nessun dataset attuale porta coordinate. Dichiarato
         # assente, non simulato (§3.5).
         assert result.bbox is None
+
+
+class TestModelli:
+    """A-07: il menu dei modelli viene dal backend, non dal frontend.
+
+    Le due proprieta' che contano sono l'ordine (stabile) e la degradazione
+    (una lista vuota invece di un guasto): la prima perche' un menu che si
+    riordina fa saltare la selezione, la seconda perche' `/datasets` serve
+    anche i dataset, che con l'LLM non c'entrano niente.
+    """
+
+    @staticmethod
+    def _finto(*ids: str):
+        return lambda url, timeout: {"data": [{"id": i} for i in ids]}
+
+    def test_l_ordine_e_alfabetico_non_quello_di_arrivo(self):
+        """`/v1/models` di Ollama ordina per data di download, che cambia sotto
+        i piedi di chi ha appena scaricato qualcosa."""
+        fetch = self._finto("qwen3.5:latest", "gemma4:12b", "gemma4:e2b")
+        assert models("http://x/v1", fetch=fetch) == [
+            "gemma4:12b", "gemma4:e2b", "qwen3.5:latest",
+        ]
+
+    def test_un_endpoint_spento_da_una_lista_vuota_non_un_errore(self):
+        """Se sollevasse, `/datasets` fallirebbe per intero — dataset compresi.
+        E' lo stesso motivo per cui `/health` non interroga Qdrant."""
+        def esplode(url, timeout):
+            raise RuntimeError("LLM irraggiungibile")
+
+        assert models("http://x/v1", fetch=esplode) == []
+
+    def test_la_lista_vuota_resta_vuota(self):
+        """Non si aggiunge il modello configurato per non tornare mai vuoti:
+        affermerebbe che esiste, che e' cio' che non si e' potuto verificare."""
+        assert models("http://x/v1", fetch=self._finto()) == []
+        assert cfg.LLM_MODEL not in models("http://x/v1", fetch=self._finto())
+
+    def test_le_voci_senza_id_non_entrano(self):
+        fetch = lambda url, timeout: {  # noqa: E731
+            "data": [{"id": "a"}, {"object": "model"}, {"id": ""}, "non un dict"]
+        }
+        assert models("http://x/v1", fetch=fetch) == ["a"]
+
+    def test_usa_l_indirizzo_di_deployment_quando_non_gliene_danno_uno(self):
+        visti: list[str] = []
+
+        def spia(url, timeout):
+            visti.append(url)
+            return {"data": []}
+
+        models(fetch=spia)
+        assert visti == [f"{cfg.LLM_BASE_URL.rstrip('/')}/models"]
+
+    def test_l_endpoint_e_quello_openai_compatibile(self):
+        """Non `/api/tags`: STACK.md impone il contratto OpenAI, cosi' la stessa
+        funzione vale con vLLM o llama.cpp server al posto di Ollama."""
+        visti: list[str] = []
+
+        def spia(url, timeout):
+            visti.append(url)
+            return {"data": []}
+
+        models("http://altrove:8000/v1/", fetch=spia)
+        assert visti == ["http://altrove:8000/v1/models"]

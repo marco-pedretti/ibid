@@ -40,6 +40,7 @@ from src.service import (
     collections,
     dataset_of,
     datasets,
+    models,
     retrieve_chunks,
 )
 
@@ -73,6 +74,7 @@ def list_datasets() -> Capabilities:
     mezzo dal lato Python.
     """
     return Capabilities(
+        models=models(),
         datasets=[DatasetView.of(d) for d in datasets()],
         collections=[CollectionView.of(c) for c in collections()],
     )

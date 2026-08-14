@@ -510,6 +510,11 @@ class Capabilities(BaseModel):
 
     retrieval_modes: list[str] = list(RETRIEVAL_MODES)
     baseline_prompts: list[str] = list(BASELINE_PROMPTS)
+    #: I modelli che l'endpoint di inferenza dichiara di avere (A-07). **Vuota
+    #: quando non e' raggiungibile**, e non e' un errore: i dataset non
+    #: dipendono dall'LLM e devono arrivare comunque. Chi la riceve vuota
+    #: ripiega sul modello di `/config`, l'unico di cui si sappia il nome.
+    models: list[str] = []
     datasets: list[DatasetView] = []
     #: Le collection che esistono sul server, non solo quelle del registro.
     #: Comprende le varianti `_routed` di R-07 e quelle nate da un esperimento:

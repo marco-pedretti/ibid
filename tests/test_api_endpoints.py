@@ -93,6 +93,10 @@ class TestHealth:
 # ---------------------------------------------------------------------------
 
 
+def _llm_spento(url, timeout):
+    raise RuntimeError(f"LLM irraggiungibile su {url}")
+
+
 class TestDatasets:
     def test_elenca_i_dataset_con_lo_stato_dell_indice(self, client, monkeypatch):
         monkeypatch.setattr(api, "datasets", lambda: [
@@ -110,6 +114,27 @@ class TestDatasets:
         corpo = client.get("/datasets").json()
         assert corpo["retrieval_modes"] == ["dense", "sparse", "hybrid"]
         assert corpo["baseline_prompts"] == ["permissive", "strict"]
+
+    def test_elenca_i_modelli_installati(self, client, monkeypatch):
+        """A-07: il menu dei modelli viene da qui, non da una lista scritta a
+        mano nel frontend — che e' la quindicesima copia di Q-06."""
+        monkeypatch.setattr(api, "datasets", list)
+        monkeypatch.setattr(api, "models", lambda: ["gemma4:12b", "gemma4:e4b"])
+        assert client.get("/datasets").json()["models"] == ["gemma4:12b", "gemma4:e4b"]
+
+    def test_con_l_llm_spento_i_dataset_arrivano_lo_stesso(self, client, monkeypatch):
+        """I dataset non dipendono dall'LLM. Se la lista modelli facesse
+        fallire tutta la risposta, sarebbe lo stesso difetto per cui `/health`
+        non interroga Qdrant."""
+        monkeypatch.setattr(api, "datasets", lambda: [
+            DatasetInfo("open_ragbench", "open_ragbench", True, 18840),
+        ])
+        monkeypatch.setattr("src.generation.chat._get_json", _llm_spento)
+        risposta = client.get("/datasets")
+        assert risposta.status_code == 200
+        corpo = risposta.json()
+        assert corpo["models"] == []
+        assert corpo["datasets"][0]["n_chunks"] == 18840
 
 
 # ---------------------------------------------------------------------------

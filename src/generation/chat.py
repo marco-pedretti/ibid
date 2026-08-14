@@ -67,7 +67,7 @@ from __future__ import annotations
 import json
 import urllib.error
 import urllib.request
-from collections.abc import Iterator
+from collections.abc import Callable, Iterator
 from dataclasses import dataclass
 
 
@@ -262,4 +262,55 @@ def collect(deltas: Iterator[Delta]) -> Completion:
         content="".join(pezzi).strip(),
         finish_reason=ultimo.finish_reason,
         completion_tokens=ultimo.completion_tokens,
+    )
+
+
+def _get_json(url: str, timeout: int) -> dict:
+    """Una GET che restituisce JSON, o solleva dicendo dove ha fallito."""
+    req = urllib.request.Request(url, method="GET")
+    try:
+        with urllib.request.urlopen(req, timeout=timeout) as resp:
+            return json.loads(resp.read())
+    except urllib.error.HTTPError as e:
+        body = e.read().decode(errors="replace")[:300]
+        raise RuntimeError(f"LLM HTTP {e.code}: {body}") from e
+    except (urllib.error.URLError, OSError, json.JSONDecodeError) as e:
+        raise RuntimeError(f"LLM irraggiungibile su {url}: {e}") from e
+
+
+def list_models(
+    base_url: str,
+    timeout: int = 10,
+    *,
+    fetch: Callable[[str, int], dict] | None = None,
+) -> list[str]:
+    """I modelli che questo endpoint dichiara di avere, in ordine alfabetico.
+
+    Serve alla UI (A-07): il menu dei modelli deve venire dal backend, perche'
+    e' l'unico che sa quali esistono davvero. Un elenco scritto a mano nel
+    frontend e' la quindicesima copia di Q-06 -- diverge, e il modello nuovo
+    arriva senza che nessuno lo aggiunga.
+
+    **Passa da `LLM_BASE_URL` come tutto il resto del modulo.** Non e' un
+    dettaglio di stile: il browser puo' non raggiungere Ollama (in `compose.yml`
+    e' dietro `host.docker.internal`, e in un deployment reale e' su un'altra
+    macchina), e STACK.md impone comunque l'endpoint OpenAI-compatibile invece
+    di quello nativo -- cosi' questa funzione vale anche con vLLM o llama.cpp
+    server al posto di Ollama.
+
+    L'ordine e' alfabetico e non quello di arrivo: `/v1/models` di Ollama
+    ordina per data di download, che cambia sotto i piedi di chi ha appena
+    scaricato qualcosa e fa saltare la selezione in un menu.
+
+    Solleva `RuntimeError` se l'endpoint risponde male: e' un guasto, e chi
+    chiama decide se e' fatale. Per l'API non lo e' -- vedi `catalog.models()`.
+
+    Args:
+        fetch: la GET, iniettabile. Stessa forma di seam di `answer_stream`, e
+            per la stessa ragione: un test che verifica l'ordinamento non deve
+            avere bisogno di un server acceso.
+    """
+    data = (fetch or _get_json)(f"{base_url.rstrip('/')}/models", timeout)
+    return sorted(
+        str(m["id"]) for m in data.get("data", []) if isinstance(m, dict) and m.get("id")
     )
