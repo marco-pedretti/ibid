@@ -1351,3 +1351,73 @@ Contro Qdrant e Ollama vivi, senza frontend:
 > **0,0226 è lo stesso valore del gate della T-05**, per la stessa domanda. Il 4 agosto era la prova che la fetta verticale stava in piedi; oggi arriva su HTTP con la sua citazione verificata a fianco.
 
 `fastapi` e `uvicorn` erano dichiarati in `pyproject.toml` ma non installati in questo Python: installati.
+
+| A-05 | ✅ fatto (2026-08-14) | Backend in `docker compose`, `QDRANT_URL` e `LLM_BASE_URL` da ambiente. Immagine costruita e provata contro Qdrant e Ollama sull'host: stessa risposta e stesso verdetto della corsa fuori container. **1607 test**. |
+
+### A-05 — il container *è* la seconda macchina
+
+Il criterio è *«backend su una macchina, Qdrant e LLM su un'altra, **senza modifiche al sorgente**»*. Non si verifica con due macchine: si verifica mostrando che nel sorgente **non c'è niente da modificare**.
+
+E poi si prova. Dal punto di vista del container, l'host è già un altro host — altra interfaccia di rete, altro `localhost`. Backend nel container, Qdrant e Ollama sull'host, stessa domanda della T-05:
+
+```
+The standard deviation of RMSE for Ridge Regression is 0.0226 [1].
+citazione [1] supportata, p=0,606
+```
+
+Identica alla corsa fuori container, verdetto compreso. Per servizi davvero altrove basta l'ambiente, e nessun file cambia:
+
+```
+QDRANT_URL=http://10.0.0.5:6333 LLM_BASE_URL=http://10.0.0.7:11434/v1 make api
+```
+
+#### Quattro difetti che non si vedevano perché l'immagine non era mai stata costruita
+
+| | |
+|---|---|
+| `env_file: - .env` | il file non esiste: **`docker compose up` falliva** |
+| nessun `.dockerignore` | ogni build spediva **2,3 GB** al demone, quasi tutti `data/` — e nessuno di quei byte serve a un backend che legge da Qdrant |
+| `qdrant:latest` | due macchine potevano avere due Qdrant diversi, e un indice è un formato su disco |
+| nessun healthcheck su Qdrant | `depends_on: service_healthy` non aveva niente da aspettare |
+
+L'healthcheck di Qdrant merita una nota: usa il **suo stesso binario**, perché quell'immagine non ha né `curl` né `wget`. Un healthcheck che non può girare lascia il servizio `starting` per sempre, e la dipendenza non parte mai — un guasto che si manifesta come «l'avvio si è bloccato», senza errori.
+
+Gli indirizzi ora sono `${VAR:-default}`: i default coprono il caso comune senza impedire l'altro. È la differenza fra un file che *funziona qui* e uno che dichiara **dove** può funzionare.
+
+#### I pesi dei modelli vanno su un volume, e non è ottimizzazione
+
+Sono ~2,5 GB fra embedding, reranker e verificatore NLI. Le tre strade possibili non sono equivalenti:
+
+- **nell'immagine**: 2,5 GB di layer da ricostruire a ogni cambio di codice;
+- **senza niente**: 2,5 GB di download a **ogni avvio**, prima della prima risposta;
+- **volume**: si pagano una volta.
+
+E il percorso è dichiarato (`FASTEMBED_CACHE_PATH`, `HF_HOME`). Il default di fastembed è `%TEMP%`, che Windows ha già svuotato *durante* I-10 uccidendo una valutazione dopo 80 minuti di GPU. In un container il default è peggio ancora: sparisce a ogni riavvio.
+
+#### Il costo del container, misurato e non nascosto
+
+Nel container non c'è GPU. Embedding, reranker e verificatore girano su CPU:
+
+| stadio | fuori | dentro |
+|---|---|---|
+| retrieval | 2,5 s | **14,4 s** |
+| verifica | 5,2 s | **21,8 s** |
+| generazione | 9–12 s | invariata — l'LLM è fuori, con la sua GPU |
+
+Il `NoAcceleratorWarning` di Q-05 è comparso nei log del container esattamente come doveva, dichiarando il ripiego invece di degradare in silenzio. È la prima volta che quel warning serve a qualcuno che non lo stava cercando.
+
+> **Ne segue una regola: le run di valutazione non si lanciano dal container.** Il servizio sì — è quello il suo mestiere, e la latenza in demo resta dominata dall'LLM, che la GPU ce l'ha.
+
+L'acceleratore ONNX resta fuori dall'immagine di proposito: gli extra si escludono a vicenda e dipendono dalla piattaforma (Q-05), e un'immagine che ne cablasse uno girerebbe su **una macchina sola** — cioè il contrario del criterio di questo task.
+
+#### I test guardano i file, non le funzioni
+
+Ventidue, nella forma di Q-06 e A-02: nessun indirizzo cablato in `src/`, gli indirizzi interpolati in `compose.yml`, `data/` ed `eval/` fuori dal contesto di build, il processo non root, Qdrant pinnato.
+
+E uno che protegge una scelta di A-02: **`.env.example` non contiene configurazione di richiesta**. Metterci `TOP_K` o `TEMPERATURE` la renderebbe di nuovo globale, condivisa fra richieste concorrenti — esattamente il difetto appena tolto.
+
+#### Cosa resta dichiarato
+
+**Nessun `uv.lock`.** Due build a distanza di mesi possono risolvere versioni diverse. Per un servizio che si vuole riproducibile il lock è il passo giusto, ed è un task suo.
+
+**L'immagine porta più dipendenze del necessario** — `streamlit`, `datasets`, `pandas` sono in `[project.dependencies]` e servono agli harness, non all'API. Separarle in extra è possibile e non è A-05.
