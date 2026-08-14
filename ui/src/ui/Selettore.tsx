@@ -31,9 +31,13 @@ import type { Voce } from "./lista";
 
 export type { Voce } from "./lista";
 
-/** Quanto dura la chiusura: il pannello resta montato per questo tempo, se no
- *  sparirebbe di scatto e l'animazione d'uscita non si vedrebbe mai. */
-const USCITA_MS = 110;
+/**
+ * Rete di sicurezza per lo smontaggio: normalmente e' `transitionend` a dire
+ * quando l'uscita e' finita — il tempo esatto, non uno stimato — ma se la
+ * transizione non parte affatto (pannello fuori schermo, scheda in secondo
+ * piano) quell'evento non arriva mai e il pannello resterebbe montato invisibile.
+ */
+const USCITA_MAX_MS = 300;
 
 export function Selettore<T extends string>({
   etichetta,
@@ -82,10 +86,12 @@ export function Selettore<T extends string>({
   const chiudi = (tornaAlBottone = true) => {
     setAperto(false);
     if (timer.current !== null) clearTimeout(timer.current);
-    timer.current = setTimeout(() => setMontato(false), USCITA_MS);
+    timer.current = setTimeout(() => setMontato(false), USCITA_MAX_MS);
     // Il fuoco torna da dove e' partito: chiudendo con Escape, senza questo si
-    // finirebbe in cima al documento senza sapere dove.
-    if (tornaAlBottone) bottone.current?.focus();
+    // finirebbe in cima al documento senza sapere dove. `preventScroll` perche'
+    // rimettere a fuoco puo' far scorrere l'antenato piu' vicino, e uno scorrimento
+    // dentro l'animazione e' un salto.
+    if (tornaAlBottone) bottone.current?.focus({ preventScroll: true });
   };
 
   const scegli = (i: number) => {
@@ -179,14 +185,31 @@ export function Selettore<T extends string>({
           id={`${id}-lista`}
           role="listbox"
           aria-label={etichetta}
+          onTransitionEnd={(e) => {
+            // Il momento esatto in cui l'uscita e' finita, invece di un tempo
+            // indovinato: smontare troppo presto taglia l'ultimo fotogramma —
+            // ed e' esattamente cio' che si legge come «scatto».
+            if (e.propertyName === "opacity" && !aperto) setMontato(false);
+          }}
           className={[
             "absolute z-20 overflow-hidden rounded-lg border border-line-2 bg-surface p-1 shadow-carta",
             larghezza === "bottone" ? "w-full" : "min-w-full w-max",
-            verso === "giu" ? "top-full mt-1.5 origin-top" : "bottom-full mb-1.5 origin-bottom",
-            "transition-[opacity,transform]",
+            verso === "giu" ? "top-full mt-1.5" : "bottom-full mb-1.5",
+            // Solo `opacity` e `transform`: sono le due proprieta' che il
+            // compositore anima senza ridisegnare. **Niente `scale`**, che sul
+            // testo costringe a ri-rasterizzare i glifi a ogni fotogramma ed e'
+            // la causa vera dello scatto in uscita.
+            "transition-[opacity,translate] will-change-[opacity,translate]",
             aperto
-              ? "translate-y-0 scale-100 opacity-100 duration-150 ease-out"
-              : `${verso === "giu" ? "-translate-y-1" : "translate-y-1"} scale-[0.98] opacity-0 duration-100 ease-in`,
+              ? "translate-y-0 opacity-100 duration-150 ease-[cubic-bezier(0.2,0,0,1)]"
+              : [
+                  verso === "giu" ? "-translate-y-1" : "translate-y-1",
+                  "opacity-0 duration-100 ease-[cubic-bezier(0.4,0,1,1)]",
+                  // Mentre esce non riceve piu' il puntatore: senza, passarci
+                  // sopra cambia la voce evidenziata e fa ridisegnare l'elenco
+                  // in mezzo all'animazione.
+                  "pointer-events-none",
+                ].join(" "),
           ].join(" ")}
         >
           {voci.map((v, i) => (
@@ -198,7 +221,7 @@ export function Selettore<T extends string>({
               aria-disabled={v.disabilitata}
               onPointerDown={(e) => e.preventDefault()} // il fuoco resta al bottone
               onClick={() => scegli(i)}
-              onPointerEnter={() => !v.disabilitata && setAttivo(i)}
+              onPointerEnter={() => aperto && !v.disabilitata && setAttivo(i)}
               className={[
                 "flex items-center gap-2 rounded-md px-2 py-1.5 text-[11.5px]",
                 v.disabilitata
