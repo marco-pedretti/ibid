@@ -1,0 +1,97 @@
+@import "tailwindcss";
+
+/* Il tema e' sempre **stampato** su `<html>` da uno script in `index.html`, mai
+   dedotto qui: `prefers-color-scheme` resterebbe la sola verita' finche' nessuno
+   sceglie, e allora il toggle non potrebbe vincere sul sistema. Con `data-theme`
+   sempre presente questa variante e' una condizione sola invece di tre stati. */
+@custom-variant dark (&:where([data-theme="dark"], [data-theme="dark"] *));
+
+/* --- I colori -----------------------------------------------------------
+   Due insiemi con gli stessi nomi. Un componente non sa in che tema sta, e non
+   deve saperlo: chiede `bg-surface` e riceve quello del tema corrente.
+
+   `supported` / `unsupported` / `abstain` sono semantici e **separati
+   dall'accento**: un verdetto colorato con l'accento smette di essere un
+   verdetto e diventa decorazione. E l'insostenuto non e' rosso -- U-07 dice che
+   non e' un errore da nascondere, e' il dato. */
+:root {
+  --ground: #f6f7f9;
+  --surface: #ffffff;
+  --surface-2: #eef0f4;
+  --ink: #15171c;
+  --muted: #5f6673;
+  --line: #dfe3e9;
+  --accent: #0f6d70;
+  --accent-ink: #ffffff;
+  --supported: #14804a;
+  --unsupported: #8a5a00;
+  --abstain: #5b6470;
+}
+
+[data-theme="dark"] {
+  --ground: #0f1115;
+  --surface: #161920;
+  --surface-2: #1e222b;
+  --ink: #e7eaef;
+  --muted: #99a1af;
+  --line: #272c36;
+  --accent: #3fb6b8;
+  --accent-ink: #08161a;
+  --supported: #4ec98a;
+  --unsupported: #d9a441;
+  --abstain: #8b95a3;
+}
+
+/* `inline` perche' i valori sono `var(...)`: senza, Tailwind congelerebbe il
+   colore del tema chiaro dentro le utility e il tema scuro non arriverebbe. */
+@theme inline {
+  --color-ground: var(--ground);
+  --color-surface: var(--surface);
+  --color-surface-2: var(--surface-2);
+  --color-ink: var(--ink);
+  --color-muted: var(--muted);
+  --color-line: var(--line);
+  --color-accent: var(--accent);
+  --color-accent-ink: var(--accent-ink);
+  --color-supported: var(--supported);
+  --color-unsupported: var(--unsupported);
+  --color-abstain: var(--abstain);
+
+  /* Nessun webfont, ed e' una decisione: U-08 chiede `docker compose --profile
+     demo up` in meno di due minuti **senza rete**, e un font scaricato da un CDN
+     e' una richiesta di rete al primo caricamento. */
+  --font-sans: ui-sans-serif, system-ui, "Segoe UI", Roboto, "Helvetica Neue",
+    Arial, sans-serif;
+  --font-mono: ui-monospace, "Cascadia Code", "SF Mono", Menlo, Consolas,
+    monospace;
+}
+
+html {
+  color-scheme: light;
+}
+
+[data-theme="dark"] {
+  color-scheme: dark;
+}
+
+body {
+  background-color: var(--ground);
+  color: var(--ink);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Chi naviga da tastiera deve vedere dove si trova: il focus non si toglie. */
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}

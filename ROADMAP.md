@@ -456,6 +456,7 @@ Il criterio nuovo dice la cosa che il vecchio approssimava: **la dashboard non d
 
 | ID | Task | Criterio di accettazione |
 |---|---|---|
+| U-00 | **Scheletro**: Vite + React + TypeScript, client SSE scritto a mano, temi chiaro/scuro, i18n IT/EN, `/datasets` all'avvio | I tipi del contratto sono **generati** da `src/api/`, non riscritti a mano: la suite Python fallisce se divergono. Nessuna costante del backend vive nel frontend |
 | U-01 | **Selettore dataset**: demo / principale / secondo genere | Cambio dataset senza riavvio |
 | U-02 | Nessun selettore di modalità: lista documenti sempre visibile, risposta sintetica sopra | La lista documenti è visibile senza interazione in ogni stato dell'interfaccia |
 | U-03 | **Toggle RAG on/off**: stessa query, risposta nuda contro risposta con citazioni, affiancate | Generate dalla stessa query nella stessa sessione |
@@ -470,6 +471,16 @@ Il criterio nuovo dice la cosa che il vecchio approssimava: **la dashboard non d
 | U-12 | **Portabilità Linux**: provider ONNX scelto dalla piattaforma, dipendenze GPU come extra opzionali, nessun percorso che assuma Windows | Suite verde e `docker compose --profile demo up` su Linux x86_64, senza modifiche al sorgente |
 
 **U-03 è la feature che fa capire il progetto a chiunque**, ed è quasi gratis: i baseline li state già calcolando in Fase 2.
+
+### U-00 — la regola «niente import da `src/`» ha un prezzo, e si paga una volta
+
+«Il frontend non importa niente da `src/`» è la regola giusta: un frontend che importasse la pipeline non ne sarebbe un consumatore, sarebbe un secondo posto in cui la pipeline vive. Ma ne segue che **il contratto del §3.5 esiste in due linguaggi**, e due elenchi scritti a mano divergono — è la lezione di Q-06, in TypeScript. Peggio: la seconda copia diverge *in silenzio*, perché nessun test Python guarda dentro `ui/`.
+
+Quindi `ui/src/api/types.ts` non si scrive, **si genera** da `scripts/gen_api_types.py`, e `tests/test_ui_types.py` fallisce se il file committato non è ciò che il generatore produce oggi. Un campo aggiunto ad `AnswerResponse` senza rigenerare rompe la suite Python: si scopre prima di arrivare al browser, e senza che serva Node per accorgersene.
+
+**Gli eventi SSE non sono modelli pydantic**: `to_wire()` costruisce i payload a mano, ed è l'unico punto del contratto in cui una divergenza non romperebbe nessun tipo Python. Per questo il generatore non li legge, li **esegue**: i nomi dei campi vengono dal dizionario che finisce davvero sul filo.
+
+Due proprietà che il tipo fa rispettare meglio di un test: in `QueryRequest` solo `query` è obbligatorio — cioè il criterio di A-07 verificato dal compilatore a ogni chiamata invece che una volta sola — e le liste di `Capabilities` restano `string[]` e non letterali, perché un valore nuovo lato server deve **arrivare** al frontend, non romperlo.
 
 ### Decisioni d'interfaccia prese il 2026-08-14
 
