@@ -1598,6 +1598,7 @@ Per la stessa ragione `/document/{doc_id}/chunks` restituisce i chunk **in ordin
 | Task | Stato | Note |
 |---|---|---|
 | U-00 | âœ… fatto (2026-08-14) | Scheletro `ui/`: Vite 8 + React 19 + TypeScript 7 + Tailwind 4, client SSE scritto a mano, temi, i18n IT/EN, `/datasets` all'avvio. **19 test Vitest** + 15 test Python sul contratto generato. `npm run typecheck && npm test && npm run build` verdi; catena provata contro l'API viva. Dettaglio sotto. |
+| U-01 | ✅ fatto (2026-08-14) | Selettore dataset nella corsia laterale del mockup, scelta ricordata in `localStorage` e **validata** contro `/datasets`. La regola di selezione è in funzioni pure: **9 test Vitest** in più (28 in tutto), senza jsdom. Provato contro l'API viva: `open_ragbench` 18.840 e `ledger` 47.110 chunk. Dettaglio sotto. |
 
 ### U-00 â€” il contratto esiste in due linguaggi, e uno dei due si genera
 
@@ -1660,3 +1661,39 @@ MPL-2.0 Ã¨ copyleft **a livello di file**: obbliga a mantenere sotto MPL i fil
 | stream vivo | 41 token in 5 eventi distinti, tempi indistinguibili da quelli diretti |
 
 > Node non era installato quando U-00 Ã¨ cominciato. La metÃ  che non ne aveva bisogno â€” generatore, tipi, test di deriva â€” Ã¨ stata fatta e committata prima, invece di scrivere lo scaffold alla cieca: qui un file che non si Ã¨ mai visto compilare sarebbe stata l'unica cosa consegnata senza la verifica che la accompagna.
+
+### U-01 — la scelta è derivata, e un indice vuoto si vede ma non si sceglie
+
+Il criterio è «cambio dataset senza riavvio», e la parte difficile non è il menu: è decidere **cosa significa scegliere** quando il server elenca un dataset che non si può interrogare, o quando il browser ricorda un id che non esiste più.
+
+**Tre decisioni, e nessuna è di comodità.**
+
+| situazione | cosa fa il frontend | perché non l'alternativa |
+|---|---|---|
+| dataset elencato con `ready: true` ma zero chunk | compare nella lista, disabilitato, col motivo scritto | nasconderlo direbbe che non esiste; lasciarlo scegliere farebbe leggere come ignoranza del modello ciò che è assenza di dati — ogni domanda tornerebbe un'astensione |
+| id ricordato che `/datasets` non elenca più | si butta e si ripiega sul primo interrogabile | un id in `localStorage` **è** una costante del backend scritta mesi fa, ed è esattamente ciò che U-00 vieta al frontend di portarsi dietro |
+| nessun indice pronto | `null`, e il selettore lo dice | fingere una selezione manderebbe ogni query contro una collection vuota. È la condizione normale di chi ha appena clonato il repo |
+
+`ready` e `n_chunks` restano separati perché il §3.5 li ha separati apposta: una collection che esiste ed è vuota è uno stato reale, diverso dall'assenza.
+
+**La regola sta in funzioni pure, fuori da React.** Non è pulizia architetturale, è l'unico modo di provarla: i test girano in ambiente `node`, e ciò che vive dentro un componente richiederebbe jsdom più una libreria di rendering — due dipendenze da giustificare in `STACK.md` per verificare una condizione che qui è una `if`. Nove test in più, 28 in tutto lato Vitest.
+
+**Nessun `useEffect` che sincronizza.** L'id selezionato è *derivato* a ogni render da `sceltaIniziale(lista, ricordato)`: quando le capabilities arrivano la scelta si risolve da sola, e quando il dataset ricordato sparisce dal server ripiega senza che nessuno debba accorgersene. Un effetto che scrivesse stato in risposta ad altro stato avrebbe due sorgenti di verità e almeno un render in cui non concordano. Si ricorda **solo la scelta esplicita**, mai il ripiego: salvarlo lo trasformerebbe in una decisione che l'utente non ha preso, e al prossimo avvio con l'indice tornato pronto vincerebbe sul dataset giusto.
+
+#### Il selettore ha la forma del mockup e dentro un `<select>` nativo
+
+Il disegno è quello di `docs/ui-mockup.html` — nome a sinistra, conteggio a destra, bordo sottile — ma il controllo sotto è un `<select>` reso trasparente e steso sopra il disegno. Tastiera, ruolo ARIA, chiusura al clic fuori e voci disabilitate arrivano dal browser: sono le quattro cose che un menu fatto in casa sbaglia quasi sempre, e riscriverle non costerebbe un componente, costerebbe un difetto di accessibilità. Il mockup non disegna mai la lista aperta, quindi lasciarla al sistema non tradisce nessuna decisione presa.
+
+**Il selettore ha tre stati dove uno solo sarebbe stato più semplice e falso**: «contatto il backend» non è «nessun indice pronto» — la seconda frase accusa l'ingestione di non essere stata fatta, e detta mentre la risposta è ancora in volo è un'accusa falsa. E col backend caduto il motivo sta già nella colonna accanto: ripeterlo nel selettore darebbe la colpa ai dati invece che al servizio.
+
+#### La corsia laterale, e cosa non c'è ancora
+
+Lingua e tema scendono dalla testata di U-00 alle pastiglie in fondo alla corsia, come nel mockup: sono impostazioni dell'applicazione, non della pagina, e quando la colonna centrale diventerà la chat una testata dove metterle non ci sarà. Il tema è un bottone solo per tre stati, col **nome** dello stato accanto al glifo: «sistema» non è deducibile da un simbolo, ed è proprio quello che va capito, perché è l'unico che continua a cambiare da solo.
+
+La cronologia e il pulsante «Esplora il corpus» del mockup restano fuori finché non aprono qualcosa. È la stessa regola che la bozza applica a sé stessa nella didascalia del toggle «Prompt»: un comando che gira a vuoto è lo stesso difetto di un campo che il servizio ignora.
+
+La colonna centrale mostra collection, punti, dimensione densa e presenza dei vettori sparsi del dataset scelto. Non è un segnaposto: è ciò che rende il criterio **verificabile**, perché «cambio senza riavvio» si vede solo se qualcosa cambia sotto gli occhi. Quando arriverà la chat, quei dati prenderanno il loro posto sotto «Dettagli della run», che il §12 vuole comunque sempre leggibili.
+
+Provato contro l'API viva attraverso il proxy: `open_ragbench` 18.840 chunk, `ledger` 47.110, quattro modelli, sette collection. `npm run typecheck && npm test && npm run build` verdi, e i 15 test Python sul contratto generato restano verdi perché il contratto non è stato toccato.
+
+> **Un guasto raccolto per strada.** Avviare `python scripts/dev.py` con l'output rediretto su file lo faceva morire prima ancora di partire: su Windows `sys.stdout` prende `cp1252` quando non è una console, e la freccia `→` sollevava `UnicodeEncodeError`. In terminale non si vedeva — si vede solo in un log o in CI. Il messaggio è tornato ASCII invece di forzare l'encoding: un avvio che dipende da come è configurata la console è un avvio che funziona per caso.
