@@ -52,13 +52,27 @@ export function SelettoreNativo<T extends string>({
         {children}
       </span>
 
-      {/* Il caret lo mette il componente, non il chiamante. Nel mockup `▾` e'
-          il segno che distingue una pastiglia che **apre** (`.tg.menu`) da una
-          che commuta e basta: e' una proprieta' del controllo, e lasciarla al
-          disegno significa che il prossimo selettore se la dimentica. */}
-      <span aria-hidden="true" className="shrink-0 text-[9px] leading-none text-muted">
-        ▾
-      </span>
+      {/* Il caret lo mette il componente, non il chiamante. Nel mockup e' il
+          segno che distingue una pastiglia che **apre** (`.tg.menu`) da una che
+          commuta e basta: e' una proprieta' del controllo, e lasciarla al
+          disegno significa che il prossimo selettore se la dimentica.
+
+          Disegnato invece di scritto come `▾`: quel carattere e' un glifo del
+          font, e nei font di sistema — che il §12 impone, per U-08 senza rete —
+          arriva sottile e piu' piccolo della sua dimensione nominale, al punto
+          da non vedersi. Un tratto ha lo spessore che gli si da'. */}
+      <svg
+        aria-hidden="true"
+        viewBox="0 0 12 12"
+        className="h-3 w-3 shrink-0 text-ink-2"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.7"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      >
+        <path d="M3 4.75 L6 7.75 L9 4.75" />
+      </svg>
 
       <select
         aria-label={etichetta}
