@@ -65,6 +65,34 @@ def render(result: Answer) -> None:
     if result.uncited:
         print(f"\nChunk recuperati ma non citati: {result.uncited}")
 
+    render_verdicts(result)
+
+
+def render_verdicts(result: Answer) -> None:
+    """Le citazioni con il loro verdetto — tutte, anche quelle bocciate.
+
+    U-07: marcate, non nascoste. Filtrare le non verificate farebbe sembrare il
+    sistema perfetto proprio nel punto in cui il progetto vuole essere misurato.
+    """
+    if not result.verified:
+        print("\n[verifica non eseguita: nessun verdetto sulle citazioni]")
+        return
+    if not result.citations:
+        return
+
+    supportate = sum(1 for c in result.citations if c.supported)
+    print(f"\nVerifica delle citazioni (C-03): {supportate}/{len(result.citations)} sostenute")
+    for c in result.citations:
+        segno = "OK  " if c.supported else "NO  "
+        # `not_applicable` non e' un verdetto, e' "questa coppia resta all'NLI":
+        # stamparlo su ogni riga di prosa sarebbe rumore.
+        numerico = f"  [numerico: {c.numeric}]" if c.numeric in ("supported", "unsupported") else ""
+        print(f"  {segno}[{c.marker}] p={c.score:.3f}{numerico}  {c.claim[:70]}")
+    if result.uncited_claims:
+        print(f"\nAffermazioni senza alcuna citazione: {len(result.uncited_claims)}")
+        for claim in result.uncited_claims:
+            print(f"  --  {claim[:70]}")
+
 
 def main() -> None:
     parser = argparse.ArgumentParser(description="Interrogazione da riga di comando")
@@ -77,6 +105,11 @@ def main() -> None:
     )
     parser.add_argument("--top-k", type=int, default=cfg.TOP_K)
     parser.add_argument("--model", default=cfg.LLM_MODEL)
+    parser.add_argument(
+        "--no-verify",
+        action="store_true",
+        help="Salta la verifica NLI delle citazioni (piu' veloce, nessun verdetto)",
+    )
     args = parser.parse_args()
 
     print(f"Encoding query con {cfg.EMBEDDING_MODEL} ...", flush=True)
@@ -86,6 +119,7 @@ def main() -> None:
         collection=args.collection,
         top_k=args.top_k,
         model=args.model,
+        verify=not args.no_verify,
     )))
 
 

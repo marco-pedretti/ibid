@@ -15,6 +15,7 @@ import pytest
 import src.config as cfg
 from src.eval.retrieval_backends import Candidates
 from src.generation.chat import Completion
+from src.generation.entailment import Verdict
 from src.generation.prompt import ABSTENTION_ANSWER
 from src.service import AnswerRequest, answer
 
@@ -64,18 +65,35 @@ def fake_generate(content: str, finish_reason: str = "stop", tokens: int = 42):
     return _generate
 
 
+def fake_verify(supported: bool = True, score: float = 0.9):
+    """Un verificatore che non carica niente e decide sempre allo stesso modo."""
+    calls: list[tuple[str, str]] = []
+
+    def _verify(premise: str, claim: str) -> Verdict:
+        calls.append((premise, claim))
+        return Verdict(supported=supported, score=score, n_premises=1)
+
+    _verify.calls = calls
+    return _verify
+
+
 HIGH = [0.95, 0.94, 0.93, 0.92, 0.91]  # sopra la soglia open_ragbench (0.7924)
 LOW = [0.10, 0.09, 0.08, 0.07, 0.06]   # sotto
 
+#: Una frase lunga abbastanza da essere verificabile (MIN_CLAIM_CHARS = 30).
+CLAIM = "Il valore massimo misurato e' di quattrocento millisecondi"
 
-def run(query="domanda", scores=None, content="Risposta [1].", **request_kwargs):
+
+def run(query="domanda", scores=None, content="Risposta [1].", verifier=None, **request_kwargs):
     gen = fake_generate(content)
     ret = fake_retrieve(HIGH if scores is None else scores)
+    ver = fake_verify() if verifier is None else verifier
     result = answer(
         AnswerRequest(query=query, **request_kwargs),
         client=object(),
         retrieve=ret,
         generate=gen,
+        verify=ver,
     )
     return result, ret, gen
 
@@ -209,13 +227,79 @@ def test_troncamento_riportato():
 
 
 def test_i_tempi_sono_sempre_presenti():
-    completa, _, _ = run()
+    completa, _, _ = run(content=f"{CLAIM} [1].")
     astenuta, _, _ = run(scores=LOW)
-    assert {"retrieval_s", "generation_s", "total_s"} <= set(completa.timings)
+    assert {"retrieval_s", "generation_s", "verification_s", "total_s"} <= set(completa.timings)
     # Nell'astensione non c'e' generazione: il campo manca invece di valere 0,
     # che si leggerebbe come "istantanea".
     assert "generation_s" not in astenuta.timings
     assert "total_s" in astenuta.timings
+
+
+# --- verifica delle citazioni (C-03, U-07) ---------------------------------
+
+
+def test_ogni_citazione_porta_il_proprio_verdetto():
+    result, _, _ = run(content=f"{CLAIM} [1]. {CLAIM} ancora [2].")
+    assert result.verified
+    assert [c.marker for c in result.citations] == [1, 2]
+    assert [c.chunk_id for c in result.citations] == ["c0", "c1"]
+    assert all(c.supported for c in result.citations)
+
+
+def test_le_citazioni_bocciate_non_vengono_filtrate():
+    """U-07 alla lettera: marcate, non nascoste.
+
+    Toglierle farebbe salire la precisione apparente al 100% per costruzione,
+    nascondendo esattamente cio' che il progetto esiste per misurare.
+    """
+    result, _, _ = run(content=f"{CLAIM} [1].", verifier=fake_verify(supported=False, score=0.02))
+    assert len(result.citations) == 1
+    assert not result.citations[0].supported
+    assert result.citations[0].score == pytest.approx(0.02)
+
+
+def test_il_verificatore_riceve_il_chunk_citato_e_la_frase_senza_marcatori():
+    ver = fake_verify()
+    run(content=f"{CLAIM} [2].", verifier=ver)
+    (premessa, claim), = ver.calls
+    assert premessa == "testo 1"        # il chunk con marker 2
+    assert "[2]" not in claim
+
+
+def test_le_affermazioni_senza_citazione_sono_riportate():
+    """Il denominatore nascosto: la precisione si alza citando di meno."""
+    result, _, _ = run(content=f"{CLAIM} [1]. {CLAIM} senza fonte.")
+    assert len(result.citations) == 1
+    assert len(result.uncited_claims) == 1
+    assert "senza fonte" in result.uncited_claims[0]
+
+
+def test_verifica_spenta_non_e_verifica_vuota():
+    """Due stati diversi: «nessun verdetto» e «verificata, zero citazioni»."""
+    spenta, _, _ = run(content=f"{CLAIM} [1].", verify=False)
+    assert not spenta.verified
+    assert spenta.citations == []
+
+    accesa, _, _ = run(content="Risposta senza citazioni ne' frasi lunghe.")
+    assert accesa.verified
+    assert accesa.citations == []
+
+
+def test_verifica_saltata_quando_il_modello_si_astiene():
+    """Non c'e' niente da verificare, e la risposta e' comunque definitiva."""
+    ver = fake_verify()
+    result, _, _ = run(content=ABSTENTION_ANSWER, verifier=ver)
+    assert ver.calls == []
+    assert result.verified
+    assert "verification_s" not in result.timings
+
+
+def test_verifica_saltata_quando_il_gate_ferma_tutto():
+    ver = fake_verify()
+    result, _, _ = run(scores=LOW, verifier=ver)
+    assert ver.calls == []
+    assert result.verified and result.citations == []
 
 
 # --- il confine (criterio di A-01) -----------------------------------------

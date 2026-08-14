@@ -24,6 +24,7 @@ from dataclasses import dataclass, field
 
 import src.config as cfg
 from src.datasets.schema import Chunk
+from src.eval.citation_metrics import verify_answer
 from src.eval.retrieval_backends import RETRIEVERS
 from src.generation.chat import Completion, generate_detailed
 from src.generation.citation_format import is_abstention
@@ -53,6 +54,12 @@ class AnswerRequest:
     #: indicizzato da una pipeline diversa.
     collection: str | None = None
     model: str | None = None
+    #: Verificare ogni citazione con l'NLI (C-03). Acceso di default, perche' e'
+    #: la cosa che il progetto esiste per dimostrare: senza, il sistema e' un RAG
+    #: qualsiasi che scrive parentesi quadre. Si spegne dove la latenza conta
+    #: piu' del verdetto — il modello di verifica va caricato e gira per ogni
+    #: coppia (frase, chunk).
+    verify: bool = True
 
 
 @dataclass(frozen=True)
@@ -68,6 +75,30 @@ class RetrievedChunk:
     marker: int
     score: float
     chunk: Chunk
+
+
+@dataclass(frozen=True)
+class Citation:
+    """Una citazione prodotta dal modello, col verdetto su di essa.
+
+    E' l'affermazione 1 del §0 resa un oggetto: la coppia (frase, chunk citato)
+    passata al modello NLI, con l'esito.  `supported=False` non e' un errore da
+    nascondere -- U-07 chiede che le citazioni non verificate siano **marcate,
+    non filtrate**, ed e' per questo che `answer()` non ne toglie nessuna.
+
+    `score` sta accanto a `supported` perche' la soglia e' una decisione presa
+    altrove: un verdetto negativo a 0,49 e uno a 0,01 dicono cose diverse, e la
+    differenza sparisce dopo il confronto con la soglia.
+    """
+
+    marker: int
+    chunk_id: str
+    claim: str
+    supported: bool
+    score: float
+    #: L'esito del verificatore numerico di C-09, o "" se non interrogato.
+    #: Additivo: non sostituisce `supported`, che resta il verdetto dell'NLI.
+    numeric: str = ""
 
 
 @dataclass(frozen=True)
@@ -98,6 +129,17 @@ class Answer:
     gate: AbstentionDecision
     #: I marcatori effettivamente citati, in ordine crescente.
     cited: list[int]
+    #: Un verdetto per ogni coppia (frase, chunk citato). Vuota quando la
+    #: verifica non e' stata chiesta — distinguibile da "verificata e nessuna
+    #: citazione" guardando `verified`.
+    citations: list[Citation]
+    #: Le frasi verificabili che non citano niente. Il costo nascosto della
+    #: precisione: si alza citando di meno, e questa lista e' cio' che lo mostra.
+    uncited_claims: list[str]
+    #: La verifica ha girato. `False` significa "verdetti non ancora disponibili",
+    #: che per §3.5 e' uno stato che la UI deve poter disegnare — non un sinonimo
+    #: di "tutto verificato".
+    verified: bool
     #: La generazione e' stata troncata dal tetto di token. Uno stato che va
     #: mostrato e non nascosto: una risposta tagliata non ha citazioni perche'
     #: non e' arrivata a scriverle, il che non e' un difetto di formato.
@@ -136,10 +178,49 @@ def _abstention_answer(
         abstention=ABSTAINED_BY_GATE,
         gate=gate,
         cited=[],
+        # Non c'e' niente da verificare, ma la verifica *ha* girato: la risposta
+        # e' definitiva. `verified=False` significherebbe "aspetta i verdetti",
+        # e qui non ne arriveranno altri.
+        citations=[],
+        uncited_claims=[],
+        verified=True,
         truncated=False,
         completion_tokens=0,
         timings=timings,
     )
+
+
+def _verify(
+    text: str,
+    chunks: list[RetrievedChunk],
+    verifier,
+) -> tuple[list[Citation], list[str]]:
+    """I verdetti su una risposta, piu' le frasi che non citano niente.
+
+    `verify_answer` vive in `src/eval/` perche' e' nata come metrica di C-03.
+    Non e' solo una metrica: e' la funzionalita' dell'affermazione 1 del §0, e
+    il percorso di servizio ne ha bisogno quanto l'harness.  Spostarla e'
+    giusto e non si fa qui — sarebbe un refactor mescolato a un cambio di
+    comportamento, che §15 vieta esplicitamente.
+    """
+    claims, verdicts = verify_answer(
+        text,
+        [{"chunk_id": c.chunk.chunk_id, "text": c.chunk.text} for c in chunks],
+        verifier=verifier,
+    )
+    citations = [
+        Citation(
+            marker=v.marker,
+            chunk_id=v.chunk_id,
+            claim=v.claim,
+            supported=v.supported,
+            score=v.score,
+            numeric=v.numeric,
+        )
+        for v in verdicts
+    ]
+    uncited = [c.text for c in claims if c.is_verifiable and not c.is_cited]
+    return citations, uncited
 
 
 def answer(
@@ -148,6 +229,7 @@ def answer(
     client=None,
     retrieve=None,
     generate=None,
+    verify=None,
 ) -> Answer:
     """Recupera, decide se vale la pena rispondere, genera, ripara i marcatori.
 
@@ -159,6 +241,8 @@ def answer(
             il caso d'uso sia verificabile senza un indice acceso — la stessa
             ragione per cui `verify_answer` accetta un verificatore.
         generate: `(...) -> Completion`. `None` chiama `LLM_BASE_URL`.
+        verify: `(testo_chunk, claim) -> Verdict`. `None` carica il modello NLI
+            di `cfg.ENTAILMENT_MODEL`.
 
     Returns:
         Un `Answer` completo in ogni caso, astensione compresa: chi chiama non
@@ -202,10 +286,19 @@ def answer(
         reasoning_effort=cfg.REASONING_EFFORT,
     )
     timings["generation_s"] = round(time.time() - t1, 3)
-    timings["total_s"] = round(time.time() - t0, 3)
 
     raw = completion.content
     text = parse(raw, len(chunks))
+    abstained = is_abstention(text)
+
+    citations: list[Citation] = []
+    uncited_claims: list[str] = []
+    if request.verify and not abstained:
+        t2 = time.time()
+        citations, uncited_claims = _verify(text, chunks, verify)
+        timings["verification_s"] = round(time.time() - t2, 3)
+    timings["total_s"] = round(time.time() - t0, 3)
+
     return Answer(
         query=request.query,
         dataset_id=request.dataset_id,
@@ -214,10 +307,13 @@ def answer(
         raw_text=raw,
         text=text,
         repaired=text != raw,
-        abstained=is_abstention(text),
-        abstention=ABSTAINED_BY_MODEL if is_abstention(text) else NO_ABSTENTION,
+        abstained=abstained,
+        abstention=ABSTAINED_BY_MODEL if abstained else NO_ABSTENTION,
         gate=gate,
         cited=extract_cited(text),
+        citations=citations,
+        uncited_claims=uncited_claims,
+        verified=request.verify,
         truncated=completion.truncated,
         completion_tokens=completion.completion_tokens,
         timings=timings,

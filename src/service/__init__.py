@@ -15,6 +15,6 @@ il criterio di A-01 -- «la stessa richiesta dalla CLI e dall'API produce lo
 stesso risultato» -- puo' essere verificato invece che sperato.
 """
 
-from src.service.answer import Answer, AnswerRequest, RetrievedChunk, answer
+from src.service.answer import Answer, AnswerRequest, Citation, RetrievedChunk, answer
 
-__all__ = ["Answer", "AnswerRequest", "RetrievedChunk", "answer"]
+__all__ = ["Answer", "AnswerRequest", "Citation", "RetrievedChunk", "answer"]
