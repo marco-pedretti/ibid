@@ -506,7 +506,7 @@ Ricavate disegnando quattro schermate prima di scrivere React. Quelle che vincol
 
 - **inchiostro indaco su carta** — accento `#3C4CA8` chiaro / `#97A5F7` scuro, carta `#F7F7F5` / `#131421`. La carta scura è indaco profondo e non grigio neutro: è la stessa tinta dell'accento portata al fondo della scala, ed è ciò che tiene insieme i due temi invece di farli sembrare due progetti;
 - **tre ruoli tipografici veri**, e la distinzione non è decorativa: **serif** per il marchio e i titoli (il nome viene da *ibidem*, e la grazia appartiene al mondo bibliografico da cui arriva), **sans** per ciò che si opera, **mono** per i dati — `chunk_id`, marcatori, punteggi, etichette. Tutti font di sistema: U-08 chiede il profilo `demo` senza rete;
-- **il marchio** `ib`·`i`·`d` con la **`i` centrale in accento**, serif, weight 600. Quella lettera è il punto in cui *ibidem* si lascia intravedere — è l'unica parte dell'interfaccia che spiega il proprio nome senza una nota.
+- **il marchio** `ib`·`i`·`d` con la **`i` centrale in accento**, serif, weight 600. L'accento della `i` è il token `--marchio`, non `--accent` crudo: su carta chiara l'accento pieno e l'inchiostro sono due scuri quasi uguali di valore e la lettera legge come nera, quindi il token tiene in ciascun tema la variante che si allontana di più dall'inchiostro — resta uguale **l'effetto**, non l'esadecimale. Quella lettera è il punto in cui *ibidem* si lascia intravedere — è l'unica parte dell'interfaccia che spiega il proprio nome senza una nota.
 
 `ok` / `warn` / `wait` restano separati dall'accento: un verdetto colorato con l'accento smette di essere un verdetto e diventa decorazione.
 

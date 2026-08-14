@@ -35,6 +35,15 @@
   --accent-2: #6472cc;
   --accent-soft: #e8eaf7;
   --accent-ink: #ffffff;
+  /* La `i` centrale del marchio. Non e' `--accent` crudo, e la ragione e' di
+     **valore** e non di gusto: su carta chiara l'accento pieno (#3C4CA8) e
+     l'inchiostro (#17181F) sono due scuri quasi identici, e a 19 px la lettera
+     legge come nera — il marchio smette di spiegare il proprio nome. Al buio
+     invece l'accento e' un blu luminoso contro un inchiostro quasi bianco, e la
+     `i` si stacca da sola. Il token e' percio' la variante che in **quel** tema
+     si allontana di piu' dall'inchiostro, non lo stesso esadecimale in due
+     condizioni diverse. */
+  --marchio: #6472cc;
   --ok: #2f6b54;
   --ok-soft: #e1efe8;
   --warn: #8e5c1b;
@@ -57,6 +66,7 @@
   --accent-2: #b3bdfa;
   --accent-soft: #232649;
   --accent-ink: #131421;
+  --marchio: #97a5f7; /* qui l'accento va gia' bene: vedi la nota sopra */
   --ok: #74c69f;
   --ok-soft: #17342a;
   --warn: #e2ac63;
@@ -81,6 +91,7 @@
   --color-accent-2: var(--accent-2);
   --color-accent-soft: var(--accent-soft);
   --color-accent-ink: var(--accent-ink);
+  --color-marchio: var(--marchio);
   --color-ok: var(--ok);
   --color-ok-soft: var(--ok-soft);
   --color-warn: var(--warn);
