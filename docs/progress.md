@@ -1681,9 +1681,13 @@ Il criterio è «cambio dataset senza riavvio», e la parte difficile non è il 
 
 **Nessun `useEffect` che sincronizza.** L'id selezionato è *derivato* a ogni render da `sceltaIniziale(lista, ricordato)`: quando le capabilities arrivano la scelta si risolve da sola, e quando il dataset ricordato sparisce dal server ripiega senza che nessuno debba accorgersene. Un effetto che scrivesse stato in risposta ad altro stato avrebbe due sorgenti di verità e almeno un render in cui non concordano. Si ricorda **solo la scelta esplicita**, mai il ripiego: salvarlo lo trasformerebbe in una decisione che l'utente non ha preso, e al prossimo avvio con l'indice tornato pronto vincerebbe sul dataset giusto.
 
-#### Il selettore ha la forma del mockup e dentro un `<select>` nativo
+#### Il selettore: prima il `<select>` nativo, poi una tendina nostra
 
 Il disegno è quello di `docs/ui-mockup.html` — nome a sinistra, conteggio a destra, bordo sottile — ma il controllo sotto è un `<select>` reso trasparente e steso sopra il disegno. Tastiera, ruolo ARIA, chiusura al clic fuori e voci disabilitate arrivano dal browser: sono le quattro cose che un menu fatto in casa sbaglia quasi sempre, e riscriverle non costerebbe un componente, costerebbe un difetto di accessibilità. Il mockup non disegna mai la lista aperta, quindi lasciarla al sistema non tradisce nessuna decisione presa.
+
+> **Sostituito la sera stessa, su richiesta: le tendine di sistema non piacevano.** La decisione resta registrata perché è ciò che stabilisce il **debito** del cambio: quelle cinque cose non si perdono, si riscrivono. `Selettore.tsx` implementa il pattern `listbox` — il fuoco resta sul bottone, `aria-activedescendant` indica la voce evidenziata, frecce/Invio/Escape/Home/Fine funzionano, Escape riporta il fuoco al bottone e Tab non lo intrappola — e la navigazione (saltare le disabilitate, girare in tondo, restituire `-1` quando **tutte** lo sono, senza cui il ciclo non finisce) sta in `lista.ts` con 13 test, senza DOM.
+
+L'animazione ha due tempi diversi di proposito: aprire è la risposta a un gesto (150 ms `ease-out`, parte veloce e si posa), chiudere toglie di mezzo (110 ms `ease-in`, non fa aspettare per una cosa già decisa). Un pannello che entra ed esce con la stessa curva sembra sempre in ritardo in uscita. Sono transizioni CSS, quindi la regola globale `prefers-reduced-motion` le azzera tutte. Effetto collaterale gradito: le icone tornano dentro la lista del tema, che erano state tolte solo perché un `<option>` nativo accetta esclusivamente testo.
 
 **Il selettore ha tre stati dove uno solo sarebbe stato più semplice e falso**: «contatto il backend» non è «nessun indice pronto» — la seconda frase accusa l'ingestione di non essere stata fatta, e detta mentre la risposta è ancora in volo è un'accusa falsa. E col backend caduto il motivo sta già nella colonna accanto: ripeterlo nel selettore darebbe la colpa ai dati invece che al servizio.
 
