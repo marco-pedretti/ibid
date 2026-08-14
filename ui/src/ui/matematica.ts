@@ -92,6 +92,16 @@ export function segmenta(testo: string): Segmento[] {
   return fuori;
 }
 
+/**
+ * Un tag HTML. I documenti di `ledger` sono Mathpix Markdown e contengono
+ * tabelle in HTML: e' li' che la regola stretta sbagliava, perche' `<td>` non ha
+ * spazi e due importi in celle diverse si chiudevano a vicenda.
+ *
+ * Riconosce un **tag**, non un `<` qualunque: `$a < b$` e' matematica legittima
+ * e resta tale.
+ */
+const TAG = /<\/?[a-zA-Z][a-zA-Z0-9]*\s*\/?>/;
+
 /** L'indice della `$` che chiude, o -1 se quella aperta non e' matematica. */
 function chiusuraDollaro(testo: string, apertura: number): number {
   if (/\s/.test(testo[apertura + 1] ?? "")) return -1;
@@ -105,7 +115,33 @@ function chiusuraDollaro(testo: string, apertura: number): number {
     const contenuto = testo.slice(apertura + 1, j);
     if (contenuto === "" || /\s$/.test(contenuto)) return -1;
     if (/[0-9]/.test(testo[j + 1] ?? "")) return -1; // `$3,4 mln`: valuta, non TeX
+    // Misurato su 1200 chunk veri: questa riga sola toglie **49 falsi positivi
+    // su 49** in `ledger` e **0 formule vere su 22.150** in `open_ragbench`. Un
+    // tetto alla lunghezza, l'altra difesa possibile, ne prendeva 26 su 49 e ne
+    // sacrificava 275 vere: separazione peggiore, e in tutti e due i versi.
+    if (TAG.test(contenuto)) return -1;
     return j;
   }
   return -1;
+}
+
+/**
+ * Il testo di un chunk ridotto ad anteprima di due righe.
+ *
+ * Non e' cosmesi, e' cio' che i chunk misurati contengono: **il 100%** di quelli
+ * di `open_ragbench` comincia con un titolo Markdown (`#### Abstract`) perche' e'
+ * la pipeline gerarchica a metterlo li', e **il 39%** di quelli di `ledger` porta
+ * tabelle in HTML. Senza normalizzare, l'anteprima piu' frequente in assoluto
+ * comincia con dei cancelletti, e quella di un bilancio e' fatta di `</td><td>`.
+ *
+ * **Solo per l'anteprima.** Il testo integrale resta quello che e' — questa e'
+ * una riduzione per una scheda alta due righe, non una modifica del dato: chi
+ * apre la fonte (U-06) deve vedere il chunk com'e' stato indicizzato.
+ */
+export function perAnteprima(testo: string): string {
+  return testo
+    .replace(/^#{1,6}\s+/gm, "")
+    .replace(new RegExp(TAG.source, "g"), " ")
+    .replace(/\s+/g, " ")
+    .trim();
 }

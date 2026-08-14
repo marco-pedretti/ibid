@@ -27,7 +27,7 @@ import "katex/dist/katex.min.css";
 import { useMemo } from "react";
 import type { ReactNode } from "react";
 
-import { segmenta } from "./matematica";
+import { perAnteprima, segmenta } from "./matematica";
 
 const MARCATORE = /\[(\d+)\]/g;
 
@@ -60,11 +60,16 @@ export function Testo({ testo, vivi }: { testo: string; vivi: boolean }) {
  * I `[12]` che compaiono qui sono i riferimenti bibliografici del documento —
  * il prompt del §3.2 avverte il modello di non copiarli — e accenderli come
  * citazioni direbbe che il documento cita se' stesso attraverso di noi.
+ *
+ * Il testo passa da `perAnteprima`, che toglie i cancelletti dei titoli e i tag
+ * delle tabelle: **il 100%** dei chunk di `open_ragbench` comincia con un titolo
+ * Markdown e **il 39%** di quelli di `ledger` porta HTML. E' una riduzione per
+ * una scheda alta due righe, non una modifica del dato.
  */
 export function Estratto({ testo }: { testo: string }) {
   return (
     <p className="line-clamp-2 text-[11px] leading-[1.5] text-ink-2">
-      {segmenta(testo).map((s, i) =>
+      {segmenta(perAnteprima(testo)).map((s, i) =>
         s.tipo === "testo" ? (
           <span key={i}>{s.valore}</span>
         ) : (

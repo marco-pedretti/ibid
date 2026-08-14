@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { segmenta } from "./matematica";
+import { perAnteprima, segmenta } from "./matematica";
 
 const testo = (v: string) => ({ tipo: "testo", valore: v });
 const inline = (tex: string) => ({ tipo: "inline", tex });
@@ -68,6 +68,25 @@ describe("il `$` singolo", () => {
   });
 });
 
+describe("le tabelle HTML di `ledger`", () => {
+  it("due importi in celle diverse non sono una formula", () => {
+    // Misurato su 600 chunk: 49 spans accettati dalla sola regola stretta, tutti
+    // falsi, tutti cosi'. La guardia sui tag li toglie tutti e 49 senza togliere
+    // nessuna delle 22.150 formule vere di `open_ragbench`.
+    const t = "<tr><td>$2,389,000</td><td>$548,000</td></tr>";
+    expect(segmenta(t)).toEqual([testo(t)]);
+  });
+
+  it("ma `$a < b$` resta matematica", () => {
+    // La guardia riconosce un **tag**, non un `<` qualunque.
+    expect(segmenta("se $a < b$ allora")).toEqual([
+      testo("se "),
+      inline("a < b"),
+      testo(" allora"),
+    ]);
+  });
+});
+
 describe("mentre lo stream arriva", () => {
   it("una formula incompleta resta testo", () => {
     // `$\frac{a}` non ha ancora la chiusura: trattarla come TeX disegnerebbe un
@@ -95,5 +114,27 @@ describe("prosa senza matematica", () => {
 
   it("il testo vuoto non produce segmenti", () => {
     expect(segmenta("")).toEqual([]);
+  });
+});
+
+describe("perAnteprima", () => {
+  it("toglie i cancelletti del titolo", () => {
+    // Il 100% dei chunk di `open_ragbench` comincia cosi': e' la pipeline
+    // gerarchica a mettere la sezione in testa al testo.
+    expect(perAnteprima("#### Abstract\nWe show that...")).toBe("Abstract We show that...");
+  });
+
+  it("toglie i tag delle tabelle di `ledger`", () => {
+    expect(perAnteprima("<tr><td>Cash</td><td>10,055</td></tr>")).toBe("Cash 10,055");
+  });
+
+  it("riduce a una riga sola", () => {
+    expect(perAnteprima("prima\n\n  seconda\triga  ")).toBe("prima seconda riga");
+  });
+
+  it("non tocca la matematica", () => {
+    expect(perAnteprima("il valore $\\frac{a}{b}$ cresce")).toBe(
+      "il valore $\\frac{a}{b}$ cresce",
+    );
   });
 });
