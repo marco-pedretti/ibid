@@ -15,16 +15,36 @@ il criterio di A-01 -- «la stessa richiesta dalla CLI e dall'API produce lo
 stesso risultato» -- puo' essere verificato invece che sperato.
 """
 
-from src.service.answer import Answer, AnswerRequest, Citation, RetrievedChunk, answer
+from src.service.answer import (
+    Answer,
+    AnswerEvent,
+    AnswerRequest,
+    ChunksEvent,
+    Citation,
+    CitationsEvent,
+    DoneEvent,
+    Event,
+    RetrievedChunk,
+    TokenEvent,
+    answer,
+    answer_stream,
+)
 from src.service.catalog import DatasetInfo, chunk, dataset_of, datasets
 
 __all__ = [
     "Answer",
+    "AnswerEvent",
     "AnswerRequest",
+    "ChunksEvent",
     "Citation",
+    "CitationsEvent",
     "DatasetInfo",
+    "DoneEvent",
+    "Event",
     "RetrievedChunk",
+    "TokenEvent",
     "answer",
+    "answer_stream",
     "chunk",
     "dataset_of",
     "datasets",
