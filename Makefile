@@ -1,4 +1,4 @@
-.PHONY: fetch-datasets ingest eval eval-generation eval-citations noise-floor dashboard demo \n	api api-local up down logs
+.PHONY: fetch-datasets ingest eval eval-generation eval-citations noise-floor dashboard demo \n	api api-local ui ui-types ui-check up down logs
 
 fetch-datasets:
 	python scripts/fetch_dataset.py
@@ -48,6 +48,26 @@ api:
 # capo ~2,5 GB di pesi, e l'attesa non si distingue da un blocco.
 api-local:
 	python -m uvicorn src.api.main:app --host 127.0.0.1 --port 8000
+
+# --- Il frontend (U-00) ------------------------------------------------------
+#
+# Vuole `make api-local` gia' in ascolto: il backend non ha CORS, e non deve
+# averne. In sviluppo `/api/...` esce da Vite e arriva al backend come `/...`;
+# in produzione API e UI stanno dietro la stessa origine e il proxy non serve.
+#
+# Contro un backend altrove, senza toccare un file:
+#   VITE_API_TARGET=http://10.0.0.7:8000 make ui
+ui:
+	cd ui && npm install && npm run dev
+
+# I tipi del contratto sono generati: questo li riscrive dopo un cambio a
+# `src/api/schema.py`. Senza, `tests/test_ui_types.py` fallisce -- ed e' cio'
+# che rende impossibile che i due lati divergano in silenzio.
+ui-types:
+	python scripts/gen_api_types.py
+
+ui-check:
+	cd ui && npm run typecheck && npm test && npm run build
 
 # Tutto: Qdrant nella rete di compose piu' il backend.
 up:
