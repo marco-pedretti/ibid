@@ -10,11 +10,14 @@ verra' comunque rifiutata costa ~11 s di GPU per essere prodotta, e un
 controllo che gira dopo non e' una garanzia, e' un filtro su qualcosa di gia'
 inventato (C-04).
 
-I parametri a `None` significano «prendi il default dalla configurazione», e
-sono risolti in un punto solo, all'inizio di `answer()`.  E' la cucitura su cui
-lavorera' A-02: quando la configurazione di richiesta smettera' di passare da
-`cfg` globale, cambia *come* questi valori vengono risolti, non le firme ne' i
-chiamanti.
+Da A-02 il «come rispondere» viaggia in un `RequestConfig` immutabile, risolto
+una volta sola all'inizio di `answer()`: e' cio' che permette a due richieste
+concorrenti di volere profondita' diverse senza contendersi un modulo.
+
+Da A-03 la stessa funzione risponde **anche senza contesto** (`rag=False`), che
+e' l'altra meta' del confronto affiancato di U-03.  Un parametro e non un
+secondo percorso di codice: con due percorsi ci sarebbero due modi di astenersi,
+due modi di contare i token e due modi di sbagliare.
 """
 
 from __future__ import annotations
@@ -25,6 +28,7 @@ from dataclasses import dataclass, field
 import src.config as cfg
 from src.datasets.schema import Chunk
 from src.eval.citation_metrics import verify_answer
+from src.generation.baseline_prompts import BASELINE_A_SYSTEM, BASELINE_B_SYSTEM
 from src.generation.chat import Completion, generate_detailed
 from src.generation.citation_format import is_abstention
 from src.generation.citations import extract_cited, parse
@@ -42,6 +46,25 @@ from src.retrieval.reranker import rerank as cross_encode
 NO_ABSTENTION = ""
 ABSTAINED_BY_GATE = "retrieval"
 ABSTAINED_BY_MODEL = "model"
+
+#: Il gate quando non c'e' niente da giudicare (U-03, risposta senza contesto).
+#: `active=False` dice «non ha girato», che e' diverso da «ha girato e ha
+#: lasciato passare» — la stessa distinzione che `threshold_for` fa quando una
+#: coppia (collection, modalita') non e' calibrata.
+_NO_GATE = AbstentionDecision(abstain=False, active=False, score=0.0, threshold=None)
+
+
+def system_prompt(config: cfg.RequestConfig) -> str:
+    """Il prompt di sistema del braccio chiesto (U-03, U-04).
+
+    Con il recupero acceso non e' una scelta dell'utente: il prompt e' quello
+    che impone il formato delle citazioni, ed e' cio' che C-01 misura. Spento,
+    i due prompt sono i bracci di E-04 ed E-05 — permissivo contro severo — e la
+    differenza fra loro e' il 45%→17% di invenzione che U-04 deve mostrare.
+    """
+    if config.rag:
+        return SYSTEM
+    return BASELINE_B_SYSTEM if config.baseline_prompt == "strict" else BASELINE_A_SYSTEM
 
 
 @dataclass(frozen=True)
@@ -276,40 +299,43 @@ def answer(
         generate = generate_detailed
 
     t0 = time.time()
-    text_query = request.query
-    if config.query_rewrite:
-        [text_query] = rewrite_batch(
-            [request.query], base_url=cfg.LLM_BASE_URL, model=config.rewrite_model
+    chunks: list[RetrievedChunk] = []
+    scores: list[float] = []
+    if config.rag:
+        text_query = request.query
+        if config.query_rewrite:
+            [text_query] = rewrite_batch(
+                [request.query], base_url=cfg.LLM_BASE_URL, model=config.rewrite_model
+            )
+
+        # R-04: il filtro sul tipo di contenuto, dedotto dalla query o imposto.
+        query_filter = None
+        if config.filter_content_type == "auto":
+            if (ct := infer_content_type(text_query)):
+                query_filter = build_content_type_filter(ct)
+        elif config.filter_content_type:
+            query_filter = build_content_type_filter(config.filter_content_type)
+
+        # Col reranker si pesca da un bacino piu' largo di quello che finira' nel
+        # prompt: il cross-encoder deve avere qualcosa fra cui scegliere.
+        fetch_k = max(config.rerank_fetch_k, config.top_k) if config.rerank else config.top_k
+        [candidates] = retrieve(
+            client, collection, [text_query], fetch_k,
+            [query_filter] if query_filter is not None else None, config,
         )
 
-    # R-04: il filtro sul tipo di contenuto, dedotto dalla query o imposto.
-    query_filter = None
-    if config.filter_content_type == "auto":
-        if (ct := infer_content_type(text_query)):
-            query_filter = build_content_type_filter(ct)
-    elif config.filter_content_type:
-        query_filter = build_content_type_filter(config.filter_content_type)
+        scores, payloads = candidates.scores, candidates.payloads
+        if config.rerank:
+            ranked = cross_encode(text_query, payloads, config.reranker_model, top_n=config.top_k)
+            scores = [r.score for r in ranked]
+            payloads = [r.payload for r in ranked]
 
-    # Col reranker si pesca da un bacino piu' largo di quello che finira' nel
-    # prompt: il cross-encoder deve avere qualcosa fra cui scegliere.
-    fetch_k = max(config.rerank_fetch_k, config.top_k) if config.rerank else config.top_k
-    [candidates] = retrieve(
-        client, collection, [text_query], fetch_k,
-        [query_filter] if query_filter is not None else None, config,
-    )
-
-    scores, payloads = candidates.scores, candidates.payloads
-    if config.rerank:
-        ranked = cross_encode(text_query, payloads, config.reranker_model, top_n=config.top_k)
-        scores = [r.score for r in ranked]
-        payloads = [r.payload for r in ranked]
-
-    chunks = [
-        RetrievedChunk(marker=i, score=score, chunk=chunk_from_payload(payload))
-        for i, (score, payload) in enumerate(
-            zip(scores[: config.top_k], payloads[: config.top_k]), 1
-        )
-    ]
+        chunks = [
+            RetrievedChunk(marker=i, score=score, chunk=chunk_from_payload(payload))
+            for i, (score, payload) in enumerate(
+                zip(scores[: config.top_k], payloads[: config.top_k]), 1
+            )
+        ]
     timings = {"retrieval_s": round(time.time() - t0, 3)}
 
     # Il gate legge i punteggi del recupero, non la risposta: e' l'unica cosa
@@ -318,7 +344,10 @@ def answer(
     # per modalita': i punteggi di un cross-encoder non vivono nella stessa
     # scala di quelli del coseno, e `threshold_for` restituisce None fuori dalla
     # modalita' calibrata invece di applicare una soglia che non significa nulla.
-    gate = decide(scores, collection, config.retrieval_mode)
+    #
+    # Senza recupero (U-03) non ci sono punteggi da leggere, quindi il gate non
+    # e' "superato": e' **inattivo**, ed e' quello che `decide([])` dice.
+    gate = decide(scores, collection, config.retrieval_mode) if config.rag else _NO_GATE
     if gate.abstain:
         timings["total_s"] = timings["retrieval_s"]
         return _abstention_answer(request, config, collection, chunks, gate, timings)
@@ -327,8 +356,9 @@ def answer(
     completion: Completion = generate(
         base_url=cfg.LLM_BASE_URL,
         model=config.model,
-        system=SYSTEM,
-        user=build_user_message(request.query, [c.chunk for c in chunks]),
+        system=system_prompt(config),
+        user=build_user_message(request.query, [c.chunk for c in chunks])
+        if config.rag else request.query,
         temperature=config.temperature,
         max_tokens=config.max_new_tokens,
         reasoning_effort=config.reasoning_effort,
@@ -336,7 +366,10 @@ def answer(
     timings["generation_s"] = round(time.time() - t1, 3)
 
     raw = completion.content
-    text = parse(raw, len(chunks))
+    # Senza contesto nessun marcatore e' valido, e `parse` li toglierebbe tutti:
+    # il testo mostrato non sarebbe piu' quello che il modello ha scritto, che e'
+    # esattamente cio' che U-03 vuole far vedere.
+    text = parse(raw, len(chunks)) if config.rag else raw
     abstained = is_abstention(text)
 
     citations: list[Citation] = []
