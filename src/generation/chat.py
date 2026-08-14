@@ -67,6 +67,7 @@ from __future__ import annotations
 import json
 import urllib.error
 import urllib.request
+from collections.abc import Iterator
 from dataclasses import dataclass
 
 
@@ -152,3 +153,113 @@ def generate(
     return generate_detailed(
         base_url, model, system, user, temperature, max_tokens, reasoning_effort
     ).content
+
+
+@dataclass(frozen=True)
+class Delta:
+    """Un pezzo di risposta mentre arriva, o la fine.
+
+    Una sequenza sola invece di due canali: chi consuma scorre fino a `final` e
+    non deve conoscere un secondo protocollo per sapere com'e' andata.  L'ultimo
+    elemento non porta testo — porta il verdetto, che prima dell'ultimo non
+    esiste.
+    """
+
+    text: str = ""
+    final: bool = False
+    finish_reason: str = ""
+    completion_tokens: int = 0
+
+
+def generate_stream(
+    base_url: str,
+    model: str,
+    system: str,
+    user: str,
+    temperature: float = 0.0,
+    max_tokens: int = 1024,
+    reasoning_effort: str | None = "none",
+) -> Iterator[Delta]:
+    """Come `generate_detailed`, ma i pezzi arrivano mentre il modello scrive.
+
+    Serve perche' §3.5 prevede SSE, e senza questo l'unico streaming possibile
+    sarebbe **finto**: aspettare la risposta intera e poi spezzettarla. Sembra
+    identico dal lato del browser e non lo e' — la prima parola arriverebbe dopo
+    l'ultima, cioe' dopo gli ~11 s che il progetto misura come latenza.
+
+    Stesso contratto OpenAI-compatibile del resto del modulo (STACK.md:
+    l'inferenza passa sempre da `LLM_BASE_URL`). Due dettagli del formato:
+
+    - il flusso e' `data: {json}` per riga, chiuso da `data: [DONE]`;
+    - il conteggio dei token arriva **solo** se lo si chiede con
+      `stream_options.include_usage`, e in un ultimo pacchetto senza `choices`.
+      Se il backend non lo manda, resta 0: dichiarato assente, non stimato.
+    """
+    payload: dict = {
+        "model": model,
+        "messages": [
+            {"role": "system", "content": system},
+            {"role": "user", "content": user},
+        ],
+        "temperature": temperature,
+        "max_tokens": max_tokens,
+        "stream": True,
+        "stream_options": {"include_usage": True},
+    }
+    if reasoning_effort is not None:
+        payload["reasoning_effort"] = reasoning_effort
+
+    url = f"{base_url.rstrip('/')}/chat/completions"
+    req = urllib.request.Request(
+        url,
+        data=json.dumps(payload).encode(),
+        headers={"Content-Type": "application/json"},
+        method="POST",
+    )
+    finish_reason = ""
+    completion_tokens = 0
+    try:
+        with urllib.request.urlopen(req, timeout=300) as resp:
+            for raw in resp:
+                line = raw.decode("utf-8", errors="replace").strip()
+                if not line.startswith("data:"):
+                    continue
+                body = line[len("data:"):].strip()
+                if body == "[DONE]":
+                    break
+                event = json.loads(body)
+                if usage := event.get("usage"):
+                    completion_tokens = int(usage.get("completion_tokens", 0))
+                for choice in event.get("choices", []):
+                    if reason := choice.get("finish_reason"):
+                        finish_reason = reason
+                    if text := (choice.get("delta") or {}).get("content"):
+                        yield Delta(text=text)
+    except urllib.error.HTTPError as e:
+        body = e.read().decode(errors="replace")[:300]
+        raise RuntimeError(f"LLM HTTP {e.code}: {body}") from e
+
+    yield Delta(final=True, finish_reason=finish_reason, completion_tokens=completion_tokens)
+
+
+def collect(deltas: Iterator[Delta]) -> Completion:
+    """Uno stream riletto come se non lo fosse.
+
+    Non e' una comodita': e' cio' che rende verificabile che le due strade
+    diano la stessa risposta. Un test che confronta `generate_detailed` con la
+    somma dei delta e' l'unico modo per accorgersi che lo streaming perde un
+    pezzo — un difetto che dal lato del browser si vede come una frase che
+    comincia a meta'.
+    """
+    pezzi: list[str] = []
+    ultimo = Delta(final=True)
+    for delta in deltas:
+        if delta.final:
+            ultimo = delta
+        else:
+            pezzi.append(delta.text)
+    return Completion(
+        content="".join(pezzi).strip(),
+        finish_reason=ultimo.finish_reason,
+        completion_tokens=ultimo.completion_tokens,
+    )
