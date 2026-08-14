@@ -18,6 +18,7 @@ from __future__ import annotations
 import re
 
 from src.datasets.schema import Chunk
+from src.ingestion.ocr_tables import split_segments
 from src.ingestion.pipeline_continuous_text import (
     DEFAULT_CHUNK_SIZE,
     DEFAULT_OVERLAP,
@@ -25,34 +26,7 @@ from src.ingestion.pipeline_continuous_text import (
     _split_paragraphs,
 )
 
-# Matches a complete <table ...>...</table> block (non-greedy, dotall).
-# Non-nested only — see module docstring.
-_TABLE_BLOCK_RE = re.compile(
-    r"(<table\b[^>]*>[\s\S]*?</table>)",
-    re.IGNORECASE,
-)
-
 _HEADING_RE = re.compile(r"^(#{1,6})\s+(.+)", re.MULTILINE)
-
-
-def _split_segments(text: str) -> list[tuple[str, str]]:
-    """Split text into alternating ('text', …) and ('table', …) tuples.
-
-    Uses re.split with a capturing group so the table HTML is preserved.
-    Empty segments (from leading/trailing delimiters) are discarded.
-
-    Example:
-        "Intro.\n\n<table>…</table>\n\nFootnote."
-        → [('text','Intro.'), ('table','<table>…</table>'), ('text','Footnote.')]
-    """
-    parts = _TABLE_BLOCK_RE.split(text)
-    segments: list[tuple[str, str]] = []
-    for i, part in enumerate(parts):
-        if not part.strip():
-            continue
-        kind = "table" if i % 2 == 1 else "text"
-        segments.append((kind, part.strip()))
-    return segments
 
 
 def _first_heading(text: str) -> str:
@@ -90,7 +64,7 @@ def chunk_document(
         List of Chunk objects. Table chunks always contain one complete table.
         Text chunks use paragraph-aware splitting from I-03.
     """
-    segments = _split_segments(text)
+    segments = split_segments(text)
     chunks: list[Chunk] = []
     seq = seq_offset
     current_section = ""  # last Markdown heading seen — carried into table chunks

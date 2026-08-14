@@ -44,7 +44,7 @@ from enum import Enum
 
 import src.config as cfg
 from src.ingestion.ocr_tables import parse_html_table
-from src.ingestion.pipeline_table_heavy import _split_segments
+from src.ingestion.ocr_tables import split_segments
 
 #: Numeri "distintivi": con decimale, o almeno quattro cifre. Gli anni sono
 #: esclusi perché compaiono in ogni tabella di bilancio e darebbero
@@ -140,7 +140,7 @@ def table_cells(chunk_text: str) -> dict[str, list[Cell]]:
     quello della sua intestazione, e il 75% di queste tabelle usa celle unite.
     """
     out: dict[str, list[Cell]] = {}
-    for kind, segment in _split_segments(chunk_text):
+    for kind, segment in split_segments(chunk_text):
         if kind != "table":
             continue
         rows = parse_html_table(segment)

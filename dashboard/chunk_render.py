@@ -14,13 +14,18 @@ Two ways to fix that, and this module takes the second:
   2. Parse the table and hand the *values* to `st.dataframe`. The markup never
      reaches the browser as markup, and the result is a real sortable table.
 
-The parsing itself lives in `src/ingestion/ocr_tables.py`: it is also what the
-C-03 entailment verifier needs to read a table premise, and the library must not
-depend on the dashboard.  What stays here is the Streamlit half.
+Il parsing vive in `src/ingestion/ocr_tables.py`: serve anche al verificatore di
+entailment di C-03 per leggere una premessa tabellare, e la libreria non deve
+dipendere dalla dashboard. Qui resta la metà Streamlit.
 
-Splitting reuses `_split_segments` from the table_heavy ingestion pipeline, so
-what the dashboard shows as one table is exactly what ingestion treated as one
-atomic chunk.
+**È l'unico import da `src.` rimasto in questo pacchetto insieme ai contratti
+dati**, ed è deliberato: leggere il markup di una tabella OCR non è eseguire la
+pipeline, è interpretare un formato. Vedi la nota su A-06 in ROADMAP §12.
+
+La suddivisione usa `split_segments` di `ocr_tables`, così ciò che la dashboard
+mostra come una tabella è esattamente ciò che l'ingestione ha trattato come un
+chunk atomico. Da A-06 quella funzione è pubblica e sta accanto al parser invece
+che dentro la pipeline: la importavano in sei, e quattro da fuori l'ingestione.
 """
 
 from __future__ import annotations
@@ -28,8 +33,7 @@ from __future__ import annotations
 import pandas as pd
 import streamlit as st
 
-from src.ingestion.ocr_tables import parse_html_table, table_density
-from src.ingestion.pipeline_table_heavy import _split_segments
+from src.ingestion.ocr_tables import parse_html_table, split_segments, table_density
 
 
 def render_chunk(text: str, max_chars: int | None = None) -> None:
@@ -43,7 +47,7 @@ def render_chunk(text: str, max_chars: int | None = None) -> None:
         st.markdown("*(testo assente)*")
         return
 
-    for kind, segment in _split_segments(text):
+    for kind, segment in split_segments(text):
         if kind == "text":
             body = segment if max_chars is None else segment[:max_chars]
             if max_chars is not None and len(segment) > max_chars:

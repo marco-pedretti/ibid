@@ -136,20 +136,20 @@ class TestSegmentationContract:
     """render_chunk relies on the ingestion splitter; pin the shared assumption."""
 
     def test_prose_and_table_split_apart(self):
-        from src.ingestion.pipeline_table_heavy import _split_segments
+        from src.ingestion.ocr_tables import split_segments
 
-        segs = _split_segments(f"## Titolo\n\n{SIMPLE}\n\nNota finale.")
+        segs = split_segments(f"## Titolo\n\n{SIMPLE}\n\nNota finale.")
         kinds = [k for k, _ in segs]
         assert kinds == ["text", "table", "text"]
 
     def test_table_segment_is_parseable(self):
-        from src.ingestion.pipeline_table_heavy import _split_segments
+        from src.ingestion.ocr_tables import split_segments
 
-        segs = _split_segments(f"intro\n\n{SIMPLE}")
+        segs = split_segments(f"intro\n\n{SIMPLE}")
         table_seg = next(v for k, v in segs if k == "table")
         assert parse_html_table(table_seg) == [["a", "b"], ["c", "d"]]
 
     def test_text_without_tables_is_one_segment(self):
-        from src.ingestion.pipeline_table_heavy import _split_segments
+        from src.ingestion.ocr_tables import split_segments
 
-        assert len(_split_segments("solo prosa, niente tabelle")) == 1
+        assert len(split_segments("solo prosa, niente tabelle")) == 1

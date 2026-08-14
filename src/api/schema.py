@@ -38,9 +38,10 @@ from src.service.answer import (
     DoneEvent,
     Event,
     RetrievedChunk,
+    RetrieveRequest,
     TokenEvent,
 )
-from src.service.catalog import DatasetInfo
+from src.service.catalog import CollectionInfo, DatasetInfo
 
 # ---------------------------------------------------------------------------
 # Cosa si puo' chiedere
@@ -135,6 +136,52 @@ class QueryRequest(BaseModel):
 # ---------------------------------------------------------------------------
 # Cosa si riceve
 # ---------------------------------------------------------------------------
+
+
+class RetrieveRequestBody(BaseModel):
+    """Cercare senza rispondere, per una o molte query.
+
+    Nato da A-06: la dashboard ha smesso di importare la pipeline e si è visto
+    che dall'API mancava la metà che non genera. Un client che vuole ispezionare
+    il recupero non deve pagare una generazione per averlo.
+
+    I parametri di generazione non ci sono — non perché siano dimenticati, ma
+    perché qui nessun modello viene chiamato. Chiederli renderebbe esprimibile
+    una richiesta che il servizio ignorerebbe.
+    """
+
+    queries: list[str] = Field(min_length=1, max_length=500)
+    dataset_id: str = "open_ragbench"
+    collection: str | None = None
+
+    top_k: int | None = Field(default=None, ge=1, le=200)
+    retrieval_mode: str | None = None
+    rerank: bool | None = None
+    query_rewrite: bool | None = None
+    filter_content_type: str | None = None
+    search_exact: bool | None = None
+    hnsw_ef: int | None = Field(default=None, ge=1)
+
+    @field_validator("retrieval_mode")
+    @classmethod
+    def _modalita_nota(cls, v: str | None) -> str | None:
+        return _fra(v, RETRIEVAL_MODES, "retrieval_mode")
+
+    def config(self) -> RequestConfig:
+        override = {
+            k: v for k, v in self.model_dump(
+                exclude={"queries", "dataset_id", "collection"}
+            ).items() if v is not None
+        }
+        return RequestConfig.from_defaults(**override)
+
+    def to_service(self) -> RetrieveRequest:
+        return RetrieveRequest(
+            queries=self.queries,
+            dataset_id=self.dataset_id,
+            collection=self.collection,
+            config=self.config(),
+        )
 
 
 class ConfigView(BaseModel):
@@ -314,6 +361,39 @@ class AnswerResponse(BaseModel):
         )
 
 
+class RetrieveResponse(BaseModel):
+    """I risultati, **nell'ordine delle query**.
+
+    Una lista di liste anche quando la query è una: chi chiama non deve scrivere
+    due strade a seconda di quante ne ha chieste, e un client che ne manda 200
+    deve poterle riallineare senza fidarsi di un id che non abbiamo inventato.
+    """
+
+    results: list[list[ChunkView]]
+    config: ConfigView
+
+
+class CollectionView(BaseModel):
+    """Una collection e la forma del suo indice.
+
+    `dense_size` c'è perché è la sola cosa che smaschera l'errore più silenzioso
+    possibile: un indice costruito con un modello di embedding diverso da quello
+    che lo interroga restituisce risultati plausibili e privi di senso, senza
+    nessun errore. `has_sparse` distingue una collection su cui `hybrid`
+    funziona da una su cui userebbe solo il ramo denso.
+    """
+
+    name: str
+    points: int
+    dense_size: int
+    has_sparse: bool
+
+    @classmethod
+    def of(cls, info: CollectionInfo) -> "CollectionView":
+        return cls(name=info.name, points=info.points,
+                   dense_size=info.dense_size, has_sparse=info.has_sparse)
+
+
 class DatasetView(BaseModel):
     """Un dataset interrogabile, e lo stato del suo indice (U-01).
 
@@ -431,3 +511,8 @@ class Capabilities(BaseModel):
     retrieval_modes: list[str] = list(RETRIEVAL_MODES)
     baseline_prompts: list[str] = list(BASELINE_PROMPTS)
     datasets: list[DatasetView] = []
+    #: Le collection che esistono sul server, non solo quelle del registro.
+    #: Comprende le varianti `_routed` di R-07 e quelle nate da un esperimento:
+    #: sono interrogabili passando `collection`, e uno strumento che non le vede
+    #: non può metterle a confronto con l'originale.
+    collections: list[CollectionView] = []

@@ -5,6 +5,11 @@ you click a button per query to see retrieval.  Queries that succeed teach
 nothing; this module runs a batch and sorts by failure so the ones that broke
 surface first.
 
+Da A-06 **il recupero lo fa il backend**: qui restava una copia della pipeline
+-- embedding, fusione RRF, cross-encoder -- che dopo A-02 leggeva ancora `cfg`
+globale invece della configurazione di richiesta. Quel che resta e' il
+punteggio, che e' la domanda della dashboard e non del servizio.
+
 Both chunk-level and document-level recall are computed.  They answer different
 questions and can disagree loudly: a routed collection re-chunks the corpus, so
 its chunk_ids never match the qrels and chunk recall is structurally 0 while doc
@@ -18,15 +23,10 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Callable
 
-import src.config as cfg
 from src.datasets.golden import GoldenQuery
-from src.index.embed import encode, encode_sparse_query
-from src.index.store import search_batch, search_params
-from src.retrieval.doc_aggregation import doc_id_from_chunk_id
-from src.retrieval.hybrid import rrf_fuse
-from src.retrieval.reranker import rerank as cross_encode
 
-from dashboard.retrieval_probe import ProbeConfig
+from dashboard import api_client
+from dashboard.retrieval_probe import ProbeConfig, doc_of
 
 
 @dataclass
@@ -46,7 +46,7 @@ class QueryOutcome:
 
     @property
     def golden_docs(self) -> set[str]:
-        return {doc_id_from_chunk_id(c) for c in self.golden_ids}
+        return {doc_of(c) for c in self.golden_ids}
 
     @property
     def is_failure(self) -> bool:
@@ -67,98 +67,61 @@ def _recall(relevant: set[str], retrieved: list[str]) -> float:
 def score_outcome(outcome: QueryOutcome) -> QueryOutcome:
     """Fill in chunk-level and document-level recall."""
     outcome.recall = _recall(outcome.golden_ids, outcome.retrieved_ids)
-    retrieved_docs = [doc_id_from_chunk_id(c) for c in outcome.retrieved_ids if c]
+    retrieved_docs = [doc_of(c) for c in outcome.retrieved_ids if c]
     outcome.doc_recall = _recall(outcome.golden_docs, retrieved_docs)
     return outcome
 
 
 def evaluate_queries(
-    client,
     queries: list[GoldenQuery],
     config: ProbeConfig,
     on_progress: Callable[[int, int], None] | None = None,
+    batch: int = 64,
 ) -> list[QueryOutcome]:
     """Run `queries` against `config.collection` and score each one.
 
-    Embedding and search are batched (one round trip per 256 queries) because
-    doing this one query at a time on DirectML is slow enough to make the page
-    unusable.  Reranking, when enabled, is necessarily per-query.
+    Da A-06 il recupero lo fa il backend. **Il batch resta**, ed era la ragione
+    per cui questa funzione esisteva separata: 200 query in una chiamata sono un
+    viaggio di rete e una passata di embedding, 200 chiamate sono 200 di
+    entrambi. E' anche la ragione per cui `POST /retrieve` accetta una lista.
+
+    Il batch e' spezzato in blocchi da 64 per due motivi che vanno insieme:
+    l'avanzamento diventa visibile mentre gira -- una barra che si muove solo
+    alla fine non e' una barra -- e un blocco che fallisce non porta via le
+    risposte dei precedenti.
+
+    Il punteggio invece resta qui: e' la domanda della dashboard, non del
+    servizio. Recall a livello di chunk e di documento non sono metriche che
+    l'API deve conoscere; sono il modo in cui questo strumento legge cio' che
+    l'API gli ha dato.
     """
     if not queries:
         return []
 
-    texts = [q.query_text for q in queries]
-    fetch_k = max(cfg.RERANK_FETCH_K, config.top_k) if config.rerank else config.top_k
-
-    if config.retrieval_mode == "hybrid":
-        hybrid_fetch = max(cfg.HYBRID_FETCH_K, fetch_k)
-        dense_all = search_batch(
-            client, config.collection,
-            encode(texts, cfg.EMBEDDING_MODEL, batch_size=cfg.EMBEDDING_BATCH),
-            top_k=hybrid_fetch, using="dense",
-            params=search_params(cfg.SEARCH_EXACT, cfg.HNSW_EF),
-        )
-        sparse_all = search_batch(
-            client, config.collection,
-            encode_sparse_query(texts, cfg.SPARSE_EMBEDDING_MODEL),
-            top_k=hybrid_fetch, using="sparse",
-            params=search_params(cfg.SEARCH_EXACT, cfg.HNSW_EF),
-        )
-        results_all = []
-        for dense_hits, sparse_hits in zip(dense_all, sparse_all):
-            payload_map = {
-                (h.payload or {}).get("chunk_id", ""): (h.payload or {})
-                for h in list(dense_hits) + list(sparse_hits)
-            }
-            fused = rrf_fuse(
-                [
-                    [(h.payload or {}).get("chunk_id", "") for h in dense_hits],
-                    [(h.payload or {}).get("chunk_id", "") for h in sparse_hits],
-                ],
-                k=cfg.RRF_K, top_n=fetch_k,
-            )
-            results_all.append(
-                [(cid, score, payload_map.get(cid, {})) for cid, score in fused]
-            )
-    else:
-        if config.retrieval_mode == "sparse":
-            vecs = encode_sparse_query(texts, cfg.SPARSE_EMBEDDING_MODEL)
-        else:
-            vecs = encode(texts, cfg.EMBEDDING_MODEL, batch_size=cfg.EMBEDDING_BATCH)
-        raw = search_batch(
-            client, config.collection, vecs, top_k=fetch_k, using=config.retrieval_mode,
-            params=search_params(cfg.SEARCH_EXACT, cfg.HNSW_EF),
-        )
-        results_all = [
-            [((h.payload or {}).get("chunk_id", ""), h.score, h.payload or {}) for h in hits]
-            for hits in raw
-        ]
-
     outcomes: list[QueryOutcome] = []
     total = len(queries)
-    for i, (query, triples) in enumerate(zip(queries, results_all), 1):
-        if config.rerank:
-            reranked = cross_encode(
-                query.query_text, [p for _, _, p in triples],
-                cfg.RERANKER_MODEL, top_n=config.top_k,
-            )
-            triples = [
-                ((r.payload or {}).get("chunk_id", ""), r.score, r.payload or {})
-                for r in reranked
-            ]
-        triples = triples[: config.top_k]
-        outcomes.append(
-            score_outcome(
-                QueryOutcome(
-                    query=query,
-                    retrieved_ids=[c for c, _, _ in triples],
-                    scores=[s for _, s, _ in triples],
-                    payloads=[p for _, _, p in triples],
+    for start in range(0, total, batch):
+        fetta = queries[start : start + batch]
+        risultati = api_client.retrieve(
+            [q.query_text for q in fetta],
+            collection=config.collection,
+            top_k=config.top_k,
+            retrieval_mode=config.retrieval_mode,
+            rerank=config.rerank,
+        )
+        for query, chunks in zip(fetta, risultati):
+            outcomes.append(
+                score_outcome(
+                    QueryOutcome(
+                        query=query,
+                        retrieved_ids=[c["chunk_id"] for c in chunks],
+                        scores=[c["score"] for c in chunks],
+                        payloads=list(chunks),
+                    )
                 )
             )
-        )
         if on_progress:
-            on_progress(i, total)
+            on_progress(len(outcomes), total)
 
     return outcomes
 

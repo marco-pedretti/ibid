@@ -349,7 +349,10 @@ class TestStessaRichiesta:
         cli = (ROOT / "scripts" / "query.py").read_text(encoding="utf-8")
         api_src = (ROOT / "src" / "api" / "main.py").read_text(encoding="utf-8")
         for sorgente in (cli, api_src):
-            assert re.search(r"^from src\.service import .*\banswer\b", sorgente, re.M)
+            # L'import puo' essere su una riga o su molte: cio' che conta e' che
+            # `answer` venga da `src.service` e non sia ricostruito sul posto.
+            blocco = re.search(r"from src\.service import \(?([^)\n]|\n(?!\n))*", sorgente)
+            assert blocco and re.search(r"\banswer\b", blocco.group(0))
 
 
 class TestNienteLogicaNegliEndpoint:
@@ -395,3 +398,89 @@ class TestAstensioneSulFilo:
         assert corpo["abstained"] is True
         assert corpo["abstention"] == "retrieval"
         assert len(corpo["chunks"]) == 5  # U-02: le fonti ci sono lo stesso
+
+
+# ---------------------------------------------------------------------------
+# /retrieve — l'endpoint che A-06 ha scoperto mancare
+# ---------------------------------------------------------------------------
+
+
+class TestRetrieve:
+    """Cercare senza rispondere.
+
+    Il ROADMAP prevedeva questo esito: la dashboard è il consumatore più
+    esigente che esista già, e *«se non le basta, si scopre ora invece che a
+    React scritto»*. Non le bastava — dall'API mancava la metà che non genera.
+    """
+
+    @pytest.fixture
+    def registra_retrieve(self, monkeypatch):
+        ricevute: list = []
+        _, eventi = risposta_finta()
+        chunks = eventi[0].chunks
+
+        def _retrieve(request):
+            ricevute.append(request)
+            return [chunks for _ in request.queries]
+
+        monkeypatch.setattr(api, "retrieve_chunks", _retrieve)
+        return ricevute
+
+    def test_non_chiama_mai_il_modello(self, client, registra_retrieve, monkeypatch):
+        """È tutto il senso dell'endpoint: prima esisteva solo `/query`, cioè
+        pagare una generazione per vedere dei chunk."""
+        def esplode(*a, **kw):
+            raise AssertionError("/retrieve ha generato")
+
+        monkeypatch.setattr(api, "answer", esplode)
+        monkeypatch.setattr(api, "answer_stream", esplode)
+        r = client.post("/retrieve", json={"queries": ["domanda"]})
+        assert r.status_code == 200
+        assert len(r.json()["results"]) == 1
+
+    def test_molte_query_in_una_chiamata(self, client, registra_retrieve):
+        """L'embedding è batch per natura: 200 query in un viaggio sono una
+        passata di GPU, 200 viaggi sono 200 passate."""
+        r = client.post("/retrieve", json={"queries": [f"q{i}" for i in range(50)]})
+        assert len(r.json()["results"]) == 50
+        assert len(registra_retrieve[0].queries) == 50
+
+    def test_i_risultati_seguono_l_ordine_delle_query(self, client, monkeypatch):
+        """Un client che ne manda 200 deve poterle riallineare senza fidarsi di
+        un id che non abbiamo inventato.
+
+        Una query che non trova niente produce una lista **vuota al suo posto**,
+        non una riga in meno: saltarla farebbe scivolare tutto ciò che segue.
+        """
+        _, eventi = risposta_finta()
+        uno = eventi[0].chunks[:1]
+
+        def _retrieve(request):
+            return [[] if q.startswith("vuota") else uno for q in request.queries]
+
+        monkeypatch.setattr(api, "retrieve_chunks", _retrieve)
+        r = client.post("/retrieve", json={"queries": ["a", "vuota1", "b"]})
+        assert [len(x) for x in r.json()["results"]] == [1, 0, 1]
+
+    def test_una_lista_vuota_e_rifiutata(self, client):
+        """Zero query non è una domanda: è un errore di chi chiama."""
+        assert client.post("/retrieve", json={"queries": []}).status_code == 422
+
+    def test_i_parametri_di_recupero_arrivano(self, client, registra_retrieve):
+        client.post("/retrieve", json={
+            "queries": ["q"], "dataset_id": "ledger", "collection": "ledger_routed",
+            "top_k": 20, "retrieval_mode": "hybrid", "rerank": True,
+        })
+        req = registra_retrieve[0]
+        assert req.collection == "ledger_routed"
+        assert (req.config.top_k, req.config.retrieval_mode, req.config.rerank) == (20, "hybrid", True)
+
+    def test_i_parametri_di_generazione_non_esistono(self, client):
+        """Qui nessun modello viene chiamato: chiederli renderebbe esprimibile
+        una richiesta che il servizio ignorerebbe."""
+        campi = set(api.RetrieveRequestBody.model_fields)
+        assert not {"model", "temperature", "max_new_tokens", "rag", "verify"} & campi
+
+    def test_la_configurazione_che_ha_girato_torna_indietro(self, client, registra_retrieve):
+        corpo = client.post("/retrieve", json={"queries": ["q"], "top_k": 3}).json()
+        assert corpo["config"]["top_k"] == 3

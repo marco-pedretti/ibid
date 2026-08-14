@@ -10,7 +10,8 @@ from __future__ import annotations
 import pandas as pd
 import streamlit as st
 
-import src.config as cfg
+from dashboard import api_client
+from dashboard.api_client import DEFAULT_TOP_K
 from dashboard.chunk_render import render_chunk
 from dashboard.components import render_hits
 from dashboard.failure_store import (
@@ -26,19 +27,19 @@ from dashboard.retrieval_probe import (
     dataset_of_collection,
     fetch_chunks_by_id,
 )
-from dashboard.state import KNOWN_DATASETS, client, collections, load_golden
+from dashboard.state import collections, known_datasets, load_golden
 
 
 def _run_batch(subset, conf) -> list | None:
     bar = st.progress(0.0, text="Retrieval…")
     try:
         outcomes = evaluate_queries(
-            client(), subset, conf,
+            subset, conf,
             on_progress=lambda i, n: bar.progress(i / n, text=f"Scoring {i}/{n}"),
         )
     except Exception as e:
         bar.empty()
-        st.error(f"Errore: {e}\n\nQdrant su `{cfg.QDRANT_URL}`?")
+        st.error(f"Errore: {e}\n\nIl backend risponde su `{api_client.BASE_URL}`?")
         return None
     bar.empty()
     return outcomes
@@ -80,7 +81,7 @@ def _render_detail(outcome, collection: str) -> None:
         st.markdown("#### Atteso (golden qrels)")
         golden_ids = sorted(outcome.golden_ids)
         try:
-            texts = fetch_chunks_by_id(client(), collection, golden_ids)
+            texts = fetch_chunks_by_id(collection, golden_ids)
         except Exception as e:
             texts = {}
             st.caption(f"(testo non recuperabile: {e})")
@@ -125,15 +126,15 @@ def render() -> None:
 
     colls = collections()
     if not colls:
-        st.error(f"Nessuna collection su `{cfg.QDRANT_URL}`.")
+        st.error(f"Nessuna collection dal backend su `{api_client.BASE_URL}`.")
         st.stop()
 
     coll = st.sidebar.selectbox("Collection", colls)
-    dataset = dataset_of_collection(coll, KNOWN_DATASETS)
+    dataset = dataset_of_collection(coll, known_datasets())
     st.sidebar.caption(f"Golden set: `{dataset}`")
     mode = st.sidebar.selectbox("Modalità", RETRIEVAL_MODES)
     do_rerank = st.sidebar.checkbox("Rerank (R-02)")
-    top_k = st.sidebar.slider("Top-k", min_value=1, max_value=20, value=cfg.TOP_K)
+    top_k = st.sidebar.slider("Top-k", min_value=1, max_value=20, value=DEFAULT_TOP_K)
     n_queries = st.sidebar.slider(
         "Query da eseguire", min_value=10, max_value=500, value=50, step=10,
         help="Un batch, non l'intero golden set: la dashboard è uno strumento di "

@@ -66,6 +66,53 @@ def datasets(client=None) -> list[DatasetInfo]:
     return out
 
 
+@dataclass(frozen=True)
+class CollectionInfo:
+    """Una collection e la forma del suo indice.
+
+    I tre campi oltre al nome non sono statistica per curiosità: sono ciò che
+    dice se l'indice è quello che si crede. `dense_size` diverso da quello del
+    modello di embedding significa che l'indice è stato costruito da un altro,
+    e da lì ogni risultato è plausibile e privo di senso — **senza errore**.
+    `has_sparse` distingue una collection su cui `hybrid` funziona da una su
+    cui restituirebbe solo il ramo denso.
+    """
+
+    name: str
+    points: int
+    dense_size: int
+    has_sparse: bool
+
+
+def collections(client=None) -> list[CollectionInfo]:
+    """Le collection che esistono davvero su Qdrant, in ordine.
+
+    **Non è la stessa cosa di `datasets()`**, e la differenza è il motivo per
+    cui esistono entrambe. Il registro dice quali dataset il progetto conosce;
+    questa dice cosa c'è nel server — comprese le varianti `_routed` di R-07 e
+    le collection nate da un esperimento, che nessun registro conterrà mai.
+
+    Serve a chi ispeziona invece di interrogare: una collection che il registro
+    non nomina è comunque interrogabile passando `collection`, e uno strumento
+    di debug che non la vede non può metterla a confronto con l'originale.
+    Prima di A-06 la dashboard le elencava chiedendole a Qdrant per conto suo.
+    """
+    if client is None:
+        client = get_client(cfg.QDRANT_URL)
+    fuori: list[CollectionInfo] = []
+    for c in sorted(client.get_collections().collections, key=lambda x: x.name):
+        info = client.get_collection(c.name)
+        vettori = info.config.params.vectors
+        dense = vettori.get("dense") if isinstance(vettori, dict) else vettori
+        fuori.append(CollectionInfo(
+            name=c.name,
+            points=info.points_count or 0,
+            dense_size=getattr(dense, "size", 0) or 0,
+            has_sparse=bool(info.config.params.sparse_vectors),
+        ))
+    return fuori
+
+
 def dataset_of(chunk_id: str) -> str:
     """Il dataset a cui un `chunk_id` appartiene.
 

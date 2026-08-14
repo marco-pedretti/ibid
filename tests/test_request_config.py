@@ -159,20 +159,27 @@ class TestUnicoPuntoDiLettura:
             "configurazione di richiesta letta dal modulo globale:\n" + "\n".join(colpevoli)
         )
 
-    def test_l_unica_lettura_rimasta_e_dichiarata(self):
-        """`answer()` risolve i default una volta, in cima, e non altrove.
+    def test_le_letture_rimaste_hanno_tutte_la_stessa_forma(self):
+        """I default entrano in un modo solo: «la richiesta non ne portava una».
 
-        Non e' un'eccezione alla regola: e' la regola. Qualcuno deve pur
-        decidere cosa fare quando la richiesta non porta una configurazione, e
-        il valore di questo progetto e' che quel qualcuno sia **uno solo** e si
-        veda.
+        Non e' un'eccezione alla regola, e' la regola. Qualcuno deve pur
+        decidere cosa fare quando la configurazione manca, e il valore sta nel
+        fatto che lo faccia **all'ingresso di un caso d'uso** e in modo
+        riconoscibile — non a meta' della pipeline, dove sarebbe un default
+        nascosto dentro un ramo.
+
+        Il numero cresce quando cresce il numero di casi d'uso (A-06 ha aggiunto
+        `retrieve_chunks`); la forma no.
         """
         righe = (ROOT / "src" / "service" / "answer.py").read_text(encoding="utf-8").splitlines()
         letture = [
             r.strip() for r in righe
             if "cfg.RequestConfig.from_defaults(" in r and not r.lstrip().startswith("#")
         ]
-        assert len(letture) == 1, letture
+        assert letture, "nessuna risoluzione dei default: qualcuno la sta facendo altrove"
+        assert all(
+            r == "config = request.config or cfg.RequestConfig.from_defaults()" for r in letture
+        ), letture
 
     def test_from_defaults_e_l_unico_costruttore_in_src(self):
         """Costruire un `RequestConfig` a mano significherebbe scrivere quindici

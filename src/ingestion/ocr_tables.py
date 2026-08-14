@@ -26,6 +26,7 @@ fosse un difetto del generatore, due volte.
 
 from __future__ import annotations
 
+import re
 from html.parser import HTMLParser
 
 
@@ -168,3 +169,41 @@ def table_density(rows: list[list[str]]) -> float:
     if not total:
         return 0.0
     return sum(1 for r in rows for c in r if not c.strip()) / total
+
+
+#: Un blocco `<table ...>…</table>` completo (non-greedy, dotall).
+#: Solo non annidate: nel corpus LEDGER, che è Mathpix Markdown, una `<table>`
+#: dentro un `<td>` non è mai stata osservata. Se comparisse, il segmentatore la
+#: chiuderebbe al primo `</table>`.
+_TABLE_BLOCK_RE = re.compile(r"(<table\b[^>]*>[\s\S]*?</table>)", re.IGNORECASE)
+
+
+def split_segments(text: str) -> list[tuple[str, str]]:
+    """Il testo in segmenti alternati `('text', …)` e `('table', …)`.
+
+    Usa `re.split` con un gruppo di cattura, così il markup della tabella
+    sopravvive. I segmenti vuoti — quelli che nascono da un delimitatore in
+    testa o in coda — vengono scartati.
+
+        "Intro.\n\n<table>…</table>\n\nNota."
+        → [('text','Intro.'), ('table','<table>…</table>'), ('text','Nota.')]
+
+    **Stava in `pipeline_table_heavy.py` e si chiamava `_split_segments`.** Era
+    privata per modo di dire: la importavano attraverso l'underscore il
+    verificatore di entailment (C-03), quello numerico (C-09), un probe e la
+    dashboard — sei chiamanti, di cui quattro fuori dall'ingestione. Il caso più
+    grave della serie iniziata con `_RETRIEVERS`, perché qui il verificatore
+    delle citazioni dipendeva da una *pipeline di ingestione* per leggere una
+    premessa.
+
+    Sta qui perché è la stessa cosa che fa il resto del modulo — riconoscere il
+    markup `<table>` dell'OCR — e perché questo modulo era già stato spostato
+    una volta per la stessa ragione: serve a consumatori che non si parlano.
+    """
+    parti = _TABLE_BLOCK_RE.split(text)
+    segmenti: list[tuple[str, str]] = []
+    for i, parte in enumerate(parti):
+        if not parte.strip():
+            continue
+        segmenti.append(("table" if i % 2 == 1 else "text", parte.strip()))
+    return segmenti
