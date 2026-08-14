@@ -141,6 +141,12 @@ def build_parser() -> argparse.ArgumentParser:
         choices=cfg.BASELINE_PROMPTS,
         help="Con --no-rag: permissivo (E-04) o severo (E-05)",
     )
+    parser.add_argument(
+        "--reasoning-effort",
+        default=cfg.REASONING_EFFORT,
+        choices=cfg.REASONING_EFFORTS,
+        help="Ragionamento esteso: 'none' lo spegne (C-07). Su Gemma 4 l'asse e' binario",
+    )
     parser.add_argument("--search-exact", action="store_true", help="Salta HNSW (R-11)")
     parser.add_argument("--hnsw-ef", type=int, default=None)
     parser.add_argument(
@@ -168,6 +174,7 @@ def request_from_args(args: argparse.Namespace) -> AnswerRequest:
         filter_content_type=args.filter_content_type,
         rag=not args.no_rag,
         baseline_prompt=args.baseline_prompt,
+        reasoning_effort=args.reasoning_effort,
         verify=not args.no_verify,
         **({"search_exact": True} if args.search_exact else {}),
         **({"hnsw_ef": args.hnsw_ef} if args.hnsw_ef is not None else {}),
