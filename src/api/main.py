@@ -17,8 +17,9 @@ from __future__ import annotations
 from collections.abc import Iterator
 
 import src.config as cfg
-from fastapi import FastAPI, HTTPException, Query
-from fastapi.responses import StreamingResponse
+from fastapi import FastAPI, HTTPException, Query, Request
+from fastapi.responses import JSONResponse, StreamingResponse
+from qdrant_client.http.exceptions import ResponseHandlingException
 from src.api.schema import (
     AnswerResponse,
     Capabilities,
@@ -54,6 +55,26 @@ app = FastAPI(
     summary="RAG con citazioni verificate a livello di frase",
     version="0.1.0",
 )
+
+
+@app.exception_handler(ResponseHandlingException)
+def indice_irraggiungibile(_: Request, exc: ResponseHandlingException) -> JSONResponse:
+    """Qdrant spento non e' un difetto del servizio: e' un servizio che manca.
+
+    Senza questo, la connessione rifiutata risale fino a uvicorn e diventa un
+    **500** con un traceback di sessanta righe: un codice che dice «il backend ha
+    un bug» e un corpo che chi guarda la demo non puo' usare. Il codice giusto e'
+    **503**, che dice «riprova quando c'e'», e il corpo porta l'indirizzo su cui
+    si stava chiamando — che e' l'unica cosa che serve per rimediare.
+
+    `/health` resta apposta fuori da questa strada: non interroga l'indice, cosi'
+    `depends_on: service_healthy` di U-09 puo' usarlo anche quando Qdrant parte
+    dopo il backend.
+    """
+    return JSONResponse(
+        status_code=503,
+        content={"detail": f"indice non raggiungibile su {cfg.QDRANT_URL}: {exc}"},
+    )
 
 
 @app.get("/health")

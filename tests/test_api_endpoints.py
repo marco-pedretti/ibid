@@ -24,6 +24,8 @@ from scripts.query import build_parser, request_from_args
 from src.config import RequestConfig
 from src.datasets.schema import Chunk
 from src.service import AnswerRequest, answer_stream
+import src.config as cfg
+from qdrant_client.http.exceptions import ResponseHandlingException
 from src.service.catalog import DatasetInfo, DocumentInfo
 
 from src.api import main as api
@@ -98,6 +100,18 @@ def _llm_spento(url, timeout):
 
 
 class TestDatasets:
+    @pytest.fixture(autouse=True)
+    def _collections_finte(self, monkeypatch):
+        """Questi test parlano di `/datasets`, non di Qdrant.
+
+        Senza questo stub `collections()` apre una connessione vera all'indice:
+        passavano o fallivano a seconda che Qdrant fosse acceso sulla macchina
+        di chi li eseguiva, ed e' cosi' che una suite verde smette di
+        significare qualcosa. Scoperto il 2026-08-15, con Qdrant spento dopo un
+        riavvio.
+        """
+        monkeypatch.setattr(api, "collections", list)
+
     def test_elenca_i_dataset_con_lo_stato_dell_indice(self, client, monkeypatch):
         monkeypatch.setattr(api, "datasets", lambda: [
             DatasetInfo("open_ragbench", "open_ragbench", True, 18840),
@@ -121,6 +135,34 @@ class TestDatasets:
         monkeypatch.setattr(api, "datasets", list)
         monkeypatch.setattr(api, "models", lambda: ["gemma4:12b", "gemma4:e4b"])
         assert client.get("/datasets").json()["models"] == ["gemma4:12b", "gemma4:e4b"]
+
+    def test_con_l_indice_spento_risponde_503_e_dice_dove(self, client, monkeypatch):
+        """Qdrant spento e' un servizio che manca, non un bug del servizio.
+
+        Senza il gestore, la connessione rifiutata risale fino a uvicorn e
+        diventa un 500 con un traceback: un codice che accusa il backend e un
+        corpo che chi guarda la demo non puo' usare. 503 dice «riprova quando
+        c'e'», e il corpo porta l'indirizzo su cui si stava chiamando -- l'unica
+        cosa che serve per rimediare.
+        """
+        def spento():
+            raise ResponseHandlingException(OSError("[WinError 10061] rifiuto"))
+
+        monkeypatch.setattr(api, "datasets", spento)
+        r = client.get("/datasets")
+        assert r.status_code == 503
+        assert cfg.QDRANT_URL in r.json()["detail"]
+
+    def test_health_resta_verde_con_l_indice_spento(self, client, monkeypatch):
+        """`/health` non interroga l'indice di proposito: e' cio' che permette a
+        `depends_on: service_healthy` (U-09) di funzionare quando Qdrant parte
+        dopo il backend. Se un giorno lo interrogasse, i due si aspetterebbero a
+        vicenda."""
+        def spento():
+            raise ResponseHandlingException(OSError("[WinError 10061] rifiuto"))
+
+        monkeypatch.setattr(api, "datasets", spento)
+        assert client.get("/health").status_code == 200
 
     def test_con_l_llm_spento_i_dataset_arrivano_lo_stesso(self, client, monkeypatch):
         """I dataset non dipendono dall'LLM. Se la lista modelli facesse
