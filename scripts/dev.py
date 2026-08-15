@@ -5,7 +5,8 @@
 finestre e un ordine da ricordare -- e chi dimentica la prima vede il frontend
 dire «Backend non raggiungibile» senza capire perche'.
 
-Qui l'API parte per prima, si **aspetta** che risponda, e solo allora parte Vite.
+Qui Qdrant viene acceso se e' fermo, l'API parte, si **aspetta** che risponda, e
+solo allora parte Vite.
 L'attesa non e' cortesia: senza, il primo `/datasets` parte contro una porta
 chiusa e la pagina si apre gia' in stato di guasto, che chi guarda legge come un
 bug del frontend.
@@ -71,6 +72,46 @@ def risponde(url: str, secondi: float = 2) -> bool:
         return False
 
 
+def accendi_qdrant() -> bool:
+    """Prova ad avviare il servizio `qdrant` di `compose.yml`. Vero se risponde.
+
+    **Si avvia, non si chiede.** Il container e' dichiarato in questo repo, sta
+    su una porta di questo repo e contiene i dati di questo repo: accenderlo non
+    e' un'iniziativa, e' la stessa cosa che `make dev` fa gia' con altri due
+    processi. Cio' che non fa e' **aprire Docker Desktop**: e' un'applicazione
+    con interfaccia, ci mette un minuto, e il comando per avviarla e' diverso su
+    ognuno dei tre sistemi che U-12 vuole supportare. Un avvio che dipende da
+    quale sistema operativo ha chi lo lancia e' la cosa che quello script deve
+    evitare, non produrre.
+
+    `start` prima di `up`: riaccende il container esistente senza ricrearlo, e
+    quindi senza scaricare un'immagine che potrebbe avere un tag diverso da
+    quella con cui era stato creato.
+    """
+    if not shutil.which("docker"):
+        print(f"Qdrant non risponde su {cfg.QDRANT_URL} e `docker` non e' nel PATH.\n"
+              "  installa Docker, oppure fai puntare QDRANT_URL a un'istanza gia' viva",
+              file=sys.stderr)
+        return False
+
+    print("-> Qdrant non rispondeva: lo avvio")
+    for comando in (["start", "qdrant"], ["up", "-d", "qdrant"]):
+        esito = subprocess.run(
+            ["docker", "compose", "--profile", "full", *comando],
+            cwd=ROOT, capture_output=True, text=True,
+        )
+        if esito.returncode == 0 and aspetta(f"{cfg.QDRANT_URL}/readyz", 30):
+            return True
+
+    print(f"non sono riuscito ad avviare Qdrant. {esito.stderr.strip()[:300]}\n"
+          "  Docker Desktop e' acceso? Questo script non lo apre di proposito:\n"
+          "  e' un'applicazione con interfaccia e il comando per avviarla cambia\n"
+          "  su ogni sistema.\n"
+          "  poi riprova, oppure: python scripts/dev.py --senza-qdrant",
+          file=sys.stderr)
+    return False
+
+
 def aspetta(url: str, secondi: float) -> bool:
     """Vero appena `url` risponde. Interroga, non dorme e spera."""
     scadenza = time.monotonic() + secondi
@@ -113,15 +154,21 @@ def main() -> int:
     # apre, e il guasto compare tre livelli piu' in la' come un traceback dentro
     # `/datasets` — cioe' lontanissimo dalla causa, che e' «manca un servizio».
     if not args.senza_qdrant and not risponde(f"{cfg.QDRANT_URL}/readyz"):
+        if not accendi_qdrant():
+            return 1
+
+    # L'LLM **non** ferma l'avvio, e la differenza non e' di gusto: senza indice
+    # non funziona niente, senza modello si sfoglia il corpus, si cambia dataset
+    # e il recupero risponde — cade solo la generazione. Trattarli allo stesso
+    # modo impedirebbe di lavorare sull'interfaccia mentre la GPU e' occupata da
+    # una run di valutazione, che e' meta' del lavoro di Fase 8.
+    if not risponde(f"{cfg.LLM_BASE_URL}/models"):
         print(
-            f"Qdrant non risponde su {cfg.QDRANT_URL}: senza l'indice la pagina "
-            "si apre e ogni domanda fallisce.\n"
-            "  avvialo:  docker compose --profile full up -d qdrant\n"
-            "  altrove:  QDRANT_URL=http://10.0.0.5:6333 make dev\n"
-            "  ignora:   python scripts/dev.py --senza-qdrant",
+            f"! l'LLM non risponde su {cfg.LLM_BASE_URL}: i dataset e il recupero "
+            "funzionano, le risposte no.\n"
+            "  avvialo:  ollama serve   (oppure apri Ollama)",
             file=sys.stderr,
         )
-        return 1
 
     npm = shutil.which("npm")
     if not npm:

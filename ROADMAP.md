@@ -522,10 +522,14 @@ Due comandi diversi per due destinatari diversi, e confonderli è ciò che rende
 
 | | comando | cosa serve prima |
 |---|---|---|
-| **chi tocca il codice** | `make dev` | Node, Qdrant e Ollama in ascolto |
+| **chi tocca il codice** | `make dev` | Node, e Docker acceso. Qdrant lo avvia lui se e' fermo; senza Ollama parte lo stesso e lo **dice** |
 | **chi vuole solo vederlo** | `docker compose --profile demo up` (U-08) | Docker, e basta |
 
 `make dev` avvia l'API, **aspetta** che risponda, poi avvia Vite; chiudendo si porta via entrambi. L'attesa non è cortesia: senza, il primo `/datasets` parte contro una porta chiusa e la pagina si apre già in stato di guasto, che chi guarda legge come un bug del frontend.
+
+Controlla anche i servizi, e **non allo stesso modo**: senza indice non funziona niente, quindi Qdrant viene avviato (`docker compose start qdrant`, e solo in mancanza `up -d`) e l'avvio si ferma se non ci riesce; senza modello invece si sfoglia il corpus, si cambia dataset e il recupero risponde — cade solo la generazione, quindi Ollama è un avviso e non un blocco. Trattarli uguali impedirebbe di lavorare sull'interfaccia mentre la GPU è occupata da una valutazione, che è metà del lavoro di questa fase.
+
+**Docker Desktop non lo apre.** È un'applicazione con interfaccia, ci mette un minuto, e il comando per avviarla è diverso su ognuno dei tre sistemi che U-12 vuole supportare: un avvio che dipende dal sistema operativo di chi lo lancia è esattamente ciò che quello script esiste per evitare.
 
 **Nella consegna il proxy non esiste.** Il frontend viene costruito (`vite build`) dentro l'immagine con uno stadio Node, e **l'API serve `ui/dist` come file statici**: stessa origine, un container in meno, e soprattutto la ragione per cui il backend non ha CORS smette di essere un'aspirazione e diventa vera. È una decisione di U-09, e va scritta ora perché è ciò che rende legittimo il proxy di sviluppo di U-00 — un proxy che nascondesse un problema di CORS destinato a ripresentarsi in produzione sarebbe un debito, non una comodità.
 
