@@ -14,6 +14,14 @@
  * suo posto, e due controlli con le stesse parole uno sull'altro non direbbero
  * quale si sta usando.
  *
+ * **«Cronologia locale» dice il fatto, il suggerimento lo spiega.** Il criterio di
+ * U-13 chiede che la localita' sia **dichiarata** e non dedotta, e prima la frase
+ * intera stava sotto l'elenco: vera, e scollegata da cio' di cui parlava — una
+ * riga che comincia con «Solo in questo browser» non dice *cosa* sta solo qui.
+ * Nel nome della sezione la parola ha un referente, e la spiegazione e' a un
+ * passaggio di distanza invece di occupare cinque righe di una corsia larga
+ * 200 px.
+ *
  * **Cancellare e' a due tempi**, e il comando sta nella riga dell'etichetta in
  * 9,5 px: e' la via d'uscita da una cronologia che si e' riempita provando, non
  * un comando del lavoro normale. Vedi `Cancella` per il perche' dei due tempi.
@@ -59,7 +67,12 @@ export function Cronologia() {
       {voci.length > 0 && (
         <section className="flex min-h-0 flex-1 flex-col">
           <div className="mb-[7px] flex items-baseline justify-between gap-2 px-1">
-            <Etichetta>{t("history.title")}</Etichetta>
+            {/* Il suggerimento sta **dentro** l'etichetta e non attorno: il
+                bersaglio di `Suggerimento` e' uno `<span>`, e un titolo dentro
+                uno span non e' annidamento valido. */}
+            <Etichetta>
+              <Suggerimento testo={t("history.hint")}>{t("history.title")}</Suggerimento>
+            </Etichetta>
             <Cancella />
           </div>
 
@@ -74,13 +87,6 @@ export function Cronologia() {
               <Voce key={c.id} conversazione={c} attiva={c.id === corrente} />
             ))}
           </nav>
-
-          <Suggerimento
-            testo={t("history.local.hint")}
-            className="mt-2 block px-1 text-[9.5px] leading-[1.4] text-muted"
-          >
-            {t("history.local")}
-          </Suggerimento>
         </section>
       )}
     </>

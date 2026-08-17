@@ -65,7 +65,14 @@ export const it = {
   "datasets.none": "Nessun indice pronto",
   "datasets.none.hint": "Costruisci un indice con «make ingest», poi ricarica.",
 
-  "history.title": "Cronologia",
+  // Il criterio di U-13 chiede che la cronologia **dichiari** di essere locale, e
+  // la parola sta nel nome della sezione. Prima la frase intera stava sotto
+  // l'elenco: vera, e scollegata da ciò di cui parlava. Qui «locale» ha un
+  // referente, e la spiegazione è a un passaggio invece di prendere cinque righe
+  // di una corsia larga 200 px.
+  "history.title": "Cronologia locale",
+  "history.hint":
+    "Le conversazioni restano in questo browser: nessun account e nessun server, quindi su un'altra macchina non le ritrovi.",
   "history.new": "Nuova conversazione",
   // Sulle voci mentre una risposta sta arrivando: dice **cosa fare**, non solo
   // che non si può. Lo stream scrive in una conversazione sola.
@@ -75,13 +82,6 @@ export const it = {
   "history.clear.hint":
     "Toglie tutte le conversazioni da questo browser: chiede un secondo clic, e non si torna indietro.",
   "history.clear.again": "Ancora un clic e sono via.",
-  // Il criterio di U-13 chiede che la cronologia **dichiari** di essere locale.
-  // Quindi la frase breve sta sempre sullo schermo, sotto l'elenco, e il resto è
-  // a un passaggio di distanza: in una corsia larga 200 px la versione lunga
-  // prenderebbe cinque righe, cioè lo spazio delle conversazioni.
-  "history.local": "Solo in questo browser.",
-  "history.local.hint":
-    "Le conversazioni restano qui: nessun account e nessun server, quindi su un'altra macchina non le ritrovi.",
 
   "chat.empty.title": "Chiedi qualcosa al corpus.",
   "chat.empty.hint":
@@ -254,7 +254,9 @@ export const en: Record<Chiave, string> = {
   "datasets.none": "No index ready",
   "datasets.none.hint": "Build one with “make ingest”, then reload.",
 
-  "history.title": "History",
+  "history.title": "Local history",
+  "history.hint":
+    "Conversations stay in this browser: no account and no server, so you will not find them on another machine.",
   "history.new": "New conversation",
   "history.busy": "Wait for the answer to finish, or press “Stop”.",
   "history.clear": "Clear",
@@ -262,9 +264,6 @@ export const en: Record<Chiave, string> = {
   "history.clear.hint":
     "Removes every conversation from this browser: it asks for a second click, and there is no undo.",
   "history.clear.again": "One more click and they are gone.",
-  "history.local": "This browser only.",
-  "history.local.hint":
-    "Conversations stay here: no account and no server, so you will not find them on another machine.",
 
   "chat.empty.title": "Ask the corpus something.",
   "chat.empty.hint":
