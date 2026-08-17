@@ -70,6 +70,11 @@ export const it = {
   // Sulle voci mentre una risposta sta arrivando: dice **cosa fare**, non solo
   // che non si può. Lo stream scrive in una conversazione sola.
   "history.busy": "Aspetta che la risposta finisca, o premi «Ferma».",
+  "history.clear": "Cancella",
+  "history.clear.confirm": "Confermi?",
+  "history.clear.hint":
+    "Toglie tutte le conversazioni da questo browser: chiede un secondo clic, e non si torna indietro.",
+  "history.clear.again": "Ancora un clic e sono via.",
   // Il criterio di U-13 chiede che la cronologia **dichiari** di essere locale.
   // Quindi la frase breve sta sempre sullo schermo, sotto l'elenco, e il resto è
   // a un passaggio di distanza: in una corsia larga 200 px la versione lunga
@@ -252,6 +257,11 @@ export const en: Record<Chiave, string> = {
   "history.title": "History",
   "history.new": "New conversation",
   "history.busy": "Wait for the answer to finish, or press “Stop”.",
+  "history.clear": "Clear",
+  "history.clear.confirm": "Confirm?",
+  "history.clear.hint":
+    "Removes every conversation from this browser: it asks for a second click, and there is no undo.",
+  "history.clear.again": "One more click and they are gone.",
   "history.local": "This browser only.",
   "history.local.hint":
     "Conversations stay here: no account and no server, so you will not find them on another machine.",

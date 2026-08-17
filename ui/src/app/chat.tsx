@@ -71,6 +71,7 @@ interface Chat {
   ferma: () => void;
   nuova: () => void;
   apri: (id: string) => void;
+  svuota: () => void;
 }
 
 const Contesto = createContext<Chat | null>(null);
@@ -207,6 +208,22 @@ export function ProvvedeChat({ children }: { children: ReactNode }) {
     [stato.conversazioni, imposta],
   );
 
+  /**
+   * Via tutte, **compresa quella aperta**: «cancella la cronologia» che lasciasse
+   * sullo schermo la conversazione che si stava leggendo avrebbe cancellato tutto
+   * tranne l'unica cosa visibile. Si resta in una conversazione nuova, che e' lo
+   * stato di chi arriva per la prima volta.
+   *
+   * Il deposito si allinea da se': senza niente da ricordare, `salvaCronologia`
+   * toglie la chiave invece di lasciare una cronologia piu' vecchia di quella in
+   * memoria.
+   */
+  const svuota = useCallback(() => {
+    if (controller.current !== null) return;
+    const n = nuovaConversazione();
+    setStato({ conversazioni: [n], corrente: n.id });
+  }, []);
+
   const scambi = trova(stato.conversazioni, stato.corrente)?.scambi ?? [];
 
   return (
@@ -220,6 +237,7 @@ export function ProvvedeChat({ children }: { children: ReactNode }) {
         ferma,
         nuova,
         apri,
+        svuota,
       }}
     >
       {children}
