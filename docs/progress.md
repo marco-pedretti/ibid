@@ -1600,6 +1600,7 @@ Per la stessa ragione `/document/{doc_id}/chunks` restituisce i chunk **in ordin
 | U-00 | âœ… fatto (2026-08-14) | Scheletro `ui/`: Vite 8 + React 19 + TypeScript 7 + Tailwind 4, client SSE scritto a mano, temi, i18n IT/EN, `/datasets` all'avvio. **19 test Vitest** + 15 test Python sul contratto generato. `npm run typecheck && npm test && npm run build` verdi; catena provata contro l'API viva. Dettaglio sotto. |
 | U-01 | ✅ fatto (2026-08-14) | Selettore dataset nella corsia laterale del mockup, scelta ricordata in `localStorage` e **validata** contro `/datasets`. La regola di selezione è in funzioni pure: **9 test Vitest** in più (28 in tutto), senza jsdom. Provato contro l'API viva: `open_ragbench` 18.840 e `ledger` 47.110 chunk. Dettaglio sotto. |
 | U-02 | ✅ fatto (2026-08-14) | Schermata di chat con **pannello fonti sempre visibile** (nel telaio, non nella chat): otto stati, uno per evento del §3.5, macchina a stati in un reducer puro con **16 test** (44 lato Vitest). Marcatori inerti finché non arriva `answer`. I valori di `abstention` ora sono generati come i tipi. Esempi dello stato vuoto presi da `eval/golden`. Provato contro l'API viva su una query d'oro reale. **Rendering LaTeX** con KaTeX, regola dei delimitatori misurata: 49 falsi positivi tolti su 49, zero formule vere perse. Dettaglio sotto. |
+| U-07 | ✅ fatto (2026-08-17) | Ogni citazione porta il **proprio verdetto**, sul marcatore in mezzo alla prosa e sulla scheda della fonte, e **nessuna è nascosta**. Cinque stati per il marcatore e sei per la scheda, distinti da glifo, colore e parola insieme (§12). Le frasi senza citazione sono sottolineate dove stanno. La corrispondenza frase↔marcatore è in funzioni pure: **32 test Vitest** in più (110 in tutto). Provato contro l'API viva su `open_ragbench` e `ledger`. Dettaglio sotto. |
 
 ### U-00 â€” il contratto esiste in due linguaggi, e uno dei due si genera
 
@@ -1819,3 +1820,92 @@ Una query d'oro vera (`open_ragbench`, `top_k 3`), attraverso il proxy:
 > **Quei tempi sono a freddo e non vanno confrontati con nessun altro numero.** Era la prima query dopo l'avvio: il retrieval include il caricamento del modello di embedding, la generazione il caricamento dei pesi. A caldo, in U-00, la stessa catena dava primo token a 3,01 s. È la trappola di A-05 per la quarta volta, e la regola che la disinnesca è sempre quella del §15 — un confronto è un confronto solo se i due lati differiscono in **esattamente** una cosa.
 
 Suite Python **1675 test verdi**; `npm run typecheck && npm test && npm run build` verdi.
+
+
+### U-07 — l'unità del verdetto è la coppia, non il marcatore
+
+Il criterio dice: *«una citazione non verificata da C-03 è distinguibile da una verificata senza aprire nulla, e nessuna delle due è nascosta»*. Sembra una richiesta grafica. Non lo è: contiene una domanda a cui bisogna rispondere prima di disegnare qualsiasi cosa — **dato il `[3]` che sta in mezzo alla risposta, di quale verdetto si tratta?**
+
+Perché l'unità che C-03 misura non è il marcatore, è la **coppia (frase, chunk citato)**. Lo stesso `[3]` può comparire in tre frasi e reggerne due. Un verdetto per marcatore aggregherebbe esattamente la granularità che l'affermazione 1 del §0 esiste per misurare — «la precisione di citazione **a livello di frase** è misurabile» — quindi ogni **occorrenza** nel testo porta il verdetto della frase in cui sta, e due `[3]` nella stessa risposta possono avere due colori diversi.
+
+#### Le frasi non si ritagliano, si ritrovano
+
+Per sapere in quale frase sta un'occorrenza serve sapere dove finiscono le frasi. La strada breve è riscrivere `split_claims` in TypeScript: una regex sul terminatore, dieci righe. È anche precisamente ciò che U-00 vieta — la seconda copia di una regola del backend diverge **in silenzio**, perché nessun test Python guarda dentro `ui/`.
+
+L'API manda già le frasi (`citations[].claim`, `uncited_claims`), quindi il frontend cerca **dove stanno** invece di dove andrebbero tagliate. Se il backend cambia il modo di spezzare, questo modulo continua a dire il vero senza sapere che è cambiato.
+
+Il solo dettaglio del backend che resta necessario conoscere è che quelle frasi arrivano **senza i marcatori** — `strip_markers`, perché il modello NLI non ha mai visto indici fra quadre e non fanno parte di ciò che la frase afferma. Quindi la ricerca avviene su una copia del testo a cui i marcatori sono stati tolti, tenendo una mappa verso le posizioni vere.
+
+| caso | regola |
+|---|---|
+| marcatore dentro `[da, a)` della frase | il caso normale: `Il valore è 400ms [2][3].` |
+| marcatore in un buco fra due frasi | appartiene alla **seguente**: il backend spezza sul bianco *dopo* il terminatore, quindi un `[2]` scritto dopo il punto apre la frase successiva |
+| marcatore oltre l'ultima frase | appartiene all'ultima: è la coda di una risposta troncata, senza punto finale |
+
+Le tre righe sono una sola condizione in codice — «la prima frase che finisce dopo di lui» — e non un albero di casi. Una frase che non si ritrova resta `null` e il suo verdetto vive solo sulla scheda: **non si inventa una posizione**, perché un verdetto posato sulla frase sbagliata è peggio di un verdetto che manca.
+
+#### Cinque stati, e nessuno è l'assenza di un altro
+
+È la lezione del §3.5 sui tre significati di una lista vuota, applicata al singolo marcatore.
+
+| stato | quando | veste |
+|---|---|---|
+| `inerte` | prima di `answer` | punteggiato, `muted`, nessun glifo |
+| `attesa` | testo definitivo, verifica in corso | **accento** + punto |
+| `sostenuta` | il chunk sostiene la frase | `ok` + spunta |
+| `nonSostiene` | il chunk non la sostiene | `warn` + croce |
+| `nonVerificata` | nessun verdetto per questa coppia | `wait` + casella vuota |
+
+`nonVerificata` è lo stato che il criterio nomina per nome, e ha **due cause vere e diverse**: `verify` spento nella richiesta, oppure una frase più corta di `MIN_CLAIM_CHARS` — sotto la quale «il chunk sostiene questo?» non è una domanda con una risposta, e il backend non produce la coppia. Senza questo stato entrambe si leggerebbero come «sostenuta», che è l'errore peggiore possibile qui.
+
+`statoVerifica` risolve un caso che a mano non si nota: fra `citations` e `done`, `verificate` è ancora `false` — arriva con `done` — e leggerlo lì direbbe «non verificata» di una risposta i cui verdetti sono appena arrivati. In quella finestra l'unica prova che la verifica ha girato sono i verdetti stessi.
+
+#### Una divergenza dichiarata dal mockup
+
+Nel mockup un `[1]` verificato resta **accento** (`.mk.viva`) e solo quello che non regge diventa ocra (`.mk.dubbia`). Con cinque stati sullo schermo quella scelta non sta in piedi: un marcatore sostenuto accento e uno non verificato accento sarebbero indistinguibili, cioè il criterio di U-07 mancato. La bozza non modellava lo stato «non verificata», e infatti non aveva il problema.
+
+L'accento resta però fuori dai verdetti veri, come vuole il §12 — *«un verdetto colorato con l'accento smette di essere un verdetto e diventa decorazione»* — e sopravvive dove la domanda non è un verdetto: sul marcatore in `attesa`, dove la domanda è «è un riferimento valido?» e da `answer` in poi la risposta è sì. Nella pastiglia della scheda lo stesso stato è `wait`, perché lì la domanda è «qual è il verdetto?» e non c'è ancora.
+
+#### Glifo, colore e parola insieme, scritti come una tabella
+
+Il §12 lo chiede, e la ragione non è di stile: chi non distingue l'ocra dal verde vedrebbe due pastiglie identiche, e qui la differenza fra le due **è la tesi**. La corrispondenza sta in un `Record` e non in una catena di `if`, così aggiungere uno stato significa aggiungere una riga con tutte e tre le cose — non esiste il caso di uno stato che ha il colore e non la parola.
+
+Sul marcatore in mezzo alla prosa ci stanno solo i primi due; la parola sta nell'`aria-label` (per chi ascolta, glifo e colore non arrivano: la parola è l'unica cosa che resta) e nel **riepilogo sotto la risposta**, che nomina i marcatori che non reggono e conta le frasi scoperte. Il glifo del riepilogo è lo stesso che sta sul marcatore, così quella frase fa anche da legenda senza esserne una.
+
+E l'ultima riga del riepilogo è la tesi, nell'interfaccia e non solo nel README: *una citazione che non regge è il dato, non un errore, e la precisione si alza citando di meno.* Senza scriverlo, un fondo ocra si legge come un guasto — l'esatto contrario di ciò che U-07 esiste per dire. Per la stessa ragione `warn` non è rosso, ed è una decisione già scritta in `index.css` da U-00.
+
+#### Il numero accanto alla parola cambia con quante frasi citano la fonte
+
+Con **una** citazione è il punteggio di implicazione: un «non sostiene» a 0,49 e uno a 0,02 sono due cose diverse, e senza il numero il verdetto sembra categorico dove invece c'è una soglia. Con **più** citazioni è il conteggio, perché allora il punteggio riguarda una frase sola e mostrarlo da solo farebbe credere che riguardi tutte.
+
+Quando i verdetti sulla stessa fonte non concordano la pastiglia dice `misto` col conteggio — `1 su 3 non sostiene` — e non una media: una media di verdetti opposti non dice niente. È anche il caso che dimostra perché il glifo da solo non basta, e infatti `misto` porta la croce (qualcosa non regge, e non va attenuato) mentre la distinzione la fa la parola.
+
+**«Non citata» non è un verdetto** e non va colorata come tale: è un chunk che il recupero ha portato e che la risposta non ha usato. Resta nel pannello — U-02 vuole le fonti visibili in ogni stato — ma dire «sostiene» o «non sostiene» di qualcosa che nessuno ha affermato sarebbe inventare un giudizio.
+
+#### Due cose che si sono spostate
+
+**Le frasi senza citazione sono uscite dal pannello fonti** e sono tornate dove stanno: sottolineate nella risposta. U-02 le aveva messe in fondo alla colonna perché non c'era un altro posto, ma una frase che non cita niente non è una fonte, e in 272 px prendeva lo spazio delle fonti vere. Nel testo si legge **dove** manca la citazione, che è l'unica cosa che serve saperne.
+
+**`segmenta` ora dice anche da dove viene ogni segmento.** Non era un extra rimandabile: annotare il testo vuol dire posare qualcosa su una posizione, e l'offset **non era ricostruibile da fuori** — un segmento `inline` può venire da `$…$` (due caratteri di delimitatore) o da `\(…\)` (quattro), quindi chi riceve i segmenti non può sommare le lunghezze. Lo sa solo chi ha tagliato. È entrato come refactor puro: 78 test, gli stessi di prima, con le posizioni asserite invece che dedotte.
+
+L'ordine fra i due passaggi è deciso e conta: **`segmenta` prima, annotazione dentro i suoi pezzi.** Al contrario, un `$x[3]$` — un indice fra quadre dentro una formula, che in un corpus di paper esiste — verrebbe spezzato a metà e la formula non si comporrebbe più. La matematica ha la precedenza perché un suo errore rompe il disegno, mentre un marcatore mancato resta leggibile.
+
+#### Provato contro l'API viva, sui due corpus
+
+Non per vedere se disegna: per verificare che il presupposto del ritrovamento — *la frase che l'API manda è una sottostringa del testo, a marcatori tolti* — sia vero su ciò che Gemma scrive davvero e non solo nei casi che ho scritto io.
+
+| | `open_ragbench` | `ledger` |
+|---|---|---|
+| risposta | 2 frasi, 2 marcatori | 1 frase, 1 marcatore |
+| coppie verificate | 2 | 1 |
+| frasi ritrovate nel testo | **2 / 2** | **1 / 1** |
+| verdetti | `[1]` non sostiene 0,467 · `[2]` non sostiene 0,183 | `[5]` non sostiene 0,208 |
+| tempi | retrieval 4,06 s · generation 19,33 s · verification 5,93 s | retrieval 0,17 s · generation 15,89 s · verification 9,05 s |
+
+> **La prima riga di tempi è a freddo, la seconda a caldo, e non si confrontano.** Il retrieval a 4,06 s include il caricamento del modello di embedding; a caldo la stessa domanda costa 0,17 s. È la trappola di A-05 per la quinta volta.
+
+Il caso `ledger` è più interessante di quanto sembri: la risposta è `... were $(222.8)$ million dollars [5].` — il modello riecheggia i delimitatori Mathpix del documento attorno a una cifra di bilancio. La frase citata attraversa quindi una formula, il testo si spezza in tre segmenti, e il `[5]` sta nell'ultimo: lo span della frase si ritaglia sui segmenti e il verdetto arriva dove deve. Era il caso che la macchinaria dei ritagli esisteva per non sbagliare.
+
+E per una volta i dati sono anche una piccola dimostrazione della tesi del §0: **tutte e tre le citazioni prodotte dal vivo non reggono**, con punteggi fra 0,18 e 0,47. Sono i numeri che C-01 misura in grande, visibili sullo schermo senza aprire niente — che è precisamente ciò che U-07 chiedeva.
+
+`npm run typecheck && npm test && npm run build` verdi, **110 test Vitest**.
