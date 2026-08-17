@@ -30,6 +30,7 @@ import type { PropsIcona } from "./Icona";
 import { Marchio } from "./Marchio";
 import { SelettoreDataset } from "./SelettoreDataset";
 import { Selettore } from "./Selettore";
+import { Suggerimento } from "./Suggerimento";
 
 export function Telaio({ children, fianco }: { children: ReactNode; fianco?: ReactNode }) {
   const { t } = usaLingua();
@@ -95,27 +96,33 @@ function PastigliaLingua() {
   const altra = LINGUE[(LINGUE.indexOf(lingua) + 1) % LINGUE.length];
 
   return (
-    <button
-      type="button"
-      onClick={() => imposta(altra)}
-      aria-label={`${t("lang.label")}: ${lingua.toUpperCase()}`}
-      className={`${PASTIGLIA} flex items-center gap-0.5 transition-colors hover:border-line`}
-    >
-      {LINGUE.map((l, i) => (
-        <span key={l} className="flex items-center gap-0.5">
-          {i > 0 && <span className="text-line-2">/</span>}
-          <span
-            className={
-              l === lingua
-                ? "rounded-[3px] bg-accent-soft px-[3px] py-px font-semibold text-accent"
-                : "px-[3px] py-px"
-            }
-          >
-            {l.toUpperCase()}
+    // Il suggerimento sta **qui** e non sotto gli esempi: la frase «cambia solo la
+    // cornice» ha bisogno che si veda cosa cambia, e cosa cambia e' questo. Con
+    // `fuoco={false}` la tappa di tabulazione resta una — quella del bottone — e la
+    // bolla si apre comunque da tastiera, perche' `focus` risale dal figlio.
+    <Suggerimento testo={t("lang.hint")} fuoco={false}>
+      <button
+        type="button"
+        onClick={() => imposta(altra)}
+        aria-label={`${t("lang.label")}: ${lingua.toUpperCase()}`}
+        className={`${PASTIGLIA} flex items-center gap-0.5 transition-colors hover:border-line`}
+      >
+        {LINGUE.map((l, i) => (
+          <span key={l} className="flex items-center gap-0.5">
+            {i > 0 && <span className="text-line-2">/</span>}
+            <span
+              className={
+                l === lingua
+                  ? "rounded-[3px] bg-accent-soft px-[3px] py-px font-semibold text-accent"
+                  : "px-[3px] py-px"
+              }
+            >
+              {l.toUpperCase()}
+            </span>
           </span>
-        </span>
-      ))}
-    </button>
+        ))}
+      </button>
+    </Suggerimento>
   );
 }
 

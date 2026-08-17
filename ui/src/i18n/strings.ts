@@ -49,8 +49,8 @@ export const it = {
   "theme.system": "Sistema",
 
   "lang.label": "Lingua dell'interfaccia",
-  "lang.note":
-    "La risposta segue la lingua della domanda, non questo selettore.",
+  // Sul selettore, dove «questo» ha un referente che si vede.
+  "lang.hint": "Cambia solo le scritte dell'interfaccia: la risposta segue la lingua della domanda.",
 
   "backend.loading": "Contatto il server…",
   "backend.down": "Server non raggiungibile",
@@ -78,6 +78,9 @@ export const it = {
   "example.note.paper": "Sta dentro un paper: guarda da quale sezione arriva.",
   "example.note.table": "La risposta sta in una tabella.",
   "example.note.absent": "Non c'è nel corpus. Guarda cosa succede.",
+  // Sotto gli esempi: spiega le **due righe**, che è la cosa che si vede lì.
+  "example.lang":
+    "Gli esempi sono tradotti, ma partono come li vedi nella seconda riga: la risposta segue la lingua della domanda.",
 
   "stato.attesa": "cerco nel corpus…",
   "stato.fonti": "il modello sta scrivendo…",
@@ -222,7 +225,7 @@ export const en: Record<Chiave, string> = {
   "theme.system": "System",
 
   "lang.label": "Interface language",
-  "lang.note": "The answer follows the language of your question, not this setting.",
+  "lang.hint": "It only changes the interface text: the answer follows the language of your question.",
 
   "backend.loading": "Reaching the server…",
   "backend.down": "Server unreachable",
@@ -250,6 +253,8 @@ export const en: Record<Chiave, string> = {
   "example.note.paper": "It sits inside a paper: look at which section it comes from.",
   "example.note.table": "The answer is in a table.",
   "example.note.absent": "It is not in the corpus. Watch what happens.",
+  "example.lang":
+    "The examples are translated, but they are sent as the second line reads: the answer follows the language of the question.",
 
   "stato.attesa": "searching the corpus…",
   "stato.fonti": "the model is writing…",

@@ -54,11 +54,20 @@ export function Suggerimento({
   testo,
   children,
   className = "",
+  fuoco = true,
 }: {
   testo: string;
   children: ReactNode;
   /** Classi del bersaglio, non della bolla: il bersaglio resta cio' che era. */
   className?: string;
+  /**
+   * `false` quando dentro c'e' gia' qualcosa che prende il fuoco — un bottone, un
+   * link. Senza, si finirebbe con **due** tappe di tabulazione per un comando
+   * solo: si tabula sull'involucro, poi sul bottone dentro, e la seconda sembra
+   * un salto a vuoto. `focus`/`blur` risalgono dal figlio, quindi la bolla si
+   * apre comunque da tastiera.
+   */
+  fuoco?: boolean;
 }) {
   const [aperto, setAperto] = useState(false);
   const [montato, setMontato] = useState(false);
@@ -156,8 +165,8 @@ export function Suggerimento({
         // Raggiungibile da tastiera, altrimenti la spiegazione esiste solo per chi
         // ha un puntatore. Nel pannello fonti non c'erano tappe di tabulazione:
         // queste sono le prime, e non rubano il posto a nessuna.
-        tabIndex={0}
-        aria-describedby={`${id}-testo`}
+        tabIndex={fuoco ? 0 : undefined}
+        aria-describedby={fuoco ? `${id}-testo` : undefined}
         onPointerEnter={() => apri()}
         onPointerLeave={chiudi}
         // Il tocco non ha un «passaggio sopra»: senza questo, su un telefono la
@@ -173,7 +182,7 @@ export function Suggerimento({
         // gia' un significato preso: la frase che non cita nessuna fonte.
         // Da tastiera il segnale c'e' e non e' questo: e' l'anello di fuoco
         // globale di `index.css`.
-        className={`cursor-help ${className}`}
+        className={`${fuoco ? "cursor-help" : ""} ${className}`}
       >
         {children}
       </span>

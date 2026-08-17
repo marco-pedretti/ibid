@@ -100,8 +100,13 @@ function Vuoto() {
         ))}
       </div>
 
+      {/* Spiega **le due righe** di ogni esempio, che e' la cosa che si vede qui.
+          Prima diceva «la risposta segue la lingua della domanda, non questo
+          selettore», e quel «questo» non aveva un referente: il selettore e' una
+          pastiglia in fondo alla corsia, lontana e senza un nome scritto. Quella
+          frase e' ora il suggerimento del selettore, dove «questo» si vede. */}
       {tradotti && (
-        <p className="mt-3 max-w-[62ch] text-[11px] text-muted">{t("lang.note")}</p>
+        <p className="mt-3 max-w-[62ch] text-[11px] text-muted">{t("example.lang")}</p>
       )}
     </div>
   );
