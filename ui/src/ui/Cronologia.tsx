@@ -50,40 +50,40 @@ export function Cronologia() {
         <Etichetta>{t("history.title")}</Etichetta>
       </div>
 
-      <Voce
-        testo={t("history.new")}
-        icona={<Piu size={11} />}
-        // Attiva quando la conversazione aperta non ha ancora domande: e'
-        // letteralmente quella conversazione, e non una scorciatoia per crearne
-        // un'altra.
-        attiva={aperta === null || vuota(aperta)}
-        bloccata={occupato}
-        suggerimento={occupato ? t("history.busy") : null}
-        onClick={nuova}
-      />
+      {/* La voce «Nuova conversazione» sta **dentro** il landmark con le altre:
+          porta in una conversazione come loro, e chi naviga per landmark la
+          troverebbe solo qui. Resta pero' fuori dal contenitore che scorre —
+          un comando che scorre via e' un comando da cercare. */}
+      <nav aria-label={t("history.title")} className="flex min-h-0 flex-1 flex-col">
+        <Voce
+          testo={t("history.new")}
+          icona={<Piu size={11} />}
+          // Attiva quando la conversazione aperta non ha ancora domande: e'
+          // letteralmente quella conversazione, e non una scorciatoia per
+          // crearne un'altra.
+          attiva={aperta === null || vuota(aperta)}
+          bloccata={occupato}
+          suggerimento={occupato ? t("history.busy") : null}
+          onClick={nuova}
+        />
+
+        {/* Scorre l'elenco, non la corsia: la tendina del dataset sta sopra e
+            fuori da qui, quindi nessun contenitore di scorrimento la puo'
+            ritagliare. */}
+        <div className="mt-px flex min-h-0 flex-1 flex-col gap-px overflow-y-auto">
+          {voci.map((c) => (
+            <VoceDi key={c.id} conversazione={c} attiva={c.id === corrente} />
+          ))}
+        </div>
+      </nav>
 
       {voci.length > 0 && (
-        <>
-          {/* Scorre l'elenco, non la corsia: la tendina del dataset sta sopra e
-              fuori da qui, quindi nessun contenitore di scorrimento la puo'
-              ritagliare. La prima voce resta ferma perche' e' un comando, e un
-              comando che scorre via e' un comando da cercare. */}
-          <nav
-            aria-label={t("history.title")}
-            className="mt-px flex min-h-0 flex-1 flex-col gap-px overflow-y-auto"
-          >
-            {voci.map((c) => (
-              <VoceDi key={c.id} conversazione={c} attiva={c.id === corrente} />
-            ))}
-          </nav>
-
-          <Suggerimento
-            testo={t("history.local.hint")}
-            className="mt-2 block px-1 text-[9.5px] leading-[1.4] text-muted"
-          >
-            {t("history.local")}
-          </Suggerimento>
-        </>
+        <Suggerimento
+          testo={t("history.local.hint")}
+          className="mt-2 block px-1 text-[9.5px] leading-[1.4] text-muted"
+        >
+          {t("history.local")}
+        </Suggerimento>
       )}
     </section>
   );
