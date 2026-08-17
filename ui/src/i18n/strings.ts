@@ -84,7 +84,6 @@ export const it = {
   "sources.waiting":
     "Le fonti compaiono qui appena il retrieval risponde, prima che il modello cominci a scrivere.",
   "sources.none": "Nessuna fonte recuperata per questa domanda.",
-  "sources.uncited": "Frasi senza citazione",
 
   "yes": "sì",
   "no": "no",
@@ -111,6 +110,19 @@ export const it = {
   "verdict.aria": "citazione {marker}: {verdetto}",
   "verdict.score": "punteggio di implicazione",
   "verdict.count": "frasi sostenute su frasi che citano questa fonte",
+
+  // Il riepilogo sotto la risposta: e' qui che il verdetto diventa una **frase**,
+  // e non un ornamento -- il §12 chiede glifo, colore e parola insieme, e sul
+  // marcatore in mezzo alla prosa ci stanno solo i primi due.
+  "report.title.unsupported": "Non tutte le citazioni reggono.",
+  "report.title.uncited": "Qualche frase non cita nessuna fonte.",
+  "report.title.unverified": "Non tutti i marcatori hanno un verdetto.",
+  "report.marks": "Non sostenute: {marcatori}.",
+  "report.uncited": "Frasi senza citazione: {quante}, sottolineate nel testo.",
+  "report.unverified":
+    "Citazioni senza verdetto: {quante}. La verifica non ha girato, o la frase era troppo corta perché «il chunk la sostiene?» avesse una risposta.",
+  "report.why":
+    "Nessuna è nascosta: una citazione che non regge è il dato, non un errore. E la precisione si alza citando di meno, quindi le frasi scoperte si contano insieme alle altre.",
 
   "abstention.gate": "Astenuto prima di generare",
   "abstention.model": "Il modello si è astenuto",
@@ -184,7 +196,6 @@ export const en: Record<Chiave, string> = {
   "sources.waiting":
     "Sources show up here as soon as retrieval answers, before the model starts writing.",
   "sources.none": "No sources retrieved for this question.",
-  "sources.uncited": "Sentences with no citation",
 
   "yes": "yes",
   "no": "no",
@@ -203,6 +214,16 @@ export const en: Record<Chiave, string> = {
   "verdict.aria": "citation {marker}: {verdetto}",
   "verdict.score": "entailment score",
   "verdict.count": "supported sentences out of sentences citing this source",
+
+  "report.title.unsupported": "Not every citation holds up.",
+  "report.title.uncited": "Some sentences cite no source.",
+  "report.title.unverified": "Not every marker has a verdict.",
+  "report.marks": "Not supported: {marcatori}.",
+  "report.uncited": "Sentences with no citation: {quante}, underlined in the text.",
+  "report.unverified":
+    "Citations with no verdict: {quante}. Verification did not run, or the sentence was too short for “does the chunk support this?” to have an answer.",
+  "report.why":
+    "None of this is hidden: a citation that does not hold up is the finding, not a bug. And precision goes up by citing less, so the uncovered sentences are counted alongside the rest.",
 
   "abstention.gate": "Abstained before generating",
   "abstention.model": "The model abstained",
