@@ -85,6 +85,22 @@ export const it = {
     "Le fonti compaiono qui appena il retrieval risponde, prima che il modello cominci a scrivere.",
   "sources.none": "Nessuna fonte recuperata per questa domanda.",
 
+  // Il numero in alto a destra di una scheda **non è una grandezza sola**: cambia
+  // con la configurazione che ha girato, e un'unica etichetta «punteggio» sarebbe
+  // vera e inutile — 0,875 in `dense` e 0,016 in `hybrid` sono due fonti ottime.
+  "score.marker": "il numero con cui la risposta cita questa fonte",
+  "score.retrieval.dense":
+    "Punteggio di recupero: somiglianza cosinusoidale fra la domanda e questo chunk, fra 0 e 1. Ordina le fonti, non dice se la risposta è corretta.",
+  "score.retrieval.sparse":
+    "Punteggio di recupero: BM25, cioè quanto pesano i termini della domanda in questo chunk. Premia le parole in comune, non il significato.",
+  "score.retrieval.hybrid":
+    "Punteggio di recupero: RRF, la fusione delle classifiche densa e sparsa. È una somma di reciproci di posizione, quindi piccolo per costruzione e non confrontabile con una somiglianza.",
+  "score.retrieval.rerank":
+    "Punteggio del reranker: il cross-encoder ha riordinato le fonti e questo numero sostituisce quello del recupero. Non è limitato a 0–1 e non si confronta con una run senza rerank.",
+  "score.retrieval.unknown":
+    "Punteggio con cui il recupero ha ordinato questa fonte. Cosa misura dipende dalla modalità che ha girato, e la configurazione arriva a risposta conclusa.",
+  "sources.count": "quante fonti il recupero ha portato per questa domanda",
+
   "yes": "sì",
   "no": "no",
 
@@ -213,6 +229,19 @@ export const en: Record<Chiave, string> = {
   "sources.waiting":
     "Sources show up here as soon as retrieval answers, before the model starts writing.",
   "sources.none": "No sources retrieved for this question.",
+
+  "score.marker": "the number the answer uses to cite this source",
+  "score.retrieval.dense":
+    "Retrieval score: cosine similarity between the question and this chunk, from 0 to 1. It ranks the sources; it does not say the answer is right.",
+  "score.retrieval.sparse":
+    "Retrieval score: BM25, how much the question’s terms weigh in this chunk. It rewards shared words, not meaning.",
+  "score.retrieval.hybrid":
+    "Retrieval score: RRF, the fusion of the dense and sparse rankings. It is a sum of reciprocal ranks, so it is small by construction and not comparable to a similarity.",
+  "score.retrieval.rerank":
+    "Reranker score: the cross-encoder reordered the sources and this number replaces the retrieval one. It is not bounded to 0–1 and does not compare with a run without rerank.",
+  "score.retrieval.unknown":
+    "The score retrieval used to rank this source. What it measures depends on the mode that ran, and the configuration arrives when the answer is done.",
+  "sources.count": "how many sources retrieval brought back for this question",
 
   "yes": "yes",
   "no": "no",

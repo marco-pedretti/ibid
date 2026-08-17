@@ -25,10 +25,12 @@
  */
 import { usaChat } from "../app/chat";
 import { usaLingua } from "../app/i18n";
+import { spiegaPunteggio } from "../app/recupero";
 import { esitoDellaScheda, esitoNumericoDellaScheda } from "../app/verdetti";
 import type { Risposta } from "../app/conversazione";
 import type { ChunkView } from "../api/types";
 import { Etichetta } from "./Etichetta";
+import { Suggerimento } from "./Suggerimento";
 import { Estratto, marcatoriCitati } from "./Testo";
 import { Verdetto, VerdettoNumerico } from "./Verdetto";
 
@@ -49,7 +51,12 @@ export function PannelloFonti() {
       <div className="flex items-baseline justify-between">
         <Etichetta>{t("sources.title")}</Etichetta>
         {chunks.length > 0 && (
-          <span className="font-mono text-[10px] text-muted tabular-nums">{chunks.length}</span>
+          <Suggerimento
+            testo={t("sources.count")}
+            className="font-mono text-[10px] text-muted tabular-nums"
+          >
+            {chunks.length}
+          </Suggerimento>
         )}
       </div>
 
@@ -84,6 +91,7 @@ function Scheda({
   citata: boolean;
   risposta: Risposta | null;
 }) {
+  const { t } = usaLingua();
   const numerico = risposta === null ? null : esitoNumericoDellaScheda(risposta, chunk.marker);
 
   return (
@@ -93,24 +101,40 @@ function Scheda({
       }`}
     >
       <div className="flex items-center gap-1.5">
-        <span
+        <Suggerimento
+          testo={t("score.marker")}
           className={`rounded font-mono text-[10px] font-semibold tabular-nums ${
             citata ? "bg-accent text-accent-ink" : "bg-ink text-paper"
           } px-[5px] py-px`}
         >
           {chunk.marker}
-        </span>
-        <span className="truncate text-[11px] font-medium text-ink" title={chunk.doc_id}>
+        </Suggerimento>
+        {/* Il nome del documento e la sezione sono **troncati** in 272 px, ed e'
+            il posto dove un suggerimento serve piu' che altrove: qui non spiega,
+            mostra cio' che il taglio ha nascosto. */}
+        <Suggerimento testo={chunk.doc_id} className="min-w-0 truncate text-[11px] font-medium text-ink">
           {chunk.doc_id}
-        </span>
-        <span className="ml-auto font-mono text-[10px] text-muted tabular-nums">
+        </Suggerimento>
+        {/* Cosa sia questo numero **dipende dalla configurazione che ha girato**:
+            una somiglianza in `dense`, un punteggio di posizione in `hybrid`, il
+            giudizio di un cross-encoder col rerank. Un'etichetta sola sarebbe vera
+            e inutile — 0,875 e 0,016 possono essere due fonti ottime. */}
+        <Suggerimento
+          testo={t(spiegaPunteggio(risposta?.config ?? null))}
+          className="ml-auto font-mono text-[10px] text-muted tabular-nums"
+        >
           {chunk.score.toFixed(3)}
-        </span>
+        </Suggerimento>
       </div>
 
       {chunk.section_path !== "" && (
-        <p className="truncate font-mono text-[9.5px] text-muted" title={chunk.section_path}>
-          {chunk.section_path}
+        <p className="min-w-0">
+          <Suggerimento
+            testo={chunk.section_path}
+            className="block truncate font-mono text-[9.5px] text-muted"
+          >
+            {chunk.section_path}
+          </Suggerimento>
         </p>
       )}
 

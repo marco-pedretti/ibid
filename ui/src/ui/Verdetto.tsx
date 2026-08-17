@@ -22,6 +22,7 @@ import type { Esito, EsitoNumerico, EsitoScheda, Marcato } from "../app/verdetti
 import type { Chiave } from "../i18n/strings";
 import { InAttesa, NonCitata, NonSostiene, NonVerificata, Sostiene } from "./Icona";
 import type { PropsIcona } from "./Icona";
+import { Suggerimento } from "./Suggerimento";
 
 /** I tre toni semantici, tenuti separati dall'accento: un verdetto colorato con
  *  l'accento smette di essere un verdetto e diventa decorazione (§12). */
@@ -104,24 +105,28 @@ export function Marcatore({ marcato }: { marcato: Marcato }) {
   const parola = t(PAROLA[marcato.esito]);
   const punteggio = marcato.citazione?.score;
 
+  // Il glifo e il colore non arrivano a chi ascolta, e il numero da solo non dice
+  // niente: qui la parola non e' un extra, e' l'unica cosa che resta. Il
+  // `Suggerimento` la porta in due modi insieme — la bolla per chi guarda,
+  // `aria-describedby` per chi ascolta — quindi non serve un `aria-label`, che
+  // sostituirebbe il `[3]` invece di aggiungersi.
+  const spiegazione =
+    t("verdict.aria", { marker: marcato.marker, verdetto: parola }) +
+    (punteggio === undefined
+      ? ""
+      : ` · ${punteggio.toLocaleString(lingua === "it" ? "it-IT" : "en-US", {
+          minimumFractionDigits: 3,
+          maximumFractionDigits: 3,
+        })}`);
+
   return (
-    <span
-      // Il glifo e il colore non arrivano a chi ascolta, e il numero da solo non
-      // dice niente: qui la parola non e' un extra, e' l'unica cosa che resta.
-      aria-label={t("verdict.aria", { marker: marcato.marker, verdetto: parola })}
-      title={
-        punteggio === undefined
-          ? parola
-          : `${parola} · ${punteggio.toLocaleString(lingua === "it" ? "it-IT" : "en-US", {
-              minimumFractionDigits: 3,
-              maximumFractionDigits: 3,
-            })}`
-      }
+    <Suggerimento
+      testo={spiegazione}
       className={`inline-flex items-center gap-[2px] py-px align-[0.32em] font-mono text-[10px] tabular-nums ${VESTE[marcato.esito]}`}
     >
       {`[${marcato.marker}]`}
       {Glifo && <Glifo size={9} />}
-    </span>
+    </Suggerimento>
   );
 }
 
@@ -196,12 +201,9 @@ export function VerdettoNumerico({ esito }: { esito: EsitoNumerico }) {
       : t(`verdict.numeric.${esito.tipo === "sostiene" ? "supported" : "unsupported"}`);
 
   return (
-    <span
-      className={`${PASTIGLIA} ${esito.tipo === "sostiene" ? TONO.ok : TONO.warn}`}
-      title={t("verdict.numeric.what")}
-    >
+    <span className={`${PASTIGLIA} ${esito.tipo === "sostiene" ? TONO.ok : TONO.warn}`}>
       <Glifo size={11} />
-      <span>{parola}</span>
+      <Suggerimento testo={t("verdict.numeric.what")}>{parola}</Suggerimento>
     </span>
   );
 }
@@ -217,13 +219,13 @@ export function Verdetto({ esito }: { esito: EsitoScheda }) {
       <span>{parolaDelVerdetto(esito, t)}</span>
       {dettaglio !== null && (
         <>
-          <span className="text-muted" title={dettaglio.perche}>
+          <Suggerimento testo={dettaglio.perche} className="text-muted">
             {dettaglio.punteggio}
-          </span>
+          </Suggerimento>
           {dettaglio.quante !== null && (
-            <span className="text-muted opacity-70" title={t("verdict.count")}>
+            <Suggerimento testo={t("verdict.count")} className="text-muted opacity-70">
               {dettaglio.quante}
-            </span>
+            </Suggerimento>
           )}
         </>
       )}
