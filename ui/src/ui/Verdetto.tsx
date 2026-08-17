@@ -39,19 +39,53 @@ const TONO: Record<Tono, string> = {
 interface Forma {
   glifo: (p: PropsIcona) => ReactNode;
   parola: Chiave;
+  /** **Perche'** e' quel verdetto. Sta nella tabella accanto alla parola e non
+   *  altrove: e' la spiegazione piu' utile del pannello, e finche' l'unico
+   *  suggerimento stava sul numero accanto non c'era affatto. */
+  perche: Chiave;
   tono: Tono;
 }
 
 const FORMA: Record<EsitoScheda["tipo"], Forma> = {
-  sostiene: { glifo: Sostiene, parola: "verdict.supported", tono: "ok" },
-  nonSostiene: { glifo: NonSostiene, parola: "verdict.unsupported", tono: "warn" },
+  sostiene: {
+    glifo: Sostiene,
+    parola: "verdict.supported",
+    perche: "verdict.why.supported",
+    tono: "ok",
+  },
+  nonSostiene: {
+    glifo: NonSostiene,
+    parola: "verdict.unsupported",
+    perche: "verdict.why.unsupported",
+    tono: "warn",
+  },
   // Il glifo di «misto» e' la croce di proposito: qualcosa non regge, e quel
   // fatto non va attenuato. Quanto non regge lo dice la **parola**, che porta il
   // conteggio — e' il caso che dimostra perche' il glifo da solo non basta.
-  misto: { glifo: NonSostiene, parola: "verdict.mixed", tono: "warn" },
-  attesa: { glifo: InAttesa, parola: "verdict.pending", tono: "wait" },
-  nonVerificata: { glifo: NonVerificata, parola: "verdict.unverified", tono: "wait" },
-  nonCitata: { glifo: NonCitata, parola: "verdict.notCited", tono: "wait" },
+  misto: {
+    glifo: NonSostiene,
+    parola: "verdict.mixed",
+    perche: "verdict.why.mixed",
+    tono: "warn",
+  },
+  attesa: {
+    glifo: InAttesa,
+    parola: "verdict.pending",
+    perche: "verdict.why.pending",
+    tono: "wait",
+  },
+  nonVerificata: {
+    glifo: NonVerificata,
+    parola: "verdict.unverified",
+    perche: "verdict.why.unverified",
+    tono: "wait",
+  },
+  nonCitata: {
+    glifo: NonCitata,
+    parola: "verdict.notCited",
+    perche: "verdict.why.notCited",
+    tono: "wait",
+  },
 };
 
 /* --- il marcatore in mezzo alla prosa -------------------------------------
@@ -110,14 +144,24 @@ export function Marcatore({ marcato }: { marcato: Marcato }) {
   // `Suggerimento` la porta in due modi insieme — la bolla per chi guarda,
   // `aria-describedby` per chi ascolta — quindi non serve un `aria-label`, che
   // sostituirebbe il `[3]` invece di aggiungersi.
+  //
+  // Due frasi intere invece di una frase piu' un pezzo attaccato in coda: il
+  // punteggio non e' un'appendice, cambia dove va nella frase, e comporla a pezzi
+  // la renderebbe intraducibile.
   const spiegazione =
-    t("verdict.aria", { marker: marcato.marker, verdetto: parola }) +
-    (punteggio === undefined
-      ? ""
-      : ` · ${punteggio.toLocaleString(lingua === "it" ? "it-IT" : "en-US", {
-          minimumFractionDigits: 3,
-          maximumFractionDigits: 3,
-        })}`);
+    // Inerte non parla della citazione, parla del **testo**: dire «questa frase
+    // cita la fonte 3» quando il parser puo' ancora scartare quel `[3]` sarebbe
+    // promettere la cosa che il §3.5 vieta di promettere.
+    marcato.esito === "inerte" ? t("verdict.marker.inert")
+    : punteggio === undefined ? t("verdict.marker", { marker: marcato.marker, verdetto: parola })
+    : t("verdict.marker.score", {
+          marker: marcato.marker,
+          verdetto: parola,
+          punteggio: punteggio.toLocaleString(lingua === "it" ? "it-IT" : "en-US", {
+            minimumFractionDigits: 3,
+            maximumFractionDigits: 3,
+          }),
+        });
 
   return (
     <Suggerimento
@@ -210,13 +254,16 @@ export function VerdettoNumerico({ esito }: { esito: EsitoNumerico }) {
 
 export function Verdetto({ esito }: { esito: EsitoScheda }) {
   const { t, lingua } = usaLingua();
-  const { glifo: Glifo, tono } = FORMA[esito.tipo];
+  const { glifo: Glifo, perche, tono } = FORMA[esito.tipo];
   const dettaglio = dettaglioDi(esito, lingua === "it" ? "it-IT" : "en-US", t);
 
   return (
     <span className={`${PASTIGLIA} ${TONO[tono]}`}>
       <Glifo size={11} />
-      <span>{parolaDelVerdetto(esito, t)}</span>
+      {/* Il suggerimento sta sulla **parola** e non sulla pastiglia intera: dentro
+          ci sono due o tre cose diverse, e una bolla sola che copre tutto direbbe
+          di ciascuna qualcosa che vale per un'altra. */}
+      <Suggerimento testo={t(perche)}>{parolaDelVerdetto(esito, t)}</Suggerimento>
       {dettaglio !== null && (
         <>
           <Suggerimento testo={dettaglio.perche} className="text-muted">

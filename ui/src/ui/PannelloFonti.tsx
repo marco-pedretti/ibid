@@ -102,7 +102,7 @@ function Scheda({
     >
       <div className="flex items-center gap-1.5">
         <Suggerimento
-          testo={t("score.marker")}
+          testo={t("score.marker", { marker: chunk.marker })}
           className={`rounded font-mono text-[10px] font-semibold tabular-nums ${
             citata ? "bg-accent text-accent-ink" : "bg-ink text-paper"
           } px-[5px] py-px`}
