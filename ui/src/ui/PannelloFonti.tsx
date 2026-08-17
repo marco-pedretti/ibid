@@ -9,15 +9,22 @@
  * prima del primo token: misurate a caldo, 0,27 s contro 3,01 s. L'attesa si
  * riempie invece di premiare, e si vede da dove nasce la risposta mentre nasce.
  *
- * Targhette `pipeline`/`doc_genre` e verdetti di citazione non sono qui: sono
- * U-05 e U-07, e ognuno arriva col proprio criterio. Metterli ora significa
- * consegnarli senza il test che li verifica.
+ * **Ogni scheda porta il proprio verdetto e nessuna viene toccata** (U-07). Una
+ * fonte che non sostiene quello che le e' stato attribuito resta al suo posto,
+ * marcata: togliere le non sostenute porterebbe la precisione apparente al 100%
+ * per costruzione, proprio nel punto in cui il progetto vuole essere misurato.
+ *
+ * Targhette `pipeline`/`doc_genre` non sono qui: sono U-05, e arrivano col proprio
+ * criterio. Metterle ora significa consegnarle senza il test che le verifica.
  */
 import { usaChat } from "../app/chat";
 import { usaLingua } from "../app/i18n";
+import { esitoDellaScheda } from "../app/verdetti";
+import type { Risposta } from "../app/conversazione";
 import type { ChunkView } from "../api/types";
 import { Etichetta } from "./Etichetta";
 import { Estratto, marcatoriCitati } from "./Testo";
+import { Verdetto } from "./Verdetto";
 
 export function PannelloFonti() {
   const { t } = usaLingua();
@@ -49,7 +56,7 @@ export function PannelloFonti() {
       ) : (
         <div className="flex flex-col gap-[11px]">
           {chunks.map((c) => (
-            <Scheda key={c.chunk_id} chunk={c} citata={citati.has(c.marker)} />
+            <Scheda key={c.chunk_id} chunk={c} citata={citati.has(c.marker)} risposta={r} />
           ))}
         </div>
       )}
@@ -80,7 +87,15 @@ function inAttesa(fase: string): boolean {
   return fase === "attesa";
 }
 
-function Scheda({ chunk, citata }: { chunk: ChunkView; citata: boolean }) {
+function Scheda({
+  chunk,
+  citata,
+  risposta,
+}: {
+  chunk: ChunkView;
+  citata: boolean;
+  risposta: Risposta | null;
+}) {
   return (
     <article
       className={`flex flex-col gap-1.5 rounded-lg border px-2.5 py-2.5 ${
@@ -110,6 +125,16 @@ function Scheda({ chunk, citata }: { chunk: ChunkView; citata: boolean }) {
       )}
 
       <Estratto testo={chunk.text} />
+
+      {/* Il verdetto sta **in fondo** e non nella testata: la testata dice quale
+          fonte e' (marcatore, documento, punteggio di recupero), il verdetto dice
+          cosa se n'e' fatto. Sopra l'estratto sembrerebbe un giudizio sul chunk;
+          sotto e' quello che e', un giudizio sulla frase che lo cita. */}
+      {risposta !== null && (
+        <div className="flex flex-wrap gap-1.5">
+          <Verdetto esito={esitoDellaScheda(risposta, chunk.marker)} />
+        </div>
+      )}
     </article>
   );
 }

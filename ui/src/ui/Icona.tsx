@@ -122,6 +122,69 @@ export function Sistema(p: PropsIcona) {
   );
 }
 
+/* --- i verdetti (U-07) ---------------------------------------------------
+   Cinque forme per i cinque stati di una citazione, e si distinguono **di
+   silhouette**: una spunta, una croce, una casella vuota, una linea, un punto.
+   Il §12 chiede che un verdetto si legga da glifo, colore e parola insieme —
+   queste sono il glifo, e nessuna delle cinque e' l'assenza di un'altra. */
+
+/** Il chunk citato sostiene la frase. */
+export function Sostiene(p: PropsIcona) {
+  return (
+    <Base {...p}>
+      <path d="M3.5 8.6 L6.4 11.5 L12.5 4.6" />
+    </Base>
+  );
+}
+
+/**
+ * Il chunk citato **non** sostiene la frase.
+ *
+ * Una croce e non un triangolo d'allarme, e nel colore `warn` che non e' rosso:
+ * U-07 dice che questa non e' una cosa andata storta da nascondere, e' il dato
+ * che il progetto esiste per misurare. Un segno d'errore contraddirebbe il §0.
+ */
+export function NonSostiene(p: PropsIcona) {
+  return (
+    <Base {...p}>
+      <path d="M4.6 4.6 L11.4 11.4 M11.4 4.6 L4.6 11.4" />
+    </Base>
+  );
+}
+
+/**
+ * Nessun verdetto per questa coppia: **la casella e' rimasta vuota.**
+ *
+ * L'unico rettangolo dell'insieme, e la ragione e' che deve essere impossibile
+ * confonderlo con gli altri quattro: e' lo stato che il criterio di U-07 nomina
+ * per nome, e leggerlo come «sostenuta» sarebbe l'errore peggiore possibile qui.
+ */
+export function NonVerificata(p: PropsIcona) {
+  return (
+    <Base {...p}>
+      <rect x="3.4" y="3.4" width="9.2" height="9.2" rx="2.2" />
+    </Base>
+  );
+}
+
+/** Il recupero l'ha portata, la risposta non l'ha usata. Non e' un verdetto. */
+export function NonCitata(p: PropsIcona) {
+  return (
+    <Base {...p}>
+      <path d="M4 8 L12 8" />
+    </Base>
+  );
+}
+
+/** La verifica sta girando: un punto, come il `·` del mockup. */
+export function InAttesa(p: PropsIcona) {
+  return (
+    <Base {...p}>
+      <path d="M8 8 L8.01 8" />
+    </Base>
+  );
+}
+
 /* --- gli avvisi ---------------------------------------------------------- */
 
 /** Astensione: non e' stato detto niente, e non e' un guasto. */

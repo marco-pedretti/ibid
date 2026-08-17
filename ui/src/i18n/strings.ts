@@ -93,10 +93,24 @@ export const it = {
   "models.none":
     "Nessun modello: l'endpoint di inferenza non risponde. I dataset restano interrogabili.",
 
-  "verdict.supported": "Sostenuta",
-  "verdict.unsupported": "Non sostiene",
-  "verdict.pending": "Verifica in corso",
-  "verdict.unverified": "Non verificata",
+  // I verdetti (U-07). Minuscoli perche' sono targhette di dato, non frasi: il
+  // §12 mette il mono nel ruolo dei dati, e una maiuscola in mezzo alla prosa di
+  // una scheda alta due righe si legge come un titolo che non c'e'.
+  //
+  // «non sostiene» **non e' un errore**: U-07 dice che e' il dato, e la palette
+  // lo rispetta usando `warn` (ocra) e non un rosso. La parola non esagera: dice
+  // cosa il chunk non fa, non che qualcuno ha sbagliato.
+  "verdict.supported": "sostiene",
+  "verdict.unsupported": "non sostiene",
+  "verdict.mixed": "{quante} su {su} non sostiene",
+  "verdict.pending": "controllo…",
+  "verdict.unverified": "non verificata",
+  "verdict.notCited": "non citata",
+  "verdict.inert": "marcatore non ancora attivo",
+  // Cio' che un lettore di schermo sente al posto del glifo e del colore.
+  "verdict.aria": "citazione {marker}: {verdetto}",
+  "verdict.score": "punteggio di implicazione",
+  "verdict.count": "frasi sostenute su frasi che citano questa fonte",
 
   "abstention.gate": "Astenuto prima di generare",
   "abstention.model": "Il modello si è astenuto",
@@ -179,10 +193,16 @@ export const en: Record<Chiave, string> = {
   "models.none":
     "No models: the inference endpoint is not answering. Datasets remain queryable.",
 
-  "verdict.supported": "Supported",
-  "verdict.unsupported": "Not supported",
-  "verdict.pending": "Verifying",
-  "verdict.unverified": "Unverified",
+  "verdict.supported": "supports",
+  "verdict.unsupported": "does not support",
+  "verdict.mixed": "{quante} of {su} do not hold",
+  "verdict.pending": "checking…",
+  "verdict.unverified": "unverified",
+  "verdict.notCited": "not cited",
+  "verdict.inert": "marker not active yet",
+  "verdict.aria": "citation {marker}: {verdetto}",
+  "verdict.score": "entailment score",
+  "verdict.count": "supported sentences out of sentences citing this source",
 
   "abstention.gate": "Abstained before generating",
   "abstention.model": "The model abstained",
