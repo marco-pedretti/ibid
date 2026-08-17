@@ -65,6 +65,19 @@ export const it = {
   "datasets.none": "Nessun indice pronto",
   "datasets.none.hint": "Costruisci un indice con «make ingest», poi ricarica.",
 
+  "history.title": "Cronologia",
+  "history.new": "Nuova conversazione",
+  // Sulle voci mentre una risposta sta arrivando: dice **cosa fare**, non solo
+  // che non si può. Lo stream scrive in una conversazione sola.
+  "history.busy": "Aspetta che la risposta finisca, o premi «Ferma».",
+  // Il criterio di U-13 chiede che la cronologia **dichiari** di essere locale.
+  // Quindi la frase breve sta sempre sullo schermo, sotto l'elenco, e il resto è
+  // a un passaggio di distanza: in una corsia larga 200 px la versione lunga
+  // prenderebbe cinque righe, cioè lo spazio delle conversazioni.
+  "history.local": "Solo in questo browser.",
+  "history.local.hint":
+    "Le conversazioni restano qui: nessun account e nessun server, quindi su un'altra macchina non le ritrovi.",
+
   "chat.empty.title": "Chiedi qualcosa al corpus.",
   "chat.empty.hint":
     "Ogni frase della risposta porta la fonte da cui viene, e le fonti compaiono prima del testo.",
@@ -210,10 +223,6 @@ export const it = {
   "models.title": "Modelli",
   "models.none":
     "Nessun modello: il server che scrive le risposte non risponde. Cercare nel corpus funziona ancora.",
-
-  // U-13, il prossimo
-  "history.local":
-    "La cronologia resta in questo browser: nessun account, e su un'altra macchina non la ritrovi.",
 } as const;
 
 export type Chiave = keyof typeof it;
@@ -239,6 +248,13 @@ export const en: Record<Chiave, string> = {
   "datasets.notQueryable": "empty index: not queryable",
   "datasets.none": "No index ready",
   "datasets.none.hint": "Build one with “make ingest”, then reload.",
+
+  "history.title": "History",
+  "history.new": "New conversation",
+  "history.busy": "Wait for the answer to finish, or press “Stop”.",
+  "history.local": "This browser only.",
+  "history.local.hint":
+    "Conversations stay here: no account and no server, so you will not find them on another machine.",
 
   "chat.empty.title": "Ask the corpus something.",
   "chat.empty.hint":
@@ -361,10 +377,6 @@ export const en: Record<Chiave, string> = {
   "models.title": "Models",
   "models.none":
     "No models: the server that writes the answers is not responding. Searching the corpus still works.",
-
-  // U-13, il prossimo
-  "history.local":
-    "History stays in this browser: no account, and you will not find it on another machine.",
 };
 
 export const LINGUE = ["it", "en"] as const;

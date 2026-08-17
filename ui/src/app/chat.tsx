@@ -32,6 +32,7 @@ import { usaDataset } from "./dataset";
 import { applica, guasto, inizio, interrompi } from "./conversazione";
 import type { Risposta, Scambio } from "./conversazione";
 import {
+  MASSIME,
   conConversazione,
   leggiCronologia,
   nuovaConversazione,
@@ -175,7 +176,13 @@ export function ProvvedeChat({ children }: { children: ReactNode }) {
       // due voci identiche e senza nome, e nessuna delle due direbbe quale.
       if (c !== null && vuota(c)) return s;
       const n = nuovaConversazione();
-      return { conversazioni: [n, ...s.conversazioni.filter((x) => !vuota(x))], corrente: n.id };
+      // Il tetto vale **anche in memoria**, non solo nel deposito: senza, in una
+      // sessione lunga la corsia mostrerebbe conversazioni che un ricaricamento
+      // fa sparire, ed e' il modo peggiore in cui un limite si annuncia.
+      return {
+        conversazioni: [n, ...s.conversazioni.filter((x) => !vuota(x)).slice(0, MASSIME - 1)],
+        corrente: n.id,
+      };
     });
   }, []);
 

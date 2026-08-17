@@ -85,6 +85,16 @@ export function FrecciaSu(p: PropsIcona) {
   );
 }
 
+/** Fa qualcosa di nuovo. Sulla voce «Nuova conversazione», dove distingue
+ *  l'unica riga della corsia che **crea** da quelle che ci riportano. */
+export function Piu(p: PropsIcona) {
+  return (
+    <Base {...p}>
+      <path d="M8 3.6 L8 12.4 M3.6 8 L12.4 8" />
+    </Base>
+  );
+}
+
 /* --- i tre temi ----------------------------------------------------------
    Tre forme che si distinguono **di silhouette** e non di dettaglio: a 12 px il
    dettaglio non arriva, e tre cerchi con dentro cose diverse sarebbero tre
