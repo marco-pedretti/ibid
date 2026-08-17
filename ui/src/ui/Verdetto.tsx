@@ -137,34 +137,37 @@ export function parolaDelVerdetto(
 }
 
 /**
- * Il numero accanto alla parola, e quale numero sia dipende da quante frasi
- * citano questa fonte.
+ * Il punteggio, e quante frasi citano questa fonte.
  *
- * Con **una** citazione e' il punteggio di implicazione, e non e' un ornamento:
- * un «non sostiene» a 0,49 e uno a 0,02 sono due cose diverse, e senza il numero
- * il verdetto sembra categorico dove invece c'e' una soglia.
+ * **Il punteggio c'e' sempre**, e non e' un ornamento: un «non sostiene» a 0,49 e
+ * uno a 0,02 sono due cose diverse, e senza il numero il verdetto sembra
+ * categorico dove invece c'e' una soglia.
  *
- * Con **piu'** citazioni e' il conteggio, perche' allora il punteggio riguarda
- * una frase sola e mostrarlo da solo farebbe credere che riguardi tutte. Il
- * conteggio dice invece su quante il verdetto vale, che e' l'informazione che
- * cambia quando le frasi sono tre.
+ * **Il conteggio e' `×n` e non `n/m`**, ed e' una correzione a una prima versione
+ * che sbagliava in due modi. Metteva una probabilita' e un conteggio nello stesso
+ * posto senza etichetta — distinguibili solo perche' una ha la virgola e l'altro
+ * la barra, cioe' una cosa da decifrare — e per farci stare il conteggio faceva
+ * **sparire** il punteggio proprio dove le frasi erano piu' d'una. `×2` non si
+ * puo' leggere come una probabilita', e la frazione era comunque ridondante: se
+ * il verdetto e' «sostiene» sono sostenute tutte per costruzione, e quando non
+ * concordano lo dice la parola («1 su 3 non sostiene»).
  */
 function dettaglioDi(
   esito: EsitoScheda,
   locale: string,
   t: (c: Chiave) => string,
-): { valore: string; perche: string } | null {
+): { punteggio: string; perche: string; quante: string | null } | null {
   if (esito.tipo !== "sostiene" && esito.tipo !== "nonSostiene") return null;
-  if (esito.su > 1) {
-    const sostenute = esito.tipo === "sostiene" ? esito.su : 0;
-    return { valore: `${sostenute}/${esito.su}`, perche: t("verdict.count") };
-  }
   return {
-    valore: esito.punteggio.toLocaleString(locale, {
+    punteggio: esito.punteggio.toLocaleString(locale, {
       minimumFractionDigits: 3,
       maximumFractionDigits: 3,
     }),
-    perche: t("verdict.score"),
+    // Il punteggio mostrato e' quello della citazione piu' vicina alla linea, e
+    // con piu' di una frase questo va detto: altrimenti si legge come se
+    // riguardasse tutte allo stesso modo.
+    perche: t(esito.su > 1 ? "verdict.score.many" : "verdict.score"),
+    quante: esito.su > 1 ? `×${esito.su}` : null,
   };
 }
 
@@ -213,9 +216,16 @@ export function Verdetto({ esito }: { esito: EsitoScheda }) {
       <Glifo size={11} />
       <span>{parolaDelVerdetto(esito, t)}</span>
       {dettaglio !== null && (
-        <span className="text-muted" title={dettaglio.perche}>
-          {dettaglio.valore}
-        </span>
+        <>
+          <span className="text-muted" title={dettaglio.perche}>
+            {dettaglio.punteggio}
+          </span>
+          {dettaglio.quante !== null && (
+            <span className="text-muted opacity-70" title={t("verdict.count")}>
+              {dettaglio.quante}
+            </span>
+          )}
+        </>
       )}
     </span>
   );

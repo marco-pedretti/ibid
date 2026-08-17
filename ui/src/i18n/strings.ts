@@ -108,8 +108,13 @@ export const it = {
   "verdict.inert": "marcatore non ancora attivo",
   // Cio' che un lettore di schermo sente al posto del glifo e del colore.
   "verdict.aria": "citazione {marker}: {verdetto}",
-  "verdict.score": "punteggio di implicazione",
-  "verdict.count": "frasi sostenute su frasi che citano questa fonte",
+  // La soglia (0,50) non è scritta qui di proposito: è una costante del backend,
+  // e U-00 vieta al frontend di portarsele dietro. Per mostrarla servirebbe un
+  // campo nel contratto, come `GateView.threshold` ce l'ha per il gate.
+  "verdict.score": "punteggio di implicazione dell'NLI: P(il chunk implica la frase)",
+  "verdict.score.many":
+    "punteggio di implicazione della citazione più vicina alla soglia, fra quelle che citano questa fonte",
+  "verdict.count": "quante frasi della risposta citano questa fonte",
 
   // Il verificatore numerico di C-09, **accanto** a quello NLI e non al suo posto.
   // La parola dice cosa ha guardato e non il nome del verificatore: «numerico»
@@ -224,8 +229,10 @@ export const en: Record<Chiave, string> = {
   "verdict.notCited": "not cited",
   "verdict.inert": "marker not active yet",
   "verdict.aria": "citation {marker}: {verdetto}",
-  "verdict.score": "entailment score",
-  "verdict.count": "supported sentences out of sentences citing this source",
+  "verdict.score": "NLI entailment score: P(the chunk entails the sentence)",
+  "verdict.score.many":
+    "entailment score of the citation closest to the threshold, among those citing this source",
+  "verdict.count": "how many sentences of the answer cite this source",
 
   "verdict.numeric.supported": "the table confirms it",
   "verdict.numeric.unsupported": "the table does not confirm it",
