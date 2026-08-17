@@ -25,12 +25,12 @@
  */
 import { usaChat } from "../app/chat";
 import { usaLingua } from "../app/i18n";
-import { esitoDellaScheda } from "../app/verdetti";
+import { esitoDellaScheda, esitoNumericoDellaScheda } from "../app/verdetti";
 import type { Risposta } from "../app/conversazione";
 import type { ChunkView } from "../api/types";
 import { Etichetta } from "./Etichetta";
 import { Estratto, marcatoriCitati } from "./Testo";
-import { Verdetto } from "./Verdetto";
+import { Verdetto, VerdettoNumerico } from "./Verdetto";
 
 export function PannelloFonti() {
   const { t } = usaLingua();
@@ -84,6 +84,8 @@ function Scheda({
   citata: boolean;
   risposta: Risposta | null;
 }) {
+  const numerico = risposta === null ? null : esitoNumericoDellaScheda(risposta, chunk.marker);
+
   return (
     <article
       className={`flex flex-col gap-1.5 rounded-lg border px-2.5 py-2.5 ${
@@ -121,6 +123,10 @@ function Scheda({
       {risposta !== null && (
         <div className="flex flex-wrap gap-1.5">
           <Verdetto esito={esitoDellaScheda(risposta, chunk.marker)} />
+          {/* Il verdetto numerico di C-09 **accanto** e non al posto dell'altro:
+              e' additivo per contratto (`schema.py`), e su un corpus di tabelle
+              e' quello che sa giudicare. Compare solo quando ha giudicato. */}
+          {numerico !== null && <VerdettoNumerico esito={numerico} />}
         </div>
       )}
     </article>

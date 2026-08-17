@@ -1600,7 +1600,7 @@ Per la stessa ragione `/document/{doc_id}/chunks` restituisce i chunk **in ordin
 | U-00 | âœ… fatto (2026-08-14) | Scheletro `ui/`: Vite 8 + React 19 + TypeScript 7 + Tailwind 4, client SSE scritto a mano, temi, i18n IT/EN, `/datasets` all'avvio. **19 test Vitest** + 15 test Python sul contratto generato. `npm run typecheck && npm test && npm run build` verdi; catena provata contro l'API viva. Dettaglio sotto. |
 | U-01 | ✅ fatto (2026-08-14) | Selettore dataset nella corsia laterale del mockup, scelta ricordata in `localStorage` e **validata** contro `/datasets`. La regola di selezione è in funzioni pure: **9 test Vitest** in più (28 in tutto), senza jsdom. Provato contro l'API viva: `open_ragbench` 18.840 e `ledger` 47.110 chunk. Dettaglio sotto. |
 | U-02 | ✅ fatto (2026-08-14) | Schermata di chat con **pannello fonti sempre visibile** (nel telaio, non nella chat): otto stati, uno per evento del §3.5, macchina a stati in un reducer puro con **16 test** (44 lato Vitest). Marcatori inerti finché non arriva `answer`. I valori di `abstention` ora sono generati come i tipi. Esempi dello stato vuoto presi da `eval/golden`. Provato contro l'API viva su una query d'oro reale. **Rendering LaTeX** con KaTeX, regola dei delimitatori misurata: 49 falsi positivi tolti su 49, zero formule vere perse. Dettaglio sotto. |
-| U-07 | ✅ fatto (2026-08-17) | Ogni citazione porta il **proprio verdetto**, sul marcatore in mezzo alla prosa e sulla scheda della fonte, e **nessuna è nascosta**. Cinque stati per il marcatore e sei per la scheda, distinti da glifo, colore e parola insieme (§12). Le frasi senza citazione sono sottolineate dove stanno. La corrispondenza frase↔marcatore è in funzioni pure: **32 test Vitest** in più (110 in tutto). Provato contro l'API viva su `open_ragbench` e `ledger`. Dettaglio sotto. |
+| U-07 | ✅ fatto (2026-08-17) | Ogni citazione porta il **proprio verdetto**, sul marcatore in mezzo alla prosa e sulla scheda della fonte, e **nessuna è nascosta**. Cinque stati per il marcatore e sei per la scheda, distinti da glifo, colore e parola insieme (§12). Le frasi senza citazione sono sottolineate dove stanno. La corrispondenza frase↔marcatore è in funzioni pure: **38 test Vitest** in più (116 in tutto). Provato contro l'API viva su `open_ragbench` e `ledger`. Dettaglio sotto. |
 
 ### U-00 â€” il contratto esiste in due linguaggi, e uno dei due si genera
 
@@ -1890,6 +1890,30 @@ Quando i verdetti sulla stessa fonte non concordano la pastiglia dice `misto` co
 
 L'ordine fra i due passaggi è deciso e conta: **`segmenta` prima, annotazione dentro i suoi pezzi.** Al contrario, un `$x[3]$` — un indice fra quadre dentro una formula, che in un corpus di paper esiste — verrebbe spezzato a metà e la formula non si comporrebbe più. La matematica ha la precedenza perché un suo errore rompe il disegno, mentre un marcatore mancato resta leggibile.
 
+#### Il verdetto NLI da solo era il verdetto sbagliato su `ledger`
+
+Questo non era nel piano: è uscito dalla prova dal vivo, ed è la ragione per cui la prova dal vivo si fa.
+
+Alla domanda sul capex di Sherwin-Williams il verdetto era `non sostiene`, punteggio 0,208. Stampando anche il campo `numeric` — che c'è nel contratto dal §3.5 e che la pastiglia non guardava:
+
+| | NLI (C-03) | numerico (C-09) |
+|---|---|---|
+| `ledger`, capex Sherwin-Williams | **non sostiene** 0,208 | **sostiene** |
+| `open_ragbench`, RMSE `[1]` | non sostiene 0,467 | `not_applicable` |
+| `open_ragbench`, RMSE `[2]` | non sostiene 0,183 | `not_applicable` |
+
+Il 222,8 **sta nella tabella citata**. Il verdetto NLI è sbagliato, e lo è per una ragione già scritta in `entailment.py`: su `ledger` **il 96,7% dei claim è numerico**, e un modello NLI addestrato su prosa non verifica un'asserzione numerica contro una tabella. È letteralmente perché C-09 esiste.
+
+Quindi mostrare solo `supported` avrebbe dato per verdetto ciò che il progetto stesso documenta come debole lì — su metà dei dataset, e nel punto dove U-07 promette che il verdetto si legge senza aprire niente. Non è ampliamento di scopo: è il criterio.
+
+**Si mostrano entrambi**, che è anche ciò che `schema.py` dichiara del campo (*additivo, non sostituisce `supported`*). Due pastiglie, non una scelta fra le due: scegliere sarebbe decidere in codice quale verificatore ha ragione, e quella è una misura, non un `if`.
+
+- La seconda pastiglia **non porta un punteggio**: C-09 confronta cifre, non produce una probabilità, e uno 0 direbbe il falso.
+- `not_applicable` **non produce nessuna pastiglia**: è il caso normale su un corpus di paper, e un'etichetta che compare quasi sempre non informa.
+- La parola dice **cosa ha guardato** — «la tabella lo conferma» — e non il nome del verificatore: «numerico» richiederebbe una legenda, la tabella no.
+
+E cambia il **titolo** del riepilogo. Se tutte le non sostenute sono confermate dal numerico, «non tutte le citazioni reggono» è la frase sbagliata: non è la citazione a non reggere, sono i due verificatori a non concordare. Il titolo diventa quello, il tono passa da attenzione a neutro, e il glifo è un `≠`. Un titolo che dicesse il contrario metterebbe in bocca all'interfaccia un giudizio che il progetto ha già misurato falso.
+
 #### Provato contro l'API viva, sui due corpus
 
 Non per vedere se disegna: per verificare che il presupposto del ritrovamento — *la frase che l'API manda è una sottostringa del testo, a marcatori tolti* — sia vero su ciò che Gemma scrive davvero e non solo nei casi che ho scritto io.
@@ -1899,13 +1923,14 @@ Non per vedere se disegna: per verificare che il presupposto del ritrovamento �
 | risposta | 2 frasi, 2 marcatori | 1 frase, 1 marcatore |
 | coppie verificate | 2 | 1 |
 | frasi ritrovate nel testo | **2 / 2** | **1 / 1** |
-| verdetti | `[1]` non sostiene 0,467 · `[2]` non sostiene 0,183 | `[5]` non sostiene 0,208 |
+| verdetti NLI | `[1]` non sostiene 0,467 · `[2]` non sostiene 0,183 | `[5]` non sostiene 0,208 |
+| verdetti numerici (C-09) | `not_applicable` su entrambe | **`sostiene`** — e vedi sopra |
 | tempi | retrieval 4,06 s · generation 19,33 s · verification 5,93 s | retrieval 0,17 s · generation 15,89 s · verification 9,05 s |
 
 > **La prima riga di tempi è a freddo, la seconda a caldo, e non si confrontano.** Il retrieval a 4,06 s include il caricamento del modello di embedding; a caldo la stessa domanda costa 0,17 s. È la trappola di A-05 per la quinta volta.
 
 Il caso `ledger` è più interessante di quanto sembri: la risposta è `... were $(222.8)$ million dollars [5].` — il modello riecheggia i delimitatori Mathpix del documento attorno a una cifra di bilancio. La frase citata attraversa quindi una formula, il testo si spezza in tre segmenti, e il `[5]` sta nell'ultimo: lo span della frase si ritaglia sui segmenti e il verdetto arriva dove deve. Era il caso che la macchinaria dei ritagli esisteva per non sbagliare.
 
-E per una volta i dati sono anche una piccola dimostrazione della tesi del §0: **tutte e tre le citazioni prodotte dal vivo non reggono**, con punteggi fra 0,18 e 0,47. Sono i numeri che C-01 misura in grande, visibili sullo schermo senza aprire niente — che è precisamente ciò che U-07 chiedeva.
+E i dati sono anche una piccola dimostrazione della tesi del §0: delle tre citazioni prodotte dal vivo **nessuna regge secondo l'NLI**, con punteggi fra 0,18 e 0,47 — e una delle tre regge invece secondo il verificatore numerico. Sono i numeri che C-01 misura in grande, visibili sullo schermo senza aprire niente, e il disaccordo fra i due verificatori è visibile insieme a loro: che è precisamente ciò che U-07 chiedeva, e un po' più di quanto chiedesse.
 
-`npm run typecheck && npm test && npm run build` verdi, **110 test Vitest**.
+`npm run typecheck && npm test && npm run build` verdi, **116 test Vitest**.

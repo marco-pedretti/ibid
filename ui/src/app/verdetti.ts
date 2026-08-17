@@ -228,27 +228,84 @@ export function esitoDellaScheda(r: Risposta, marker: number): EsitoScheda {
 
   const verdetti = marcati.map((m) => m.citazione).filter((c): c is CitationView => c !== null);
   if (verdetti.length === 0) return { tipo: "nonVerificata" };
+  return riassumi(verdetti.map((c) => ({ sostenuta: c.supported, punteggio: c.score })));
+}
 
-  const contrari = verdetti.filter((c) => !c.supported);
-  // Il punteggio mostrato e' quello della citazione **piu' vicina alla linea**:
-  // il minimo fra le sostenute (quella che quasi non ce la faceva), il massimo
-  // fra le contrarie (quella che quasi ce la faceva). In entrambi i casi e' il
-  // numero che dice qualcosa; una media di verdetti opposti non direbbe niente.
-  if (contrari.length === 0) {
+/**
+ * Da piu' verdetti sulla stessa fonte a uno, o alla dichiarazione che non
+ * concordano.
+ *
+ * Il punteggio mostrato e' quello della citazione **piu' vicina alla linea**: il
+ * minimo fra le sostenute (quella che quasi non ce la faceva), il massimo fra le
+ * contrarie (quella che quasi ce la faceva). In entrambi i casi e' il numero che
+ * dice qualcosa; una media di verdetti opposti non direbbe niente.
+ */
+function riassumi(
+  coppie: readonly { sostenuta: boolean; punteggio: number }[],
+): { tipo: "sostiene" | "nonSostiene"; punteggio: number; su: number } | { tipo: "misto"; nonSostengono: number; su: number } {
+  const contrarie = coppie.filter((c) => !c.sostenuta);
+  if (contrarie.length === 0) {
     return {
       tipo: "sostiene",
-      punteggio: Math.min(...verdetti.map((c) => c.score)),
-      su: verdetti.length,
+      punteggio: Math.min(...coppie.map((c) => c.punteggio)),
+      su: coppie.length,
     };
   }
-  if (contrari.length === verdetti.length) {
+  if (contrarie.length === coppie.length) {
     return {
       tipo: "nonSostiene",
-      punteggio: Math.max(...verdetti.map((c) => c.score)),
-      su: verdetti.length,
+      punteggio: Math.max(...coppie.map((c) => c.punteggio)),
+      su: coppie.length,
     };
   }
-  return { tipo: "misto", nonSostengono: contrari.length, su: verdetti.length };
+  return { tipo: "misto", nonSostengono: contrarie.length, su: coppie.length };
+}
+
+/** Il verdetto del verificatore numerico di C-09, quando ha giudicato. */
+export type EsitoNumerico =
+  | { tipo: "sostiene"; su: number }
+  | { tipo: "nonSostiene"; su: number }
+  | { tipo: "misto"; nonSostengono: number; su: number };
+
+/** I due esiti che il verificatore numerico produce quando sa giudicare. Fuori
+ *  da questi c'e' `not_applicable`, che non e' un verdetto: e' «non c'era una
+ *  tabella, o non c'erano numeri». */
+const GIUDICATO = new Set(["supported", "unsupported"]);
+
+/**
+ * Il verdetto **numerico** di una scheda, e perche' non sostituisce l'altro.
+ *
+ * C-09 esiste per una ragione misurata: su `ledger` **il 96,7% dei claim e'
+ * numerico**, e un modello NLI addestrato su prosa non verifica un'asserzione
+ * numerica contro una tabella. Visto dal vivo il 17 agosto: alla domanda sul
+ * capex di Sherwin-Williams l'NLI dava `non sostiene` a 0,208 mentre il
+ * verificatore numerico trovava il 222,8 **dentro la tabella citata**.
+ *
+ * Mostrare solo il primo darebbe per verdetto cio' che il progetto stesso
+ * documenta come debole li'. Mostrare solo il secondo perderebbe le citazioni di
+ * prosa. Quindi si mostrano **entrambi**, che e' anche cio' che `schema.py`
+ * dichiara del campo: additivo, non sostituisce `supported`.
+ *
+ * `null` quando il verificatore numerico non ha giudicato niente qui — e non si
+ * disegna una pastiglia per dirlo: «non applicabile» e' il caso normale su un
+ * corpus di paper, e un'etichetta che compare quasi sempre non informa.
+ */
+export function esitoNumericoDellaScheda(r: Risposta, marker: number): EsitoNumerico | null {
+  if (statoVerifica(r) !== "fatta") return null;
+  const giudizi = marcatoriDelTesto(r)
+    .filter((m) => m.marker === marker && m.citazione !== null)
+    .map((m) => m.citazione as CitationView)
+    .filter((c) => GIUDICATO.has(c.numeric));
+  if (giudizi.length === 0) return null;
+
+  const riassunto = riassumi(
+    giudizi.map((c) => ({ sostenuta: c.numeric === "supported", punteggio: 0 })),
+  );
+  // Il verificatore numerico non produce un punteggio: e' un confronto fra
+  // numeri, non una probabilita'. Portarlo a 0 e mostrarlo direbbe il falso.
+  return riassunto.tipo === "misto"
+    ? riassunto
+    : { tipo: riassunto.tipo, su: riassunto.su };
 }
 
 /**
@@ -265,6 +322,18 @@ export function esitoDellaScheda(r: Risposta, marker: number): EsitoScheda {
 export interface Riepilogo {
   /** I marcatori che non reggono, in ordine, una volta ciascuno. */
   nonSostengono: number[];
+  /** Quante **occorrenze** hanno verdetto NLI negativo. Non e' la lunghezza di
+   *  `nonSostengono`: quello e' l'elenco dei marcatori, deduplicato. */
+  nonSostenute: number;
+  /**
+   * Di quelle, quante il verificatore numerico di C-09 **conferma invece**.
+   *
+   * E' il dato che decide come si intitola il riepilogo: se tutte le non
+   * sostenute sono confermate dal numerico, «non tutte le citazioni reggono» e'
+   * la frase sbagliata — non e' la citazione a non reggere, sono i due
+   * verificatori a non concordare, e su una tabella quello giusto e' il secondo.
+   */
+  discordanti: number;
   /** Quante frasi non citano niente: il denominatore nascosto della precisione. */
   senzaCitazione: number;
   /** Quante occorrenze sono rimaste senza verdetto. */
@@ -275,12 +344,18 @@ export function riepilogo(r: Risposta): Riepilogo | null {
   if (statoVerifica(r) !== "fatta") return null;
 
   const marcati = marcatoriDelTesto(r);
-  const nonSostengono = [
-    ...new Set(marcati.filter((m) => m.esito === "nonSostiene").map((m) => m.marker)),
-  ];
+  const contrarie = marcati.filter((m) => m.esito === "nonSostiene");
+  const nonSostengono = [...new Set(contrarie.map((m) => m.marker))];
+  const discordanti = contrarie.filter((m) => m.citazione?.numeric === "supported").length;
   const nonVerificate = marcati.filter((m) => m.esito === "nonVerificata").length;
   const senzaCitazione = r.senzaCitazione.length;
 
-  if (nonSostengono.length === 0 && nonVerificate === 0 && senzaCitazione === 0) return null;
-  return { nonSostengono, senzaCitazione, nonVerificate };
+  if (contrarie.length === 0 && nonVerificate === 0 && senzaCitazione === 0) return null;
+  return {
+    nonSostengono,
+    nonSostenute: contrarie.length,
+    discordanti,
+    senzaCitazione,
+    nonVerificate,
+  };
 }

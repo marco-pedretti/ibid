@@ -176,6 +176,22 @@ export function NonCitata(p: PropsIcona) {
   );
 }
 
+/**
+ * I due verificatori non concordano: `≠`.
+ *
+ * Non e' un terzo verdetto, e' la dichiarazione che ce ne sono due e dicono cose
+ * diverse — su una tabella l'NLI di C-03 sbaglia e il verificatore numerico di
+ * C-09 no, ed e' esattamente perche' C-09 esiste. Un simbolo di disuguaglianza
+ * dice quella cosa e nessun'altra.
+ */
+export function Discordi(p: PropsIcona) {
+  return (
+    <Base {...p}>
+      <path d="M3.6 6.4 L12.4 6.4 M3.6 9.6 L12.4 9.6 M11 3.4 L5 12.6" />
+    </Base>
+  );
+}
+
 /** La verifica sta girando: un punto, come il `·` del mockup. */
 export function InAttesa(p: PropsIcona) {
   return (

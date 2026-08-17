@@ -111,13 +111,25 @@ export const it = {
   "verdict.score": "punteggio di implicazione",
   "verdict.count": "frasi sostenute su frasi che citano questa fonte",
 
+  // Il verificatore numerico di C-09, **accanto** a quello NLI e non al suo posto.
+  // La parola dice cosa ha guardato e non il nome del verificatore: «numerico»
+  // richiederebbe una legenda, «la tabella» no.
+  "verdict.numeric.supported": "la tabella lo conferma",
+  "verdict.numeric.unsupported": "la tabella non lo conferma",
+  "verdict.numeric.mixed": "la tabella non conferma {quante} su {su}",
+  "verdict.numeric.what":
+    "verifica numerica sulle tabelle (C-09): confronta le cifre della frase con quelle della tabella citata",
+
   // Il riepilogo sotto la risposta: e' qui che il verdetto diventa una **frase**,
   // e non un ornamento -- il §12 chiede glifo, colore e parola insieme, e sul
   // marcatore in mezzo alla prosa ci stanno solo i primi due.
   "report.title.unsupported": "Non tutte le citazioni reggono.",
   "report.title.uncited": "Qualche frase non cita nessuna fonte.",
   "report.title.unverified": "Non tutti i marcatori hanno un verdetto.",
+  "report.title.disagreement": "I due verificatori non concordano.",
   "report.marks": "Non sostenute: {marcatori}.",
+  "report.numeric":
+    "Di queste, {quante} sono confermate dalla verifica numerica: la cifra sta nella tabella citata, ma il modello NLI non la vede. Su tabelle vale il secondo verificatore — il 96,7% dei claim di questo corpus è numerico, ed è la ragione per cui C-09 esiste.",
   "report.uncited": "Frasi senza citazione: {quante}, sottolineate nel testo.",
   "report.unverified":
     "Citazioni senza verdetto: {quante}. La verifica non ha girato, o la frase era troppo corta perché «il chunk la sostiene?» avesse una risposta.",
@@ -215,10 +227,19 @@ export const en: Record<Chiave, string> = {
   "verdict.score": "entailment score",
   "verdict.count": "supported sentences out of sentences citing this source",
 
+  "verdict.numeric.supported": "the table confirms it",
+  "verdict.numeric.unsupported": "the table does not confirm it",
+  "verdict.numeric.mixed": "the table does not confirm {quante} of {su}",
+  "verdict.numeric.what":
+    "numeric verification over tables (C-09): matches the figures in the sentence against the cited table",
+
   "report.title.unsupported": "Not every citation holds up.",
   "report.title.uncited": "Some sentences cite no source.",
   "report.title.unverified": "Not every marker has a verdict.",
+  "report.title.disagreement": "The two verifiers disagree.",
   "report.marks": "Not supported: {marcatori}.",
+  "report.numeric":
+    "Of those, {quante} are confirmed by numeric verification: the figure is in the cited table, but the NLI model does not see it. On tables the second verifier is the one that holds — 96.7% of this corpus’s claims are numeric, which is why C-09 exists.",
   "report.uncited": "Sentences with no citation: {quante}, underlined in the text.",
   "report.unverified":
     "Citations with no verdict: {quante}. Verification did not run, or the sentence was too short for “does the chunk support this?” to have an answer.",

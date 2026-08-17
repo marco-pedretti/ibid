@@ -507,6 +507,8 @@ Ricavate disegnando quattro schermate prima di scrivere React. Quelle che vincol
 
 > **L'unità del verdetto è la coppia (frase, chunk), non il marcatore.** Lo stesso `[3]` può comparire in tre frasi e reggerne due; un verdetto per marcatore aggregherebbe la granularità che l'affermazione 1 del §0 esiste per misurare. Ne segue che il frontend deve sapere **dove finiscono le frasi** — e le ritrova invece di ritagliarle, perché una seconda copia di `split_claims` in TypeScript è precisamente ciò che U-00 vieta.
 
+> **Dove ci sono due verificatori, mostrarne uno è mostrare quello sbagliato.** `numeric` è additivo per contratto (§3.5, `schema.py`), e la pastiglia deve mostrarlo **accanto** a `supported`, non al suo posto: su `ledger` il 96,7% dei claim è numerico e l'NLI di C-03 non verifica un'asserzione numerica contro una tabella. Misurato dal vivo il 2026-08-17: capex di Sherwin-Williams, NLI «non sostiene» a 0,208, numerico che trova la cifra dentro la tabella citata. Sceglierne uno in codice sarebbe decidere quale verificatore ha ragione, e quella è una misura, non un `if`.
+
 **I parametri di retrieval stanno sotto «Avanzate»**, chiusi. Un muro di manopole mostra l'ablation, che è il lavoro della dashboard. Restano sempre leggibili in «Dettagli della run», così la configurazione che ha girato non è mai un mistero.
 
 **Il riferimento visivo è [`docs/ui-mockup.html`](docs/ui-mockup.html), ed è vincolante.** Non è un'illustrazione: è dove palette, tipografia e forme sono state decise, e ogni task U-xx ne eredita i token invece di sceglierne di propri. Tre cose in particolare non si cambiano senza dirlo:

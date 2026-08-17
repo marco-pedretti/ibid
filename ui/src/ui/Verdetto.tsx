@@ -18,7 +18,7 @@
 import type { ReactNode } from "react";
 
 import { usaLingua } from "../app/i18n";
-import type { Esito, EsitoScheda, Marcato } from "../app/verdetti";
+import type { Esito, EsitoNumerico, EsitoScheda, Marcato } from "../app/verdetti";
 import type { Chiave } from "../i18n/strings";
 import { InAttesa, NonCitata, NonSostiene, NonVerificata, Sostiene } from "./Icona";
 import type { PropsIcona } from "./Icona";
@@ -168,15 +168,48 @@ function dettaglioDi(
   };
 }
 
+const PASTIGLIA =
+  "inline-flex items-center gap-[5px] rounded border px-1.5 py-px font-mono text-[10px] tabular-nums";
+
+/**
+ * Il verdetto **numerico** di C-09, accanto a quello dell'NLI e non al suo posto.
+ *
+ * `schema.py` lo dichiara additivo, e la ragione e' misurata: su `ledger` il
+ * 96,7% dei claim e' numerico, e un modello NLI addestrato su prosa non verifica
+ * un'asserzione numerica contro una tabella. Visto dal vivo il 17 agosto — capex
+ * di Sherwin-Williams, NLI «non sostiene» a 0,208, numerico che trova il 222,8
+ * **dentro la tabella citata**: mostrando solo il primo si darebbe per verdetto
+ * cio' che il progetto stesso documenta come debole li'.
+ *
+ * La parola dice **cosa** ha guardato («la tabella lo conferma») e non il nome del
+ * verificatore: «numerico» richiederebbe una legenda, la tabella no.
+ */
+export function VerdettoNumerico({ esito }: { esito: EsitoNumerico }) {
+  const { t } = usaLingua();
+  const Glifo = esito.tipo === "sostiene" ? Sostiene : NonSostiene;
+  const parola =
+    esito.tipo === "misto"
+      ? t("verdict.numeric.mixed", { quante: esito.nonSostengono, su: esito.su })
+      : t(`verdict.numeric.${esito.tipo === "sostiene" ? "supported" : "unsupported"}`);
+
+  return (
+    <span
+      className={`${PASTIGLIA} ${esito.tipo === "sostiene" ? TONO.ok : TONO.warn}`}
+      title={t("verdict.numeric.what")}
+    >
+      <Glifo size={11} />
+      <span>{parola}</span>
+    </span>
+  );
+}
+
 export function Verdetto({ esito }: { esito: EsitoScheda }) {
   const { t, lingua } = usaLingua();
   const { glifo: Glifo, tono } = FORMA[esito.tipo];
   const dettaglio = dettaglioDi(esito, lingua === "it" ? "it-IT" : "en-US", t);
 
   return (
-    <span
-      className={`inline-flex items-center gap-[5px] rounded border px-1.5 py-px font-mono text-[10px] tabular-nums ${TONO[tono]}`}
-    >
+    <span className={`${PASTIGLIA} ${TONO[tono]}`}>
       <Glifo size={11} />
       <span>{parolaDelVerdetto(esito, t)}</span>
       {dettaglio !== null && (

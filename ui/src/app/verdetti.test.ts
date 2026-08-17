@@ -5,6 +5,7 @@ import { inizio } from "./conversazione";
 import type { Risposta } from "./conversazione";
 import {
   esitoDellaScheda,
+  esitoNumericoDellaScheda,
   localizza,
   marcatoriDelTesto,
   riepilogo,
@@ -13,8 +14,14 @@ import {
 } from "./verdetti";
 
 /** Una citazione come la manda l'API: `claim` e' la frase **senza** marcatori. */
-function cit(marker: number, claim: string, supported: boolean, score = 0.5): CitationView {
-  return { marker, chunk_id: `d:${marker}`, claim, supported, score, numeric: "" };
+function cit(
+  marker: number,
+  claim: string,
+  supported: boolean,
+  score = 0.5,
+  numeric = "not_applicable",
+): CitationView {
+  return { marker, chunk_id: `d:${marker}`, claim, supported, score, numeric };
 }
 
 /** Una risposta a testo definitivo e verifica conclusa: il caso di U-07. */
@@ -255,7 +262,13 @@ describe("riepilogo: la parola, che e' il terzo terzo della regola del §12", ()
       cit(3, "Il minimo e' 12ms.", false, 0.1),
       cit(4, "Il minimo e' 12ms.", true, 0.9),
     ]);
-    expect(riepilogo(r)).toEqual({ nonSostengono: [3], senzaCitazione: 0, nonVerificate: 0 });
+    expect(riepilogo(r)).toEqual({
+      nonSostengono: [3],
+      nonSostenute: 2,
+      discordanti: 0,
+      senzaCitazione: 0,
+      nonVerificate: 0,
+    });
   });
 
   it("conta le frasi scoperte anche quando ogni citazione regge", () => {
@@ -264,7 +277,13 @@ describe("riepilogo: la parola, che e' il terzo terzo della regola del §12", ()
       [cit(1, "Il massimo e' 400ms.", true, 0.8)],
       ["Entrambi sul campione trattenuto."],
     );
-    expect(riepilogo(r)).toEqual({ nonSostengono: [], senzaCitazione: 1, nonVerificate: 0 });
+    expect(riepilogo(r)).toEqual({
+      nonSostengono: [],
+      nonSostenute: 0,
+      discordanti: 0,
+      senzaCitazione: 1,
+      nonVerificate: 0,
+    });
   });
 
   it("non dice niente finche' i verdetti non ci sono", () => {
@@ -276,5 +295,63 @@ describe("riepilogo: la parola, che e' il terzo terzo della regola del §12", ()
       verificaInCorso: true,
     };
     expect(riepilogo(r)).toBeNull();
+  });
+});
+describe("il verificatore numerico di C-09, accanto e non al posto dell'altro", () => {
+  // Il caso vero, misurato il 17 agosto sul capex di Sherwin-Williams: l'NLI dice
+  // «non sostiene» a 0,208, il verificatore numerico trova la cifra **dentro la
+  // tabella citata**. Mostrare solo il primo darebbe per verdetto cio' che il
+  // progetto stesso documenta come debole sulle tabelle.
+  const testo = "Le spese in conto capitale nel 2017 sono state 222,8 milioni [5].";
+  const claim = "Le spese in conto capitale nel 2017 sono state 222,8 milioni.";
+
+  it("dice «la tabella conferma» dove l'NLI dice «non sostiene»", () => {
+    const r = verificata(testo, [cit(5, claim, false, 0.208, "supported")]);
+    expect(esitoDellaScheda(r, 5)).toEqual({ tipo: "nonSostiene", punteggio: 0.208, su: 1 });
+    expect(esitoNumericoDellaScheda(r, 5)).toEqual({ tipo: "sostiene", su: 1 });
+  });
+
+  it("`not_applicable` non e' un verdetto e non produce una pastiglia", () => {
+    // E' il caso normale su un corpus di paper: un'etichetta che compare quasi
+    // sempre non informa.
+    const r = verificata(testo, [cit(5, claim, true, 0.9, "not_applicable")]);
+    expect(esitoNumericoDellaScheda(r, 5)).toBeNull();
+  });
+
+  it("non porta un punteggio, perche' non ne produce uno", () => {
+    // E' un confronto fra numeri, non una probabilita': mostrare uno 0 direbbe
+    // il falso.
+    const r = verificata(testo, [cit(5, claim, false, 0.2, "unsupported")]);
+    expect(esitoNumericoDellaScheda(r, 5)).toEqual({ tipo: "nonSostiene", su: 1 });
+  });
+
+  it("finche' i verdetti non ci sono, non c'e' nemmeno quello numerico", () => {
+    const r: Risposta = {
+      ...inizio(),
+      fase: "risposta",
+      testo,
+      definitivo: true,
+      verificaInCorso: true,
+    };
+    expect(esitoNumericoDellaScheda(r, 5)).toBeNull();
+  });
+
+  it("il riepilogo conta le discordanti, che decidono come si intitola", () => {
+    // Se tutte le non sostenute sono confermate dal numerico, «non tutte le
+    // citazioni reggono» e' la frase sbagliata: non e' la citazione a non
+    // reggere, sono i due verificatori a non concordare.
+    const r = verificata(testo, [cit(5, claim, false, 0.208, "supported")]);
+    expect(riepilogo(r)).toEqual({
+      nonSostengono: [5],
+      nonSostenute: 1,
+      discordanti: 1,
+      senzaCitazione: 0,
+      nonVerificate: 0,
+    });
+  });
+
+  it("una non sostenuta che il numerico nemmeno conferma non e' discordante", () => {
+    const r = verificata(testo, [cit(5, claim, false, 0.208, "unsupported")]);
+    expect(riepilogo(r)?.discordanti).toBe(0);
   });
 });

@@ -25,6 +25,7 @@ import type { Scambio } from "../app/chat";
 import {
   Astensione,
   Avvertimento,
+  Discordi,
   FrecciaSu,
   NonCitata,
   NonSostiene,
@@ -235,15 +236,30 @@ function Verdetti({ riepilogo: r }: { riepilogo: Riepilogo | null }) {
   const { t } = usaLingua();
   if (r === null) return null;
 
+  // Se **tutte** le non sostenute sono confermate dal verificatore numerico, «non
+  // tutte le citazioni reggono» e' la frase sbagliata: non e' la citazione a non
+  // reggere, sono i due verificatori a non concordare — e su una tabella quello
+  // giusto e' il secondo. Un titolo che dicesse il contrario metterebbe in bocca
+  // all'interfaccia un giudizio che il progetto stesso ha misurato falso.
   const grave =
-    r.nonSostengono.length > 0 ? "unsupported" : r.senzaCitazione > 0 ? "uncited" : "unverified";
-  const Glifo = { unsupported: NonSostiene, uncited: NonCitata, unverified: NonVerificata }[grave];
+    r.nonSostenute > 0 && r.discordanti === r.nonSostenute ? "disagreement"
+    : r.nonSostenute > 0 ? "unsupported"
+    : r.senzaCitazione > 0 ? "uncited"
+    : "unverified";
+
+  const Glifo = {
+    disagreement: Discordi,
+    unsupported: NonSostiene,
+    uncited: NonCitata,
+    unverified: NonVerificata,
+  }[grave];
 
   return (
     <Avviso
-      // «Non verificata» non e' un rilievo: e' una misura che non e' stata fatta,
-      // e un fondo d'attenzione la trasformerebbe in un guasto.
-      tono={grave === "unverified" ? "neutro" : "attenzione"}
+      // «Non verificata» e «i due non concordano» non sono rilievi: la prima e'
+      // una misura che non e' stata fatta, la seconda un limite noto del
+      // verificatore di prosa. Un fondo d'attenzione le trasformerebbe in guasti.
+      tono={grave === "unverified" || grave === "disagreement" ? "neutro" : "attenzione"}
       icona={<Glifo size={13} />}
       titolo={t(`report.title.${grave}`)}
     >
@@ -251,6 +267,9 @@ function Verdetti({ riepilogo: r }: { riepilogo: Riepilogo | null }) {
         <span className="block">
           {t("report.marks", { marcatori: r.nonSostengono.map((n) => `[${n}]`).join(" ") })}
         </span>
+      )}
+      {r.discordanti > 0 && (
+        <span className="block">{t("report.numeric", { quante: r.discordanti })}</span>
       )}
       {r.senzaCitazione > 0 && (
         <span className="block">{t("report.uncited", { quante: r.senzaCitazione })}</span>
