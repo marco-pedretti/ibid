@@ -1,28 +1,31 @@
 /**
- * L'elenco delle conversazioni, nella corsia.
+ * Le conversazioni di questo browser, nella corsia.
  *
- * **«Nuova conversazione» e' la prima voce, non un pulsante accanto.** E' la
- * forma del mockup (`.crono-voce.attiva`), e regge per una ragione che si vede
- * provando l'alternativa: un pulsante che dice «Nuova conversazione» sopra una
- * voce attiva che dice «Nuova conversazione» sono due controlli con le stesse
- * parole, uno sull'altro, e nessuno dei due dice quale dei due si sta usando.
- * Come voce invece la regola e' una sola — **ogni riga porta in una
- * conversazione**, e la prima porta in una che non esiste ancora. Il segno `+`
- * la distingue: e' l'unica che crea.
+ * **«Nuova conversazione» ha la forma delle azioni della corsia**, quella che nel
+ * mockup ha «Esplora il corpus» (`.bottone-esplora`): bordo e testo d'accento su
+ * fondo accento tenue. Come riga della cronologia era leggibile ma piatta — la
+ * voce piu' usata della corsia aveva lo stesso peso della meno usata — e non e'
+ * un'eccezione decorativa: e' l'unico controllo qui che **crea** invece di
+ * riportare, e nel §12 l'accento e' il colore di cio' che si opera. Il segno `+`
+ * resta, ed e' cio' che la distinguera' da «Esplora il corpus» quando saranno una
+ * sopra l'altra.
  *
- * **Non compare quando la cronologia e' vuota**, tranne la prima voce: al primo
- * avvio ci sarebbero un'etichetta, una riga sola e una dichiarazione di
- * localita' su niente. La frase «solo in questo browser» arriva insieme alla
- * prima cosa che si puo' perdere.
+ * Ne segue che una conversazione **vuota non ha una voce sua**: il bottone e' il
+ * suo posto, e due controlli con le stesse parole uno sull'altro non direbbero
+ * quale si sta usando.
  *
- * **Le voci non rispondono mentre una risposta arriva.** Non sono `disabled`:
- * un elemento disabilitato non riceve gli eventi del puntatore, quindi il
- * suggerimento che spiega **perche'** non si aprirebbe — cioe' l'unica cosa
- * utile in quei secondi. `aria-disabled` lo dice a chi ascolta, il tono
- * attenuato a chi guarda, e il clic e' una guardia nel provider.
+ * **L'elenco compare quando c'e' qualcosa dentro.** Al primo avvio ci sarebbero
+ * un'etichetta e il vuoto; il bottone invece c'e' sempre, perche' e' un comando e
+ * non un riepilogo.
  *
- * **Il titolo e' la prima domanda, troncata.** In 176 px ci stanno ~28
- * caratteri: il suggerimento non spiega niente, mostra cio' che il taglio ha
+ * **Le voci non rispondono mentre una risposta arriva.** Non sono `disabled`: un
+ * elemento disabilitato non riceve gli eventi del puntatore, quindi il
+ * suggerimento che spiega **perche'** non si aprirebbe — cioe' l'unica cosa utile
+ * in quei secondi. `aria-disabled` lo dice a chi ascolta, il tono attenuato a chi
+ * guarda, e il clic e' una guardia nel provider.
+ *
+ * **Il titolo di una voce e' la prima domanda, troncata.** In 176 px ci stanno
+ * ~28 caratteri: il suggerimento non spiega niente, mostra cio' che il taglio ha
  * nascosto — la stessa regola del nome del documento nel pannello fonti.
  */
 import type { ReactNode } from "react";
@@ -37,111 +40,128 @@ import { Suggerimento } from "./Suggerimento";
 
 export function Cronologia() {
   const { t } = usaLingua();
-  const { conversazioni, corrente, occupato, nuova } = usaChat();
-
-  const aperta = conversazioni.find((c) => c.id === corrente) ?? null;
-  // Comprende quella aperta, se ha almeno una domanda: la voce attiva e' una
-  // voce, non una riga a parte.
+  const { conversazioni, corrente } = usaChat();
   const voci = conversazioni.filter((c) => !vuota(c));
 
   return (
-    <section className="flex min-h-0 flex-1 flex-col">
-      <div className="mb-[7px] px-1">
-        <Etichetta>{t("history.title")}</Etichetta>
-      </div>
-
-      {/* La voce «Nuova conversazione» sta **dentro** il landmark con le altre:
-          porta in una conversazione come loro, e chi naviga per landmark la
-          troverebbe solo qui. Resta pero' fuori dal contenitore che scorre —
-          un comando che scorre via e' un comando da cercare. */}
-      <nav aria-label={t("history.title")} className="flex min-h-0 flex-1 flex-col">
-        <Voce
-          testo={t("history.new")}
-          icona={<Piu size={11} />}
-          // Attiva quando la conversazione aperta non ha ancora domande: e'
-          // letteralmente quella conversazione, e non una scorciatoia per
-          // crearne un'altra.
-          attiva={aperta === null || vuota(aperta)}
-          bloccata={occupato}
-          suggerimento={occupato ? t("history.busy") : null}
-          onClick={nuova}
-        />
-
-        {/* Scorre l'elenco, non la corsia: la tendina del dataset sta sopra e
-            fuori da qui, quindi nessun contenitore di scorrimento la puo'
-            ritagliare. */}
-        <div className="mt-px flex min-h-0 flex-1 flex-col gap-px overflow-y-auto">
-          {voci.map((c) => (
-            <VoceDi key={c.id} conversazione={c} attiva={c.id === corrente} />
-          ))}
-        </div>
-      </nav>
+    <>
+      <BottoneNuova />
 
       {voci.length > 0 && (
-        <Suggerimento
-          testo={t("history.local.hint")}
-          className="mt-2 block px-1 text-[9.5px] leading-[1.4] text-muted"
-        >
-          {t("history.local")}
-        </Suggerimento>
+        <section className="flex min-h-0 flex-1 flex-col">
+          <div className="mb-[7px] px-1">
+            <Etichetta>{t("history.title")}</Etichetta>
+          </div>
+
+          {/* Scorre l'elenco, non la corsia: la tendina del dataset sta sopra e
+              fuori da qui, quindi nessun contenitore di scorrimento la puo'
+              ritagliare. */}
+          <nav
+            aria-label={t("history.title")}
+            className="flex min-h-0 flex-1 flex-col gap-px overflow-y-auto"
+          >
+            {voci.map((c) => (
+              <Voce key={c.id} conversazione={c} attiva={c.id === corrente} />
+            ))}
+          </nav>
+
+          <Suggerimento
+            testo={t("history.local.hint")}
+            className="mt-2 block px-1 text-[9.5px] leading-[1.4] text-muted"
+          >
+            {t("history.local")}
+          </Suggerimento>
+        </section>
       )}
-    </section>
+    </>
   );
 }
 
-function VoceDi({ conversazione, attiva }: { conversazione: Conversazione; attiva: boolean }) {
+/** Le misure sono quelle di `.bottone-esplora` nel mockup: 12 px, raggio 7,
+ *  padding 8/10, e il glifo staccato di 7. Niente stato al passaggio, come il
+ *  bottone d'invio della chat: un'azione d'accento e' gia' la cosa piu' visibile
+ *  della corsia. */
+function BottoneNuova() {
+  const { t } = usaLingua();
+  const { occupato, nuova } = usaChat();
+
+  return (
+    <Attivabile
+      bloccato={occupato}
+      suggerimento={occupato ? t("history.busy") : null}
+      onClick={nuova}
+      className="flex w-full items-center gap-[7px] rounded-[7px] border border-accent bg-accent-soft px-2.5 py-2 text-left text-[12px] font-medium text-accent"
+    >
+      <Piu size={12} />
+      <span className="truncate">{t("history.new")}</span>
+    </Attivabile>
+  );
+}
+
+/** Una voce dell'elenco: le misure sono quelle di `.crono-voce` nel mockup —
+ *  11,5 px, l'attiva su `surface-2` con l'inchiostro pieno, le altre attenuate. */
+function Voce({ conversazione, attiva }: { conversazione: Conversazione; attiva: boolean }) {
   const { t } = usaLingua();
   const { occupato, apri } = usaChat();
   const titolo = titoloDi(conversazione) ?? t("history.new");
 
   return (
-    <Voce
-      testo={titolo}
-      attiva={attiva}
-      bloccata={occupato}
+    <Attivabile
+      bloccato={occupato}
       suggerimento={occupato ? t("history.busy") : titolo}
       onClick={() => apri(conversazione.id)}
-    />
+      attiva={attiva}
+      className={`w-full truncate rounded-md px-2 py-1.5 text-left text-[11.5px] transition-colors ${
+        attiva ? "bg-surface-2 font-medium text-ink"
+        : occupato ? "text-ink-2"
+        : "text-ink-2 hover:bg-surface-2"
+      }`}
+    >
+      {titolo}
+    </Attivabile>
   );
 }
 
-/** Le misure sono quelle del mockup: 11,5 px, la voce attiva su `surface-2`
- *  con l'inchiostro pieno, le altre attenuate. */
-function Voce({
-  testo,
-  attiva,
-  bloccata,
+/**
+ * Un comando della corsia: bloccabile senza essere `disabled`, e col suo
+ * suggerimento quando ne ha uno.
+ *
+ * `disabled` toglierebbe gli eventi del puntatore, e con loro la spiegazione di
+ * perche' non risponde. Qui il tono lo dice a chi guarda, `aria-disabled` a chi
+ * ascolta, e il clic non fa niente.
+ */
+function Attivabile({
+  bloccato,
   suggerimento,
-  icona,
+  attiva = false,
   onClick,
+  className,
+  children,
 }: {
-  testo: string;
-  attiva: boolean;
-  bloccata: boolean;
+  bloccato: boolean;
   suggerimento: string | null;
-  icona?: ReactNode;
+  attiva?: boolean;
   onClick: () => void;
+  className: string;
+  children: ReactNode;
 }) {
   const bottone = (
     <button
       type="button"
       aria-current={attiva ? "true" : undefined}
-      aria-disabled={bloccata ? true : undefined}
+      aria-disabled={bloccato ? true : undefined}
       onClick={() => {
-        if (!bloccata) onClick();
+        if (!bloccato) onClick();
       }}
-      className={`flex w-full items-center gap-1.5 rounded-md px-2 py-1.5 text-left text-[11.5px] transition-colors ${
-        attiva ? "bg-surface-2 font-medium text-ink" : "text-ink-2"
-      } ${bloccata ? "cursor-not-allowed opacity-50" : attiva ? "" : "hover:bg-surface-2"}`}
+      className={`${className} ${bloccato ? "cursor-not-allowed opacity-50" : ""}`}
     >
-      {icona}
-      <span className="truncate">{testo}</span>
+      {children}
     </button>
   );
 
   if (suggerimento === null) return bottone;
   return (
-    <Suggerimento testo={suggerimento} fuoco={false} className="block">
+    <Suggerimento testo={suggerimento} fuoco={false} className="block min-w-0">
       {bottone}
     </Suggerimento>
   );
