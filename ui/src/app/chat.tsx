@@ -21,13 +21,7 @@ import type { ReactNode } from "react";
 import { streamQuery } from "../api/sse";
 import { usaDataset } from "./dataset";
 import { applica, guasto, inizio, interrompi } from "./conversazione";
-import type { Risposta } from "./conversazione";
-
-export interface Scambio {
-  id: string;
-  domanda: string;
-  risposta: Risposta;
-}
+import type { Risposta, Scambio } from "./conversazione";
 
 interface Chat {
   scambi: Scambio[];

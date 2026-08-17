@@ -64,6 +64,19 @@ export interface Risposta {
   errore: { message: string; stage: string } | null;
 }
 
+/**
+ * Una domanda e la sua risposta.
+ *
+ * Sta qui e non nel provider perche' e' **un dato**, non uno stato di React: da
+ * U-13 in poi va anche serializzato in `localStorage`, e il modulo che lo salva
+ * non deve dipendere da un file `.tsx` per conoscerne la forma.
+ */
+export interface Scambio {
+  id: string;
+  domanda: string;
+  risposta: Risposta;
+}
+
 export function inizio(): Risposta {
   return {
     fase: "attesa",
