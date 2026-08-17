@@ -24,9 +24,21 @@ function leggiLingua(): Lingua {
   return navigator.language.toLowerCase().startsWith("it") ? "it" : "en";
 }
 
+/** I valori da mettere al posto dei `{nome}` di una frase. */
+export type Valori = Record<string, string | number>;
+
 interface Traduzione {
   lingua: Lingua;
-  t: (chiave: Chiave) => string;
+  /**
+   * `t("verdict.mixed", { quante: 1, su: 3 })`.
+   *
+   * L'interpolazione esiste perche' l'alternativa e' comporre la frase a pezzi
+   * nel componente — `t("a") + n + t("b")` — e una frase composta a pezzi non si
+   * traduce: l'ordine delle parti e' quello dell'italiano, e in un'altra lingua
+   * il numero puo' andare altrove. Tenendo il segnaposto **dentro** la stringa,
+   * chi traduce vede la frase intera e la puo' rigirare.
+   */
+  t: (chiave: Chiave, valori?: Valori) => string;
   imposta: (l: Lingua) => void;
 }
 
@@ -41,7 +53,18 @@ export function ProvvedeLingua({ children }: { children: ReactNode }) {
     document.documentElement.lang = lingua;
   }, [lingua]);
 
-  const t = useCallback((chiave: Chiave) => DIZIONARI[lingua][chiave], [lingua]);
+  const t = useCallback(
+    (chiave: Chiave, valori?: Valori) => {
+      const frase = DIZIONARI[lingua][chiave];
+      if (valori === undefined) return frase;
+      // Un segnaposto senza valore resta scritto com'e': una frase con `{su}`
+      // dentro si vede, mentre un buco al suo posto passa inosservato.
+      return frase.replace(/\{(\w+)\}/g, (intero, nome: string) =>
+        nome in valori ? String(valori[nome]) : intero,
+      );
+    },
+    [lingua],
+  );
 
   const imposta = useCallback((l: Lingua) => {
     setLingua(l);

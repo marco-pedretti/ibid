@@ -33,10 +33,22 @@
  * si sta scrivendo.
  */
 
+/**
+ * Ogni segmento dice anche **da dove viene**: `da` e' il suo primo carattere nel
+ * testo di partenza.
+ *
+ * Non e' un extra. Da U-07 in poi il testo va **annotato** — un verdetto sul
+ * marcatore, una sottolineatura sulla frase che non cita niente — e un'annotazione
+ * si posa su una posizione. Senza `da`, chi rende la prosa vede indici relativi
+ * al proprio pezzo e deve ricostruire l'offset contando le lunghezze: ma un
+ * `inline` puo' venire da `$…$` (due caratteri di delimitatore) o da `\(…\)`
+ * (quattro), quindi quel conto **non e' ricostruibile** da ciò che si riceve. Lo
+ * sa solo chi ha tagliato.
+ */
 export type Segmento =
-  | { tipo: "testo"; valore: string }
-  | { tipo: "inline"; tex: string }
-  | { tipo: "blocco"; tex: string };
+  | { tipo: "testo"; valore: string; da: number }
+  | { tipo: "inline"; tex: string; da: number }
+  | { tipo: "blocco"; tex: string; da: number };
 
 interface Coppia {
   apre: string;
@@ -55,10 +67,11 @@ const COPPIE: Coppia[] = [
 export function segmenta(testo: string): Segmento[] {
   const fuori: Segmento[] = [];
   let prosa = "";
+  let daProsa = 0;
   let i = 0;
 
   const chiudiProsa = () => {
-    if (prosa !== "") fuori.push({ tipo: "testo", valore: prosa });
+    if (prosa !== "") fuori.push({ tipo: "testo", valore: prosa, da: daProsa });
     prosa = "";
   };
 
@@ -68,7 +81,7 @@ export function segmenta(testo: string): Segmento[] {
       const fine = testo.indexOf(coppia.chiude, i + coppia.apre.length);
       if (fine !== -1) {
         chiudiProsa();
-        fuori.push({ tipo: coppia.tipo, tex: testo.slice(i + coppia.apre.length, fine) });
+        fuori.push({ tipo: coppia.tipo, tex: testo.slice(i + coppia.apre.length, fine), da: i });
         i = fine + coppia.chiude.length;
         continue;
       }
@@ -78,12 +91,13 @@ export function segmenta(testo: string): Segmento[] {
       const fine = chiusuraDollaro(testo, i);
       if (fine !== -1) {
         chiudiProsa();
-        fuori.push({ tipo: "inline", tex: testo.slice(i + 1, fine) });
+        fuori.push({ tipo: "inline", tex: testo.slice(i + 1, fine), da: i });
         i = fine + 1;
         continue;
       }
     }
 
+    if (prosa === "") daProsa = i;
     prosa += testo[i];
     i += 1;
   }

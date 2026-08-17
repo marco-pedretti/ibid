@@ -9,15 +9,30 @@
  * prima del primo token: misurate a caldo, 0,27 s contro 3,01 s. L'attesa si
  * riempie invece di premiare, e si vede da dove nasce la risposta mentre nasce.
  *
- * Targhette `pipeline`/`doc_genre` e verdetti di citazione non sono qui: sono
- * U-05 e U-07, e ognuno arriva col proprio criterio. Metterli ora significa
- * consegnarli senza il test che li verifica.
+ * **Ogni scheda porta il proprio verdetto e nessuna viene toccata** (U-07). Una
+ * fonte che non sostiene quello che le e' stato attribuito resta al suo posto,
+ * marcata: togliere le non sostenute porterebbe la precisione apparente al 100%
+ * per costruzione, proprio nel punto in cui il progetto vuole essere misurato.
+ *
+ * **Le frasi senza citazione sono uscite da qui** e sono tornate dove stanno:
+ * sottolineate nella risposta. U-02 le aveva messe in fondo al pannello perche'
+ * non c'era un altro posto, ma una frase che non cita niente non e' una fonte, e
+ * in una colonna larga 272 px prendeva lo spazio delle fonti vere. Nel testo si
+ * legge *dove* manca la citazione, che e' l'unica cosa che serve saperne.
+ *
+ * Targhette `pipeline`/`doc_genre` non sono qui: sono U-05, e arrivano col proprio
+ * criterio. Metterle ora significa consegnarle senza il test che le verifica.
  */
 import { usaChat } from "../app/chat";
 import { usaLingua } from "../app/i18n";
+import { spiegaPunteggio } from "../app/recupero";
+import { esitoDellaScheda, esitoNumericoDellaScheda } from "../app/verdetti";
+import type { Risposta } from "../app/conversazione";
 import type { ChunkView } from "../api/types";
 import { Etichetta } from "./Etichetta";
+import { Suggerimento } from "./Suggerimento";
 import { Estratto, marcatoriCitati } from "./Testo";
+import { Verdetto, VerdettoNumerico } from "./Verdetto";
 
 export function PannelloFonti() {
   const { t } = usaLingua();
@@ -36,7 +51,12 @@ export function PannelloFonti() {
       <div className="flex items-baseline justify-between">
         <Etichetta>{t("sources.title")}</Etichetta>
         {chunks.length > 0 && (
-          <span className="font-mono text-[10px] text-muted tabular-nums">{chunks.length}</span>
+          <Suggerimento
+            testo={t("sources.count")}
+            className="font-mono text-[10px] text-muted tabular-nums"
+          >
+            {chunks.length}
+          </Suggerimento>
         )}
       </div>
 
@@ -49,29 +69,11 @@ export function PannelloFonti() {
       ) : (
         <div className="flex flex-col gap-[11px]">
           {chunks.map((c) => (
-            <Scheda key={c.chunk_id} chunk={c} citata={citati.has(c.marker)} />
+            <Scheda key={c.chunk_id} chunk={c} citata={citati.has(c.marker)} risposta={r} />
           ))}
         </div>
       )}
 
-      {r !== null && r.senzaCitazione.length > 0 && (
-        <div className="mt-1 flex flex-col gap-1.5">
-          <Etichetta>{t("sources.uncited")}</Etichetta>
-          {/* Il costo nascosto della precisione: la si alza citando di meno, e
-              queste sono le frasi che nessuna fonte sostiene. Mostrarle e' cio'
-              che impedisce di scambiare la reticenza per accuratezza. */}
-          <ul className="flex flex-col gap-1.5">
-            {r.senzaCitazione.map((frase, i) => (
-              <li
-                key={i}
-                className="border-b-2 border-dotted border-warn pb-px text-[11px] leading-[1.5] text-ink-2"
-              >
-                {frase}
-              </li>
-            ))}
-          </ul>
-        </div>
-      )}
     </aside>
   );
 }
@@ -80,7 +82,18 @@ function inAttesa(fase: string): boolean {
   return fase === "attesa";
 }
 
-function Scheda({ chunk, citata }: { chunk: ChunkView; citata: boolean }) {
+function Scheda({
+  chunk,
+  citata,
+  risposta,
+}: {
+  chunk: ChunkView;
+  citata: boolean;
+  risposta: Risposta | null;
+}) {
+  const { t } = usaLingua();
+  const numerico = risposta === null ? null : esitoNumericoDellaScheda(risposta, chunk.marker);
+
   return (
     <article
       className={`flex flex-col gap-1.5 rounded-lg border px-2.5 py-2.5 ${
@@ -88,28 +101,58 @@ function Scheda({ chunk, citata }: { chunk: ChunkView; citata: boolean }) {
       }`}
     >
       <div className="flex items-center gap-1.5">
-        <span
+        <Suggerimento
+          testo={t("score.marker", { marker: chunk.marker })}
           className={`rounded font-mono text-[10px] font-semibold tabular-nums ${
             citata ? "bg-accent text-accent-ink" : "bg-ink text-paper"
           } px-[5px] py-px`}
         >
           {chunk.marker}
-        </span>
-        <span className="truncate text-[11px] font-medium text-ink" title={chunk.doc_id}>
+        </Suggerimento>
+        {/* Il nome del documento e la sezione sono **troncati** in 272 px, ed e'
+            il posto dove un suggerimento serve piu' che altrove: qui non spiega,
+            mostra cio' che il taglio ha nascosto. */}
+        <Suggerimento testo={chunk.doc_id} className="min-w-0 truncate text-[11px] font-medium text-ink">
           {chunk.doc_id}
-        </span>
-        <span className="ml-auto font-mono text-[10px] text-muted tabular-nums">
+        </Suggerimento>
+        {/* Cosa sia questo numero **dipende dalla configurazione che ha girato**:
+            una somiglianza in `dense`, un punteggio di posizione in `hybrid`, il
+            giudizio di un cross-encoder col rerank. Un'etichetta sola sarebbe vera
+            e inutile — 0,875 e 0,016 possono essere due fonti ottime. */}
+        <Suggerimento
+          testo={t(spiegaPunteggio(risposta?.config ?? null))}
+          className="ml-auto font-mono text-[10px] text-muted tabular-nums"
+        >
           {chunk.score.toFixed(3)}
-        </span>
+        </Suggerimento>
       </div>
 
       {chunk.section_path !== "" && (
-        <p className="truncate font-mono text-[9.5px] text-muted" title={chunk.section_path}>
-          {chunk.section_path}
+        <p className="min-w-0">
+          <Suggerimento
+            testo={chunk.section_path}
+            className="block truncate font-mono text-[9.5px] text-muted"
+          >
+            {chunk.section_path}
+          </Suggerimento>
         </p>
       )}
 
       <Estratto testo={chunk.text} />
+
+      {/* Il verdetto sta **in fondo** e non nella testata: la testata dice quale
+          fonte e' (marcatore, documento, punteggio di recupero), il verdetto dice
+          cosa se n'e' fatto. Sopra l'estratto sembrerebbe un giudizio sul chunk;
+          sotto e' quello che e', un giudizio sulla frase che lo cita. */}
+      {risposta !== null && (
+        <div className="flex flex-wrap gap-1.5">
+          <Verdetto esito={esitoDellaScheda(risposta, chunk.marker)} />
+          {/* Il verdetto numerico di C-09 **accanto** e non al posto dell'altro:
+              e' additivo per contratto (`schema.py`), e su un corpus di tabelle
+              e' quello che sa giudicare. Compare solo quando ha giudicato. */}
+          {numerico !== null && <VerdettoNumerico esito={numerico} />}
+        </div>
+      )}
     </article>
   );
 }

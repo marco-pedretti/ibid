@@ -19,8 +19,19 @@ import type { Risposta } from "../app/conversazione";
 import { usaDataset } from "../app/dataset";
 import { esempiDi } from "../app/esempi";
 import { usaLingua } from "../app/i18n";
+import { riepilogo } from "../app/verdetti";
+import type { Riepilogo } from "../app/verdetti";
 import type { Scambio } from "../app/chat";
-import { Astensione, Avvertimento, FrecciaSu, Troncato } from "./Icona";
+import {
+  Astensione,
+  Avvertimento,
+  Discordi,
+  FrecciaSu,
+  NonCitata,
+  NonSostiene,
+  NonVerificata,
+  Troncato,
+} from "./Icona";
 import { Testo } from "./Testo";
 
 export function Chat() {
@@ -89,8 +100,13 @@ function Vuoto() {
         ))}
       </div>
 
+      {/* Spiega **le due righe** di ogni esempio, che e' la cosa che si vede qui.
+          Prima diceva «la risposta segue la lingua della domanda, non questo
+          selettore», e quel «questo» non aveva un referente: il selettore e' una
+          pastiglia in fondo alla corsia, lontana e senza un nome scritto. Quella
+          frase e' ora il suggerimento del selettore, dove «questo» si vede. */}
       {tradotti && (
-        <p className="mt-3 max-w-[62ch] text-[11px] text-muted">{t("lang.note")}</p>
+        <p className="mt-3 max-w-[62ch] text-[11px] text-muted">{t("example.lang")}</p>
       )}
     </div>
   );
@@ -167,7 +183,7 @@ function Corpo({ scambio }: { scambio: Scambio }) {
       {r.testo === "" && inCorso(r) ? (
         <Scheletro righe={r.fase === "attesa" ? 3 : 2} />
       ) : (
-        r.testo !== "" && <Testo testo={r.testo} vivi={r.definitivo} />
+        r.testo !== "" && <Testo risposta={r} />
       )}
 
       {astensione !== null && (
@@ -175,6 +191,12 @@ function Corpo({ scambio }: { scambio: Scambio }) {
           {astensione === "gate" ? t("abstention.gate") : t("abstention.model")}
         </Avviso>
       )}
+
+      {/* Il riepilogo dei verdetti (U-07): la **parola**, che sul marcatore in
+          mezzo alla prosa non ci sta. Sta sotto la risposta e non nel pannello
+          perche' parla della risposta, e compare solo quando c'e' qualcosa da
+          dire — un avviso che c'e' sempre smette di essere letto. */}
+      <Verdetti riepilogo={riepilogo(r)} />
 
       {r.troncato && <Avviso icona={<Troncato size={13} />}>{t("stato.troncato")}</Avviso>}
       {r.riparato && (
@@ -201,6 +223,70 @@ function Corpo({ scambio }: { scambio: Scambio }) {
   );
 }
 
+/**
+ * Cosa i verdetti hanno trovato, in parole.
+ *
+ * L'icona e il tono seguono **il fatto piu' grave**, e la scala non e' di gusto:
+ * una citazione che non regge dice qualcosa sulla risposta, una frase scoperta
+ * dice qualcosa su cosa la risposta ha evitato di dichiarare, e un marcatore
+ * senza verdetto non dice niente su nessuno dei due — e' solo una cosa che non e'
+ * stata misurata. Il glifo e' lo stesso che sta sul marcatore nel testo: cosi'
+ * questa frase fa anche da legenda, senza esserne una.
+ *
+ * L'ultima riga e' la tesi, e sta nell'interfaccia e non solo nel README: qui una
+ * citazione che non regge e' il dato, non un errore. Senza scriverlo, un avviso
+ * ocra si legge come un guasto — che e' l'esatto contrario di U-07.
+ */
+function Verdetti({ riepilogo: r }: { riepilogo: Riepilogo | null }) {
+  const { t } = usaLingua();
+  if (r === null) return null;
+
+  // Se **tutte** le non sostenute sono confermate dal verificatore numerico, «non
+  // tutte le citazioni reggono» e' la frase sbagliata: non e' la citazione a non
+  // reggere, sono i due verificatori a non concordare — e su una tabella quello
+  // giusto e' il secondo. Un titolo che dicesse il contrario metterebbe in bocca
+  // all'interfaccia un giudizio che il progetto stesso ha misurato falso.
+  const grave =
+    r.nonSostenute > 0 && r.discordanti === r.nonSostenute ? "disagreement"
+    : r.nonSostenute > 0 ? "unsupported"
+    : r.senzaCitazione > 0 ? "uncited"
+    : "unverified";
+
+  const Glifo = {
+    disagreement: Discordi,
+    unsupported: NonSostiene,
+    uncited: NonCitata,
+    unverified: NonVerificata,
+  }[grave];
+
+  return (
+    <Avviso
+      // «Non verificata» e «i due non concordano» non sono rilievi: la prima e'
+      // una misura che non e' stata fatta, la seconda un limite noto del
+      // verificatore di prosa. Un fondo d'attenzione le trasformerebbe in guasti.
+      tono={grave === "unverified" || grave === "disagreement" ? "neutro" : "attenzione"}
+      icona={<Glifo size={13} />}
+      titolo={t(`report.title.${grave}`)}
+    >
+      {r.nonSostengono.length > 0 && (
+        <span className="block">
+          {t("report.marks", { marcatori: r.nonSostengono.map((n) => `[${n}]`).join(" ") })}
+        </span>
+      )}
+      {r.discordanti > 0 && (
+        <span className="block">{t("report.numeric", { quante: r.discordanti })}</span>
+      )}
+      {r.senzaCitazione > 0 && (
+        <span className="block">{t("report.uncited", { quante: r.senzaCitazione })}</span>
+      )}
+      {r.nonVerificate > 0 && (
+        <span className="block">{t("report.unverified", { quante: r.nonVerificate })}</span>
+      )}
+      <span className="mt-1 block text-muted">{t("report.why")}</span>
+    </Avviso>
+  );
+}
+
 function Scheletro({ righe }: { righe: number }) {
   return (
     <div className="flex flex-col gap-[7px]" aria-hidden="true">
@@ -214,13 +300,20 @@ function Scheletro({ righe }: { righe: number }) {
   );
 }
 
+/**
+ * Il `titolo` e' quello del mockup: 12 px, semibold, colore dell'inchiostro.
+ * Serve quando l'avviso dice **due** cose — cosa e' successo e cosa farne — e
+ * senza di lui le due si leggono come una frase sola piu' lunga.
+ */
 function Avviso({
   tono = "attenzione",
   icona,
+  titolo,
   children,
 }: {
   tono?: "attenzione" | "neutro";
   icona: ReactNode;
+  titolo?: string;
   children: ReactNode;
 }) {
   const stile =
@@ -232,7 +325,12 @@ function Avviso({
       className={`flex items-start gap-2.5 rounded-[7px] border border-line-2 border-l-[3px] px-3 py-2.5 ${stile}`}
     >
       <span className="mt-px">{icona}</span>
-      <p className="text-[11.5px] leading-[1.5] text-ink-2">{children}</p>
+      <div>
+        {titolo !== undefined && (
+          <p className="mb-[3px] text-[12px] font-semibold text-ink">{titolo}</p>
+        )}
+        <p className="text-[11.5px] leading-[1.5] text-ink-2">{children}</p>
+      </div>
     </div>
   );
 }
