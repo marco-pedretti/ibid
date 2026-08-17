@@ -1940,6 +1940,8 @@ E i dati sono anche una piccola dimostrazione della tesi del §0: delle tre cita
 
 Il criterio chiede due cose e mezza: cominciare una conversazione nuova senza ricaricare, una cronologia che sopravvive al ricaricamento, e la **dichiarazione** che è locale a questo browser. La terza è quella che si dimentica, perché è la sola che non si nota mancando.
 
+**Dove sta la dichiarazione.** Prima era una riga sotto l'elenco, «Solo in questo browser.», e alla revisione era il rilievo giusto: vera, e scollegata da ciò di cui parlava — una frase che comincia con «solo» non dice *cosa* sta solo qui. Adesso la sezione si chiama **«Cronologia locale»** e il suggerimento sul nome porta la frase intera. Il criterio resta soddisfatto perché la parola è sempre sullo schermo — dichiarata, non dedotta — e la spiegazione non occupa cinque righe di una corsia larga 200 px.
+
 **Si ricorda anche quale conversazione era aperta.** Salvando solo l'elenco, dopo un ricaricamento si torna sulla più recente — e se si stava leggendo un'altra, la cronologia è sopravvissuta ma la lettura no. È un campo (`corrente`), e senza di lui il criterio si può dichiarare soddisfatto guardando l'elenco pieno.
 
 **Una risposta rimasta a metà torna sigillata.** Chiudendo la scheda durante gli ~11 s di generazione, nel deposito c'è `fase: "scrittura"`: al ricaricamento il pallino pulserebbe per sempre in attesa di uno stream che non esiste più. `interrompi` la porta dove sta «Ferma» — lo stream è finito senza che il server dicesse niente, il parziale resta, e il «Riprova» che U-02 aveva già scritto per l'altro caso funziona anche per questo.
@@ -1957,11 +1959,11 @@ Non è teorico: la scrittura è ritardata di 400 ms, e il retrieval da solo ne p
 
 #### Il pulsante che il ROADMAP chiede è una voce dell'elenco
 
-Il §12 elenca «pulsante Nuova conversazione, elenco delle conversazioni». Il mockup invece mette *«Nuova conversazione» come prima voce attiva della cronologia*, e provando l'altra strada si vede perché: un pulsante che dice «Nuova conversazione» sopra una voce attiva che dice «Nuova conversazione» sono due controlli con le stesse parole, uno sull'altro, e nessuno dei due dice quale si sta usando.
+Il §12 elenca «pulsante Nuova conversazione, elenco delle conversazioni». Il mockup invece mette *«Nuova conversazione» come prima voce attiva della cronologia*, e l'ho consegnata così — un pulsante che dice «Nuova conversazione» sopra una voce attiva che dice «Nuova conversazione» sono due controlli con le stesse parole, uno sull'altro.
 
-Come voce la regola diventa una sola — **ogni riga porta in una conversazione**, e la prima porta in una che non esiste ancora. Resta fuori dallo scorrimento (un comando che scorre via è un comando da cercare) e porta il segno `+`, perché è l'unica riga che crea invece di riportare.
+**Alla revisione era il difetto opposto** (Marco, 2026-08-17): come riga era leggibile ma piatta, e la voce più usata della corsia aveva lo stesso peso della meno usata. Ha quindi la forma delle azioni della corsia, quella che nel mockup ha «Esplora il corpus» (`.bottone-esplora`): accento su fondo accento tenue. E il timore che l'aveva resa una voce sparisce da sé — con la forma di un'azione non è più una voce, quindi la conversazione vuota non ne ha una e non c'è niente da confondere. Il `+` resta, ed è ciò che la distinguerà da «Esplora il corpus» quando saranno una sopra l'altra.
 
-Conseguenza: una conversazione **vuota non ha una voce sua**, perché quella voce c'è già. E non si ricorda: nel deposito non finiscono conversazioni senza domande, quindi la cronologia non si riempie di righe senza nome.
+Una conversazione vuota non si ricorda comunque: nel deposito non finiscono conversazioni senza domande, quindi la cronologia non si riempie di righe senza nome.
 
 #### Le voci non sono `disabled`, e non è una svista
 
@@ -1973,6 +1975,6 @@ Ma un elemento `disabled` non riceve gli eventi del puntatore, quindi il suggeri
 
 **Riaprendo si torna anche sul corpus.** Il `dataset_id` della prima domanda viaggia con la conversazione: senza, la domanda seguente in un filo su `ledger` cadrebbe su `open_ragbench` perché il selettore era rimasto lì, e nel filo non ci sarebbe niente a dirlo. Non si aggiorna mai dopo la prima: riscriverlo direbbe che risposte già date vengono da un corpus che non le ha prodotte.
 
-**Niente comando per cancellare.** Non è nel criterio e non è nel mockup, e il tetto di venti dà comunque un limite. Resta un debito dichiarato: chi vuole svuotare la cronologia oggi deve svuotare `localStorage` del browser, che non è una cosa che l'interfaccia dice.
+**Cancellare la cronologia c'è, e a due tempi.** Non era nel criterio né nel mockup, e l'avevo lasciata come debito dichiarato — poi la prima cosa che è servita provando è stata togliere quaranta conversazioni di test, che senza un comando si toglievano solo svuotando `localStorage` dal browser. Non un `confirm()` del browser (colori del sistema operativo in mezzo a un'interfaccia che ha i propri: lo stesso difetto del `title` nativo) e non un clic solo, perché non c'è nessun server che ne tenga una copia — è precisamente ciò che «locale» significa. Il secondo clic entro quattro secondi, poi il comando si disarma da sé. Va via anche la conversazione aperta: cancellare tutto tranne l'unica cosa visibile non sarebbe cancellare tutto.
 
 `npm run typecheck && npm test && npm run build` verdi, **147 test Vitest**.
