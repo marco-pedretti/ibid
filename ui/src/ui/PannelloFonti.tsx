@@ -14,6 +14,12 @@
  * marcata: togliere le non sostenute porterebbe la precisione apparente al 100%
  * per costruzione, proprio nel punto in cui il progetto vuole essere misurato.
  *
+ * **Le frasi senza citazione sono uscite da qui** e sono tornate dove stanno:
+ * sottolineate nella risposta. U-02 le aveva messe in fondo al pannello perche'
+ * non c'era un altro posto, ma una frase che non cita niente non e' una fonte, e
+ * in una colonna larga 272 px prendeva lo spazio delle fonti vere. Nel testo si
+ * legge *dove* manca la citazione, che e' l'unica cosa che serve saperne.
+ *
  * Targhette `pipeline`/`doc_genre` non sono qui: sono U-05, e arrivano col proprio
  * criterio. Metterle ora significa consegnarle senza il test che le verifica.
  */
@@ -61,24 +67,6 @@ export function PannelloFonti() {
         </div>
       )}
 
-      {r !== null && r.senzaCitazione.length > 0 && (
-        <div className="mt-1 flex flex-col gap-1.5">
-          <Etichetta>{t("sources.uncited")}</Etichetta>
-          {/* Il costo nascosto della precisione: la si alza citando di meno, e
-              queste sono le frasi che nessuna fonte sostiene. Mostrarle e' cio'
-              che impedisce di scambiare la reticenza per accuratezza. */}
-          <ul className="flex flex-col gap-1.5">
-            {r.senzaCitazione.map((frase, i) => (
-              <li
-                key={i}
-                className="border-b-2 border-dotted border-warn pb-px text-[11px] leading-[1.5] text-ink-2"
-              >
-                {frase}
-              </li>
-            ))}
-          </ul>
-        </div>
-      )}
     </aside>
   );
 }

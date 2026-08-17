@@ -167,7 +167,7 @@ function Corpo({ scambio }: { scambio: Scambio }) {
       {r.testo === "" && inCorso(r) ? (
         <Scheletro righe={r.fase === "attesa" ? 3 : 2} />
       ) : (
-        r.testo !== "" && <Testo testo={r.testo} vivi={r.definitivo} />
+        r.testo !== "" && <Testo risposta={r} />
       )}
 
       {astensione !== null && (

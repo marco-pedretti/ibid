@@ -18,7 +18,7 @@
 import type { ReactNode } from "react";
 
 import { usaLingua } from "../app/i18n";
-import type { EsitoScheda } from "../app/verdetti";
+import type { Esito, EsitoScheda, Marcato } from "../app/verdetti";
 import type { Chiave } from "../i18n/strings";
 import { InAttesa, NonCitata, NonSostiene, NonVerificata, Sostiene } from "./Icona";
 import type { PropsIcona } from "./Icona";
@@ -52,6 +52,78 @@ const FORMA: Record<EsitoScheda["tipo"], Forma> = {
   nonVerificata: { glifo: NonVerificata, parola: "verdict.unverified", tono: "wait" },
   nonCitata: { glifo: NonCitata, parola: "verdict.notCited", tono: "wait" },
 };
+
+/* --- il marcatore in mezzo alla prosa -------------------------------------
+   Lo stesso verdetto, dove la citazione **e'**: senza aprire nulla, che e'
+   letteralmente il criterio di U-07.
+
+   `attesa` qui e' **accento** e non `wait`, mentre nella pastiglia e' `wait`, e
+   non e' un'incoerenza: sono due domande diverse. Sul marcatore la domanda e' «e'
+   un riferimento valido?», e da `answer` in poi la risposta e' si' — il §3.5 lo
+   chiama proprio il momento in cui il marcatore smette di essere inerte, e nel
+   mockup e' `.mk.viva`. Nella pastiglia la domanda e' «qual e' il verdetto?», e
+   li' non c'e' ancora.
+
+   L'accento resta percio' fuori dai verdetti veri, come vuole il §12: un verdetto
+   colorato con l'accento smette di essere un verdetto e diventa decorazione. Da
+   qui una **divergenza dichiarata dal mockup**: li' un `[1]` verificato restava
+   accento, perche' la bozza non modellava lo stato «non verificata». Con tutti e
+   cinque gli stati sullo schermo, un marcatore sostenuto accento e uno non
+   verificato accento sarebbero indistinguibili — cioe' il criterio di U-07
+   mancato. */
+
+const PAROLA: Record<Esito, Chiave> = {
+  inerte: "verdict.inert",
+  attesa: "verdict.pending",
+  sostenuta: "verdict.supported",
+  nonSostiene: "verdict.unsupported",
+  nonVerificata: "verdict.unverified",
+};
+
+const GLIFO: Record<Esito, ((p: PropsIcona) => ReactNode) | null> = {
+  // Inerte non ha glifo di proposito: non c'e' niente da dire di lui, e un segno
+  // qualunque si leggerebbe come un verdetto arrivato prima del suo tempo.
+  inerte: null,
+  attesa: InAttesa,
+  sostenuta: Sostiene,
+  nonSostiene: NonSostiene,
+  nonVerificata: NonVerificata,
+};
+
+const VESTE: Record<Esito, string> = {
+  inerte: "border-b border-dotted border-line-2 px-px text-muted",
+  attesa: "rounded-[3px] border-b border-accent bg-accent-soft px-[3px] text-accent",
+  sostenuta: "rounded-[3px] border-b border-ok bg-ok-soft px-[3px] text-ok",
+  nonSostiene: "rounded-[3px] border-b border-warn bg-warn-soft px-[3px] text-warn",
+  nonVerificata: "rounded-[3px] border-b border-line-2 bg-wait-soft px-[3px] text-wait",
+};
+
+export function Marcatore({ marcato }: { marcato: Marcato }) {
+  const { t, lingua } = usaLingua();
+  const Glifo = GLIFO[marcato.esito];
+  const parola = t(PAROLA[marcato.esito]);
+  const punteggio = marcato.citazione?.score;
+
+  return (
+    <span
+      // Il glifo e il colore non arrivano a chi ascolta, e il numero da solo non
+      // dice niente: qui la parola non e' un extra, e' l'unica cosa che resta.
+      aria-label={t("verdict.aria", { marker: marcato.marker, verdetto: parola })}
+      title={
+        punteggio === undefined
+          ? parola
+          : `${parola} · ${punteggio.toLocaleString(lingua === "it" ? "it-IT" : "en-US", {
+              minimumFractionDigits: 3,
+              maximumFractionDigits: 3,
+            })}`
+      }
+      className={`inline-flex items-center gap-[2px] py-px align-[0.32em] font-mono text-[10px] tabular-nums ${VESTE[marcato.esito]}`}
+    >
+      {`[${marcato.marker}]`}
+      {Glifo && <Glifo size={9} />}
+    </span>
+  );
+}
 
 /** Il verdetto in parole, senza glifo: serve agli `aria-label` e ai `title`. */
 export function parolaDelVerdetto(

@@ -1,11 +1,22 @@
 /**
- * Il testo della risposta: marcatori riconosciuti, formule disegnate.
+ * Il testo della risposta: marcatori col loro verdetto, formule disegnate.
  *
  * **I marcatori sono inerti finche' `answer` non arriva**, ed e' una regola del
  * §3.5 e non una scelta grafica: mentre i token scorrono, `[2]` compare prima
  * che il suo verdetto esista, e prima ancora che il parser abbia potuto
  * normalizzarlo. Disegnarlo subito come un riferimento valido significherebbe
  * promettere qualcosa che nessuno ha ancora controllato — e per ~11 s.
+ *
+ * **Poi ognuno porta il proprio verdetto** (U-07): sostenuta, non sostenuta, non
+ * verificata, ciascuna distinguibile dalle altre senza aprire niente, e nessuna
+ * nascosta. Chi decide quale verdetto tocca a quale occorrenza e' `verdetti.ts`,
+ * qui si disegna — l'ordine importa perche' quella decisione ha dei test e questo
+ * file no.
+ *
+ * **La frase che non cita niente e' sottolineata dove sta**, non solo elencata
+ * nel pannello. E' il denominatore nascosto della precisione: si alza citando di
+ * meno, e vederla in mezzo alla risposta e' cio' che impedisce di scambiare la
+ * reticenza per accuratezza.
  *
  * Riconosce solo la forma contigua `[n]`, la stessa che il parser accetta: se
  * il modello scrive `[2, 3]` qui non si accende niente, esattamente come non si
@@ -27,7 +38,11 @@ import "katex/dist/katex.min.css";
 import { useMemo } from "react";
 import type { ReactNode } from "react";
 
+import { marcatoriDelTesto, spanSenzaCitazione } from "../app/verdetti";
+import type { Marcato, Span } from "../app/verdetti";
+import type { Risposta } from "../app/conversazione";
 import { perAnteprima, segmenta } from "./matematica";
+import { Marcatore } from "./Verdetto";
 
 const MARCATORE = /\[(\d+)\]/g;
 
@@ -39,18 +54,82 @@ export function marcatoriCitati(testo: string): Set<number> {
   return trovati;
 }
 
-export function Testo({ testo, vivi }: { testo: string; vivi: boolean }) {
+export function Testo({ risposta }: { risposta: Risposta }) {
+  // `segmenta` **prima**, e annotare dentro i suoi pezzi: al contrario, un
+  // `$x[3]$` -- un indice fra quadre dentro una formula, che in un corpus di
+  // paper esiste -- verrebbe spezzato a meta' e la formula non si comporrebbe
+  // piu'. La matematica ha la precedenza perche' un suo errore rompe il disegno,
+  // mentre un marcatore mancato resta leggibile.
+  const { segmenti, annotazioni } = useMemo(() => {
+    const marcati = marcatoriDelTesto(risposta);
+    const scoperte = spanSenzaCitazione(risposta);
+    return {
+      segmenti: segmenta(risposta.testo),
+      // Le due specie non si annidano mai: una frase «senza citazione» e' per
+      // definizione una frase senza marcatori. Quindi una lista piatta, ordinata,
+      // basta -- e non serve un albero di intervalli.
+      annotazioni: ordina([
+        ...marcati.map((m): Annotazione => ({ da: m.indice, a: m.indice + m.lunghezza, marcato: m })),
+        ...scoperte.map((s): Annotazione => ({ ...s, marcato: null })),
+      ]),
+    };
+  }, [risposta]);
+
   return (
     <div className="text-[13.5px] leading-[1.66] whitespace-pre-wrap text-ink">
-      {segmenta(testo).map((s, i) =>
+      {segmenti.map((s, i) =>
         s.tipo === "testo" ? (
-          <span key={i}>{conMarcatori(s.valore, vivi)}</span>
+          <span key={i}>{annota(s.valore, s.da, annotazioni)}</span>
         ) : (
           <Formula key={i} tex={s.tex} blocco={s.tipo === "blocco"} />
         ),
       )}
     </div>
   );
+}
+
+/** Un tratto di testo che va disegnato diversamente. `marcato: null` = una frase
+ *  che non cita niente. */
+interface Annotazione extends Span {
+  marcato: Marcato | null;
+}
+
+function ordina(a: Annotazione[]): Annotazione[] {
+  return a.sort((x, y) => x.da - y.da);
+}
+
+/**
+ * La prosa di un segmento, coi tratti annotati al loro posto.
+ *
+ * Gli intervalli si **ritagliano** sul segmento invece di essere scartati: una
+ * frase scoperta che contiene una formula sta a cavallo di due segmenti, e
+ * scartarla la lascerebbe senza sottolineatura proprio nella meta' che si legge.
+ */
+function annota(prosa: string, da: number, annotazioni: Annotazione[]): ReactNode[] {
+  const fine = da + prosa.length;
+  const pezzi: ReactNode[] = [];
+  let i = da;
+
+  for (const ann of annotazioni) {
+    if (ann.a <= i || ann.da >= fine) continue;
+    const inizio = Math.max(ann.da, i);
+    const termine = Math.min(ann.a, fine);
+    if (inizio > i) pezzi.push(prosa.slice(i - da, inizio - da));
+
+    if (ann.marcato !== null) {
+      pezzi.push(<Marcatore key={ann.da} marcato={ann.marcato} />);
+    } else {
+      pezzi.push(
+        <span key={`s${ann.da}`} className="border-b-2 border-dotted border-warn pb-px">
+          {prosa.slice(inizio - da, termine - da)}
+        </span>,
+      );
+    }
+    i = termine;
+  }
+
+  if (i < fine) pezzi.push(prosa.slice(i - da));
+  return pezzi;
 }
 
 /**
@@ -109,28 +188,3 @@ function Formula({ tex, blocco }: { tex: string; blocco: boolean }) {
   );
 }
 
-function conMarcatori(prosa: string, vivi: boolean): ReactNode[] {
-  const pezzi: ReactNode[] = [];
-  let ultimo = 0;
-
-  for (const m of prosa.matchAll(MARCATORE)) {
-    const inizio = m.index;
-    if (inizio > ultimo) pezzi.push(prosa.slice(ultimo, inizio));
-    pezzi.push(
-      <span
-        key={`${inizio}`}
-        className={
-          vivi
-            ? "rounded-[3px] border-b border-accent bg-accent-soft px-[3px] py-px align-[0.32em] font-mono text-[10px] text-accent"
-            : "border-b border-dotted border-line-2 px-px align-[0.32em] font-mono text-[10px] text-muted"
-        }
-      >
-        {m[0]}
-      </span>,
-    );
-    ultimo = inizio + m[0].length;
-  }
-
-  if (ultimo < prosa.length) pezzi.push(prosa.slice(ultimo));
-  return pezzi;
-}
