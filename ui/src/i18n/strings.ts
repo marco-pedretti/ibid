@@ -50,7 +50,7 @@ export const it = {
 
   "lang.label": "Lingua dell'interfaccia",
   // Sul selettore, dove «questo» ha un referente che si vede.
-  "lang.hint": "Cambia solo le scritte dell'interfaccia: la risposta segue la lingua della domanda.",
+  "lang.hint": "Cambia solo la lingua dell'interfaccia: la risposta segue quella della domanda.",
 
   "backend.loading": "Contatto il server…",
   "backend.down": "Server non raggiungibile",
@@ -225,7 +225,7 @@ export const en: Record<Chiave, string> = {
   "theme.system": "System",
 
   "lang.label": "Interface language",
-  "lang.hint": "It only changes the interface text: the answer follows the language of your question.",
+  "lang.hint": "Changes the interface language only: the answer follows the language of your question.",
 
   "backend.loading": "Reaching the server…",
   "backend.down": "Server unreachable",
