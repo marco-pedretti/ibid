@@ -20,6 +20,12 @@
    E `warn` **non e' rosso** — U-07 dice che una citazione non sostenuta non e'
    un errore da nascondere, e' il dato. Rosso contraddirebbe la tesi del §0.
 
+   `danger` e' quindi un token a parte, e non un `warn` piu' acceso: e' **il
+   colore di cio' che distrugge**, e in questa interfaccia c'e' una cosa sola che
+   distrugge — cancellare la cronologia, che nessun server puo' restituire. Non
+   entra nei verdetti, non entra negli avvisi, e se un giorno ci entrasse
+   varrebbe la pena chiedersi cosa e' cambiato nella tesi.
+
    Le varianti `-soft` sono i fondi: un verdetto si legge da glifo, colore e
    parola insieme, e il fondo e' cio' che lo rende visibile senza urlare. */
 :root {
@@ -50,6 +56,10 @@
   --warn-soft: #f5ead7;
   --wait: #74768a;
   --wait-soft: #ebebe7;
+  /* Terroso come `ok` e `warn`, non il rosso puro di un allarme di sistema: qui
+     il rosso segnala che qualcosa non torna indietro, non che urge. */
+  --danger: #a33028;
+  --danger-soft: #f7e3e0;
   --shadow: 0 1px 2px rgba(23, 24, 31, 0.06), 0 8px 24px -12px rgba(23, 24, 31, 0.18);
 }
 
@@ -73,6 +83,8 @@
   --warn-soft: #37290f;
   --wait: #8b8da2;
   --wait-soft: #262739;
+  --danger: #ee8d84;
+  --danger-soft: #3a1a17;
   --shadow: 0 1px 2px rgba(0, 0, 0, 0.4), 0 8px 24px -12px rgba(0, 0, 0, 0.6);
 }
 
@@ -98,6 +110,8 @@
   --color-warn-soft: var(--warn-soft);
   --color-wait: var(--wait);
   --color-wait-soft: var(--wait-soft);
+  --color-danger: var(--danger);
+  --color-danger-soft: var(--danger-soft);
 
   --shadow-carta: var(--shadow);
 
@@ -153,9 +167,10 @@ body {
 }
 
 /* Una formula che KaTeX non riesce a comporre viene disegnata col suo sorgente:
-   il colore e' quello degli avvisi e non un rosso proprio della libreria, perche'
-   nella palette del §12 il rosso non esiste — un TeX malformato non e' piu' grave
-   di una citazione non sostenuta, e non deve sembrarlo. */
+   il colore e' quello degli avvisi e non il rosso proprio della libreria. Il
+   rosso di questa palette e' riservato a cio' che distrugge, e un TeX malformato
+   non distrugge niente — non e' piu' grave di una citazione non sostenuta, e non
+   deve sembrarlo. */
 .katex-error {
   color: var(--warn) !important;
 }

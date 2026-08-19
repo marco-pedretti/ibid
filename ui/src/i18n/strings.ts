@@ -65,6 +65,27 @@ export const it = {
   "datasets.none": "Nessun indice pronto",
   "datasets.none.hint": "Costruisci un indice con «make ingest», poi ricarica.",
 
+  // Il criterio di U-13 chiede che la cronologia **dichiari** di essere locale, e
+  // la parola sta nel nome della sezione. Prima la frase intera stava sotto
+  // l'elenco: vera, e scollegata da ciò di cui parlava. Qui «locale» ha un
+  // referente, e la spiegazione è a un passaggio invece di prendere cinque righe
+  // di una corsia larga 200 px.
+  "history.title": "Cronologia locale",
+  "history.hint":
+    "Le conversazioni restano in questo browser: nessun account e nessun server, quindi su un'altra macchina non le ritrovi.",
+  "history.new": "Nuova conversazione",
+  // Sulle voci mentre una risposta sta arrivando: dice **cosa fare**, non solo
+  // che non si può. Lo stream scrive in una conversazione sola.
+  "history.busy": "Aspetta che la risposta finisca, o premi «Ferma».",
+  // Il nome del cestino per chi ascolta: nella riga è solo un'icona.
+  "history.clear": "Cancella la cronologia",
+  // Armato, questa domanda **prende il posto** del nome della sezione: accanto
+  // non ci starebbe, e sotto il puntatore c'è già il cestino a cui rispondere.
+  "history.clear.confirm": "Cancellare tutto?",
+  "history.clear.hint":
+    "Toglie tutte le conversazioni da questo browser: chiede un secondo clic, e non si torna indietro.",
+  "history.clear.again": "Ancora un clic e sono via.",
+
   "chat.empty.title": "Chiedi qualcosa al corpus.",
   "chat.empty.hint":
     "Ogni frase della risposta porta la fonte da cui viene, e le fonti compaiono prima del testo.",
@@ -210,10 +231,6 @@ export const it = {
   "models.title": "Modelli",
   "models.none":
     "Nessun modello: il server che scrive le risposte non risponde. Cercare nel corpus funziona ancora.",
-
-  // U-13, il prossimo
-  "history.local":
-    "La cronologia resta in questo browser: nessun account, e su un'altra macchina non la ritrovi.",
 } as const;
 
 export type Chiave = keyof typeof it;
@@ -239,6 +256,17 @@ export const en: Record<Chiave, string> = {
   "datasets.notQueryable": "empty index: not queryable",
   "datasets.none": "No index ready",
   "datasets.none.hint": "Build one with “make ingest”, then reload.",
+
+  "history.title": "Local history",
+  "history.hint":
+    "Conversations stay in this browser: no account and no server, so you will not find them on another machine.",
+  "history.new": "New conversation",
+  "history.busy": "Wait for the answer to finish, or press “Stop”.",
+  "history.clear": "Clear the history",
+  "history.clear.confirm": "Clear everything?",
+  "history.clear.hint":
+    "Removes every conversation from this browser: it asks for a second click, and there is no undo.",
+  "history.clear.again": "One more click and they are gone.",
 
   "chat.empty.title": "Ask the corpus something.",
   "chat.empty.hint":
@@ -361,10 +389,6 @@ export const en: Record<Chiave, string> = {
   "models.title": "Models",
   "models.none":
     "No models: the server that writes the answers is not responding. Searching the corpus still works.",
-
-  // U-13, il prossimo
-  "history.local":
-    "History stays in this browser: no account, and you will not find it on another machine.",
 };
 
 export const LINGUE = ["it", "en"] as const;

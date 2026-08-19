@@ -15,13 +15,12 @@ import type { ReactNode } from "react";
 
 import { usaChat } from "../app/chat";
 import { chiSiEAstenuto, inCorso } from "../app/conversazione";
-import type { Risposta } from "../app/conversazione";
+import type { Risposta, Scambio } from "../app/conversazione";
 import { usaDataset } from "../app/dataset";
 import { esempiDi } from "../app/esempi";
 import { usaLingua } from "../app/i18n";
 import { riepilogo } from "../app/verdetti";
 import type { Riepilogo } from "../app/verdetti";
-import type { Scambio } from "../app/chat";
 import {
   Astensione,
   Avvertimento,

@@ -13,10 +13,13 @@
  * quando la colonna centrale diventera' la chat non ci sara' nessuna testata
  * dove metterle.
  *
- * La cronologia e il pulsante «Esplora il corpus» del mockup non ci sono
- * ancora: arriveranno con le schermate che aprono. Un comando che non porta da
- * nessuna parte e' lo stesso difetto del toggle che gira a vuoto — la bozza lo
- * dice della sua stessa didascalia.
+ * **La cronologia e' la parte che cresce**, quindi e' la sola che scorre: il
+ * resto della corsia ha un'altezza che non dipende da quanto si e' lavorato.
+ *
+ * Il pulsante «Esplora il corpus» del mockup non c'e' ancora: arrivera' con la
+ * schermata che apre. Un comando che non porta da nessuna parte e' lo stesso
+ * difetto del toggle che gira a vuoto — la bozza lo dice della sua stessa
+ * didascalia.
  */
 import type { ReactNode } from "react";
 
@@ -24,6 +27,7 @@ import { usaLingua } from "../app/i18n";
 import { usaTema } from "../app/theme";
 import type { SceltaTema } from "../app/theme";
 import { LINGUE } from "../i18n/strings";
+import { Cronologia } from "./Cronologia";
 import { Etichetta } from "./Etichetta";
 import { Chiaro, Scuro, Sistema } from "./Icona";
 import type { PropsIcona } from "./Icona";
@@ -46,8 +50,8 @@ export function Telaio({ children, fianco }: { children: ReactNode; fianco?: Rea
     >
       {/* Niente `overflow-y-auto` qui: un contenitore di scorrimento ritaglia
           cio' che esce dai suoi bordi, e la tendina del dataset -- che e' posizionata
-          in assoluto -- ne veniva tagliata. Quando arrivera' la cronologia lo
-          scorrimento andra' su quella lista, che e' la sola parte che cresce. */}
+          in assoluto -- ne veniva tagliata. Lo scorrimento sta dentro la
+          cronologia, sull'elenco, che e' la sola parte che cresce. */}
       <aside className="flex flex-col gap-4 border-r border-line bg-surface px-3 py-3.5">
         <Marchio className="px-1 text-[19px]" />
 
@@ -57,6 +61,8 @@ export function Telaio({ children, fianco }: { children: ReactNode; fianco?: Rea
           </div>
           <SelettoreDataset />
         </div>
+
+        <Cronologia />
 
         <div className="mt-auto flex gap-1.5 px-1">
           <PastigliaLingua />
@@ -96,8 +102,8 @@ function PastigliaLingua() {
   const altra = LINGUE[(LINGUE.indexOf(lingua) + 1) % LINGUE.length];
 
   return (
-    // Il suggerimento sta **qui** e non sotto gli esempi: la frase «cambia solo la
-    // cornice» ha bisogno che si veda cosa cambia, e cosa cambia e' questo. Con
+    // Il suggerimento sta **qui** e non sotto gli esempi: la frase ha bisogno che
+    // si veda cosa cambia, e cosa cambia e' questo controllo. Con
     // `fuoco={false}` la tappa di tabulazione resta una — quella del bottone — e la
     // bolla si apre comunque da tastiera, perche' `focus` risale dal figlio.
     <Suggerimento testo={t("lang.hint")} fuoco={false}>

@@ -1600,6 +1600,7 @@ Per la stessa ragione `/document/{doc_id}/chunks` restituisce i chunk **in ordin
 | U-00 | âœ… fatto (2026-08-14) | Scheletro `ui/`: Vite 8 + React 19 + TypeScript 7 + Tailwind 4, client SSE scritto a mano, temi, i18n IT/EN, `/datasets` all'avvio. **19 test Vitest** + 15 test Python sul contratto generato. `npm run typecheck && npm test && npm run build` verdi; catena provata contro l'API viva. Dettaglio sotto. |
 | U-01 | ✅ fatto (2026-08-14) | Selettore dataset nella corsia laterale del mockup, scelta ricordata in `localStorage` e **validata** contro `/datasets`. La regola di selezione è in funzioni pure: **9 test Vitest** in più (28 in tutto), senza jsdom. Provato contro l'API viva: `open_ragbench` 18.840 e `ledger` 47.110 chunk. Dettaglio sotto. |
 | U-02 | ✅ fatto (2026-08-14) | Schermata di chat con **pannello fonti sempre visibile** (nel telaio, non nella chat): otto stati, uno per evento del §3.5, macchina a stati in un reducer puro con **16 test** (44 lato Vitest). Marcatori inerti finché non arriva `answer`. I valori di `abstention` ora sono generati come i tipi. Esempi dello stato vuoto presi da `eval/golden`. Provato contro l'API viva su una query d'oro reale. **Rendering LaTeX** con KaTeX, regola dei delimitatori misurata: 49 falsi positivi tolti su 49, zero formule vere perse. Dettaglio sotto. |
+| U-13 | ✅ fatto (2026-08-17) | **Conversazione nuova e cronologia locale**: l'elenco nella corsia, persistenza in `localStorage`, e il ricaricamento riapre *quella che si stava guardando*. Cosa si ricorda e come si rilegge è in funzioni pure: **17 test Vitest** in più (147 in tutto). Cancellare la cronologia c'è, a due tempi, ed è il primo posto in cui la palette ha un rosso — `danger`, solo per ciò che distrugge. Due giri di revisione. Dettaglio sotto. |
 | U-07 | ✅ fatto (2026-08-17) | Ogni citazione porta il **proprio verdetto**, sul marcatore in mezzo alla prosa e sulla scheda della fonte, e **nessuna è nascosta**. Cinque stati per il marcatore e sei per la scheda, distinti da glifo, colore e parola insieme (§12). Le frasi senza citazione sono sottolineate dove stanno. La corrispondenza frase↔marcatore è in funzioni pure: **38 test Vitest** in più (116 in tutto). Provato contro l'API viva su `open_ragbench` e `ledger`. Dettaglio sotto. |
 
 ### U-00 â€” il contratto esiste in due linguaggi, e uno dei due si genera
@@ -1934,3 +1935,48 @@ Il caso `ledger` è più interessante di quanto sembri: la risposta è `... were
 E i dati sono anche una piccola dimostrazione della tesi del §0: delle tre citazioni prodotte dal vivo **nessuna regge secondo l'NLI**, con punteggi fra 0,18 e 0,47 — e una delle tre regge invece secondo il verificatore numerico. Sono i numeri che C-01 misura in grande, visibili sullo schermo senza aprire niente, e il disaccordo fra i due verificatori è visibile insieme a loro: che è precisamente ciò che U-07 chiedeva, e un po' più di quanto chiedesse.
 
 `npm run typecheck && npm test && npm run build` verdi, **116 test Vitest**.
+
+### U-13 — «sopravvive a un ricaricamento» non è la stessa cosa di «la lettura sopravvive»
+
+Il criterio chiede due cose e mezza: cominciare una conversazione nuova senza ricaricare, una cronologia che sopravvive al ricaricamento, e la **dichiarazione** che è locale a questo browser. La terza è quella che si dimentica, perché è la sola che non si nota mancando.
+
+**Dove sta la dichiarazione.** Prima era una riga sotto l'elenco, «Solo in questo browser.», e alla revisione era il rilievo giusto: vera, e scollegata da ciò di cui parlava — una frase che comincia con «solo» non dice *cosa* sta solo qui. Adesso la sezione si chiama **«Cronologia locale»** e il suggerimento sul nome porta la frase intera. Il criterio resta soddisfatto perché la parola è sempre sullo schermo — dichiarata, non dedotta — e la spiegazione non occupa cinque righe di una corsia larga 200 px.
+
+**Si ricorda anche quale conversazione era aperta.** Salvando solo l'elenco, dopo un ricaricamento si torna sulla più recente — e se si stava leggendo un'altra, la cronologia è sopravvissuta ma la lettura no. È un campo (`corrente`), e senza di lui il criterio si può dichiarare soddisfatto guardando l'elenco pieno.
+
+**Una risposta rimasta a metà torna sigillata.** Chiudendo la scheda durante gli ~11 s di generazione, nel deposito c'è `fase: "scrittura"`: al ricaricamento il pallino pulserebbe per sempre in attesa di uno stream che non esiste più. `interrompi` la porta dove sta «Ferma» — lo stream è finito senza che il server dicesse niente, il parziale resta, e il «Riprova» che U-02 aveva già scritto per l'altro caso funziona anche per questo.
+
+Non è teorico: la scrittura è ritardata di 400 ms, e il retrieval da solo ne prende ~0,3 s, quindi **la domanda finisce nel deposito prima del primo token**. Chiudendo a metà si ritrova la domanda, non un buco.
+
+| quando si scrive | perché |
+|---|---|
+| 400 ms dopo l'ultimo cambiamento | durante la generazione lo stato cambia a ogni token: scrivere subito serializzerebbe tutta la cronologia ~30 volte al secondo |
+| non durante lo stream | i token arrivano più vicini del ritardo, quindi una risposta costa **una** scrittura, quella che parte quando smettono |
+
+**Un campo aggiunto dopo prende il suo default.** Le risposte salvate si rileggono come `{ ...inizio(), ...salvata }`. `Risposta` cresce a ogni task — U-05 la targhetta pipeline, U-06 i link profondi — e un numero di versione che scartasse la cronologia a ogni campo nuovo la scarterebbe praticamente sempre. `VERSIONE` resta per una rottura vera, cioè un campo che cambia significato. I quattro controlli di tipo dopo la fusione non sono paranoia generica: sono esattamente i campi su cui l'interfaccia **itera**, e un `chunks` che non è un array fa cadere il pannello fonti.
+
+**Se non ci sta, si scrive meno.** `localStorage` solleva `QuotaExceededError` quando l'origine è piena, e ignorarlo darebbe una cronologia che da un certo punto in poi non cambia più: le conversazioni nuove sparirebbero a ogni ricaricamento senza un motivo visibile. Si sacrificano le più vecchie, che è ciò che il tetto di venti fa comunque, solo prima del previsto. Uno scambio porta con sé **le fonti intere** — è ciò che rende un pannello fonti ricostruibile invece di vuoto — quindi si misura in decine di KB.
+
+#### Il pulsante che il ROADMAP chiede è una voce dell'elenco
+
+Il §12 elenca «pulsante Nuova conversazione, elenco delle conversazioni». Il mockup invece mette *«Nuova conversazione» come prima voce attiva della cronologia*, e l'ho consegnata così — un pulsante che dice «Nuova conversazione» sopra una voce attiva che dice «Nuova conversazione» sono due controlli con le stesse parole, uno sull'altro.
+
+**Alla revisione era il difetto opposto** (Marco, 2026-08-17): come riga era leggibile ma piatta, e la voce più usata della corsia aveva lo stesso peso della meno usata. Ha quindi la forma delle azioni della corsia, quella che nel mockup ha «Esplora il corpus» (`.bottone-esplora`): accento su fondo accento tenue, e al passaggio si riempie d'accento come il bottone d'invio della chat — la forma diceva che era un comando, ma restava immobile sotto il puntatore, che è ciò che fa dubitare che sia cliccabile. E il timore che l'aveva resa una voce sparisce da sé — con la forma di un'azione non è più una voce, quindi la conversazione vuota non ne ha una e non c'è niente da confondere. Il `+` resta, ed è ciò che la distinguerà da «Esplora il corpus» quando saranno una sopra l'altra.
+
+Una conversazione vuota non si ricorda comunque: nel deposito non finiscono conversazioni senza domande, quindi la cronologia non si riempie di righe senza nome.
+
+#### Le voci non sono `disabled`, e non è una svista
+
+Non si cambia stanza mentre il modello parla: lo stream scrive in **una** conversazione, e andarsene lascerebbe dei token ad arrivare in una stanza che nessuno sta guardando. La via d'uscita c'è e si vede — è «Ferma», e lascia il parziale dov'è.
+
+Ma un elemento `disabled` non riceve gli eventi del puntatore, quindi il suggerimento che spiega *perché* non risponde non si aprirebbe: cioè l'unica informazione utile in quei secondi. Le voci restano quindi bottoni veri con `aria-disabled`, il tono attenuato, e la guardia vera nel provider — dove sta anche il resto della regola «una generazione per volta».
+
+#### Due cose decise qui e non dal criterio
+
+**Riaprendo si torna anche sul corpus.** Il `dataset_id` della prima domanda viaggia con la conversazione: senza, la domanda seguente in un filo su `ledger` cadrebbe su `open_ragbench` perché il selettore era rimasto lì, e nel filo non ci sarebbe niente a dirlo. Non si aggiorna mai dopo la prima: riscriverlo direbbe che risposte già date vengono da un corpus che non le ha prodotte.
+
+**Cancellare la cronologia c'è, e a due tempi.** Non era nel criterio né nel mockup, e l'avevo lasciata come debito dichiarato — poi la prima cosa che è servita provando è stata togliere quaranta conversazioni di test, che senza un comando si toglievano solo svuotando `localStorage` dal browser. Non un `confirm()` del browser (colori del sistema operativo in mezzo a un'interfaccia che ha i propri: lo stesso difetto del `title` nativo) e non un clic solo, perché non c'è nessun server che ne tenga una copia — è precisamente ciò che «locale» significa. Il secondo clic entro quattro secondi, poi il comando si disarma da sé. Va via anche la conversazione aperta: cancellare tutto tranne l'unica cosa visibile non sarebbe cancellare tutto.
+
+**E il rosso è entrato nella palette** (seconda revisione), che finora non ce l'aveva: `danger` non è un `warn` più acceso, è il colore di ciò che distrugge. Colorare «cancella» con l'ocra dei verdetti avrebbe dato lo stesso segnale a un rilievo — una citazione che non regge, che il §0 dice essere il dato — e a un'azione irreversibile. È l'unico posto dove compare. Il comando è un cestino disegnato con le cinque regole di `Icona.tsx`, solo icona col nome nell'`aria-label`, e quando è armato la domanda «Cancellare tutto?» prende il posto del nome della sezione: un'icona che cambia colore dice che è cambiato qualcosa, non cosa.
+
+`npm run typecheck && npm test && npm run build` verdi, **147 test Vitest**.
