@@ -236,6 +236,7 @@ Alternative permissive già in tabella: **pypdfium2** per rendering e bbox, **pd
 | RAGAS | Apache 2.0 | sì |
 | streamlit>=1.35 | Apache 2.0 | sì — dashboard interna (D-01) |
 | ruff, pytest, uv | MIT / Apache 2.0 | sì |
+| prettier 3.9.6 | MIT | sì — formattatore del solo `ui/`, e solo di sviluppo: non entra in `dist`. Colma l'asimmetria con `ruff`, che copriva metà del repo |
 | pypdfium2 | permissiva | sì |
 | pdfplumber, Docling | MIT | sì |
 | **PyMuPDF** | **AGPL-3.0** | **no** |

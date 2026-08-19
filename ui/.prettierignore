@@ -1,0 +1,6 @@
+# Generato da `scripts/gen_api_types.py`: riformattarlo lo farebbe divergere da
+# cio' che il generatore produce oggi, e `tests/test_ui_types.py` fallirebbe.
+# E' la regola di U-00 — quel file non si scrive, si genera.
+src/api/types.ts
+
+dist
