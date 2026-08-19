@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import type { ModelView } from "../api/types";
-import { conModello, finestraDi, modelli, modelloDi } from "./catalogo";
+import { comeTaglia, conModello, daNomi, finestraDi, modelli, modelloDi } from "./catalogo";
 
 function voce(p: Partial<ModelView> & { name: string }): ModelView {
   return {
@@ -97,5 +97,37 @@ describe("cambiare una scelta sola", () => {
     expect(modelloDi(elenco, "gemma4-32k")?.nome).toBe("gemma4:e2b");
     expect(finestraDi(elenco, "gemma4-32k")?.token).toBe(32768);
     expect(modelloDi(elenco, "mai-visto")).toBeNull();
+  });
+});
+
+describe("senza catalogo si sceglie ancora il modello", () => {
+  it("un nome diventa un modello con una finestra sola", () => {
+    // `model_catalog` e' vuoto su un motore che non pubblica i dettagli e su un
+    // server piu' vecchio di A-08: li' sparisce la scelta della finestra, non
+    // quella del modello.
+    const e = daNomi(["gemma4:e2b", "mistral"]);
+    expect(e.map((m) => m.nome)).toEqual(["gemma4:e2b", "mistral"]);
+    expect(e.every((m) => m.finestre.length === 1)).toBe(true);
+    expect(e[0].finestre[0]).toEqual({ token: null, modello: "gemma4:e2b" });
+  });
+});
+
+describe("come si legge una taglia", () => {
+  it("in multipli di 1024, perche' e' cosi' che sono tagliate", () => {
+    // 131.072 e' `128k`: chiamarlo `131k` sarebbe esatto e irriconoscibile.
+    expect(comeTaglia(8192, "—")).toBe("8k");
+    expect(comeTaglia(32768, "—")).toBe("32k");
+    expect(comeTaglia(131072, "—")).toBe("128k");
+    expect(comeTaglia(262144, "—")).toBe("256k");
+  });
+
+  it("sotto il migliaio si scrive il numero, e «non fissata» ha la sua parola", () => {
+    expect(comeTaglia(512, "—")).toBe("512");
+    expect(comeTaglia(null, "predefinito")).toBe("predefinito");
+  });
+
+  it("una taglia non tonda non diventa un intero sbagliato", () => {
+    expect(comeTaglia(6144, "—")).toBe("6k");
+    expect(comeTaglia(10000, "—")).toBe("9.8k");
   });
 });

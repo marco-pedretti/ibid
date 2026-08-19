@@ -125,3 +125,31 @@ function piuVicina(finestre: readonly Finestra[], token: number | null): Finestr
   }
   return scelta;
 }
+
+/**
+ * I modelli quando il catalogo non c'e': un nome, una finestra, nessuna scelta.
+ *
+ * `model_catalog` e' vuoto su un motore che non pubblica i dettagli — e su un
+ * server piu' vecchio di A-08. Li' non si smette di poter scegliere il modello:
+ * si smette di poter scegliere la finestra, e il secondo selettore sparisce da
+ * se' perche' ogni modello ne ha una sola. E' la stessa degradazione di
+ * `catalog.models()` che restituisce `[]` invece di inventare.
+ */
+export function daNomi(nomi: readonly string[]): Modello[] {
+  return nomi.map((n) => ({ nome: n, family: "", finestre: [{ token: null, modello: n }] }));
+}
+
+/**
+ * Quanti token, come si leggono: `8k`, `32k`, `128k`.
+ *
+ * In multipli di 1024 e non di 1000, perche' e' cosi' che le finestre sono
+ * tagliate — 131.072 e' `128k`, e chiamarlo `131k` sarebbe esatto e
+ * irriconoscibile. Sotto il migliaio si scrive il numero: una finestra da 512
+ * token e' un caso limite, ma `0k` non e' una risposta.
+ */
+export function comeTaglia(token: number | null, predefinito: string): string {
+  if (token === null) return predefinito;
+  if (token < 1024) return String(token);
+  const k = token / 1024;
+  return `${Number.isInteger(k) ? k : k.toFixed(1)}k`;
+}

@@ -129,6 +129,12 @@ export const it = {
   // risponde, è poterlo cambiare — e la frase dice quello.
   "bar.model.none":
     "L'elenco dei modelli non è arrivato dal servizio di inferenza: risponde quello configurato, e per ora non si può cambiare.",
+  // Il secondo selettore di U-16. «Contesto» e non «finestra di contesto»: la
+  // pastiglia sta accanto ad altre quattro, e la parola lunga la fa a capo.
+  "bar.context": "Contesto",
+  "bar.context.hint":
+    "Quanto testo entra nel modello prima che risponda: più contesto vuol dire più fonti insieme, e più memoria occupata. Ci sono solo le misure che questo modello regge.",
+  "bar.context.default": "predefinito",
   "bar.advanced": "Avanzate",
   "bar.advanced.hint":
     "Come si cerca nel corpus, prima che il modello scriva. Stanno chiuse di proposito: confrontare configurazioni è il lavoro del cruscotto, non di qui.",
@@ -362,6 +368,10 @@ export const en: Record<Chiave, string> = {
     "The configured model is not among those installed on the inference service: pick one from the list, or install it there.",
   "bar.model.none":
     "The model list did not arrive from the inference service: the configured one answers, and for now it cannot be changed.",
+  "bar.context": "Context",
+  "bar.context.hint":
+    "How much text fits into the model before it answers: more context means more sources at once, and more memory used. Only the sizes this model can take are listed.",
+  "bar.context.default": "default",
   "bar.advanced": "Advanced",
   "bar.advanced.hint":
     "How the corpus is searched, before the model writes. Closed on purpose: comparing configurations is the dashboard's job, not this one's.",
