@@ -167,6 +167,10 @@ export const it = {
     "Gli esempi sono tradotti, ma partono come li vedi nella seconda riga: la risposta segue la lingua della domanda.",
 
   "stato.attesa": "cerco nel corpus…",
+  // Col RAG spento non c'è nessun retrieval: annunciarlo racconterebbe un passo
+  // che non sta avvenendo, e nella colonna nuda far credere che si sia cercato
+  // qualcosa è proprio l'equivoco da non creare.
+  "stato.attesa.modello": "chiedo al modello…",
   "stato.fonti": "il modello sta scrivendo…",
   "stato.scrittura": "scrivo… · marcatori non ancora attivi",
   "stato.risposta": "testo definitivo · controllo le citazioni…",
@@ -392,6 +396,7 @@ export const en: Record<Chiave, string> = {
     "The examples are translated, but they are sent as the second line reads: the answer follows the language of the question.",
 
   "stato.attesa": "searching the corpus…",
+  "stato.attesa.modello": "asking the model…",
   "stato.fonti": "the model is writing…",
   "stato.scrittura": "writing… · markers not reliable yet",
   "stato.risposta": "final text · checking the citations…",

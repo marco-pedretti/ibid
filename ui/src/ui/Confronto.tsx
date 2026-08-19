@@ -129,7 +129,10 @@ function Colonna({
       {risposta.testo === "" && inCorso(risposta) ? (
         <p className="font-mono text-[11px] text-muted">
           <span className="mr-2 inline-block h-1.5 w-1.5 animate-pulse rounded-full bg-accent align-middle" />
-          {t("stato.attesa")}
+          {/* Nella colonna nuda non si sta cercando niente: `fonti` e' proprio
+              il RAG di questo braccio, quindi la riga d'attesa dice cosa sta
+              davvero succedendo -- il modello che pensa da solo. */}
+          {t(fonti ? "stato.attesa" : "stato.attesa.modello")}
         </p>
       ) : (
         <Testo risposta={risposta} />

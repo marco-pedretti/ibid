@@ -140,14 +140,24 @@ function Turno({ scambio }: { scambio: Scambio }) {
       </div>
 
       <div className="flex max-w-[92%] flex-col gap-[9px]">
-        <RigaStato risposta={risposta} />
+        <RigaStato risposta={risposta} conFonti={configDi(scambio)?.rag ?? true} />
         <Corpo scambio={scambio} />
       </div>
     </div>
   );
 }
 
-function RigaStato({ risposta }: { risposta: Risposta }) {
+/**
+ * `conFonti` non e' un dettaglio di presentazione.
+ *
+ * Le prime due fasi del §3.5 descrivono **il retrieval**: «cerco nel corpus» e
+ * «N fonti trovate». Col RAG spento quel retrieval non gira, quindi annunciarlo
+ * e' raccontare un passo che non sta avvenendo — e per giunta nella colonna che
+ * il confronto esiste per mettere in dubbio, dove far credere che si sia cercato
+ * qualcosa e' esattamente l'equivoco da non creare. Li' l'unica attesa e' il
+ * modello che pensa da solo.
+ */
+function RigaStato({ risposta, conFonti }: { risposta: Risposta; conFonti: boolean }) {
   const { t, lingua } = usaLingua();
   const r = risposta;
 
@@ -164,9 +174,13 @@ function RigaStato({ risposta }: { risposta: Risposta }) {
 
   const testo =
     r.fase === "attesa"
-      ? t("stato.attesa")
+      ? conFonti
+        ? t("stato.attesa")
+        : t("stato.attesa.modello")
       : r.fase === "fonti"
-        ? `${r.chunks.length} ${t("sources.title").toLowerCase()} · ${t("stato.fonti")}`
+        ? conFonti
+          ? `${r.chunks.length} ${t("sources.title").toLowerCase()} · ${t("stato.fonti")}`
+          : t("stato.fonti")
         : r.fase === "scrittura"
           ? t("stato.scrittura")
           : r.fase === "risposta"
