@@ -25,13 +25,21 @@ quel motore a ogni avvio modificherebbe lo stato di qualcun altro senza che
 nessuno l'abbia chiesto. La creazione sta quindi nell'avvio *dello sviluppo*, che
 gira sulla macchina di chi lo lancia.
 
-**La scala automatica e' prudente di proposito.** 8k, 16k, 32k: la piu' grande e'
-la finestra con cui il progetto misura (§0), e nessuna delle tre mette in
-difficolta' una scheda che gia' regge il modello. Le taglie grandi -- 128k, 256k
--- restano raggiungibili a mano, perche' offrirle da sole su una macchina che non
-le regge farebbe fallire la generazione dopo l'attesa. Sceglierle in base
-all'hardware e' X-05, rinviato: serve una sonda di sistema, e Ollama non pubblica
-la VRAM totale.
+**La scala arriva fino al massimo del modello**, e la cautela di partenza era
+mal riposta. Si era fermata a 32k temendo che una finestra troppo grande facesse
+**fallire** la generazione; la documentazione di Ollama dice il contrario: quando
+la cache delle chiavi non entra in VRAM, il motore sposta parte del modello in
+RAM di sistema e continua. Diventa molto piu' lento -- ordini di grandezza -- ma
+non si rompe, e `ollama ps` dice se sta girando tutto su GPU o a meta'.
+
+Il costo quindi non e' un guasto ma un rallentamento, e un rallentamento **si
+vede**: la riga dei tempi lo mostra a ogni risposta. Nascondere una scelta per un
+costo visibile e' peggio che offrirla, perche' toglie a chi guarda proprio la
+misura che il progetto esiste per far vedere. Le taglie oltre il massimo
+dell'architettura restano escluse, perche' quelle non sono lente: non esistono.
+
+Restringerle a quelle che la macchina regge **senza rallentare** e' X-05,
+rinviato: serve una sonda di sistema, e Ollama non pubblica la VRAM totale.
 
 **Costa quasi niente**: `ollama create` da un modello gia' scaricato riusa i
 blob, quindi non scarica e non duplica i pesi. U-08 chiede che la demo si apra
@@ -106,10 +114,10 @@ def crea(base: str, token: int) -> str:
     return nome
 
 
-#: La scala che `--assicura` crea. Vedi la nota in testa al file: prudente
-#: perche' nessuno l'ha scelta guardando l'hardware, e la piu' grande e' la
-#: finestra con cui il progetto misura.
-SCALA: tuple[int, ...] = (8192, 16384, 32768)
+#: La scala che `--assicura` crea, tagliata su `context_max` modello per
+#: modello: `gemma4:latest` si ferma a 128k, `gemma4:12b` arriva a 256k. Vedi la
+#: nota in testa al file per il motivo per cui arriva fin lassu'.
+SCALA: tuple[int, ...] = (8192, 16384, 32768, 65536, 131072, 262144)
 
 
 def _esistenti() -> dict[str, str | None]:
