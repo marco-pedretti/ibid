@@ -469,6 +469,7 @@ Il criterio nuovo dice la cosa che il vecchio approssimava: **la dashboard non d
 | U-10 | GIF o video di 90 secondi nel README | ≤ 90 secondi, mostra query → risposta citata → apertura della fonte, senza tagli che nascondano la latenza reale |
 | U-11 | README: le tre affermazioni del §0, architettura, tabelle per dataset, screenshot, limiti, future work | Le tre affermazioni del §0 compaiono ciascuna con la tabella per dataset che la sostiene, e la sezione limiti nomina i risultati negativi invece di ometterli |
 | U-12 | **Portabilità Linux**: provider ONNX scelto dalla piattaforma, dipendenze GPU come extra opzionali, nessun percorso che assuma Windows | Suite verde e `docker compose --profile demo up` su Linux x86_64, senza modifiche al sorgente |
+| U-15 | **Con quali parametri è stata data ogni risposta**: la configurazione che ha girato si rilegge nella conversazione, e fra una domanda e l'altra si vede **cosa è cambiato** | Riaprendo una conversazione si sa con quali parametri ogni risposta è stata prodotta, senza aprire niente. Nessun campo nuovo nel contratto né nel deposito: `ConfigView` è già dentro ogni risposta, e ciò che manca è mostrarlo |
 | U-14 | **Markdown e LaTeX nella risposta**: il prompt li **invita** invece di vietarli, e l'interfaccia li disegna | Ciò che il modello formatta si legge formattato, in tutte e due le colonne del confronto. I marcatori di citazione, i verdetti per frase e le frasi scoperte restano allineati al testo grezzo: il markdown è **decorazione su intervalli**, non un testo riscritto |
 | U-13 | **Conversazione nuova e cronologia locale**: pulsante «Nuova conversazione», elenco delle conversazioni nella corsia, persistenza in `localStorage` | Si comincia una conversazione nuova senza ricaricare la pagina, e la cronologia sopravvive a un ricaricamento **dichiarando** di essere locale a questo browser. Nessun endpoint, nessuna sessione lato server |
 
@@ -525,6 +526,18 @@ Ricavate disegnando quattro schermate prima di scrivere React. Quelle che vincol
 > **L'unità del verdetto è la coppia (frase, chunk), non il marcatore.** Lo stesso `[3]` può comparire in tre frasi e reggerne due; un verdetto per marcatore aggregherebbe la granularità che l'affermazione 1 del §0 esiste per misurare. Ne segue che il frontend deve sapere **dove finiscono le frasi** — e le ritrova invece di ritagliarle, perché una seconda copia di `split_claims` in TypeScript è precisamente ciò che U-00 vieta.
 
 > **Dove ci sono due verificatori, mostrarne uno è mostrare quello sbagliato.** `numeric` è additivo per contratto (§3.5, `schema.py`), e la pastiglia deve mostrarlo **accanto** a `supported`, non al suo posto: su `ledger` il 96,7% dei claim è numerico e l'NLI di C-03 non verifica un'asserzione numerica contro una tabella. Misurato dal vivo il 2026-08-17: capex di Sherwin-Williams, NLI «non sostiene» a 0,208, numerico che trova la cifra dentro la tabella citata. Sceglierne uno in codice sarebbe decidere quale verificatore ha ragione, e quella è una misura, non un `if`.
+
+### U-15 — la configurazione era già salvata, mancava di essere letta
+
+Proposto il 2026-08-19: le conversazioni salvate dovrebbero ricordare anche i parametri con cui sono state lanciate, e fra una domanda e l'altra dovrebbe vedersi cosa è cambiato.
+
+**Il dato c'è già, e non da oggi.** `Risposta.config` porta il `ConfigView` che ha davvero girato — non quello chiesto — e arriva con l'evento `done` del §3.5; `cronologia.ts` lo serializza da U-13 senza che nessuno l'avesse pensato per questo. Quindi il contratto non cambia, il deposito non cambia, e non serve una `VERSIONE` nuova: manca solo di essere mostrato. È la seconda volta in due giorni che la cosa da fare era **chiedere a un dato che c'era già** — la prima è stata `/config` in U-03.
+
+Tre decisioni che valgono più dell'implementazione:
+
+- **Si mostra la differenza, non la configurazione.** Quattordici campi ripetuti a ogni domanda sarebbero un muro che nessuno legge, e ciò che serve sapere è *cosa è cambiato da prima*. La prima riga di una conversazione fa la differenza contro i **predefiniti del servizio**, che `/config` pubblica: una conversazione partita senza toccare niente lo dice in tre parole invece che in quattordici.
+- **La differenza copre tutto `ConfigView`**, non i soli controlli della barra. Un parametro cambiato lato server fra due domande è esattamente ciò che questa riga esiste per non far sparire, e coprire tutto il contratto la rende automatica: un campo aggiunto domani compare da solo.
+- **I nomi dei campi restano quelli del server.** `retrieval_mode`, `top_k`: tradurli vorrebbe dire tenere un elenco di chiavi del backend nel frontend, e una chiave nuova comparirebbe senza nome. È la stessa scelta già presa per i tempi nella riga di stato.
 
 ### U-14 — la regola sul formato si rovescia, e costa una rimisurazione
 
