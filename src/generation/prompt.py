@@ -21,18 +21,39 @@ academic papers and that is how papers cite.  A prompt that says "cite with [n]"
 without saying which [n] is competing with the document for the same notation.
 This is a property of the `academic_pdf` genre, not of the model.
 
-**The output format is decided here, not observed in the UI (U-02).**  Two lines,
-added once the chat screen had to draw what the model writes.  Without them the
-renderer is tuned to whatever the *current* model happens to emit: gemma4 answers
-in prose and echoes the corpus' LaTeX, so `$…$` and plain paragraphs were enough
-— but the model is a request parameter, and a larger one that replies with a
-Markdown table would arrive as literal pipes on screen.  This is the same rule
-already applied to citations: the format is a contract, not a habit we measured.
+**The output format is decided here, not observed in the UI (U-02).**  That rule
+stands and is the reason this paragraph exists; what it *decides* was reversed on
+2026-08-19 (U-14).  It used to say plain prose — no headings, lists, tables or
+bold — and that choice was made because plain prose was what the renderer could
+draw.  Deciding a contract from what the consumer happens to support is the
+inverse of the rule it was written under.
 
-The rules name only what the corpora actually produce, measured on 1200 chunks:
-Markdown headings (100% of `open_ragbench` chunks, 77% of `ledger`), HTML tables
-(39% of `ledger`, Mathpix Markdown), and LaTeX (83% of `open_ragbench`).  A
-longer list would spend attention on formats nobody has seen.
+Two things made the reversal necessary rather than cosmetic.  U-03 puts the same
+question in two columns, with sources and without; the bare arm runs on
+`baseline_prompts.py`, which has never carried a format rule, so a ban here meant
+the two columns differed in *how they were written* as well as in what they had
+to work from — the second variable §15 forbids.  And the model is a request
+parameter that U-03 put in a menu on screen, which turns the hypothetical warning
+this paragraph used to carry ("a larger model replying with a Markdown table
+would arrive as literal pipes") into a thing a viewer can now cause with a click.
+
+So the instruction invites the two formats the corpora actually contain, measured
+on 1200 chunks: Markdown (headings in 100% of `open_ragbench` chunks and 77% of
+`ledger`) and LaTeX (83% of `open_ragbench`).  HTML stays banned, and that is not
+an oversight: 39% of `ledger` carries Mathpix HTML tables, the UI does not render
+markup it did not parse itself, and a tag echoed into the answer would either
+show as text or have to be trusted — which is a decision about injection, not
+about typography.
+
+**What did not change is the citation format.**  §3.2 is still contiguous
+`[n][m]`, and the markers must survive emphasis: `**[2]**` parses, `[2](...)`
+would not, and the rule below says so in the model's own language.  A format
+freedom that broke the first claim of §0 would be a bad trade at any price.
+
+**The cost is declared.**  This changes `prompt_hash`, so the 17 citation runs on
+disk stop being comparable with anything measured after it — which is precisely
+the job of that field.  C-01, C-02 and C-07 get re-measured once the interface is
+finished; `baseline_prompts.py` is untouched, so E-04/E-05 stay comparable.
 
 **The output language (C-05).**  "Respond in the same language as the question"
 was carried here from an early refactor and was never verified until C-05.  It
@@ -81,9 +102,12 @@ SYSTEM = (
     "  As shown in [Corollary 4.5], ...       <- the document's own label\n"
     "  As shown in [17], ...                  <- the document's own bibliography\n\n"
     "OUTPUT FORMAT\n"
-    "Plain prose: no Markdown headings, lists, tables or bold, and no HTML tags, "
-    "even when the context contains them.\n"
-    "Keep formulas in LaTeX between $...$, as they appear in the context.\n\n"
+    "Use Markdown where it helps the reader: headings, lists, tables, bold, "
+    "inline code. Do not use it for decoration.\n"
+    "Keep formulas in LaTeX between $...$, as they appear in the context.\n"
+    "No HTML tags, even when the context contains them.\n"
+    "Citation markers are never inside a link: write **[2]** or [2], never "
+    "[2](...).\n\n"
     "If the context does not contain sufficient information, reply exactly: "
     f"'{ABSTENTION_ANSWER}'\n\n"
     "Respond in the same language as the question."

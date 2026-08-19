@@ -632,6 +632,50 @@ Cosa pubblicare, e cosa no: `open_ragbench` e `ledger`. **Non** le varianti `_ro
 
 ---
 
+## Debiti aperti — cosa resta da far girare e da sistemare
+
+**Senza numero di proposito.** I riferimenti `§13`–`§17` sono citati in decine di commenti nel codice: rinumerarli per infilare una sezione qui li renderebbe tutti sbagliati, e un documento che si aggiorna rompendo i suoi lettori non è una fonte di verità. Sta dopo la Fase 8 perché è lì che i debiti si sono accumulati.
+
+Ogni voce dice **cosa fare**, non solo cosa manca. Un debito senza il comando che lo salda è un promemoria, e i promemoria non si saldano.
+
+### A. Misure da rifare — richiedono la GPU, e un via libera
+
+`prompt_hash` è cambiato due volte: con la correzione del prompt di C-01, e con U-14 che ha rovesciato la regola sul formato. Le **17 run di citazioni** a disco valgono per prompt che non sono più quello in vigore, e ogni numero di conformità va citato **insieme al prompt a cui si riferisce** finché non si rimisura.
+
+| # | Cosa | Comando | Costo |
+|---|---|---|---|
+| D-1 | Conformità delle citazioni col prompt nuovo, `open_ragbench` | `python scripts/eval_citations.py --dataset open_ragbench --limit 200` | ~65–70 min GPU |
+| D-2 | Lo stesso su `ledger` — mai aggregare i due | `python scripts/eval_citations.py --dataset ledger --limit 200` | ~65–70 min GPU |
+| D-3 | **La misura che U-14 impone** (vedi sotto) | come D-1/D-2, confrontando i due prompt | il doppio di D-1 |
+| D-4 | Sessione di eval di fine fase, tutte le combinazioni di flag implementate | la procedura sta in `CLAUDE.md`, §*Eval procedure* | 1–2 h per configurazione |
+
+> **D-3 non è un ricontrollo, è una previsione da falsificare.** Prima di U-14 il markdown pieno era stato **valutato e scartato**, e non per estetica: la verifica di C-03 è a livello di **frase**, e una riga di tabella non è una frase. L'argomento registrato in [`progress.md`](docs/progress.md) diceva che una risposta con una tabella verrebbe fuori *«più bella e meno verificata»* — celle senza citazione, o citazioni che il verificatore non sa attribuire — e che una tabella generata **fonde** numeri presi da chunk diversi in una struttura inventata dal modello, cioè nasconde proprio il punto in cui la tracciabilità si perde. La decisione è stata rovesciata su richiesta il 2026-08-19, e quell'argomento **non è stato confutato: è stato rinviato a una misura.** Se `citation_precision` cala col prompt nuovo, la previsione era giusta e la regola sul formato va ripensata — non difesa.
+
+> **Un'obiezione dell'epoca invece è caduta, e va detto perché.** Si diceva che un renderer Markdown avrebbe letto `[2][3]` come *reference link* di CommonMark, reinterpretando proprio la forma che il §3.2 impone. Non succede: `markdown.ts` non tocca le quadre, e i marcatori continuano a uscire da `marcatoriDelTesto`, che era già l'unica implementazione nel frontend. Non è una seconda copia del contratto di citazione — è il contratto che resta l'unico a leggerle.
+
+### B. Debiti dell'interfaccia
+
+| # | Cosa | Dove nasce |
+|---|---|---|
+| D-5 | **«Dettagli della run» non esiste.** I quattro dati dell'indice — collection, punti, dimensione densa, vettori sparsi — che U-01 mostrava nella colonna centrale sono usciti di scena quando la chat ha preso quel posto. Il §12 li vuole sempre leggibili, e lì devono tornare insieme ai parametri di «Avanzate» | U-02, dichiarato alla consegna |
+| D-6 | **U-04**: il selettore permissivo/severo dentro la colonna senza fonti, l'unico posto dove `baseline_prompt` ha effetto | task del §12, non ancora fatto |
+| D-7 | **La soglia dei verdetti non arriva al frontend.** `CitationView` porta `score` e `supported` ma non la soglia, quindi la pastiglia mostra `0,717` senza una scala. Il precedente è già in casa: `GateView` spedisce `threshold` accanto al proprio `score`. Va esposta **in lettura, in `ConfigView`/`CitationView`, mai accettata in `QueryRequest`** — una soglia scelta da chi chiama si potrebbe tarare sulla stessa risposta che deve giudicare, ed è un'assenza protetta da un test | U-07 |
+| D-8 | **La composizione di U-14 non ha un test.** `markdown.ts` ne ha 15 suoi, ma l'incrocio fra markdown, marcatori e verdetti si verifica solo a schermo: `ui/` non ha jsdom, per scelta di U-00. Se un giorno serve, il modo che rispetta quella scelta è estrarre la composizione in una funzione pura che restituisce intervalli invece di nodi | U-14 |
+
+### C. Dichiarati altrove, e ancora aperti
+
+| # | Cosa |
+|---|---|
+| D-9 | **I-06 rinviato**: nessun dataset corrente distribuisce PDF nativi o coordinate, quindi `bbox` resta `None` e l'overlay di U-06 non ha su cosa poggiare. Si sblocca solo aggiungendo un dataset con PDF e coordinate esportate — **dichiararlo, non simularlo** |
+| D-10 | **U-12**: `ROCMExecutionProvider` e `CUDAExecutionProvider` sono nell'ordine di preferenza **dichiarati e non verificati**. La portabilità Linux si chiude provandoli, non elencandoli |
+| D-11 | **Le sei domande aperte** di [`open-questions.md`](docs/open-questions.md), OQ-01…OQ-06. La prima è la più cara: perché il routing peggiora `ledger` di 17 punti, cioè il motivo per cui l'affermazione 2 del §0 non è sostenuta |
+| D-12 | **I 50 `E402` sono soppressi, non corretti.** La correzione vera è installare il progetto (`pip install -e .`) e cancellare le tre righe di bootstrap da ogni script. Non è igiene, è un cambiamento del modo di lavorare: oggi `python scripts/eval.py` funziona su un clone appena scaricato |
+| D-13 | **Nessun linter per il TypeScript.** `prettier` formatta e basta; ciò che troverebbe qualcosa è `react-hooks/exhaustive-deps`, e in questo repo le liste di dipendenze degli `useCallback` sono scritte a mano. Proposta, non decisa |
+
+**La regola che tiene insieme la lista**: nessuno di questi debiti è una scusa per non consegnare, e nessuno può essere chiuso in silenzio. Quando uno si salda, la riga sparisce da qui e il risultato — anche negativo, soprattutto negativo — entra nella tabella che gli compete.
+
+---
+
 ## 13. Fase 9 — Extra, in ordine di priorità
 
 Solo se avanza tempo. Nessuno di questi è necessario perché il progetto sia completo.

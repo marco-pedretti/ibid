@@ -1600,6 +1600,7 @@ Per la stessa ragione `/document/{doc_id}/chunks` restituisce i chunk **in ordin
 | U-00 | âœ… fatto (2026-08-14) | Scheletro `ui/`: Vite 8 + React 19 + TypeScript 7 + Tailwind 4, client SSE scritto a mano, temi, i18n IT/EN, `/datasets` all'avvio. **19 test Vitest** + 15 test Python sul contratto generato. `npm run typecheck && npm test && npm run build` verdi; catena provata contro l'API viva. Dettaglio sotto. |
 | U-01 | ✅ fatto (2026-08-14) | Selettore dataset nella corsia laterale del mockup, scelta ricordata in `localStorage` e **validata** contro `/datasets`. La regola di selezione è in funzioni pure: **9 test Vitest** in più (28 in tutto), senza jsdom. Provato contro l'API viva: `open_ragbench` 18.840 e `ledger` 47.110 chunk. Dettaglio sotto. |
 | U-02 | ✅ fatto (2026-08-14) | Schermata di chat con **pannello fonti sempre visibile** (nel telaio, non nella chat): otto stati, uno per evento del §3.5, macchina a stati in un reducer puro con **16 test** (44 lato Vitest). Marcatori inerti finché non arriva `answer`. I valori di `abstention` ora sono generati come i tipi. Esempi dello stato vuoto presi da `eval/golden`. Provato contro l'API viva su una query d'oro reale. **Rendering LaTeX** con KaTeX, regola dei delimitatori misurata: 49 falsi positivi tolti su 49, zero formule vere perse. Dettaglio sotto. |
+| U-14 | ✅ fatto (2026-08-19) | **Markdown e LaTeX nella risposta**: il prompt li invita invece di vietarli, e l'interfaccia li disegna — come **intervalli sul testo grezzo**, così verdetti per frase e frasi scoperte restano allineati. **15 test Vitest** in più (172 in tutto). Debito dichiarato: `prompt_hash` cambia, C-01/C-02/C-07 da rimisurare. Dettaglio sotto. |
 | U-03 | ✅ fatto (2026-08-19) | **La barra di composizione e il confronto affiancato**: i quattro controlli del mockup (RAG, ragionamento, modello, «Avanzate») e la stessa domanda rilanciata a RAG invertito in due colonne. Il secondo braccio riparte dalla configurazione *che ha girato*, non dalla barra — §15 dentro l'interfaccia. **3 test Vitest** in più (155 in tutto), e ogni controllo si apre sul valore in vigore letto da `/config`. Dettaglio sotto. |
 | U-13 | ✅ fatto (2026-08-17) | **Conversazione nuova e cronologia locale**: l'elenco nella corsia, persistenza in `localStorage`, e il ricaricamento riapre una conversazione *nuova*, con la cronologia accanto. Cosa si ricorda e come si rilegge è in funzioni pure: **17 test Vitest** in più (147 in tutto). Cancellare la cronologia c'è, a due tempi, ed è il primo posto in cui la palette ha un rosso — `danger`, solo per ciò che distrugge. Due giri di revisione. Dettaglio sotto. |
 | U-07 | ✅ fatto (2026-08-17) | Ogni citazione porta il **proprio verdetto**, sul marcatore in mezzo alla prosa e sulla scheda della fonte, e **nessuna è nascosta**. Cinque stati per il marcatore e sei per la scheda, distinti da glifo, colore e parola insieme (§12). Le frasi senza citazione sono sottolineate dove stanno. La corrispondenza frase↔marcatore è in funzioni pure: **38 test Vitest** in più (116 in tutto). Provato contro l'API viva su `open_ragbench` e `ledger`. Dettaglio sotto. |
@@ -2096,3 +2097,89 @@ barra al modo in cui il progetto è pensato per funzionare, che è anche quello 
 stato misurato. Stessa lettura di U-13: il caso frequente vince sul raro.
 
 `npm run typecheck && npm test && npm run build` verdi, **155 test Vitest**. Una revisione.
+
+### U-14 — la regola sul formato si rovescia, e il markdown entra come intervalli
+
+Nato da una domanda di Marco (2026-08-19): col RAG spento gemma4 tende a scrivere
+in markdown — meglio tenerlo anche col RAG acceso, o sopprimerlo?
+
+La domanda conteneva una premessa da correggere: **la UI non aveva mai reso il
+markdown.** `Testo.tsx` disegnava LaTeX con KaTeX e i marcatori di citazione,
+niente altro, quindi col RAG spento sullo schermo comparivano gli asterischi
+crudi. Non c'era una caratteristica da tenere: c'era da decidere cosa farne.
+
+#### Perché i due bracci differivano
+
+Non il modello: il prompt. `SYSTEM` (RAG acceso) diceva *«Plain prose: no Markdown
+headings, lists, tables or bold»*; `BASELINE_A_SYSTEM` (RAG spento) è di due righe
+e una regola di formato non l'ha mai avuta.
+
+Il divieto da un lato solo rendeva il confronto di U-03 **una schermata a due
+variabili**: la colonna con le fonti in prosa piana per contratto, quella nuda
+libera di formattare. È esattamente ciò che il §15 vieta, e non me ne ero accorto
+costruendola.
+
+#### La regola non è cambiata, è cambiato ciò che decideva
+
+`prompt.py` dice *«il formato si decide qui, non si osserva nella UI»*, e quella
+regola resta — è anzi la ragione del rovesciamento. La prosa piana era stata
+scelta perché era ciò che il renderer sapeva disegnare, cioè decidendo un
+contratto **da ciò che il consumatore supporta**: l'inverso della regola sotto cui
+era stata scritta.
+
+E l'avvertimento ipotetico che quel file portava — *«un modello più grande che
+rispondesse con una tabella Markdown arriverebbe come pipe letterali»* — non è più
+ipotetico da quando U-03 ha messo il menu dei modelli sullo schermo.
+
+L'HTML resta vietato, e non per simmetria: il 39% di `ledger` porta tabelle HTML
+di Mathpix, la UI non disegna markup che non ha analizzato lei, e un tag
+riecheggiato nella risposta sarebbe una decisione sull'iniezione, non sulla
+tipografia. Stessa ragione per cui i link non si rendono: un riferimento che
+nessuno può aprire, dentro una risposta senza fonti verificabili, è l'opposto
+della tesi.
+
+#### Il vincolo che decide tutta la forma del codice
+
+I verdetti per frase e le frasi scoperte arrivano dal backend come **posizioni
+dentro ciò che il modello ha scritto**, e la matematica è già segmentata sugli
+stessi offset. Un parser che restituisse una stringa ripulita — senza asterischi,
+senza cancelletti — sposterebbe ogni indice a valle del primo simbolo tolto, e la
+sottolineatura di «questa frase non cita niente» finirebbe su un'altra frase. Un
+errore invisibile in revisione e sistematico in esecuzione.
+
+Quindi `markdown.ts` non toglie niente: dice **dove** c'è enfasi, **dove** i
+caratteri di sintassi vanno nascosti, e come il testo si divide in blocchi. I
+caratteri spariscono per ultimi, in `visibili`, quando ogni altro intervallo è già
+stato calcolato.
+
+Due precedenze che a mano si sbagliano, e hanno il loro test: il codice vince
+sull'enfasi (dentro `` `a*b*c` `` gli asterischi sono un identificatore), e
+l'underscore vale solo fra confini di parola (`dataset_id` non è un corsivo — in
+un corpus di paper e bilanci quegli identificatori ci sono davvero). E un test
+fissa che `**[2]**` lascia `[2]` intatto: il §3.2 è la prima affermazione del §0,
+e il grassetto non deve nasconderlo.
+
+#### I titoli non crescono di corpo
+
+Un `##` reso come un titolo grande darebbe alla risposta **senza fonti** una
+gerarchia visiva che quella con le fonti non ha — e il confronto di U-03 esiste
+per mettere in dubbio proprio quella colonna. Rendere il markdown ha un costo che
+va nominato: grassetti ed elenchi puliti fanno sembrare più autorevole l'unica
+risposta che nessuno può verificare. Si paga in parte togliendo la gerarchia: un
+titolo si legge come tale per peso e spaziatura, non per dimensione.
+
+#### Il debito, dichiarato
+
+Cambiare `SYSTEM` cambia `prompt_hash`: le **17 run di citazioni** a disco (2 hash
+distinti) smettono di essere confrontabili con quelle successive. È il lavoro di
+quel campo — rendere visibile una rottura che altrimenti sarebbe silenziosa — e
+C-01, C-02 e C-07 si rimisurano a interfaccia finita, per decisione di Marco.
+`baseline_prompts.py` non è toccato: non ha mai avuto una regola di formato,
+quindi è già «invitato», ed E-04/E-05 restano confrontabili.
+
+**Cosa non è provato**, e va detto: il livello puro ha 15 test suoi, ma la
+composizione fra markdown, marcatori e verdetti non è verificata da un test —
+`ui/` non ha jsdom, per scelta di U-00. Si guarda a schermo.
+
+`npm run typecheck && npm test && npm run build` verdi, **172 test Vitest**;
+1678 test Python passano col prompt nuovo.
