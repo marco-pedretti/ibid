@@ -279,6 +279,14 @@ function MenuModelli({ modelli }: { modelli: readonly string[] }) {
  * dashboard. Raggiungibili perche' la demo li accetta gia', e nasconderli del
  * tutto significherebbe avere un'API piu' espressiva dell'interfaccia che la
  * presenta.
+ *
+ * **Senza una riga che spieghi le regole del pannello.** C'era, e diceva che
+ * ogni manopola parte dal valore configurato e che il segno la riporta
+ * indietro: due cose che il pannello **mostra gia'** — la voce marcata nel menu,
+ * il segno che compare solo quando serve. Scrivere accanto a un'interfaccia cio'
+ * che l'interfaccia sta facendo la appesantisce e non la spiega, e questo e' il
+ * posto dove peserebbe di piu': quattro manopole che stanno chiuse proprio per
+ * non diventare un muro.
  */
 function PannelloAvanzate({ modalita }: { modalita: readonly string[] }) {
   const { t } = usaLingua();
@@ -338,8 +346,6 @@ function PannelloAvanzate({ modalita }: { modalita: readonly string[] }) {
           onCambia={(n) => cambia("hnsw_ef", n)}
         />
       </Campo>
-
-      <p className="w-full text-[10.5px] leading-[1.5] text-muted">{t("bar.advanced.note")}</p>
     </div>
   );
 }

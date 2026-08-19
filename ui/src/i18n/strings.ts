@@ -133,8 +133,6 @@ export const it = {
   "bar.advanced.less": "Un passo in giù",
   "bar.advanced.more": "Un passo in su",
   "bar.advanced.reset": "Torna al predefinito",
-  "bar.advanced.note":
-    "Ogni manopola parte da come l’ha configurata il servizio, e quella voce è marcata nel menu. Se la sposti, torna indietro col segno accanto al numero.",
 
   // Il confronto. È un'azione su una risposta già data, non un secondo
   // messaggio: le parole dicono «la stessa domanda», mai «chiedi di nuovo».
@@ -358,8 +356,6 @@ export const en: Record<Chiave, string> = {
   "bar.advanced.less": "One step down",
   "bar.advanced.more": "One step up",
   "bar.advanced.reset": "Back to the default",
-  "bar.advanced.note":
-    "Every knob starts from how the service configured it, and that entry is marked in the menu. If you move it, the sign next to the number brings it back.",
 
   "compare.action.bare": "Compare without the sources",
   "compare.action.sourced": "Compare with the sources",
