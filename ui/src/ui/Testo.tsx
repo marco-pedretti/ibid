@@ -41,6 +41,8 @@ import type { ReactNode } from "react";
 import { marcatoriDelTesto, spanSenzaCitazione } from "../app/verdetti";
 import type { Marcato, Span } from "../app/verdetti";
 import type { Risposta } from "../app/conversazione";
+import { analizza, stiliIn } from "./markdown";
+import type { Blocco as BloccoMd, Nascosto, Stile } from "./markdown";
 import { perAnteprima, segmenta } from "./matematica";
 import { Marcatore } from "./Verdetto";
 
@@ -55,16 +57,12 @@ export function marcatoriCitati(testo: string): Set<number> {
 }
 
 export function Testo({ risposta }: { risposta: Risposta }) {
-  // `segmenta` **prima**, e annotare dentro i suoi pezzi: al contrario, un
-  // `$x[3]$` -- un indice fra quadre dentro una formula, che in un corpus di
-  // paper esiste -- verrebbe spezzato a meta' e la formula non si comporrebbe
-  // piu'. La matematica ha la precedenza perche' un suo errore rompe il disegno,
-  // mentre un marcatore mancato resta leggibile.
-  const { segmenti, annotazioni } = useMemo(() => {
+  const { blocchi, annotazioni, stili, nascosti } = useMemo(() => {
     const marcati = marcatoriDelTesto(risposta);
     const scoperte = spanSenzaCitazione(risposta);
+    const md = analizza(risposta.testo);
     return {
-      segmenti: segmenta(risposta.testo),
+      ...md,
       // Le due specie non si annidano mai: una frase «senza citazione» e' per
       // definizione una frase senza marcatori. Quindi una lista piatta, ordinata,
       // basta -- e non serve un albero di intervalli.
@@ -79,18 +77,220 @@ export function Testo({ risposta }: { risposta: Risposta }) {
     };
   }, [risposta]);
 
+  const contesto: Contesto = { testo: risposta.testo, annotazioni, stili, nascosti };
+
+  // I blocchi si raggruppano solo per disegnare `<ul>`/`<ol>`: voci consecutive
+  // stanno in un elenco, e senza il raggruppamento sarebbero N elenchi da una
+  // voce -- che i lettori di schermo annunciano uno per uno.
   return (
-    <div className="text-[13.5px] leading-[1.66] whitespace-pre-wrap text-ink">
-      {segmenti.map((s, i) =>
-        s.tipo === "testo" ? (
-          <span key={i}>{annota(s.valore, s.da, annotazioni)}</span>
+    <div className="flex flex-col gap-2 text-[13.5px] leading-[1.66] text-ink">
+      {raggruppa(blocchi).map((g, i) =>
+        g.tipo === "elenco" ? (
+          <Elenco key={i} voci={g.blocchi} contesto={contesto} />
         ) : (
-          <Formula key={i} tex={s.tex} blocco={s.tipo === "blocco"} />
+          <Blocco key={i} blocco={g.blocchi[0]} contesto={contesto} />
         ),
       )}
     </div>
   );
 }
+
+/** Cio' che serve a ogni pezzo per disegnarsi: il testo grezzo e i quattro
+ *  elenchi di intervalli che ci stanno sopra. */
+interface Contesto {
+  testo: string;
+  annotazioni: Annotazione[];
+  stili: Stile[];
+  nascosti: Nascosto[];
+}
+
+type Gruppo = { tipo: "elenco" | "solo"; blocchi: BloccoMd[] };
+
+function raggruppa(blocchi: readonly BloccoMd[]): Gruppo[] {
+  const fuori: Gruppo[] = [];
+  for (const b of blocchi) {
+    const ultimo = fuori[fuori.length - 1];
+    if (b.tipo === "voce" && ultimo?.tipo === "elenco") ultimo.blocchi.push(b);
+    else fuori.push({ tipo: b.tipo === "voce" ? "elenco" : "solo", blocchi: [b] });
+  }
+  return fuori;
+}
+
+/**
+ * I titoli non crescono di corpo, e non e' una svista.
+ *
+ * Un `##` reso come un titolo grande darebbe alla risposta **senza fonti** una
+ * gerarchia visiva che quella con le fonti non ha — e il confronto di U-03
+ * esiste per mettere in dubbio proprio quella colonna. Qui un titolo si legge
+ * come un titolo (peso, spaziatura, un filo di colore) senza guadagnare
+ * autorita' tipografica.
+ */
+const TITOLO = "font-semibold text-ink";
+
+function Blocco({ blocco, contesto }: { blocco: BloccoMd; contesto: Contesto }) {
+  if (blocco.tipo === "tabella") return <Tabella blocco={blocco} contesto={contesto} />;
+
+  const dentro = <Tratto da={blocco.da} a={blocco.a} contesto={contesto} />;
+  if (blocco.tipo === "titolo") {
+    return <p className={`${TITOLO} ${(blocco.livello ?? 1) <= 2 ? "mt-1" : ""}`}>{dentro}</p>;
+  }
+  // `whitespace-pre-wrap` solo sul paragrafo: dentro un elenco o una cella gli
+  // a capo del sorgente non sono a capo del testo.
+  return <p className="whitespace-pre-wrap">{dentro}</p>;
+}
+
+function Elenco({ voci, contesto }: { voci: BloccoMd[]; contesto: Contesto }) {
+  const Tag = voci[0].numerata === true ? "ol" : "ul";
+  return (
+    <Tag
+      className={`flex flex-col gap-1 pl-5 ${
+        Tag === "ol" ? "list-decimal" : "list-disc"
+      } marker:text-muted`}
+    >
+      {voci.map((v) => (
+        <li key={v.da}>
+          <Tratto da={v.da} a={v.a} contesto={contesto} />
+        </li>
+      ))}
+    </Tag>
+  );
+}
+
+/**
+ * Una tabella, e le celle sono intervalli.
+ *
+ * Un verdetto che attraversa due celle si ritaglia su ciascuna, come gia' fa una
+ * frase scoperta a cavallo di due segmenti di formula: e' la stessa scelta, e
+ * per la stessa ragione — meta' sottolineatura e' leggibile, nessuna no.
+ */
+function Tabella({ blocco, contesto }: { blocco: BloccoMd; contesto: Contesto }) {
+  const [intestazione, ...corpo] = blocco.righe ?? [];
+  if (intestazione === undefined) return null;
+
+  return (
+    // Scorre per conto suo: una tabella larga non deve far scorrere la colonna
+    // della risposta, che porterebbe via con se' anche il testo.
+    <div className="overflow-x-auto">
+      <table className="w-full border-collapse text-[12.5px]">
+        <thead>
+          <tr>
+            {intestazione.map((c) => (
+              <th
+                key={c.da}
+                className="border-b border-line-2 px-2 py-1 text-left font-semibold text-ink"
+              >
+                <Tratto da={c.da} a={c.a} contesto={contesto} />
+              </th>
+            ))}
+          </tr>
+        </thead>
+        <tbody>
+          {corpo.map((riga, i) => (
+            <tr key={i}>
+              {riga.map((c) => (
+                <td key={c.da} className="border-b border-line px-2 py-1 align-top text-ink-2">
+                  <Tratto da={c.da} a={c.a} contesto={contesto} />
+                </td>
+              ))}
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+/**
+ * Un tratto di testo grezzo, disegnato con tutto cio' che gli sta sopra.
+ *
+ * L'ordine e' obbligato. `segmenta` **prima**, e annotare dentro i suoi pezzi:
+ * al contrario, un `$x[3]$` — un indice fra quadre dentro una formula, che in un
+ * corpus di paper esiste — verrebbe spezzato a meta' e la formula non si
+ * comporrebbe piu'. La matematica ha la precedenza perche' un suo errore rompe
+ * il disegno, mentre un marcatore mancato resta leggibile.
+ */
+function Tratto({ da, a, contesto }: { da: number; a: number; contesto: Contesto }) {
+  // `segmenta` lavora sulla stringa che riceve, quindi i suoi `da` sono relativi:
+  // si riportano sul grezzo sommando `da`. Meglio che aggiungere un parametro a
+  // una funzione che ha gia' i suoi test e che qui non deve cambiare.
+  const grezzo = contesto.testo.slice(da, a);
+  return (
+    <>
+      {segmenta(grezzo).map((s, i) =>
+        s.tipo === "testo" ? (
+          <span key={i}>{conStile(s.valore, da + s.da, contesto)}</span>
+        ) : (
+          <Formula key={i} tex={s.tex} blocco={s.tipo === "blocco"} />
+        ),
+      )}
+    </>
+  );
+}
+
+/**
+ * La prosa di un segmento: prima si tolgono i caratteri di sintassi, poi si
+ * spezza per enfasi, e dentro ogni pezzo vanno marcatori e sottolineature.
+ *
+ * I nascosti si saltano **qui** e non in `analizza` per la ragione di tutto il
+ * modulo: togliere caratteri prima sposterebbe gli offset di tutti gli altri
+ * intervalli.
+ */
+function conStile(prosa: string, da: number, contesto: Contesto): ReactNode[] {
+  const fine = da + prosa.length;
+  const stili = stiliIn(contesto.stili, da, fine);
+
+  // I confini che contano: inizio, fine, e ogni estremo di stile. Fra due
+  // confini consecutivi lo stile e' uno solo, perche' `analizza` prende ogni
+  // carattere una volta sola -- quindi gli stili non si annidano e un taglio
+  // secco basta. Con l'annidamento servirebbe un albero, e non e' il caso.
+  const confini = [...new Set([da, fine, ...stili.flatMap((s) => [s.da, s.a])])].sort(
+    (x, y) => x - y,
+  );
+
+  const pezzi: ReactNode[] = [];
+  for (let k = 0; k + 1 < confini.length; k += 1) {
+    const [inizio, termine] = [confini[k], confini[k + 1]];
+    const dentro = visibili(inizio, termine, contesto.nascosti).flatMap((v) =>
+      annota(contesto.testo.slice(v.da, v.a), v.da, contesto.annotazioni),
+    );
+    if (dentro.length === 0) continue;
+
+    const stile = stili.find((s) => s.da <= inizio && s.a >= termine);
+    pezzi.push(
+      stile === undefined ? (
+        <span key={inizio}>{dentro}</span>
+      ) : (
+        <span key={inizio} className={VESTE_STILE[stile.tipo]}>
+          {dentro}
+        </span>
+      ),
+    );
+  }
+  return pezzi;
+}
+
+/** I tratti di `[da, a)` che **non** sono sintassi da nascondere. E' l'unico
+ *  posto in cui i caratteri spariscono, ed e' dopo che ogni intervallo e' stato
+ *  calcolato: prima sposterebbe gli offset di tutti gli altri. */
+function visibili(da: number, a: number, nascosti: readonly Nascosto[]): Nascosto[] {
+  const fuori: Nascosto[] = [];
+  let i = da;
+  for (const n of nascosti) {
+    if (n.a <= i || n.da >= a) continue;
+    if (n.da > i) fuori.push({ da: i, a: Math.min(n.da, a) });
+    i = Math.max(i, n.a);
+    if (i >= a) break;
+  }
+  if (i < a) fuori.push({ da: i, a });
+  return fuori;
+}
+
+const VESTE_STILE: Record<Stile["tipo"], string> = {
+  forte: "font-semibold text-ink",
+  enfasi: "italic",
+  // In mono e su fondo, come ogni altro dato di questa interfaccia (§12).
+  codice: "rounded bg-surface-2 px-1 py-px font-mono text-[11.5px]",
+};
 
 /** Un tratto di testo che va disegnato diversamente. `marcato: null` = una frase
  *  che non cita niente. */
