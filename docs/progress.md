@@ -1600,7 +1600,7 @@ Per la stessa ragione `/document/{doc_id}/chunks` restituisce i chunk **in ordin
 | U-00 | âœ… fatto (2026-08-14) | Scheletro `ui/`: Vite 8 + React 19 + TypeScript 7 + Tailwind 4, client SSE scritto a mano, temi, i18n IT/EN, `/datasets` all'avvio. **19 test Vitest** + 15 test Python sul contratto generato. `npm run typecheck && npm test && npm run build` verdi; catena provata contro l'API viva. Dettaglio sotto. |
 | U-01 | ✅ fatto (2026-08-14) | Selettore dataset nella corsia laterale del mockup, scelta ricordata in `localStorage` e **validata** contro `/datasets`. La regola di selezione è in funzioni pure: **9 test Vitest** in più (28 in tutto), senza jsdom. Provato contro l'API viva: `open_ragbench` 18.840 e `ledger` 47.110 chunk. Dettaglio sotto. |
 | U-02 | ✅ fatto (2026-08-14) | Schermata di chat con **pannello fonti sempre visibile** (nel telaio, non nella chat): otto stati, uno per evento del §3.5, macchina a stati in un reducer puro con **16 test** (44 lato Vitest). Marcatori inerti finché non arriva `answer`. I valori di `abstention` ora sono generati come i tipi. Esempi dello stato vuoto presi da `eval/golden`. Provato contro l'API viva su una query d'oro reale. **Rendering LaTeX** con KaTeX, regola dei delimitatori misurata: 49 falsi positivi tolti su 49, zero formule vere perse. Dettaglio sotto. |
-| U-03 | ✅ fatto (2026-08-19) | **La barra di composizione e il confronto affiancato**: i quattro controlli del mockup (RAG, ragionamento, modello, «Avanzate») e la stessa domanda rilanciata a RAG invertito in due colonne. Il secondo braccio riparte dalla configurazione *che ha girato*, non dalla barra — §15 dentro l'interfaccia. **3 test Vitest** in più (155 in tutto). Dettaglio sotto. |
+| U-03 | ✅ fatto (2026-08-19) | **La barra di composizione e il confronto affiancato**: i quattro controlli del mockup (RAG, ragionamento, modello, «Avanzate») e la stessa domanda rilanciata a RAG invertito in due colonne. Il secondo braccio riparte dalla configurazione *che ha girato*, non dalla barra — §15 dentro l'interfaccia. **3 test Vitest** in più (155 in tutto), e ogni controllo si apre sul valore in vigore letto da `/config`. Dettaglio sotto. |
 | U-13 | ✅ fatto (2026-08-17) | **Conversazione nuova e cronologia locale**: l'elenco nella corsia, persistenza in `localStorage`, e il ricaricamento riapre una conversazione *nuova*, con la cronologia accanto. Cosa si ricorda e come si rilegge è in funzioni pure: **17 test Vitest** in più (147 in tutto). Cancellare la cronologia c'è, a due tempi, ed è il primo posto in cui la palette ha un rosso — `danger`, solo per ciò che distrugge. Due giri di revisione. Dettaglio sotto. |
 | U-07 | ✅ fatto (2026-08-17) | Ogni citazione porta il **proprio verdetto**, sul marcatore in mezzo alla prosa e sulla scheda della fonte, e **nessuna è nascosta**. Cinque stati per il marcatore e sei per la scheda, distinti da glifo, colore e parola insieme (§12). Le frasi senza citazione sono sottolineate dove stanno. La corrispondenza frase↔marcatore è in funzioni pure: **38 test Vitest** in più (116 in tutto). Provato contro l'API viva su `open_ragbench` e `ledger`. Dettaglio sotto. |
 
@@ -2026,25 +2026,47 @@ colonna. Non è un'eccezione al criterio di U-02: averle da una parte e non dall
 l'argomento della schermata, e una colonna sola di fianco mostrerebbe le fonti di uno
 dei due bracci senza dire di quale.
 
-#### Ciò che il frontend non sa, non lo manda
+#### «Come configurato» era un'opzione, ed è stato l'errore della prima stesura
 
-RAG e ragionamento partono **sempre**, espliciti, anche quando coincidono col default:
-il campo che parte è quello che torna in `ConfigView`, e una richiesta che tace lascia
-decidere al server una cosa che sullo schermo appare già decisa.
+Ogni menu si apriva su una voce «come configurato» che significava *non lo mando,
+decidi tu*. Il ragionamento sembrava solido: `Capabilities` elenca i valori **ammessi**
+e non quelli **configurati**, quindi preselezionare il primo dell'elenco avrebbe scritto
+sopra la scelta del deployment una scelta che nessuno aveva fatto — e l'ordine è
+alfabetico, quindi il primo non ha rapporto con niente.
 
-Il modello e i quattro parametri di «Avanzate» fanno l'opposto, e per la stessa ragione
-rovesciata: `Capabilities` elenca i valori *ammessi*, non quelli *configurati*.
-Preselezionare il primo dell'elenco scriverebbe sopra la scelta del deployment una
-scelta che nessuno ha fatto — e l'ordine è alfabetico, quindi il primo non ha rapporto
-con niente. Sullo schermo c'è scritto «come configurato», e mandare un valore lo
-smentirebbe.
+Marco l'ha rifiutato alla revisione: il default dev'essere **una delle opzioni vere**,
+selezionata e marcata. Aveva ragione, e la conclusione è più secca di quanto sembri: il
+servizio quei valori li pubblica. `GET /config` restituisce l'intero `ConfigView` in
+vigore, esiste da A-04, ed **era già nel client** (`api.config`, scritta in U-00) senza
+che nessuno la chiamasse. L'interfaccia dichiarava di non sapere una cosa che aveva a
+disposizione.
+
+Non è servito toccare il contratto — il che è rilevante, perché un campo nuovo in
+`Capabilities` sarebbe stata una modifica a `src/api/` dentro un task U-xx, cioè la
+violazione che A-07 esiste per aver evitato.
+
+Ne segue una semplificazione invece di una complicazione: **tutto parte esplicito**,
+l'eccezione non esiste più. E ciò che è stato spostato dal predefinito diventa accento,
+che è l'unica cosa che «Avanzate» chiuso poteva nascondere.
 
 Elenco modelli vuoto ≠ elenco assente: A-07 restituisce `[]` quando non raggiunge
-`LLM_BASE_URL`, perché elencare il modello configurato affermerebbe che esiste. La
-pastiglia resta **visibile e attenuata** col motivo nel suggerimento — nasconderla
-farebbe sparire insieme al comando anche la ragione per cui non c'è. Attenuata e non
-`disabled`, che non riceve il puntatore e chiuderebbe la bolla che spiega: la lezione
-delle voci di cronologia in U-13.
+`LLM_BASE_URL`. Ma il **nome** del modello configurato si sa lo stesso, da `/config`, e
+la pastiglia attenuata lo porta dentro: ciò che manca non è sapere chi risponde, è
+poterlo cambiare. Attenuata e non `disabled`, che non riceve il puntatore e chiuderebbe
+la bolla che spiega: la lezione delle voci di cronologia in U-13.
+
+#### I due numerici non sono campi, sono manopole
+
+`top_k` e `hnsw_ef` erano due `<input type="number">`. Le frecce native sono diverse su
+ogni browser, non appartengono al vocabolario di pillole della barra, e lasciavano
+scrivere un campo **vuoto** — uno stato che il valore non ha. Ora sono una pastiglia con
+− e +, cifre in mono, e il segno che riporta al predefinito quando ci si è allontanati:
+una manopola senza ritorno costringe a ricordare da dove si era partiti, che è
+esattamente ciò che «marcato come predefinito» esiste per evitare.
+
+`null` resta raggiungibile solo dove è un valore vero: `hnsw_ef` non impostato significa
+lasciar decidere l'indice, ed è il predefinito di questo servizio — si legge `auto`, non
+uno spazio bianco.
 
 #### Il ragionamento è l'unico comando che dichiara il proprio costo
 
@@ -2073,4 +2095,4 @@ acceso» non è una preferenza, è un **esperimento**, e ritrovarlo ancora impos
 barra al modo in cui il progetto è pensato per funzionare, che è anche quello in cui è
 stato misurato. Stessa lettura di U-13: il caso frequente vince sul raro.
 
-`npm run typecheck && npm test && npm run build` verdi, **155 test Vitest**.
+`npm run typecheck && npm test && npm run build` verdi, **155 test Vitest**. Una revisione.
