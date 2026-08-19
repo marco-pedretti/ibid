@@ -147,6 +147,15 @@ export interface DocumentChunksResponse {
   chunks: ChunkView[];
 }
 
+/** Un modello del catalogo, con cio' che il motore sa dirne (A-08). */
+export interface ModelView {
+  name: string;
+  family: string;
+  context_max: number | null;
+  quantization: string;
+  parameter_size: string;
+}
+
 /** Un dataset interrogabile, e lo stato del suo indice (U-01). */
 export interface DatasetView {
   dataset_id: string;
@@ -169,6 +178,7 @@ export interface Capabilities {
   baseline_prompts: string[];
   reasoning_efforts: string[];
   models: string[];
+  model_catalog: ModelView[];
   datasets: DatasetView[];
   collections: CollectionView[];
 }

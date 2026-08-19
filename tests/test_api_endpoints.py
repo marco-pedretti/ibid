@@ -26,7 +26,7 @@ from src.datasets.schema import Chunk
 from src.service import AnswerRequest, answer_stream
 import src.config as cfg
 from qdrant_client.http.exceptions import ResponseHandlingException
-from src.service.catalog import DatasetInfo, DocumentInfo
+from src.service.catalog import DatasetInfo, DocumentInfo, ModelInfo
 
 from src.api import main as api
 from tests.test_service_answer import CLAIM, HIGH, LOW, fake_retrieve, fake_verify
@@ -131,10 +131,56 @@ class TestDatasets:
 
     def test_elenca_i_modelli_installati(self, client, monkeypatch):
         """A-07: il menu dei modelli viene da qui, non da una lista scritta a
-        mano nel frontend — che e' la quindicesima copia di Q-06."""
+        mano nel frontend — che e' la quindicesima copia di Q-06.
+
+        A-08 ha cambiato **da dove** l'elenco viene (ora e' derivato dal
+        catalogo) e questo test resta a guardia di cio' che non doveva cambiare:
+        `models` e' ancora una lista di nomi, nella stessa forma. Un client
+        scritto contro A-04 non deve accorgersi di niente.
+        """
         monkeypatch.setattr(api, "datasets", list)
-        monkeypatch.setattr(api, "models", lambda: ["gemma4:12b", "gemma4:e4b"])
+        monkeypatch.setattr(
+            api,
+            "model_catalog",
+            lambda: [ModelInfo(name="gemma4:12b"), ModelInfo(name="gemma4:e4b")],
+        )
         assert client.get("/datasets").json()["models"] == ["gemma4:12b", "gemma4:e4b"]
+
+    def test_il_catalogo_porta_finestra_e_quantizzazione(self, client, monkeypatch):
+        """A-08: la coppia (modello, finestra) si legge dal server, mai dedotta
+        da un nome. Il massimo **non e' uno solo** — misurato: `gemma4:latest`
+        131.072, `gemma4:12b` 262.144 — quindi U-16 filtra le taglie sul
+        modello scelto."""
+        monkeypatch.setattr(api, "datasets", list)
+        monkeypatch.setattr(
+            api,
+            "model_catalog",
+            lambda: [
+                ModelInfo("gemma4:12b", "gemma4", 262144, "Q4_K_M", "11.9B"),
+                ModelInfo("qwen3.5:latest", "qwen35", 262144, "Q4_K_M", "9.7B"),
+            ],
+        )
+        catalogo = client.get("/datasets").json()["model_catalog"]
+        assert [m["context_max"] for m in catalogo] == [262144, 262144]
+        assert [m["family"] for m in catalogo] == ["gemma4", "qwen35"]
+        assert catalogo[0]["quantization"] == "Q4_K_M"
+
+    def test_un_motore_muto_da_un_catalogo_di_soli_nomi(self, client, monkeypatch):
+        """Su un motore che non e' Ollama i dettagli non arrivano: `context_max`
+        resta `None`, e chi riceve il catalogo non offre la scelta della
+        finestra invece di offrirne una inventata."""
+        monkeypatch.setattr(api, "datasets", list)
+        monkeypatch.setattr(api, "model_catalog", lambda: [ModelInfo(name="mistral")])
+        catalogo = client.get("/datasets").json()["model_catalog"]
+        assert catalogo == [
+            {
+                "name": "mistral",
+                "family": "",
+                "context_max": None,
+                "quantization": "",
+                "parameter_size": "",
+            }
+        ]
 
     def test_con_l_indice_spento_risponde_503_e_dice_dove(self, client, monkeypatch):
         """Qdrant spento e' un servizio che manca, non un bug del servizio.

@@ -1600,6 +1600,7 @@ Per la stessa ragione `/document/{doc_id}/chunks` restituisce i chunk **in ordin
 | U-00 | âœ… fatto (2026-08-14) | Scheletro `ui/`: Vite 8 + React 19 + TypeScript 7 + Tailwind 4, client SSE scritto a mano, temi, i18n IT/EN, `/datasets` all'avvio. **19 test Vitest** + 15 test Python sul contratto generato. `npm run typecheck && npm test && npm run build` verdi; catena provata contro l'API viva. Dettaglio sotto. |
 | U-01 | ✅ fatto (2026-08-14) | Selettore dataset nella corsia laterale del mockup, scelta ricordata in `localStorage` e **validata** contro `/datasets`. La regola di selezione è in funzioni pure: **9 test Vitest** in più (28 in tutto), senza jsdom. Provato contro l'API viva: `open_ragbench` 18.840 e `ledger` 47.110 chunk. Dettaglio sotto. |
 | U-02 | ✅ fatto (2026-08-14) | Schermata di chat con **pannello fonti sempre visibile** (nel telaio, non nella chat): otto stati, uno per evento del §3.5, macchina a stati in un reducer puro con **16 test** (44 lato Vitest). Marcatori inerti finché non arriva `answer`. I valori di `abstention` ora sono generati come i tipi. Esempi dello stato vuoto presi da `eval/golden`. Provato contro l'API viva su una query d'oro reale. **Rendering LaTeX** con KaTeX, regola dei delimitatori misurata: 49 falsi positivi tolti su 49, zero formule vere perse. Dettaglio sotto. |
+| A-08 | ✅ fatto (2026-08-19) | **Il catalogo dei modelli**: `Capabilities` porta famiglia, finestra massima e quantizzazione di ciascuno. La finestra si legge **per pattern** (`*.context_length`), quindi vale per qualunque famiglia — e il massimo non è uno solo: 131.072 per `gemma4:latest`, 262.144 per `gemma4:12b`. **12 test** in più (1690 in tutto). Additivo: `models` invariato. Dettaglio sotto. |
 | U-15 | ✅ fatto (2026-08-19) | **Con quali parametri e' stata data ogni risposta**: la configurazione che ha girato si rilegge nella conversazione, e fra una domanda e l'altra si vede cosa è cambiato. **Nessun campo nuovo**: `ConfigView` era già dentro ogni risposta e già nel deposito da U-13. **11 test Vitest** in più (183 in tutto). Dettaglio sotto. |
 | U-14 | ✅ fatto (2026-08-19) | **Markdown e LaTeX nella risposta**: il prompt li invita invece di vietarli, e l'interfaccia li disegna — come **intervalli sul testo grezzo**, così verdetti per frase e frasi scoperte restano allineati. **15 test Vitest** in più (172 in tutto). Debito dichiarato: `prompt_hash` cambia, C-01/C-02/C-07 da rimisurare. Dettaglio sotto. |
 | U-03 | ✅ fatto (2026-08-19) | **La barra di composizione e il confronto affiancato**: i quattro controlli del mockup (RAG, ragionamento, modello, «Avanzate») e la stessa domanda rilanciata a RAG invertito in due colonne. Il secondo braccio riparte dalla configurazione *che ha girato*, non dalla barra — §15 dentro l'interfaccia. **3 test Vitest** in più (155 in tutto), e ogni controllo si apre sul valore in vigore letto da `/config`. Dettaglio sotto. |
@@ -2278,3 +2279,77 @@ partita finita. La configurazione **intera** sta nel suggerimento, che è il pos
 dove la si va a cercare — ed è un dato, quindi si apre subito (140 ms).
 
 `npm run typecheck && npm test && npm run build` verdi, **183 test Vitest**.
+
+### A-08 — la finestra di contesto è una proprietà del modello, e si è dovuto misurarlo
+
+Nato da una richiesta di Marco (2026-08-19): far scegliere a chi usa la demo la
+dimensione del contesto, come fa lo slider della GUI di Ollama. Tre misure prima
+di decidere, perché nessuna delle tre era ovvia.
+
+| verifica | esito |
+|---|---|
+| `num_ctx` sul contratto OpenAI | **non è fra i campi supportati** — la documentazione elenca `model`, `messages`, `temperature`, `max_tokens`, `reasoning_effort`… e rimanda a un Modelfile |
+| mandarlo comunque su `/v1/chat/completions` | **200, e ignorato**: `num_ctx: 4096` e il modello resta caricato a 32768 |
+| `PARAMETER num_ctx` in un Modelfile | **ha effetto attraverso l'endpoint OpenAI**: modello derivato a 8192, e una chiamata a `/v1` lo carica a 8192 |
+| `/api/ps` come fonte di verità | **inutilizzabile**: elenca solo i modelli *caricati*, e a servizio inattivo risponde vuoto |
+
+La seconda riga è la più importante: un controllo costruito lì **sembrerebbe
+funzionare senza fare niente**, che è il difetto peggiore dei due possibili.
+
+Ne segue la forma del task: la finestra viaggia col **nome del modello**, e il
+menu dei modelli è già un campo pienamente supportato. Il selettore di contesto
+non è quindi una manopola nuova sull'API — è il catalogo.
+
+#### Perché deve leggersi per pattern
+
+Ollama pubblica la finestra sotto una chiave che **contiene il nome della
+famiglia**: `gemma4.context_length`, `qwen35.context_length`. Cercarla per nome
+avrebbe funzionato su gemma4 e su nient'altro — che è esattamente la domanda che
+Marco ha fatto («funzionerà con qualsiasi modello o solo per gemma4?»). Si cerca
+per suffisso, e un test lo fissa con due famiglie nella stessa chiamata.
+
+**E il massimo non è uno solo**, misurato sui quattro installati:
+
+| modello | famiglia | finestra max | quantizzazione |
+|---|---|---|---|
+| `gemma4:latest` | gemma4 | 131 072 | Q4_K_M |
+| `gemma4:e2b` | gemma4 | 131 072 | Q4_K_M |
+| `gemma4:12b` | gemma4 | **262 144** | Q4_K_M |
+| `qwen3.5:latest` | qwen35 | **262 144** | Q4_K_M |
+
+Quindi «solo le finestre compatibili col modello scelto» (U-16) smette di essere
+una precauzione e diventa un fatto.
+
+#### La terza volta che incontro lo stesso difetto
+
+Il catalogo porta anche la **quantizzazione**, e non per completezza.
+`LLM_QUANTIZATION = "Q4_K_M"` è una costante che finisce in ogni `EvalRun`, ed è
+vera oggi per tutti e quattro **per coincidenza**. È la stessa forma di
+`context_window` (D-14) e di `reasoning_enabled` prima di loro — che
+`run_config.py` documenta come «una dichiarazione che nessuno verificava, e per
+un periodo è stata falsa in ogni run». Tre campi della stessa famiglia,
+dichiarati e mai letti; il catalogo li rende leggibili tutti e tre.
+
+#### La chiamata nativa, e dove sta
+
+`/api/show` è l'API nativa di Ollama, e il vincolo di STACK.md dice che
+**l'inferenza** passa da un endpoint OpenAI-compatibile perché il repo giri anche
+su vLLM o llama.cpp. Questa non è inferenza: è **scoperta**, e degrada a «non lo
+so» ovunque non esista — allora il catalogo torna a essere la lista di nomi che
+era prima, con `context_max: None`, e chi legge non offre una scelta che non può
+sostenere. È lo stesso schema di `catalog.models()` che restituisce `[]` invece
+di inventare.
+
+Sta in `catalog.py` e non in `chat.py` di proposito: quel modulo è il contratto
+OpenAI, e mettergli dentro una chiamata nativa lo renderebbe il posto dove la
+regola si aggira invece di quello dove è scritta.
+
+#### Additivo, e verificato che lo sia
+
+`models` resta `list[str]` con gli stessi valori — ora derivati dal catalogo. Il
+test di A-07 è stato **esteso invece che adattato**: il suo criterio è proprio
+che quella forma non cambi, quindi continua a guardarla, e due test nuovi
+coprono il catalogo e il caso del motore muto.
+
+**1690 test Python** (10 nuovi sul catalogo, 2 sugli endpoint), 183 Vitest,
+typecheck verde, tipi TypeScript rigenerati.

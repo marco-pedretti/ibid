@@ -31,6 +31,7 @@ from src.api.schema import (
     DocumentsResponse,
     DocumentView,
     ErrorEvent,
+    ModelView,
     QueryRequest,
     RetrieveRequestBody,
     RetrieveResponse,
@@ -46,7 +47,7 @@ from src.service import (
     datasets,
     document_chunks,
     documents,
-    models,
+    model_catalog,
     retrieve_chunks,
 )
 
@@ -99,8 +100,13 @@ def list_datasets() -> Capabilities:
     scritta a mano di quella lista, che e' esattamente cio' che Q-06 ha tolto di
     mezzo dal lato Python.
     """
+    # `models` e `model_catalog` non sono due domande al motore: il catalogo
+    # riusa la stessa lista di nomi e ci aggiunge cio' che sa dirne. Restano due
+    # campi perche' il primo e' il contratto di A-07 e non deve cambiare forma.
+    catalogo = model_catalog()
     return Capabilities(
-        models=models(),
+        models=[m.name for m in catalogo],
+        model_catalog=[ModelView(**vars(m)) for m in catalogo],
         datasets=[DatasetView.of(d) for d in datasets()],
         collections=[CollectionView.of(c) for c in collections()],
     )
