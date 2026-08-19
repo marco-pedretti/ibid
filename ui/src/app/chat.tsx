@@ -28,6 +28,7 @@ import { createContext, useCallback, useContext, useEffect, useRef, useState } f
 import type { ReactNode } from "react";
 
 import { streamQuery } from "../api/sse";
+import type { QueryRequest } from "../api/types";
 import { usaDataset } from "./dataset";
 import { applica, guasto, inizio, interrompi } from "./conversazione";
 import type { Risposta, Scambio } from "./conversazione";
@@ -104,6 +105,35 @@ function statoIniziale(): Stato {
   };
 }
 
+/**
+ * Guida uno stream fino alla fine, e ci scrive dentro attraverso `aggiorna`.
+ *
+ * Non sa **dove** finisca la risposta che sta costruendo: quello lo decide chi
+ * chiama, passando la funzione che la va a prendere. Serve perche' gli stream
+ * non sono uno solo — una domanda nella conversazione e, dal confronto, la
+ * stessa domanda rilanciata a RAG invertito — e le tre righe che distinguono
+ * uno stream **annullato** da uno **caduto** non vanno ricopiate: sono la parte
+ * che a mano si sbaglia, e sbagliarla significa mostrare un guasto a chi ha solo
+ * premuto «Ferma».
+ */
+async function guida(
+  richiesta: QueryRequest,
+  ctrl: AbortController,
+  aggiorna: (f: (r: Risposta) => Risposta) => void,
+): Promise<void> {
+  try {
+    for await (const evento of streamQuery(richiesta, { signal: ctrl.signal })) {
+      aggiorna((r) => applica(r, evento));
+    }
+  } catch (e: unknown) {
+    // Annullato da «Ferma» non e' caduto: il primo l'ha deciso chi guarda, il
+    // secondo e' successo. Mostrarli uguali farebbe cercare un guasto a chi ha
+    // solo premuto un pulsante.
+    const messaggio = e instanceof Error ? e.message : String(e);
+    aggiorna((r) => (ctrl.signal.aborted ? interrompi(r) : guasto(r, messaggio)));
+  }
+}
+
 function conRisposta(
   cs: readonly Conversazione[],
   idConversazione: string,
@@ -151,43 +181,26 @@ export function ProvvedeChat({ children }: { children: ReactNode }) {
       controller.current = ctrl;
       setOccupato(true);
 
-      void (async () => {
-        try {
-          // Il `dataset_id` viene dal selettore di U-01 e non da un default del
-          // server: e' cio' che rende vero «cambio dataset senza riavvio» anche
-          // per una domanda gia' in coda. I campi della barra sono quelli di
-          // **quando si e' premuto invio**: `opzioni` e' la costante del render
-          // in cui `invia` e' nata, quindi toccare un controllo mentre il
-          // modello parla non riscrive una richiesta gia' partita.
-          for await (const evento of streamQuery(
-            { query: testo, dataset_id: scelto.dataset_id, ...campiRichiesta(opzioni) },
-            { signal: ctrl.signal },
-          )) {
-            setStato((s) => ({
-              ...s,
-              conversazioni: conRisposta(s.conversazioni, conversazione, id, (r) =>
-                applica(r, evento),
-              ),
-            }));
-          }
-        } catch (e: unknown) {
-          // Annullato da «Ferma» non e' caduto: il primo l'ha deciso chi
-          // guarda, il secondo e' successo. Mostrarli uguali farebbe cercare un
-          // guasto a chi ha solo premuto un pulsante.
-          const messaggio = e instanceof Error ? e.message : String(e);
+      // Il `dataset_id` viene dal selettore di U-01 e non da un default del
+      // server: e' cio' che rende vero «cambio dataset senza riavvio» anche per
+      // una domanda gia' in coda. I campi della barra sono quelli di **quando
+      // si e' premuto invio**: `opzioni` e' la costante del render in cui
+      // `invia` e' nata, quindi toccare un controllo mentre il modello parla non
+      // riscrive una richiesta gia' partita.
+      void guida(
+        { query: testo, dataset_id: scelto.dataset_id, ...campiRichiesta(opzioni) },
+        ctrl,
+        (f) =>
           setStato((s) => ({
             ...s,
-            conversazioni: conRisposta(s.conversazioni, conversazione, id, (r) =>
-              ctrl.signal.aborted ? interrompi(r) : guasto(r, messaggio),
-            ),
-          }));
-        } finally {
-          if (controller.current === ctrl) {
-            controller.current = null;
-            setOccupato(false);
-          }
+            conversazioni: conRisposta(s.conversazioni, conversazione, id, f),
+          })),
+      ).finally(() => {
+        if (controller.current === ctrl) {
+          controller.current = null;
+          setOccupato(false);
         }
-      })();
+      });
     },
     [scelto, stato.corrente, opzioni],
   );
