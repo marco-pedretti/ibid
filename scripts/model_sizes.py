@@ -114,10 +114,36 @@ def crea(base: str, token: int) -> str:
     return nome
 
 
-#: La scala che `--assicura` crea, tagliata su `context_max` modello per
-#: modello: `gemma4:latest` si ferma a 128k, `gemma4:12b` arriva a 256k. Vedi la
-#: nota in testa al file per il motivo per cui arriva fin lassu'.
-SCALA: tuple[int, ...] = (8192, 16384, 32768, 65536, 131072, 262144)
+#: I pioli riconoscibili: potenze di due da 8k in su. Non e' un elenco di
+#: finestre valide -- quelle dipendono dal modello -- ma di **misure che chi
+#: guarda riconosce**, e si fermano da sole al tetto di ciascuno.
+#:
+#: Arriva piu' in alto di qualunque modello installato oggi, e costa niente:
+#: `scala_per` taglia, quindi un piolo che nessuno regge non produce niente. Il
+#: giorno in cui arriva un modello da 1M la scala c'e' gia'.
+PIOLI: tuple[int, ...] = (
+    8192, 16384, 32768, 65536, 131072, 262144, 524288, 1048576,
+)
+
+
+def scala_per(massimo: int | None) -> tuple[int, ...]:
+    """Le finestre da creare per un modello che regge fino a `massimo`.
+
+    **Il tetto si legge dal motore, i pioli no**, e la differenza va detta: senza
+    l'ultima riga di questa funzione un modello il cui massimo non cade su una
+    potenza di due non vedrebbe mai la propria finestra piu' grande. Oggi non si
+    noterebbe -- i quattro modelli installati hanno massimi di 128k e 256k, che
+    sono pioli -- e sarebbe il tipo di difetto che si scopre con un modello nuovo
+    e sembra un guasto di quel modello.
+
+    Senza un massimo noto si prova la scala intera: `crea` fallira' da sola su
+    cio' che il motore non regge, e inventare un tetto che nessuno ha dichiarato
+    sarebbe peggio che provarci.
+    """
+    if massimo is None:
+        return PIOLI
+    sotto = [t for t in PIOLI if t <= massimo]
+    return tuple(sotto if massimo in sotto else [*sotto, massimo])
 
 
 def _esistenti() -> dict[str, str | None]:
@@ -155,9 +181,7 @@ def assicura() -> int:
         if m.parent:
             continue
         gia = {v.context for v in voci if v.parent == m.name}
-        for t in SCALA:
-            if m.context_max is not None and t > m.context_max:
-                continue
+        for t in scala_per(m.context_max):
             if t in gia or nome_taglia(m.name, t) in per_nome:
                 continue
             try:
