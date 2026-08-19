@@ -123,7 +123,7 @@ describe("come si legge una taglia", () => {
 
   it("sotto il migliaio si scrive il numero, e «non fissata» ha la sua parola", () => {
     expect(comeTaglia(512, "—")).toBe("512");
-    expect(comeTaglia(null, "predefinito")).toBe("predefinito");
+    expect(comeTaglia(null, "auto")).toBe("auto");
   });
 
   it("una taglia non tonda non diventa un intero sbagliato", () => {

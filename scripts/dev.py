@@ -124,6 +124,25 @@ def aspetta(url: str, secondi: float) -> bool:
     return False
 
 
+def assicura_taglie() -> None:
+    """Crea le finestre di contesto mancanti, in silenzio se non c'e' niente da fare.
+
+    Non solleva mai: un motore irraggiungibile o non-Ollama non deve impedire
+    l'avvio dello sviluppo. Il selettore in quel caso resta spento, e la
+    pastiglia dice perche' -- vedi `MenuFinestre`.
+    """
+    try:
+        from scripts.model_sizes import assicura
+    except Exception:
+        return
+    try:
+        n = assicura()
+    except Exception:
+        return
+    if n:
+        print(f"-> {n} finestre di contesto create")
+
+
 def main() -> int:
     p = argparse.ArgumentParser(description="backend + frontend in un comando")
     p.add_argument("--api-port", type=int, default=8000)
@@ -188,6 +207,14 @@ def main() -> int:
         cwd=ROOT,
     )
     try:
+        # Le taglie di contesto (U-16) sono modelli derivati, e chi usa la demo
+        # non deve saperlo: senza questo passo il selettore c'e' e non ha niente
+        # da offrire, cioe' la funzione non esiste finche' non si legge la
+        # documentazione giusta. Idempotente, quindi dalla seconda volta non
+        # costa niente; e best-effort, perche' su un motore che non e' Ollama --
+        # o che sta su un'altra macchina -- semplicemente non si fa.
+        assicura_taglie()
+
         if not aspetta(f"http://127.0.0.1:{args.api_port}/health", 60):
             print("l'API non ha risposto entro 60 s: guarda i log qui sopra", file=sys.stderr)
             return 1

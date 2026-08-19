@@ -133,8 +133,12 @@ export const it = {
   // pastiglia sta accanto ad altre quattro, e la parola lunga la fa a capo.
   "bar.context": "Contesto",
   "bar.context.hint":
-    "Quanto testo entra nel modello prima che risponda: più contesto vuol dire più fonti insieme, e più memoria occupata. Ci sono solo le misure che questo modello regge.",
-  "bar.context.default": "predefinito",
+    "Quanto testo entra nel modello prima che risponda: più contesto vuol dire più fonti insieme, e più memoria occupata. Con «auto» decide il servizio di inferenza, e il numero non lo sappiamo.",
+  // «auto» e non «predefinito»: quella voce e' il modello base, che non fissa
+  // `num_ctx`, quindi **decide il motore** e noi il numero non lo sappiamo. E'
+  // la stessa parola gia' usata per `hnsw_ef` sotto «Avanzate», che significa
+  // esattamente la stessa cosa -- non fissato da noi.
+  "bar.context.default": "auto",
   // Attenuata: la finestra e' una sola, e la pastiglia dice perche' invece di
   // sparire -- sparendo, la funzione non esisterebbe per chi non sa dello script.
   "bar.context.only":
@@ -374,8 +378,8 @@ export const en: Record<Chiave, string> = {
     "The model list did not arrive from the inference service: the configured one answers, and for now it cannot be changed.",
   "bar.context": "Context",
   "bar.context.hint":
-    "How much text fits into the model before it answers: more context means more sources at once, and more memory used. Only the sizes this model can take are listed.",
-  "bar.context.default": "default",
+    "How much text fits into the model before it answers: more context means more sources at once, and more memory used. With “auto” the inference service decides, and we do not know the number.",
+  "bar.context.default": "auto",
   "bar.context.only":
     "This model has a single context size. To get a choice, create more with «scripts/model_sizes.py».",
   "bar.advanced": "Advanced",
