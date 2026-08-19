@@ -2417,3 +2417,64 @@ Provato per intero: `262144` su `gemma4:e2b` viene rifiutato (regge 131.072),
 non scarica e non duplica i pesi.
 
 **198 test Vitest** (15 nuovi sul catalogo), 1699 Python, typecheck e build verdi.
+
+#### Cinque correzioni alla revisione, e la piu' utile e' la prima
+
+**«L'utente non dovrebbe occuparsi di questo.»** Le taglie sono modelli derivati,
+e chiedere a chi guarda di crearli significava che il selettore non esisteva
+finché non aveva letto la documentazione giusta. `--assicura` è idempotente e la
+chiama `scripts/dev.py` a ogni avvio. **Non la chiama il servizio**, ed è una
+decisione: `LLM_BASE_URL` può puntare a un motore condiviso o su un'altra
+macchina, e un backend che scrivesse modelli nel registro di qualcun altro a ogni
+avvio modificherebbe lo stato di chi non ha chiesto niente.
+
+**La scala arriva al massimo del modello, e la cautela di partenza era falsa.**
+Si era fermata a 32k temendo che una finestra troppo grande facesse *fallire* la
+generazione. La documentazione di Ollama dice il contrario: quando la cache delle
+chiavi non entra in VRAM, il motore sposta parte del modello in RAM di sistema e
+continua — molto più lento, non rotto. Quindi il costo è un rallentamento, e un
+rallentamento **si vede**: la riga dei tempi lo mostra a ogni risposta.
+Nascondere una scelta per un costo visibile toglie proprio la misura che il
+progetto esiste per far vedere.
+
+**I pioli sono nostri, il tetto no — e mancava un pezzo.** `context_max` si
+leggeva già dal motore, ma la scala era una lista fissa che veniva solo tagliata:
+un modello il cui massimo non cade su una potenza di due non avrebbe mai visto la
+propria finestra più grande. Oggi non si notava — i quattro installati hanno
+massimi di 128k e 256k, che *sono* pioli — e sarebbe stato il difetto che si
+scopre con un modello nuovo e sembra un guasto di quel modello.
+
+**Via la voce «non fissata».** Il modello base non scrive `num_ctx`, quindi la
+finestra la sceglie il servizio e il numero non lo sappiamo: in un menu di misure
+era l'unica voce che non era una misura. Nessuna riscrittura dell'etichetta la
+rendeva meno vaga, perché il problema era la voce. Si parte da **32k**, la
+finestra con cui il progetto misura, e su un modello che non ce l'ha si prende la
+più vicina e non la più grande — la più grande sarebbe la più lenta. La scelta
+guardata dall'hardware è X-05, dove quella voce torna come *una misura decisa
+dalla macchina* invece che come un'incognita.
+
+**Il predefinito si calcola come il valore di partenza.** La pastiglia si apriva
+in accento — il tono che qui significa «qualcuno ha mosso questo» — e il menu
+marcava predefinita la taglia da 8k. Causa: `finestraDi` sul modello base non
+trova niente, perché il base non è più una finestra, e ripiegava sulla prima
+dell'elenco. Ora è lo stesso `risolvi` a decidere le due cose, che è la stessa
+disciplina per cui `campiRichiesta` è derivata da `configChiesta`.
+
+#### Una regressione, trovata misurando
+
+Con sedici modelli `/datasets` è passato a **38 secondi** — misurato sul processo
+vivo — perché `model_catalog()` chiedeva `/api/show` una volta per modello, in
+fila, ~2 s l'una. È la prima chiamata che il frontend fa all'avvio: la pagina
+sarebbe rimasta quaranta secondi in «Contatto il server…», che nessuno legge come
+lentezza.
+
+| | |
+|---|---|
+| prima | 35,2 s |
+| in parallelo, a freddo | **6,3 s** |
+| con la cache, a caldo | **2,0 s** |
+
+Servono tutti e due: la cache da sola avrebbe nascosto il costo alla seconda
+volta invece di toglierlo. Un fallimento **non** si memorizza — un motore muto
+adesso può rispondere fra un minuto — e un test fissa anche l'ordine, perché un
+menu che si riordina da solo fa saltare la selezione a chi ha appena scelto.
