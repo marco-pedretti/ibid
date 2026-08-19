@@ -41,40 +41,56 @@ export function PannelloFonti() {
   // L'ultimo scambio: le fonti riguardano la risposta che si sta guardando, e
   // quella e' sempre l'ultima. Una cronologia di pannelli sarebbe una seconda
   // navigazione dentro la stessa colonna.
-  const ultimo = scambi[scambi.length - 1] ?? null;
-  const r = ultimo?.risposta ?? null;
-  const chunks = r?.chunks ?? [];
-  const citati = marcatoriCitati(r?.testo ?? "");
+  const r = scambi[scambi.length - 1]?.risposta ?? null;
 
   return (
     <aside className="flex h-full min-h-0 flex-col gap-[11px] overflow-y-auto border-l border-line bg-surface px-3 py-3.5">
       <div className="flex items-baseline justify-between">
         <Etichetta>{t("sources.title")}</Etichetta>
-        {chunks.length > 0 && (
+        {(r?.chunks.length ?? 0) > 0 && (
           <Suggerimento
             testo={t("sources.count")}
             className="font-mono text-[10px] text-muted tabular-nums"
           >
-            {chunks.length}
+            {r?.chunks.length}
           </Suggerimento>
         )}
       </div>
 
-      {chunks.length === 0 ? (
-        <p className="rounded-lg border border-dashed border-line-2 px-3 py-4 text-center text-[11px] leading-[1.5] text-muted">
-          {/* Due frasi diverse: «non ho ancora cercato» non e' «ho cercato e non
-              c'e' niente». La seconda e' un risultato, e va detta come tale. */}
-          {r !== null && !inAttesa(r.fase) ? t("sources.none") : t("sources.waiting")}
-        </p>
-      ) : (
-        <div className="flex flex-col gap-[11px]">
-          {chunks.map((c) => (
-            <Scheda key={c.chunk_id} chunk={c} citata={citati.has(c.marker)} risposta={r} />
-          ))}
-        </div>
-      )}
-
+      <Schede risposta={r} />
     </aside>
+  );
+}
+
+/**
+ * Le schede delle fonti di **una** risposta, senza la cornice del pannello.
+ *
+ * Separata perche' le fonti compaiono in due posti: qui nella colonna di
+ * fianco, e dentro la colonna «con le fonti» del confronto, dove il pannello
+ * laterale non c'e' — e' proprio la loro presenza da una parte e la loro assenza
+ * dall'altra a essere l'argomento di quella schermata.
+ */
+export function Schede({ risposta: r }: { risposta: Risposta | null }) {
+  const { t } = usaLingua();
+  const chunks = r?.chunks ?? [];
+  const citati = marcatoriCitati(r?.testo ?? "");
+
+  if (chunks.length === 0) {
+    return (
+      <p className="rounded-lg border border-dashed border-line-2 px-3 py-4 text-center text-[11px] leading-[1.5] text-muted">
+        {/* Due frasi diverse: «non ho ancora cercato» non e' «ho cercato e non
+            c'e' niente». La seconda e' un risultato, e va detta come tale. */}
+        {r !== null && !inAttesa(r.fase) ? t("sources.none") : t("sources.waiting")}
+      </p>
+    );
+  }
+
+  return (
+    <div className="flex flex-col gap-[11px]">
+      {chunks.map((c) => (
+        <Scheda key={c.chunk_id} chunk={c} citata={citati.has(c.marker)} risposta={r} />
+      ))}
+    </div>
   );
 }
 
