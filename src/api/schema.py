@@ -564,6 +564,28 @@ def sse(event: Event | ErrorEvent) -> str:
 #: Rimandati indietro da `/datasets` cosi' che il frontend non porti una copia
 #: delle scelte valide. La stessa lezione di Q-06: un elenco scritto a mano in
 #: due posti diverge, e il quindicesimo arriva senza che nessuno se ne accorga.
+class ModelView(BaseModel):
+    """Un modello del catalogo, con cio' che il motore sa dirne (A-08).
+
+    Tutto tranne `name` e' **best-effort**: `context_max=None` e le stringhe
+    vuote significano «questo motore non lo pubblica», non «non esiste». Chi
+    riceve un catalogo senza finestre non offre la scelta della finestra, come
+    gia' non offre il ragionamento quando l'asse non c'e'.
+
+    Esiste perche' la coppia (modello, finestra) non si puo' dedurre da un nome:
+    dedurre `gemma4-32k` -> famiglia + 32768 spezzando una stringa metterebbe una
+    convenzione di nomi dentro il frontend, che e' la lezione di Q-06.
+    """
+
+    name: str
+    family: str = ""
+    #: La finestra piu' grande che regge. Non e' una per tutti: misurato,
+    #: `gemma4:latest` 131.072 e `gemma4:12b` 262.144.
+    context_max: int | None = None
+    quantization: str = ""
+    parameter_size: str = ""
+
+
 class Capabilities(BaseModel):
     """Cosa questo backend accetta. Letto, non indovinato."""
 
@@ -575,6 +597,11 @@ class Capabilities(BaseModel):
     #: dipendono dall'LLM e devono arrivare comunque. Chi la riceve vuota
     #: ripiega sul modello di `/config`, l'unico di cui si sappia il nome.
     models: list[str] = []
+    #: Gli stessi modelli con famiglia, finestra massima e quantizzazione (A-08).
+    #: **Additivo**: `models` resta com'era, quindi un client scritto contro A-04
+    #: continua a funzionare. Vuoto quando l'endpoint dei modelli non risponde,
+    #: come `models`; pieno di soli nomi quando risponde lui ma non il motore.
+    model_catalog: list[ModelView] = []
     datasets: list[DatasetView] = []
     #: Le collection che esistono sul server, non solo quelle del registro.
     #: Comprende le varianti `_routed` di R-07 e quelle nate da un esperimento:

@@ -18,6 +18,9 @@ backend a sapere cosa c'e', e il browser non deve parlare con Ollama.
 
 from __future__ import annotations
 
+import json
+import urllib.error
+import urllib.request
 from collections.abc import Callable
 from dataclasses import dataclass
 
@@ -147,6 +150,130 @@ def models(
         return chat.list_models(base_url or cfg.LLM_BASE_URL, fetch=fetch)
     except RuntimeError:
         return []
+
+
+@dataclass(frozen=True)
+class ModelInfo:
+    """Un modello del catalogo, con cio' che il motore sa dirne.
+
+    Tutti i campi tranne `name` sono **best-effort**: vuoti o `None` quando il
+    motore non li pubblica. Non e' pigrizia, e' la stessa scelta di `models()`
+    che restituisce `[]` invece di inventare -- dichiarare l'assenza, non
+    simularla. Un frontend che riceve `context_max=None` non offre la scelta
+    della finestra, esattamente come non offre il ragionamento quando l'asse non
+    c'e'.
+    """
+
+    name: str
+    #: `gemma4`, `qwen35`. Vuota se il motore non la dice.
+    family: str = ""
+    #: La finestra piu' grande che questo modello regge. `None` = non si sa.
+    context_max: int | None = None
+    #: `Q4_K_M`. Sostituisce la costante `LLM_QUANTIZATION`, che era vera per
+    #: coincidenza -- vedi A-08 nel ROADMAP.
+    quantization: str = ""
+    #: `8.0B`. Testo del motore, non un numero: la forma non e' nostra.
+    parameter_size: str = ""
+
+
+#: L'endpoint nativo che pubblica i dettagli di un modello. **Non e' inferenza**,
+#: ed e' la ragione per cui puo' stare qui senza contraddire STACK.md: il
+#: vincolo dice che le risposte si generano attraverso un endpoint
+#: OpenAI-compatibile, cosi' che il repo giri anche su vLLM o llama.cpp. Questa
+#: e' *scoperta*, e degrada a «non lo so» ovunque non esista -- il catalogo resta
+#: valido, solo piu' povero, e l'interfaccia nasconde le scelte che non puo'
+#: sostenere. Il contratto OpenAI non ha un modo di chiedere queste tre cose:
+#: `/v1/models` restituisce solo gli id (misurato, A-08).
+_MOSTRA = "/api/show"
+
+
+def _nativo(base_url: str) -> str:
+    """Da `http://host:11434/v1` a `http://host:11434`.
+
+    Si toglie **solo** il `/v1` finale: se `LLM_BASE_URL` punta a un altro
+    motore, l'URL che ne esce non risponde a `/api/show` e la scoperta fallisce
+    da sola -- che e' il comportamento voluto, non un caso da prevenire.
+    """
+    u = base_url.rstrip("/")
+    return u[: -len("/v1")] if u.endswith("/v1") else u
+
+
+def model_catalog(
+    base_url: str | None = None,
+    *,
+    fetch: Callable[[str, int], dict] | None = None,
+    dettagli: Callable[[str, str, int], dict] | None = None,
+) -> list[ModelInfo]:
+    """I modelli, con famiglia, finestra massima e quantizzazione di ciascuno.
+
+    I **nomi** vengono da `/v1/models` come sempre (`models()`); i **dettagli**
+    dall'endpoint nativo, uno per modello, e ogni fallimento e' isolato: un
+    modello che non risponde entra nel catalogo col solo nome invece di far
+    cadere gli altri.
+
+    **La finestra si legge per pattern, non per nome.** Ollama la pubblica sotto
+    una chiave che contiene la famiglia -- `gemma4.context_length`,
+    `qwen35.context_length` -- quindi cercarla per nome funzionerebbe su un
+    modello solo. Misurato il 2026-08-19 sui quattro installati: `gemma4:latest`
+    131.072, `gemma4:12b` e `qwen3.5` 262.144. Il massimo **non e' uno solo**, ed
+    e' la ragione per cui il catalogo esiste invece di una costante.
+    """
+    base = base_url or cfg.LLM_BASE_URL
+    nomi = models(base, fetch=fetch)
+    if not nomi:
+        return []
+
+    chiedi = dettagli or _mostra
+    fuori: list[ModelInfo] = []
+    for nome in nomi:
+        try:
+            d = chiedi(_nativo(base), nome, 10)
+        except Exception:
+            # Un motore che non e' Ollama, o un modello sparito fra l'elenco e
+            # la domanda: si tiene il nome, che e' l'unica cosa certa.
+            fuori.append(ModelInfo(name=nome))
+            continue
+        fuori.append(_come_info(nome, d))
+    return fuori
+
+
+def _mostra(base_nativo: str, nome: str, timeout: int) -> dict:
+    """La POST nativa. Sta **qui** e non in `chat.py`: quel modulo e' il contratto
+    OpenAI, e mettergli dentro una chiamata nativa lo renderebbe il posto dove la
+    regola si aggira invece di quello dove e' scritta."""
+    req = urllib.request.Request(
+        f"{base_nativo}{_MOSTRA}",
+        data=json.dumps({"model": nome}).encode(),
+        headers={"Content-Type": "application/json"},
+        method="POST",
+    )
+    with urllib.request.urlopen(req, timeout=timeout) as resp:
+        letto = json.loads(resp.read())
+    return letto if isinstance(letto, dict) else {}
+
+
+def _come_info(nome: str, d: object) -> ModelInfo:
+    """Il payload di `/api/show` ridotto a cio' che serve, senza fidarsi."""
+    if not isinstance(d, dict):
+        return ModelInfo(name=nome)
+
+    info = d.get("model_info")
+    contesto: int | None = None
+    if isinstance(info, dict):
+        for chiave, valore in info.items():
+            if str(chiave).endswith(".context_length") and isinstance(valore, int):
+                contesto = valore
+                break
+
+    det = d.get("details")
+    det = det if isinstance(det, dict) else {}
+    return ModelInfo(
+        name=nome,
+        family=str(det.get("family") or ""),
+        context_max=contesto,
+        quantization=str(det.get("quantization_level") or ""),
+        parameter_size=str(det.get("parameter_size") or ""),
+    )
 
 
 @dataclass(frozen=True)
