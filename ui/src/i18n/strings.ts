@@ -95,6 +95,10 @@ export const it = {
   "chat.noDataset": "Scegli un dataset per poter chiedere.",
   "chat.hint.invio": "Invio per mandare, Maiusc+Invio per andare a capo.",
 
+  "bar.rag": "RAG",
+  "bar.rag.hint":
+    "Acceso, la risposta viene dal corpus e porta le fonti. Spento, il modello risponde da solo: è l'altra metà del confronto, non un guasto.",
+
   "example.note.numbers": "Un numero preciso: la citazione deve reggerlo.",
   "example.note.paper": "Sta dentro un paper: guarda da quale sezione arriva.",
   "example.note.table": "La risposta sta in una tabella.",
@@ -276,6 +280,10 @@ export const en: Record<Chiave, string> = {
   "chat.stop": "Stop",
   "chat.noDataset": "Pick a dataset before asking.",
   "chat.hint.invio": "Enter to send, Shift+Enter for a new line.",
+
+  "bar.rag": "RAG",
+  "bar.rag.hint":
+    "On, the answer comes from the corpus and carries its sources. Off, the model answers on its own: that is the other half of the comparison, not a failure.",
 
   "example.note.numbers": "A precise number: the citation has to hold it up.",
   "example.note.paper": "It sits inside a paper: look at which section it comes from.",

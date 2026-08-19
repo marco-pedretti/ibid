@@ -2,15 +2,17 @@
  * L'applicazione: i provider, il telaio, e la colonna che cambia.
  *
  * L'ordine dei provider non e' decorativo — `ProvvedeChat` legge il dataset
- * scelto, che legge le capabilities: annidarli al contrario romperebbe in
- * esecuzione con un `usaX fuori da <ProvvedeX>`, che e' il modo in cui questo
- * albero dichiara le proprie dipendenze.
+ * scelto e i controlli della barra, che a loro volta leggono le capabilities:
+ * annidarli al contrario romperebbe in esecuzione con un `usaX fuori da
+ * <ProvvedeX>`, che e' il modo in cui questo albero dichiara le proprie
+ * dipendenze.
  *
  * Gli stati del backend restano tre e non due: «sto contattando» non e' «e'
  * rotto», e mostrare subito l'errore per poi toglierlo fa lampeggiare un guasto
  * che non c'era.
  */
 import { ProvvedeBackend, usaBackend } from "./app/backend";
+import { ProvvedeBarra } from "./app/barra";
 import { ProvvedeChat } from "./app/chat";
 import { ProvvedeDataset } from "./app/dataset";
 import { ProvvedeLingua, usaLingua } from "./app/i18n";
@@ -25,14 +27,16 @@ export function App() {
       <ProvvedeTema>
         <ProvvedeBackend>
           <ProvvedeDataset>
-            <ProvvedeChat>
-              {/* Il pannello fonti e' passato al telaio e non alla chat: il
-                  criterio di U-02 dice «visibile in ogni stato», e uno stato in
-                  cui la chat non c'e' e' comunque uno stato. */}
-              <Telaio fianco={<PannelloFonti />}>
-                <Colonna />
-              </Telaio>
-            </ProvvedeChat>
+            <ProvvedeBarra>
+              <ProvvedeChat>
+                {/* Il pannello fonti e' passato al telaio e non alla chat: il
+                    criterio di U-02 dice «visibile in ogni stato», e uno stato
+                    in cui la chat non c'e' e' comunque uno stato. */}
+                <Telaio fianco={<PannelloFonti />}>
+                  <Colonna />
+                </Telaio>
+              </ProvvedeChat>
+            </ProvvedeBarra>
           </ProvvedeDataset>
         </ProvvedeBackend>
       </ProvvedeTema>

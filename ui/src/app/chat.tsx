@@ -42,6 +42,8 @@ import {
   vuota,
 } from "./cronologia";
 import type { Conversazione } from "./cronologia";
+import { usaBarra } from "./barra";
+import { campiRichiesta } from "./opzioni";
 
 /**
  * Quanto si aspetta prima di scrivere nel deposito.
@@ -116,6 +118,7 @@ function conRisposta(
 
 export function ProvvedeChat({ children }: { children: ReactNode }) {
   const { scelto, imposta } = usaDataset();
+  const { opzioni } = usaBarra();
   const [stato, setStato] = useState<Stato>(statoIniziale);
   const [occupato, setOccupato] = useState(false);
   const controller = useRef<AbortController | null>(null);
@@ -152,9 +155,12 @@ export function ProvvedeChat({ children }: { children: ReactNode }) {
         try {
           // Il `dataset_id` viene dal selettore di U-01 e non da un default del
           // server: e' cio' che rende vero «cambio dataset senza riavvio» anche
-          // per una domanda gia' in coda.
+          // per una domanda gia' in coda. I campi della barra sono quelli di
+          // **quando si e' premuto invio**: `opzioni` e' la costante del render
+          // in cui `invia` e' nata, quindi toccare un controllo mentre il
+          // modello parla non riscrive una richiesta gia' partita.
           for await (const evento of streamQuery(
-            { query: testo, dataset_id: scelto.dataset_id },
+            { query: testo, dataset_id: scelto.dataset_id, ...campiRichiesta(opzioni) },
             { signal: ctrl.signal },
           )) {
             setStato((s) => ({
@@ -183,7 +189,7 @@ export function ProvvedeChat({ children }: { children: ReactNode }) {
         }
       })();
     },
-    [scelto, stato.corrente],
+    [scelto, stato.corrente, opzioni],
   );
 
   const ferma = useCallback(() => controller.current?.abort(), []);

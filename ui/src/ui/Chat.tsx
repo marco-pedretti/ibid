@@ -21,6 +21,7 @@ import { esempiDi } from "../app/esempi";
 import { usaLingua } from "../app/i18n";
 import { riepilogo } from "../app/verdetti";
 import type { Riepilogo } from "../app/verdetti";
+import { Barra } from "./Barra";
 import {
   Astensione,
   Avvertimento,
@@ -429,7 +430,7 @@ function Campo() {
           </button>
         )}
       </div>
-      <p className="mt-2 font-mono text-[10px] text-muted">{t("chat.hint.invio")}</p>
+      <Barra />
     </div>
   );
 }
