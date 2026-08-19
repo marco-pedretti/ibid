@@ -30,7 +30,21 @@ export interface Opzioni {
   /** Il ragionamento esteso. Acceso/spento e non cinque livelli: cinque livelli
    *  sono un'ablation, che e' il lavoro della dashboard. */
   ragionamento: boolean;
+  /** Il modello che risponde, o `COME_CONFIGURATO` per non scegliere. */
+  modello: string;
 }
+
+/**
+ * «Non scelgo io»: il campo non parte e risponde il modello del servizio.
+ *
+ * Serve perche' il frontend **non sa** quale sia. `Capabilities` elenca i
+ * modelli disponibili, non quello configurato, e preselezionare il primo
+ * dell'elenco scriverebbe una scelta che nessuno ha fatto sopra quella del
+ * deployment — con l'aggravante che l'ordine e' alfabetico, quindi il primo non
+ * ha alcun rapporto con niente. Qui tacere e' l'unico modo di dire il vero, ed
+ * e' l'eccezione alla regola di `campiRichiesta`.
+ */
+export const COME_CONFIGURATO = "";
 
 /**
  * I due capi dell'asse che C-07 ha misurato.
@@ -68,7 +82,11 @@ export function ragionamentoDisponibile(sforzi: readonly string[]): boolean {
  * Accenderlo di partenza consegnerebbe come predefinito cio' che il progetto ha
  * misurato non convenire.
  */
-export const PREDEFINITE: Opzioni = { rag: true, ragionamento: false };
+export const PREDEFINITE: Opzioni = {
+  rag: true,
+  ragionamento: false,
+  modello: COME_CONFIGURATO,
+};
 
 /**
  * Cosa la barra mette nella richiesta.
@@ -76,10 +94,15 @@ export const PREDEFINITE: Opzioni = { rag: true, ragionamento: false };
  * Esplicito anche quando coincide col default: il campo che parte e' quello che
  * torna in `ConfigView`, e una richiesta che tace lascia decidere al server una
  * cosa che sullo schermo appare gia' decisa.
+ *
+ * L'unica eccezione e' il modello, e per il motivo opposto: la' sullo schermo
+ * c'e' scritto «come configurato», cioe' *non l'ho deciso io*, e mandare un
+ * valore lo smentirebbe. Vedi `COME_CONFIGURATO`.
  */
 export function campiRichiesta(o: Opzioni): Partial<QueryRequest> {
   return {
     rag: o.rag,
     reasoning_effort: o.ragionamento ? SFORZO.acceso : SFORZO.spento,
+    ...(o.modello !== COME_CONFIGURATO && { model: o.modello }),
   };
 }

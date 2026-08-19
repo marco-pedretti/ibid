@@ -104,6 +104,14 @@ export const it = {
   // abbiamo misurato non convenire. Niente sigle di task nella UI.
   "bar.reasoning.hint":
     "Fa ragionare il modello prima che risponda. L'abbiamo misurato: +0,6 punti di citazioni ben formate, 9,5× i token, e sui bilanci le domande a cui rifiuta di rispondere passano da 56 a 90 su 200.",
+  "bar.model": "Modello",
+  "bar.model.default": "come configurato",
+  "bar.model.hint":
+    "Chi risponde. Con un buon recupero la taglia del modello conta meno del previsto: è una delle cose che questo progetto misura.",
+  // Elenco vuoto ≠ elenco assente: il servizio non ha raggiunto l'endpoint dei
+  // modelli, e mostrare quello configurato affermerebbe che esiste.
+  "bar.model.none":
+    "L'elenco dei modelli non è arrivato: risponde quello configurato nel servizio. Resta vuoto invece di mostrarne uno che non abbiamo potuto verificare.",
 
   "example.note.numbers": "Un numero preciso: la citazione deve reggerlo.",
   "example.note.paper": "Sta dentro un paper: guarda da quale sezione arriva.",
@@ -293,6 +301,12 @@ export const en: Record<Chiave, string> = {
   "bar.reasoning": "Reasoning",
   "bar.reasoning.hint":
     "Lets the model reason before it answers. We measured it: +0.6 points of well-formed citations, 9.5× the tokens, and on the ledgers the questions it refuses to answer go from 56 to 90 out of 200.",
+  "bar.model": "Model",
+  "bar.model.default": "as configured",
+  "bar.model.hint":
+    "Who answers. With good retrieval, model size matters less than expected: it is one of the things this project measures.",
+  "bar.model.none":
+    "The model list did not arrive: the one configured in the service answers. It stays empty rather than showing one we could not verify.",
 
   "example.note.numbers": "A precise number: the citation has to hold it up.",
   "example.note.paper": "It sits inside a paper: look at which section it comes from.",
