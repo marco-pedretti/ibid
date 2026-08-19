@@ -18,9 +18,10 @@
  * cosi' cio' che e' stato mosso si vede senza aprire niente, che e' l'unica cosa
  * che «Avanzate» chiuso potrebbe nascondere.
  *
- * Il suggerimento «Invio per mandare» sta in fondo alla stessa riga e non piu'
- * su una sua: e' una frase che si legge una volta e poi smette di essere letta,
- * e non vale una riga di altezza tolta alla risposta.
+ * «Invio per mandare» non sta qui: e' un'istruzione per **il campo**, e sta
+ * sopra il campo. Era in fondo a questa riga, e le metteva accanto due cose che
+ * non si somigliano — quattro comandi che decidono la risposta e una frase che
+ * ricorda una scorciatoia da tastiera.
  */
 import { useState } from "react";
 import type { ReactNode } from "react";
@@ -99,8 +100,6 @@ export function Barra() {
             <Caret className={`transition-transform ${aperte ? "rotate-180" : ""}`} size={9} />
           </button>
         </Suggerimento>
-
-        <p className="ml-auto font-mono text-[10px] text-muted">{t("chat.hint.invio")}</p>
       </div>
     </>
   );

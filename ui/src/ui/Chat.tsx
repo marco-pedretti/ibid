@@ -405,6 +405,17 @@ function Campo() {
 
   return (
     <div className="border-t border-line bg-surface px-[22px] pt-3 pb-3.5">
+      {/* Sopra il campo, non sotto la barra: e' un'istruzione per il campo, e
+          sotto stava accanto a quattro comandi che decidono la risposta — due
+          cose che non si somigliano. Sparisce quando il campo e' chiuso: dire
+          come si manda una domanda che non si puo' mandare e' un invito a
+          provare, e il segnaposto sta gia' spiegando perche' no. */}
+      {!bloccato && (
+        <p className="mb-2 text-right font-mono text-[10px] text-muted">
+          {t("chat.hint.invio")}
+        </p>
+      )}
+
       <div className="flex items-end gap-3 rounded-[9px] border border-line-2 bg-paper px-3 py-2.5 focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-accent">
         <textarea
           ref={campo}
