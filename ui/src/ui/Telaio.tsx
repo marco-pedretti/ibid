@@ -44,7 +44,12 @@ export function Telaio({ children, fianco }: { children: ReactNode; fianco?: Rea
     // loro, e con un'altezza minima scorrerebbe la pagina intera portandosi via
     // la corsia e il campo di scrittura.
     <div
-      className={`grid h-dvh overflow-hidden bg-paper text-ink ${
+      // `grid-rows-[minmax(0,1fr)]`: senza una riga dichiarata quella
+      // implicita e' `auto`, cioe' alta quanto il contenuto -- e una colonna
+      // piu' alta dello schermo la faceva crescere oltre `h-dvh` invece di
+      // scorrere dentro di se'. E' lo stesso difetto delle due colonne del
+      // confronto, un piano piu' su.
+      className={`grid h-dvh grid-rows-[minmax(0,1fr)] overflow-hidden bg-paper text-ink ${
         fianco ? "grid-cols-[200px_1fr_272px]" : "grid-cols-[200px_1fr]"
       }`}
     >
@@ -70,7 +75,10 @@ export function Telaio({ children, fianco }: { children: ReactNode; fianco?: Rea
         </div>
       </aside>
 
-      <main className="min-h-0 min-w-0">{children}</main>
+      {/* `overflow-hidden` qui e' la rete: se una schermata futura sbaglia
+          i propri vincoli, deborda dentro il suo riquadro invece di
+          allungare la pagina e portarsi via la corsia. */}
+      <main className="h-full min-h-0 min-w-0 overflow-hidden">{children}</main>
       {fianco}
     </div>
   );
