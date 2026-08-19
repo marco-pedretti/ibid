@@ -343,8 +343,13 @@ function MenuFinestre({ catalogo }: { catalogo: readonly ModelView[] }) {
   }
   const nome = (f: { token: number | null }) => comeTaglia(f.token, t("bar.context.default"));
 
+  // Su «non fissata» il suggerimento cambia: quella voce non e' una misura ma
+  // **l'assenza** di una, e spiegarla insieme alle altre vorrebbe dire scrivere
+  // una frase che vale per due cose diverse -- cioe' per nessuna delle due.
+  const spiegazione = scelta?.token == null ? "bar.context.unset" : "bar.context.hint";
+
   return (
-    <Suggerimento testo={t("bar.context.hint")} fuoco={false}>
+    <Suggerimento testo={t(spiegazione)} fuoco={false}>
       <Menu
         etichetta={t("bar.context")}
         valore={opzioni.modello}
