@@ -49,10 +49,15 @@ export function modelli(catalogo: readonly ModelView[]): Modello[] {
 
   return basi.map((base) => {
     const derivate = catalogo.filter((m) => m.parent === base.name);
-    const finestre = [
-      { token: base.context, modello: base.name },
-      ...derivate.map((d) => ({ token: d.context, modello: d.name })),
-    ];
+    // **Il modello base non e' una finestra fra le altre.** Non fissa `num_ctx`,
+    // quindi la sceglie il servizio e il numero non lo sappiamo: in un menu di
+    // misure sarebbe l'unica voce che non e' una misura. Resta l'unica finestra
+    // solo quando non ce ne sono altre -- li' non c'e' comunque niente da
+    // scegliere, e togliere anche lui lascerebbe un modello irraggiungibile.
+    const finestre =
+      derivate.length > 0
+        ? derivate.map((d) => ({ token: d.context, modello: d.name }))
+        : [{ token: base.context, modello: base.name }];
     return {
       nome: base.name,
       family: base.family,
@@ -87,9 +92,39 @@ function ordina(finestre: readonly Finestra[]): Finestra[] {
   return [...finestre].sort((a, b) => (a.token ?? -1) - (b.token ?? -1));
 }
 
-/** Il modello base di cui `nome` e' una voce, o `null` se non e' nel catalogo. */
+/**
+ * Il modello di cui `nome` e' una voce, o `null` se non e' nel catalogo.
+ *
+ * Cerca anche fra i nomi dei gruppi, e non solo fra le finestre: da quando il
+ * modello base non e' piu' una finestra, `gemma4:latest` **e'** un modello ma non
+ * una sua taglia -- ed e' proprio il nome che `/config` restituisce.
+ */
 export function modelloDi(elenco: readonly Modello[], nome: string): Modello | null {
-  return elenco.find((m) => m.finestre.some((f) => f.modello === nome)) ?? null;
+  return elenco.find((m) => m.nome === nome || m.finestre.some((f) => f.modello === nome)) ?? null;
+}
+
+/**
+ * La finestra da cui si parte quando nessuno ha ancora scelto.
+ *
+ * 32k perche' e' quella con cui il progetto misura (§0), quindi la demo si apre
+ * nelle stesse condizioni dei numeri che dichiara. Su un modello che non ce
+ * l'ha si prende la piu' vicina, e non la piu' grande: la piu' grande sarebbe la
+ * piu' lenta, e chi apre la demo non ha chiesto di aspettare.
+ */
+export const PREFERITA = 32768;
+
+/**
+ * Il nome concreto da usare per `nome`, se il catalogo offre delle taglie.
+ *
+ * Serve perche' `/config` restituisce il **modello base** -- `gemma4:latest` --
+ * che non e' piu' una finestra scegliibile. Senza questo passo la barra si
+ * aprirebbe su un modello di cui nessuna taglia risulta selezionata.
+ */
+export function risolvi(elenco: readonly Modello[], nome: string): string {
+  const m = modelloDi(elenco, nome);
+  if (m === undefined || m === null || m.finestre.length === 0) return nome;
+  if (m.finestre.some((f) => f.modello === nome)) return nome;
+  return piuVicina(m.finestre, PREFERITA).modello;
 }
 
 /** La finestra con cui `nome` gira, o `null`. */

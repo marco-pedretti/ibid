@@ -132,18 +132,12 @@ export const it = {
   // Il secondo selettore di U-16. «Contesto» e non «finestra di contesto»: la
   // pastiglia sta accanto ad altre quattro, e la parola lunga la fa a capo.
   "bar.context": "Contesto",
-  // Due cose che chi guarda non può dedurre: il costo di una finestra grande è un
-  // **rallentamento** e non un guasto, e «non fissata» è una voce diversa in
-  // natura dalle altre — non un numero, l'assenza di un numero.
+  // Il costo di una finestra grande è un **rallentamento**, non un guasto: se la
+  // memoria della scheda non basta il servizio continua sulla CPU. Dirlo qui è
+  // meglio che nascondere le taglie grandi, perché il rallentamento si vede da
+  // sé nella riga dei tempi.
   "bar.context.hint":
     "Quanto testo entra nel modello prima che risponda. Le finestre grandi tengono più fonti insieme ma occupano più memoria: oltre quella della scheda il servizio continua sulla CPU e diventa molto più lento.",
-  "bar.context.unset":
-    "«Non fissata» è l’unica voce che non è una misura: questo modello non scrive nessuna finestra, quindi la sceglie il servizio quando lo carica, in base alla memoria che trova. Le altre la fissano, e con quelle sai in anticipo quanto testo entra.",
-  // «non fissata» e non «auto»: dice il **fatto** invece di suggerire che stia
-  // succedendo qualcosa di intelligente. Quella voce e' il modello base, che nel
-  // proprio Modelfile non scrive `num_ctx` -- quindi la finestra la sceglie il
-  // servizio quando carica il modello, e noi il numero non possiamo saperlo.
-  "bar.context.default": "non fissata",
   // Attenuata: la finestra e' una sola, e la pastiglia dice perche' invece di
   // sparire -- sparendo, la funzione non esisterebbe per chi non sa dello script.
   "bar.context.only":
@@ -384,9 +378,6 @@ export const en: Record<Chiave, string> = {
   "bar.context": "Context",
   "bar.context.hint":
     "How much text fits into the model before it answers. Larger windows hold more sources at once but take more memory: past what the card has, the service keeps going on the CPU and gets much slower.",
-  "bar.context.unset":
-    "“Not fixed” is the one entry that is not a measurement: this model writes no window of its own, so the service picks one when it loads it, based on the memory it finds. The others fix it, and with those you know in advance how much text fits.",
-  "bar.context.default": "not fixed",
   "bar.context.only":
     "This model has a single context size. To get a choice, create more with «scripts/model_sizes.py».",
   "bar.advanced": "Advanced",
