@@ -153,7 +153,12 @@ export function applica(r: Risposta, e: SseEvent): Risposta {
  * `stage` lo dichiara invece di lasciarlo indovinare.
  */
 export function guasto(r: Risposta, messaggio: string): Risposta {
-  return { ...r, fase: "errore", verificaInCorso: false, errore: { message: messaggio, stage: "trasporto" } };
+  return {
+    ...r,
+    fase: "errore",
+    verificaInCorso: false,
+    errore: { message: messaggio, stage: "trasporto" },
+  };
 }
 
 /** «Ferma». Una decisione di chi guarda, e va distinta da un guasto. */

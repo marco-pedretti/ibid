@@ -125,9 +125,7 @@ function Colonna({
             <Avvertimento size={13} />
           </span>
           <div>
-            <p className="mb-[3px] text-[12px] font-semibold text-ink">
-              {t("compare.bare.title")}
-            </p>
+            <p className="mb-[3px] text-[12px] font-semibold text-ink">{t("compare.bare.title")}</p>
             <p className="text-[11.5px] leading-[1.5] text-ink-2">{t("compare.bare.body")}</p>
           </div>
         </div>

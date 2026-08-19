@@ -29,7 +29,16 @@ function risolvi(eventi: SseEvent[], da: Risposta = inizio()): Risposta {
 
 const chunks: SseEvent = { event: "chunks", data: { chunks: [CHUNK] } };
 const token = (text: string): SseEvent => ({ event: "token", data: { text } });
-const answer = (over: Partial<{ text: string; repaired: boolean; abstained: boolean; abstention: string; truncated: boolean; verification_pending: boolean }> = {}): SseEvent => ({
+const answer = (
+  over: Partial<{
+    text: string;
+    repaired: boolean;
+    abstained: boolean;
+    abstention: string;
+    truncated: boolean;
+    verification_pending: boolean;
+  }> = {},
+): SseEvent => ({
   event: "answer",
   data: {
     text: "Il valore è 0.0226 [1].",
@@ -111,7 +120,14 @@ describe("la verifica", () => {
         event: "citations",
         data: {
           citations: [
-            { marker: 1, chunk_id: CHUNK.chunk_id, claim: "Il valore è 0.0226.", supported: true, score: 0.94, numeric: "ok" },
+            {
+              marker: 1,
+              chunk_id: CHUNK.chunk_id,
+              claim: "Il valore è 0.0226.",
+              supported: true,
+              score: 0.94,
+              numeric: "ok",
+            },
           ],
           uncited_claims: ["Questa frase non cita niente."],
         },
@@ -125,11 +141,18 @@ describe("la verifica", () => {
   it("«nessuna citazione» e «verdetti non disponibili» non sono lo stesso stato", () => {
     // Senza `verificate` sarebbero la stessa lista vuota, e U-07 chiede di
     // distinguere una citazione non verificata da una verificata.
-    const senzaVerifica = risolvi([answer({ verification_pending: false }), done({ verified: false })]);
+    const senzaVerifica = risolvi([
+      answer({ verification_pending: false }),
+      done({ verified: false }),
+    ]);
     expect(senzaVerifica.citazioni).toEqual([]);
     expect(senzaVerifica.verificate).toBe(false);
 
-    const verificata = risolvi([answer(), { event: "citations", data: { citations: [], uncited_claims: [] } }, done()]);
+    const verificata = risolvi([
+      answer(),
+      { event: "citations", data: { citations: [], uncited_claims: [] } },
+      done(),
+    ]);
     expect(verificata.citazioni).toEqual([]);
     expect(verificata.verificate).toBe(true);
   });
@@ -137,13 +160,22 @@ describe("la verifica", () => {
 
 describe("le due astensioni", () => {
   it("il gate si astiene prima di generare, e non c'è nessun token", () => {
-    const r = risolvi([chunks, answer({ abstained: true, abstention: ABSTENTION.gate, verification_pending: false }), done({ abstention: ABSTENTION.gate })]);
+    const r = risolvi([
+      chunks,
+      answer({ abstained: true, abstention: ABSTENTION.gate, verification_pending: false }),
+      done({ abstention: ABSTENTION.gate }),
+    ]);
     expect(chiSiEAstenuto(r)).toBe("gate");
     expect(r.chunks).toHaveLength(1);
   });
 
   it("il modello si astiene dopo aver letto le fonti", () => {
-    const r = risolvi([chunks, token("Insufficient"), answer({ abstained: true, abstention: ABSTENTION.modello }), done({ abstention: ABSTENTION.modello })]);
+    const r = risolvi([
+      chunks,
+      token("Insufficient"),
+      answer({ abstained: true, abstention: ABSTENTION.modello }),
+      done({ abstention: ABSTENTION.modello }),
+    ]);
     expect(chiSiEAstenuto(r)).toBe("modello");
   });
 
@@ -154,7 +186,11 @@ describe("le due astensioni", () => {
 
 describe("cio' che va storto", () => {
   it("un `error` tiene il parziale", () => {
-    const r = risolvi([chunks, token("Il valore "), { event: "error", data: { message: "il modello non risponde", stage: "generation" } }]);
+    const r = risolvi([
+      chunks,
+      token("Il valore "),
+      { event: "error", data: { message: "il modello non risponde", stage: "generation" } },
+    ]);
     expect(r.fase).toBe("errore");
     expect(r.testo).toBe("Il valore ");
     expect(r.chunks).toHaveLength(1);

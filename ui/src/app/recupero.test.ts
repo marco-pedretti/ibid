@@ -48,9 +48,7 @@ describe("spiegaPunteggio", () => {
 
   it("un modo nuovo lato server ricade sul generico invece di rompere", () => {
     // `Capabilities.retrieval_modes` e' `string[]` proprio per questo.
-    expect(spiegaPunteggio(config({ retrieval_mode: "colbert" }))).toBe(
-      "score.retrieval.unknown",
-    );
+    expect(spiegaPunteggio(config({ retrieval_mode: "colbert" }))).toBe("score.retrieval.unknown");
   });
 
   it("prima di `done` non si indovina il default del server", () => {

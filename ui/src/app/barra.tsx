@@ -53,10 +53,7 @@ export function ProvvedeBarra({ children }: { children: ReactNode }) {
     [],
   );
 
-  const valore = useMemo(
-    () => ({ opzioni, predefiniti, cambia }),
-    [opzioni, predefiniti, cambia],
-  );
+  const valore = useMemo(() => ({ opzioni, predefiniti, cambia }), [opzioni, predefiniti, cambia]);
   return <Contesto.Provider value={valore}>{children}</Contesto.Provider>;
 }
 

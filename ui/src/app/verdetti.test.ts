@@ -25,7 +25,11 @@ function cit(
 }
 
 /** Una risposta a testo definitivo e verifica conclusa: il caso di U-07. */
-function verificata(testo: string, citazioni: CitationView[], senzaCitazione: string[] = []): Risposta {
+function verificata(
+  testo: string,
+  citazioni: CitationView[],
+  senzaCitazione: string[] = [],
+): Risposta {
   return {
     ...inizio(),
     fase: "conclusa",
@@ -51,7 +55,11 @@ describe("statoVerifica: quattro stati, e nessuno e' l'assenza di un altro", () 
   it("fra `citations` e `done` i verdetti sono la prova che la verifica ha girato", () => {
     // `verificate` arriva con `done`: leggerlo qui direbbe «non verificata» di una
     // risposta i cui verdetti sono appena arrivati.
-    const r = { ...verificata("x [1].", [cit(1, "x.", true)]), fase: "citazioni" as const, verificate: false };
+    const r = {
+      ...verificata("x [1].", [cit(1, "x.", true)]),
+      fase: "citazioni" as const,
+      verificate: false,
+    };
     expect(statoVerifica(r)).toBe("fatta");
   });
 
@@ -69,9 +77,7 @@ describe("statoVerifica: quattro stati, e nessuno e' l'assenza di un altro", () 
 describe("localizza: le frasi si ritrovano, non si ritagliano", () => {
   it("trova una frase a cui i marcatori sono stati tolti", () => {
     const testo = "Il valore massimo e' 400ms [2][3]. Il minimo e' 12ms [1].";
-    expect(localizza(testo, ["Il valore massimo e' 400ms."])).toEqual([
-      { da: 0, a: 34 },
-    ]);
+    expect(localizza(testo, ["Il valore massimo e' 400ms."])).toEqual([{ da: 0, a: 34 }]);
   });
 
   it("lo span copre i marcatori che stanno dentro la frase", () => {
@@ -235,9 +241,11 @@ describe("esitoDellaScheda", () => {
 describe("spanSenzaCitazione", () => {
   it("trova la frase che non cita niente", () => {
     const testo = "Il massimo e' 400ms [1]. Entrambi sul campione trattenuto.";
-    const r = verificata(testo, [cit(1, "Il massimo e' 400ms.", true)], [
-      "Entrambi sul campione trattenuto.",
-    ]);
+    const r = verificata(
+      testo,
+      [cit(1, "Il massimo e' 400ms.", true)],
+      ["Entrambi sul campione trattenuto."],
+    );
     expect(spanSenzaCitazione(r)).toEqual([{ da: 25, a: 58 }]);
   });
 

@@ -178,9 +178,9 @@ function Menu<T extends string>({
   // Il dettaglio che c'e' gia' vince: «non installato» dice di piu' che
   // «predefinito», e sulla stessa voce sono tutti e due veri.
   const marcate = voci.map((v) =>
-    v.valore === predefinito && v.dettaglio === undefined ?
-      { ...v, dettaglio: t("bar.default") }
-    : v,
+    v.valore === predefinito && v.dettaglio === undefined
+      ? { ...v, dettaglio: t("bar.default") }
+      : v,
   );
 
   return (
@@ -238,16 +238,16 @@ function MenuModelli({ modelli }: { modelli: readonly string[] }) {
   // spiegherebbe perche' non e' selezionata niente.
   const assente = !modelloInstallato(predefiniti.model, modelli);
   const voci = [
-    ...(assente ?
-      [
-        {
-          valore: predefiniti.model,
-          testo: predefiniti.model,
-          dettaglio: t("bar.model.notInstalled"),
-          disabilitata: true,
-        },
-      ]
-    : []),
+    ...(assente
+      ? [
+          {
+            valore: predefiniti.model,
+            testo: predefiniti.model,
+            dettaglio: t("bar.model.notInstalled"),
+            disabilitata: true,
+          },
+        ]
+      : []),
     ...modelli.map((m) => ({ valore: m, testo: m })),
   ];
 

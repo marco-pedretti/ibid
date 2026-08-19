@@ -45,7 +45,14 @@ function conclusa(testo = "Il valore è 0.0226 [1]."): Risposta {
     definitivo: true,
     verificate: true,
     citazioni: [
-      { marker: 1, chunk_id: CHUNK.chunk_id, claim: testo, supported: true, score: 0.9, numeric: "not_applicable" },
+      {
+        marker: 1,
+        chunk_id: CHUNK.chunk_id,
+        claim: testo,
+        supported: true,
+        score: 0.9,
+        numeric: "not_applicable",
+      },
     ],
     tempi: { retrieval_s: 0.27, generation_s: 3.01 },
   };
@@ -55,7 +62,11 @@ function scambio(domanda: string, risposta: Risposta): Scambio {
   return { id: `s-${domanda}`, domanda, risposta };
 }
 
-function conv(id: string, domande: string[], dataset_id: string | null = "open_ragbench"): Conversazione {
+function conv(
+  id: string,
+  domande: string[],
+  dataset_id: string | null = "open_ragbench",
+): Conversazione {
   return { id, dataset_id, scambi: domande.map((d) => scambio(d, conclusa())) };
 }
 
@@ -108,7 +119,9 @@ describe("rileggere il deposito", () => {
     expect(deserializza(null)).toEqual([]);
     expect(deserializza("{ non json")).toEqual([]);
     expect(deserializza("42")).toEqual([]);
-    expect(deserializza(JSON.stringify({ v: VERSIONE + 1, conversazioni: [conv("a", ["q"])] }))).toEqual([]);
+    expect(
+      deserializza(JSON.stringify({ v: VERSIONE + 1, conversazioni: [conv("a", ["q"])] })),
+    ).toEqual([]);
   });
 
   it("un giro completo conserva fonti e verdetti", () => {
@@ -124,7 +137,11 @@ describe("rileggere il deposito", () => {
     // Il campo `corrente` c'era e non c'e' piu'. Un deposito piu' vecchio lo
     // porta ancora: viene ignorato, non fa scartare niente.
     expect(serializza([conv("a", ["q"])])).not.toContain("corrente");
-    const vecchio = JSON.stringify({ v: VERSIONE, corrente: "b", conversazioni: [conv("b", ["q"])] });
+    const vecchio = JSON.stringify({
+      v: VERSIONE,
+      corrente: "b",
+      conversazioni: [conv("b", ["q"])],
+    });
     expect(deserializza(vecchio).map((c) => c.id)).toEqual(["b"]);
   });
 
@@ -148,7 +165,9 @@ describe("rileggere il deposito", () => {
   });
 
   it("una risposta conclusa non viene sigillata", () => {
-    expect(deserializza(serializza([conv("a", ["q"])]))[0].scambi[0].risposta.fase).toBe("conclusa");
+    expect(deserializza(serializza([conv("a", ["q"])]))[0].scambi[0].risposta.fase).toBe(
+      "conclusa",
+    );
   });
 
   it("un campo che non c'era prende il suo default, uno col tipo sbagliato torna al default", () => {
@@ -159,7 +178,13 @@ describe("rileggere il deposito", () => {
       conversazioni: [
         {
           id: "a",
-          scambi: [{ id: "s", domanda: "q", risposta: { fase: "conclusa", testo: "x", chunks: "non un array" } }],
+          scambi: [
+            {
+              id: "s",
+              domanda: "q",
+              risposta: { fase: "conclusa", testo: "x", chunks: "non un array" },
+            },
+          ],
         },
       ],
     });

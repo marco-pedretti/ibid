@@ -368,9 +368,11 @@ export function ProvvedeChat({ children }: { children: ReactNode }) {
 
   const modelli = backend.stato === "pronto" ? backend.capabilities.models : [];
   const impedimento =
-    scelto === null ? "dataset"
-    : opzioni !== null && !modelloInstallato(opzioni.modello, modelli) ? "modello"
-    : null;
+    scelto === null
+      ? "dataset"
+      : opzioni !== null && !modelloInstallato(opzioni.modello, modelli)
+        ? "modello"
+        : null;
 
   return (
     <Contesto.Provider

@@ -72,9 +72,7 @@ export function ProvvedeTema({ children }: { children: ReactNode }) {
     }
   }, []);
 
-  return (
-    <Contesto.Provider value={{ scelta, effettivo, imposta }}>{children}</Contesto.Provider>
-  );
+  return <Contesto.Provider value={{ scelta, effettivo, imposta }}>{children}</Contesto.Provider>;
 }
 
 export function usaTema(): Tema {

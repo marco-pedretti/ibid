@@ -24,7 +24,10 @@ describe("scorri", () => {
   });
 
   it("resta dov'è se è l'unica scegliibile", () => {
-    const sole = [{ valore: "a", testo: "A" }, { valore: "b", testo: "B", disabilitata: true }];
+    const sole = [
+      { valore: "a", testo: "A" },
+      { valore: "b", testo: "B", disabilitata: true },
+    ];
     expect(scorri(sole, 0, 1)).toBe(0);
   });
 

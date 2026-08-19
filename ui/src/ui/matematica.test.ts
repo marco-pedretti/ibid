@@ -18,10 +18,7 @@ describe("i delimitatori non ambigui", () => {
   });
 
   it("riconosce `\\[…\\]` come blocco", () => {
-    expect(segmenta("quindi \\[E = mc^2\\]")).toEqual([
-      testo("quindi ", 0),
-      blocco("E = mc^2", 7),
-    ]);
+    expect(segmenta("quindi \\[E = mc^2\\]")).toEqual([testo("quindi ", 0), blocco("E = mc^2", 7)]);
   });
 
   it("`$$` prima di `$`, altrimenti diventa una formula vuota", () => {
@@ -63,9 +60,7 @@ describe("il `$` singolo", () => {
   });
 
   it("un `$` orfano resta testo", () => {
-    expect(segmenta("il prezzo è $5 e basta")).toEqual([
-      testo("il prezzo è $5 e basta", 0),
-    ]);
+    expect(segmenta("il prezzo è $5 e basta")).toEqual([testo("il prezzo è $5 e basta", 0)]);
   });
 
   it("una formula non attraversa un paragrafo", () => {
@@ -144,8 +139,6 @@ describe("perAnteprima", () => {
   });
 
   it("non tocca la matematica", () => {
-    expect(perAnteprima("il valore $\\frac{a}{b}$ cresce")).toBe(
-      "il valore $\\frac{a}{b}$ cresce",
-    );
+    expect(perAnteprima("il valore $\\frac{a}{b}$ cresce")).toBe("il valore $\\frac{a}{b}$ cresce");
   });
 });

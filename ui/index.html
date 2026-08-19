@@ -18,9 +18,7 @@
         } catch (e) {
           /* localStorage negato (modalita' privata, iframe): si segue il sistema */
         }
-        var sistema = window.matchMedia("(prefers-color-scheme: dark)").matches
-          ? "dark"
-          : "light";
+        var sistema = window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
         document.documentElement.dataset.theme =
           scelto === "dark" || scelto === "light" ? scelto : sistema;
       })();

@@ -125,9 +125,12 @@ export function Selettore<T extends string>({
     chiudi();
   };
 
-  useEffect(() => () => {
-    if (timer.current !== null) clearTimeout(timer.current);
-  }, []);
+  useEffect(
+    () => () => {
+      if (timer.current !== null) clearTimeout(timer.current);
+    },
+    [],
+  );
 
   useEffect(() => {
     if (!montato) return;

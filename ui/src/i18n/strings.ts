@@ -259,7 +259,8 @@ export const it = {
   "report.why":
     "Niente di questo è nascosto: una citazione che non regge è il dato, non un errore. E citare di meno alza la precisione, quindi le frasi scoperte contano.",
 
-  "abstention.gate": "Non ha risposto: le fonti trovate erano troppo deboli, e il modello non è stato interrogato.",
+  "abstention.gate":
+    "Non ha risposto: le fonti trovate erano troppo deboli, e il modello non è stato interrogato.",
   "abstention.model": "Il modello ha dichiarato di non trovare la risposta nelle fonti.",
 
   // --- non ancora in uso ---------------------------------------------------
@@ -282,7 +283,6 @@ export const it = {
   "index.dense": "dimensione densa",
   "index.sparse": "vettori sparsi",
   "index.missing": "Il server non elenca nessuna collection con questo nome.",
-
 } as const;
 
 export type Chiave = keyof typeof it;
@@ -294,7 +294,8 @@ export const en: Record<Chiave, string> = {
   "theme.system": "System",
 
   "lang.label": "Interface language",
-  "lang.hint": "Changes the interface language only: the answer follows the language of your question.",
+  "lang.hint":
+    "Changes the interface language only: the answer follows the language of your question.",
 
   "backend.loading": "Reaching the server…",
   "backend.down": "Server unreachable",
@@ -389,11 +390,11 @@ export const en: Record<Chiave, string> = {
   "stato.riparato": "markers put back into the required form",
 
   "sources.title": "Sources",
-  "sources.waiting":
-    "Sources show up here as soon as the search answers, before the model writes.",
+  "sources.waiting": "Sources show up here as soon as the search answers, before the model writes.",
   "sources.none": "No sources found for this question.",
 
-  "score.marker": "The number the answer uses to cite this source: look for [{marker}] in the text.",
+  "score.marker":
+    "The number the answer uses to cite this source: look for [{marker}] in the text.",
   "score.retrieval.dense":
     "How much this piece resembles the question, from 0 to 1: it ranks the sources, it does not say the answer is right. (Search by meaning.)",
   "score.retrieval.sparse":
@@ -478,7 +479,6 @@ export const en: Record<Chiave, string> = {
   "index.dense": "dense size",
   "index.sparse": "sparse vectors",
   "index.missing": "The server lists no collection with this name.",
-
 };
 
 export const LINGUE = ["it", "en"] as const;

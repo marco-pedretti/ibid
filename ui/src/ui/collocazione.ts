@@ -51,11 +51,13 @@ export function colloca(bersaglio: Rettangolo, bolla: Misura, finestra: Misura):
   const staSotto = sotto + bolla.altezza <= finestra.altezza - MARGINE;
   // Se non ci sta da nessuna parte si sceglie il lato con piu' spazio, invece di
   // insistere su quello preferito e uscire di sicuro.
-  const verso: Posa["verso"] =
-    staSopra ? "sopra"
-    : staSotto ? "sotto"
-    : bersaglio.y > finestra.altezza - (bersaglio.y + bersaglio.altezza) ? "sopra"
-    : "sotto";
+  const verso: Posa["verso"] = staSopra
+    ? "sopra"
+    : staSotto
+      ? "sotto"
+      : bersaglio.y > finestra.altezza - (bersaglio.y + bersaglio.altezza)
+        ? "sopra"
+        : "sotto";
 
   const centro = bersaglio.x + bersaglio.larghezza / 2 - bolla.larghezza / 2;
   const massimo = finestra.larghezza - bolla.larghezza - MARGINE;

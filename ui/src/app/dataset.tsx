@@ -54,9 +54,7 @@ export function ProvvedeDataset({ children }: { children: ReactNode }) {
     salva(dataset_id);
   }, []);
 
-  return (
-    <Contesto.Provider value={{ elenco, scelto, imposta }}>{children}</Contesto.Provider>
-  );
+  return <Contesto.Provider value={{ elenco, scelto, imposta }}>{children}</Contesto.Provider>;
 }
 
 export function usaDataset(): Dataset {

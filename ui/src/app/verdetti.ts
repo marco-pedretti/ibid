@@ -179,7 +179,8 @@ export function marcatoriDelTesto(r: Risposta): Marcato[] {
   }));
 
   if (stato !== "fatta") {
-    const esito: Esito = stato === "inerte" ? "inerte" : stato === "attesa" ? "attesa" : "nonVerificata";
+    const esito: Esito =
+      stato === "inerte" ? "inerte" : stato === "attesa" ? "attesa" : "nonVerificata";
     return occorrenze.map((o) => ({ ...o, esito, citazione: null }));
   }
 
@@ -242,7 +243,9 @@ export function esitoDellaScheda(r: Risposta, marker: number): EsitoScheda {
  */
 function riassumi(
   coppie: readonly { sostenuta: boolean; punteggio: number }[],
-): { tipo: "sostiene" | "nonSostiene"; punteggio: number; su: number } | { tipo: "misto"; nonSostengono: number; su: number } {
+):
+  | { tipo: "sostiene" | "nonSostiene"; punteggio: number; su: number }
+  | { tipo: "misto"; nonSostengono: number; su: number } {
   const contrarie = coppie.filter((c) => !c.sostenuta);
   if (contrarie.length === 0) {
     return {
@@ -303,9 +306,7 @@ export function esitoNumericoDellaScheda(r: Risposta, marker: number): EsitoNume
   );
   // Il verificatore numerico non produce un punteggio: e' un confronto fra
   // numeri, non una probabilita'. Portarlo a 0 e mostrarlo direbbe il falso.
-  return riassunto.tipo === "misto"
-    ? riassunto
-    : { tipo: riassunto.tipo, su: riassunto.su };
+  return riassunto.tipo === "misto" ? riassunto : { tipo: riassunto.tipo, su: riassunto.su };
 }
 
 /**

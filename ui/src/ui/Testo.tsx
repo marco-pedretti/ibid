@@ -69,7 +69,11 @@ export function Testo({ risposta }: { risposta: Risposta }) {
       // definizione una frase senza marcatori. Quindi una lista piatta, ordinata,
       // basta -- e non serve un albero di intervalli.
       annotazioni: ordina([
-        ...marcati.map((m): Annotazione => ({ da: m.indice, a: m.indice + m.lunghezza, marcato: m })),
+        ...marcati.map((m): Annotazione => ({
+          da: m.indice,
+          a: m.indice + m.lunghezza,
+          marcato: m,
+        })),
         ...scoperte.map((s): Annotazione => ({ ...s, marcato: null })),
       ]),
     };
@@ -187,4 +191,3 @@ function Formula({ tex, blocco }: { tex: string; blocco: boolean }) {
     />
   );
 }
-

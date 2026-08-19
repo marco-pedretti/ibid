@@ -34,16 +34,12 @@ describe("frames", () => {
   it("legge il formato che `sse()` produce davvero", async () => {
     // Byte per byte cio' che scrive `src/api/schema.py::sse`:
     // f"event: {nome}\ndata: {json}\n\n"
-    const letti = await raccogli(
-      frames(stream('event: token\ndata: {"text": "ciao"}\n\n')),
-    );
+    const letti = await raccogli(frames(stream('event: token\ndata: {"text": "ciao"}\n\n')));
     expect(letti).toEqual([{ event: "token", data: '{"text": "ciao"}' }]);
   });
 
   it("ricompone un riquadro spezzato a meta' riga", async () => {
-    const letti = await raccogli(
-      frames(stream('event: tok', 'en\ndata: {"te', 'xt": "a"}\n\n')),
-    );
+    const letti = await raccogli(frames(stream("event: tok", 'en\ndata: {"te', 'xt": "a"}\n\n')));
     expect(letti).toEqual([{ event: "token", data: '{"text": "a"}' }]);
   });
 
@@ -58,16 +54,12 @@ describe("frames", () => {
     // "è" in UTF-8 e' 0xC3 0xA8: il primo pacchetto finisce in mezzo.
     const byte = new TextEncoder().encode('event: token\ndata: {"text":"è"}\n\n');
     const rottura = byte.indexOf(0xc3) + 1;
-    const letti = await raccogli(
-      frames(stream(byte.slice(0, rottura), byte.slice(rottura))),
-    );
+    const letti = await raccogli(frames(stream(byte.slice(0, rottura), byte.slice(rottura))));
     expect(JSON.parse(letti[0].data)).toEqual({ text: "è" });
   });
 
   it("accetta le terminazioni \\r\\n", async () => {
-    const letti = await raccogli(
-      frames(stream('event: done\r\ndata: {}\r\n\r\n')),
-    );
+    const letti = await raccogli(frames(stream("event: done\r\ndata: {}\r\n\r\n")));
     expect(letti).toEqual([{ event: "done", data: "{}" }]);
   });
 
@@ -107,13 +99,7 @@ describe("events", () => {
       'event: done\ndata: {"verified": true, "timings": {}}\n\n',
     );
     const letti = await raccogli(events(sorgente));
-    expect(letti.map((e) => e.event)).toEqual([
-      "chunks",
-      "token",
-      "answer",
-      "citations",
-      "done",
-    ]);
+    expect(letti.map((e) => e.event)).toEqual(["chunks", "token", "answer", "citations", "done"]);
   });
 
   it("salta un evento che il contratto non conosce, e lo dice", async () => {
@@ -122,10 +108,7 @@ describe("events", () => {
     // saltare **in silenzio** e' l'altro modo di sbagliare.
     const visto = vi.fn();
     const letti = await raccogli(
-      events(
-        stream('event: sconosciuto\ndata: {}\n\nevent: token\ndata: {"text":"a"}\n\n'),
-        visto,
-      ),
+      events(stream('event: sconosciuto\ndata: {}\n\nevent: token\ndata: {"text":"a"}\n\n'), visto),
     );
     expect(letti.map((e) => e.event)).toEqual(["token"]);
     expect(visto).toHaveBeenCalledWith("sconosciuto");
@@ -134,9 +117,9 @@ describe("events", () => {
   it("solleva se `data` non e' JSON", async () => {
     // Qui il contratto e' rotto davvero: proseguire significherebbe consegnare
     // eventi buoni pescati fra eventi illeggibili.
-    await expect(
-      raccogli(events(stream("event: token\ndata: non-json\n\n"))),
-    ).rejects.toThrow(/non e' JSON/);
+    await expect(raccogli(events(stream("event: token\ndata: non-json\n\n")))).rejects.toThrow(
+      /non e' JSON/,
+    );
   });
 
   it("porta `verification_pending` fino al client", async () => {

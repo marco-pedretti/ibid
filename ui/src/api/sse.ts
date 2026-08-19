@@ -38,9 +38,7 @@ const NOTI: ReadonlySet<string> = new Set(SSE_EVENTS);
  * **scartato** — emetterlo significherebbe consegnare come completo qualcosa
  * che e' stato interrotto.
  */
-export async function* frames(
-  corpo: ReadableStream<Uint8Array>,
-): AsyncGenerator<Frame> {
+export async function* frames(corpo: ReadableStream<Uint8Array>): AsyncGenerator<Frame> {
   const decoder = new TextDecoder();
   const lettore = corpo.getReader();
   let resto = "";
@@ -122,8 +120,7 @@ function leggi(blocco: string): Frame | null {
  */
 export async function* events(
   corpo: ReadableStream<Uint8Array>,
-  onSconosciuto: (nome: string) => void = (nome) =>
-    console.warn(`evento SSE sconosciuto: ${nome}`),
+  onSconosciuto: (nome: string) => void = (nome) => console.warn(`evento SSE sconosciuto: ${nome}`),
 ): AsyncGenerator<SseEvent> {
   for await (const riquadro of frames(corpo)) {
     if (!NOTI.has(riquadro.event)) {

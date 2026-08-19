@@ -29,9 +29,7 @@ describe("errori", () => {
         },
       ],
     });
-    await expect(api.query({ query: "x" })).rejects.toThrow(
-      /reasoning_effort: .*altissimo/,
-    );
+    await expect(api.query({ query: "x" })).rejects.toThrow(/reasoning_effort: .*altissimo/);
   });
 
   it("porta lo stato accanto al messaggio", async () => {
@@ -56,8 +54,7 @@ describe("errori", () => {
 describe("URL", () => {
   function spia(status = 200, corpo: unknown = {}) {
     const f = vi.fn(
-      async (_url: string, _init?: RequestInit) =>
-        new Response(JSON.stringify(corpo), { status }),
+      async (_url: string, _init?: RequestInit) => new Response(JSON.stringify(corpo), { status }),
     );
     vi.stubGlobal("fetch", f);
     return f;

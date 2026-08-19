@@ -175,9 +175,11 @@ function Testata() {
           setArmato(!armato);
         }}
         className={`shrink-0 rounded p-[3px] transition-colors ${
-          armato ? "bg-danger-soft text-danger"
-          : occupato ? "text-muted"
-          : "text-muted hover:bg-danger-soft hover:text-danger"
+          armato
+            ? "bg-danger-soft text-danger"
+            : occupato
+              ? "text-muted"
+              : "text-muted hover:bg-danger-soft hover:text-danger"
         }`}
       >
         {/* 13 e non 12: il cestino e' l'unica icona di questo insieme che sta
@@ -203,9 +205,11 @@ function Voce({ conversazione, attiva }: { conversazione: Conversazione; attiva:
       onClick={() => apri(conversazione.id)}
       attiva={attiva}
       className={`w-full truncate rounded-md px-2 py-1.5 text-left text-[11.5px] transition-colors ${
-        attiva ? "bg-surface-2 font-medium text-ink"
-        : occupato ? "text-ink-2"
-        : "text-ink-2 hover:bg-surface-2"
+        attiva
+          ? "bg-surface-2 font-medium text-ink"
+          : occupato
+            ? "text-ink-2"
+            : "text-ink-2 hover:bg-surface-2"
       }`}
     >
       {titolo}

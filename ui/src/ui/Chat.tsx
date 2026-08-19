@@ -49,11 +49,7 @@ export function Chat() {
   return (
     <div className="flex h-full min-h-0 flex-col bg-paper">
       <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto px-[22px] py-5">
-        {scambi.length === 0 ? (
-          <Vuoto />
-        ) : (
-          scambi.map((s) => <Turno key={s.id} scambio={s} />)
-        )}
+        {scambi.length === 0 ? <Vuoto /> : scambi.map((s) => <Turno key={s.id} scambio={s} />)}
         <div ref={fondo} />
       </div>
       <Campo />
@@ -107,9 +103,7 @@ function Vuoto() {
           selettore», e quel «questo» non aveva un referente: il selettore e' una
           pastiglia in fondo alla corsia, lontana e senza un nome scritto. Quella
           frase e' ora il suggerimento del selettore, dove «questo» si vede. */}
-      {tradotti && (
-        <p className="mt-3 max-w-[62ch] text-[11px] text-muted">{t("example.lang")}</p>
-      )}
+      {tradotti && <p className="mt-3 max-w-[62ch] text-[11px] text-muted">{t("example.lang")}</p>}
     </div>
   );
 }
@@ -149,14 +143,21 @@ function RigaStato({ risposta }: { risposta: Risposta }) {
     .join(" · ");
 
   const testo =
-    r.fase === "attesa" ? t("stato.attesa")
-    : r.fase === "fonti" ? `${r.chunks.length} ${t("sources.title").toLowerCase()} · ${t("stato.fonti")}`
-    : r.fase === "scrittura" ? t("stato.scrittura")
-    : r.fase === "risposta" ? t("stato.risposta")
-    : r.fase === "citazioni" ? t("stato.citazioni")
-    : r.fase === "conclusa" ? tempi
-    : r.fase === "interrotta" ? t("stato.interrotta")
-    : `${t("stato.errore")} · ${r.errore?.stage ?? ""}`;
+    r.fase === "attesa"
+      ? t("stato.attesa")
+      : r.fase === "fonti"
+        ? `${r.chunks.length} ${t("sources.title").toLowerCase()} · ${t("stato.fonti")}`
+        : r.fase === "scrittura"
+          ? t("stato.scrittura")
+          : r.fase === "risposta"
+            ? t("stato.risposta")
+            : r.fase === "citazioni"
+              ? t("stato.citazioni")
+              : r.fase === "conclusa"
+                ? tempi
+                : r.fase === "interrotta"
+                  ? t("stato.interrotta")
+                  : `${t("stato.errore")} · ${r.errore?.stage ?? ""}`;
 
   return (
     <p className="flex items-center gap-2 font-mono text-[11px] tracking-[0.02em] text-muted">
@@ -201,13 +202,9 @@ function Corpo({ scambio }: { scambio: Scambio }) {
       <Verdetti riepilogo={riepilogo(r)} />
 
       {r.troncato && <Avviso icona={<Troncato size={13} />}>{t("stato.troncato")}</Avviso>}
-      {r.riparato && (
-        <p className="font-mono text-[10px] text-muted">{t("stato.riparato")}</p>
-      )}
+      {r.riparato && <p className="font-mono text-[10px] text-muted">{t("stato.riparato")}</p>}
 
-      {r.errore !== null && (
-        <Avviso icona={<Avvertimento size={13} />}>{r.errore.message}</Avviso>
-      )}
+      {r.errore !== null && <Avviso icona={<Avvertimento size={13} />}>{r.errore.message}</Avviso>}
 
       {(r.fase === "errore" || r.fase === "interrotta") && (
         <div>
@@ -228,7 +225,10 @@ function Corpo({ scambio }: { scambio: Scambio }) {
           un comando assente. */}
       {r.fase === "conclusa" && r.config !== null && (
         <div>
-          <Suggerimento testo={occupato ? t("compare.busy") : t("compare.action.hint")} fuoco={false}>
+          <Suggerimento
+            testo={occupato ? t("compare.busy") : t("compare.action.hint")}
+            fuoco={false}
+          >
             <button
               type="button"
               aria-disabled={occupato}
@@ -269,10 +269,13 @@ function Verdetti({ riepilogo: r }: { riepilogo: Riepilogo | null }) {
   // giusto e' il secondo. Un titolo che dicesse il contrario metterebbe in bocca
   // all'interfaccia un giudizio che il progetto stesso ha misurato falso.
   const grave =
-    r.nonSostenute > 0 && r.discordanti === r.nonSostenute ? "disagreement"
-    : r.nonSostenute > 0 ? "unsupported"
-    : r.senzaCitazione > 0 ? "uncited"
-    : "unverified";
+    r.nonSostenute > 0 && r.discordanti === r.nonSostenute
+      ? "disagreement"
+      : r.nonSostenute > 0
+        ? "unsupported"
+        : r.senzaCitazione > 0
+          ? "uncited"
+          : "unverified";
 
   const Glifo = {
     disagreement: Discordi,
@@ -399,9 +402,11 @@ function Campo() {
   // precondizione manca lascia solo un campo che non risponde.
   const bloccato = impedimento !== null;
   const segnaposto =
-    impedimento === "dataset" ? t("chat.noDataset")
-    : impedimento === "modello" ? t("chat.noModel")
-    : t("chat.placeholder");
+    impedimento === "dataset"
+      ? t("chat.noDataset")
+      : impedimento === "modello"
+        ? t("chat.noModel")
+        : t("chat.placeholder");
 
   return (
     <div className="border-t border-line bg-surface px-[22px] pt-3 pb-3.5">
@@ -411,9 +416,7 @@ function Campo() {
           come si manda una domanda che non si puo' mandare e' un invito a
           provare, e il segnaposto sta gia' spiegando perche' no. */}
       {!bloccato && (
-        <p className="mb-2 text-right font-mono text-[10px] text-muted">
-          {t("chat.hint.invio")}
-        </p>
+        <p className="mb-2 text-right font-mono text-[10px] text-muted">{t("chat.hint.invio")}</p>
       )}
 
       <div className="flex items-end gap-3 rounded-[9px] border border-line-2 bg-paper px-3 py-2.5 focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-accent">

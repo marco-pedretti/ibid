@@ -152,16 +152,18 @@ export function Marcatore({ marcato }: { marcato: Marcato }) {
     // Inerte non parla della citazione, parla del **testo**: dire «questa frase
     // cita la fonte 3» quando il parser puo' ancora scartare quel `[3]` sarebbe
     // promettere la cosa che il §3.5 vieta di promettere.
-    marcato.esito === "inerte" ? t("verdict.marker.inert")
-    : punteggio === undefined ? t("verdict.marker", { marker: marcato.marker, verdetto: parola })
-    : t("verdict.marker.score", {
-          marker: marcato.marker,
-          verdetto: parola,
-          punteggio: punteggio.toLocaleString(lingua === "it" ? "it-IT" : "en-US", {
-            minimumFractionDigits: 3,
-            maximumFractionDigits: 3,
-          }),
-        });
+    marcato.esito === "inerte"
+      ? t("verdict.marker.inert")
+      : punteggio === undefined
+        ? t("verdict.marker", { marker: marcato.marker, verdetto: parola })
+        : t("verdict.marker.score", {
+            marker: marcato.marker,
+            verdetto: parola,
+            punteggio: punteggio.toLocaleString(lingua === "it" ? "it-IT" : "en-US", {
+              minimumFractionDigits: 3,
+              maximumFractionDigits: 3,
+            }),
+          });
 
   return (
     <Suggerimento
