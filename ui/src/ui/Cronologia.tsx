@@ -93,10 +93,18 @@ export function Cronologia() {
   );
 }
 
-/** Le misure sono quelle di `.bottone-esplora` nel mockup: 12 px, raggio 7,
- *  padding 8/10, e il glifo staccato di 7. Niente stato al passaggio, come il
- *  bottone d'invio della chat: un'azione d'accento e' gia' la cosa piu' visibile
- *  della corsia. */
+/**
+ * Le misure sono quelle di `.bottone-esplora` nel mockup: 12 px, raggio 7,
+ * padding 8/10, e il glifo staccato di 7.
+ *
+ * **Al passaggio si riempie d'accento**, e il testo passa ad `accent-ink`: e' la
+ * stessa coppia del bottone d'invio della chat, cioe' come questa palette dice
+ * «azione principale». Prima non aveva nessuno stato al passaggio — la forma
+ * diceva che era un comando, ma restava immobile sotto il puntatore, che e'
+ * esattamente cio' che fa dubitare che sia cliccabile. Il resto della corsia lo
+ * fa piu' piano (`hover:bg-surface-2`, `hover:border-line`) perche' il resto
+ * della corsia non e' l'azione principale.
+ */
 function BottoneNuova() {
   const { t } = usaLingua();
   const { occupato, nuova } = usaChat();
@@ -106,7 +114,9 @@ function BottoneNuova() {
       bloccato={occupato}
       suggerimento={occupato ? t("history.busy") : null}
       onClick={nuova}
-      className="flex w-full items-center gap-[7px] rounded-[7px] border border-accent bg-accent-soft px-2.5 py-2 text-left text-[12px] font-medium text-accent"
+      className={`flex w-full items-center gap-[7px] rounded-[7px] border border-accent bg-accent-soft px-2.5 py-2 text-left text-[12px] font-medium text-accent transition-colors ${
+        occupato ? "" : "hover:bg-accent hover:text-accent-ink"
+      }`}
     >
       <Piu size={12} />
       <span className="truncate">{t("history.new")}</span>
