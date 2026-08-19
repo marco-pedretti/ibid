@@ -165,6 +165,7 @@ export function Marcatore({ marcato }: { marcato: Marcato }) {
 
   return (
     <Suggerimento
+      dato
       testo={spiegazione}
       className={`inline-flex items-center gap-[2px] py-px align-[0.32em] font-mono text-[10px] tabular-nums ${VESTE[marcato.esito]}`}
     >
@@ -247,7 +248,9 @@ export function VerdettoNumerico({ esito }: { esito: EsitoNumerico }) {
   return (
     <span className={`${PASTIGLIA} ${esito.tipo === "sostiene" ? TONO.ok : TONO.warn}`}>
       <Glifo size={11} />
-      <Suggerimento testo={t("verdict.numeric.what")}>{parola}</Suggerimento>
+      <Suggerimento dato testo={t("verdict.numeric.what")}>
+        {parola}
+      </Suggerimento>
     </span>
   );
 }
@@ -263,14 +266,16 @@ export function Verdetto({ esito }: { esito: EsitoScheda }) {
       {/* Il suggerimento sta sulla **parola** e non sulla pastiglia intera: dentro
           ci sono due o tre cose diverse, e una bolla sola che copre tutto direbbe
           di ciascuna qualcosa che vale per un'altra. */}
-      <Suggerimento testo={t(perche)}>{parolaDelVerdetto(esito, t)}</Suggerimento>
+      <Suggerimento dato testo={t(perche)}>
+        {parolaDelVerdetto(esito, t)}
+      </Suggerimento>
       {dettaglio !== null && (
         <>
-          <Suggerimento testo={dettaglio.perche} className="text-muted">
+          <Suggerimento dato testo={dettaglio.perche} className="text-muted">
             {dettaglio.punteggio}
           </Suggerimento>
           {dettaglio.quante !== null && (
-            <Suggerimento testo={t("verdict.count")} className="text-muted opacity-70">
+            <Suggerimento dato testo={t("verdict.count")} className="text-muted opacity-70">
               {dettaglio.quante}
             </Suggerimento>
           )}

@@ -39,12 +39,29 @@ import { colloca } from "./collocazione";
 import type { Posa } from "./collocazione";
 
 /**
- * L'attesa prima di comparire. Il puntatore attraversa il pannello fonti per
- * arrivare altrove, e senza questa pausa cinque bolle si accenderebbero in fila
- * lungo il tragitto. 140 ms e' sotto la soglia in cui l'attesa si nota e sopra
- * quella in cui un passaggio conta come intenzione.
+ * Due attese, perche' ci sono due domande diverse.
+ *
+ * Su un **dato** — un punteggio, un marcatore, un verdetto, un nome troncato —
+ * il puntatore *e' gia' la domanda*: ci si va sopra perche' quel numero non si
+ * capisce, e 140 ms sta sotto la soglia in cui l'attesa si nota. E' il caso per
+ * cui i suggerimenti esistono in questa interfaccia.
+ *
+ * Su un **comando** o sul nome di una sezione il puntatore non chiede niente:
+ * sta passando per andare altrove. Con la stessa attesa breve ogni movimento del
+ * mouse accende una bolla lungo il tragitto, e un'interfaccia che vuole essere
+ * minimale si riempie di riquadri che nessuno ha chiesto. Un secondo e mezzo e'
+ * il tempo oltre il quale un puntatore fermo non e' piu' spiegabile come
+ * transito: chi e' rimasto li' cosi' a lungo sta chiedendo.
+ *
+ * Che sia **la stessa attesa del `title` nativo** criticato qui sopra non e' una
+ * contraddizione: il rimprovero non era la durata, era che nessuno la sceglie e
+ * che vale identica per tutto. Qui e' scelta, ed e' una delle due.
+ *
+ * Il ritardo lungo e' il **predefinito**: un suggerimento aggiunto domani nasce
+ * calmo, e per renderlo rapido bisogna dichiarare che spiega un dato.
  */
-const ATTESA_MS = 140;
+const ATTESA_DATO_MS = 140;
+const ATTESA_COMANDO_MS = 1500;
 
 /** Rete di sicurezza per lo smontaggio: se la transizione non parte affatto
  *  (scheda in secondo piano) `transitionend` non arriva mai. Come nella tendina. */
@@ -55,11 +72,19 @@ export function Suggerimento({
   children,
   className = "",
   fuoco = true,
+  dato = false,
 }: {
   testo: string;
   children: ReactNode;
   /** Classi del bersaglio, non della bolla: il bersaglio resta cio' che era. */
   className?: string;
+  /**
+   * `true` quando sotto c'e' **un dato da spiegare** — un punteggio, un
+   * marcatore, un verdetto, un nome troncato — e non un comando o il nome di una
+   * sezione. Cambia solo la pausa prima di comparire, e la ragione sta su
+   * `ATTESA_DATO_MS`: li' il puntatore e' gia' una domanda, altrove sta passando.
+   */
+  dato?: boolean;
   /**
    * `false` quando dentro c'e' gia' qualcosa che prende il fuoco — un bottone, un
    * link. Senza, si finirebbe con **due** tappe di tabulazione per un comando
@@ -96,8 +121,10 @@ export function Suggerimento({
       setMontato(true);
       setPosa(null);
     };
+    // `subito` e' il tocco e il fuoco da tastiera: li' non c'e' niente da
+    // distinguere fra transito e intenzione, perche' un transito non esiste.
     if (subito) monta();
-    else attesa.current = setTimeout(monta, ATTESA_MS);
+    else attesa.current = setTimeout(monta, dato ? ATTESA_DATO_MS : ATTESA_COMANDO_MS);
   };
 
   const chiudi = () => {

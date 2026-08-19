@@ -39,6 +39,30 @@ export type { Voce } from "./lista";
  */
 const USCITA_MAX_MS = 300;
 
+/**
+ * Il segno che un controllo apre un pannello.
+ *
+ * Esportato perche' non tutto cio' che apre un pannello e' un `Selettore`: la
+ * pastiglia «Avanzate» della barra apre quattro manopole, non una lista di
+ * voci, e disegnandosi il caret per conto suo lo aveva preso da un'altra
+ * misura — piu' piccolo, e quindi anche piu' sottile, perche' lo spessore scala
+ * con la griglia. Due carets in due posti divergono: qui ce n'e' uno.
+ *
+ * Le due durate non sono un vezzo, sono quelle del pannello che comanda: aprire
+ * e' una risposta a un gesto e si posa (`ease-out`), chiudere toglie di mezzo
+ * una cosa gia' decisa e non fa aspettare (`ease-in`).
+ */
+export function CaretTendina({ aperto }: { aperto: boolean }) {
+  return (
+    <Caret
+      size={12}
+      className={`ml-auto text-ink-2 transition-transform duration-150 ${
+        aperto ? "rotate-180 ease-out" : "rotate-0 ease-in"
+      }`}
+    />
+  );
+}
+
 export function Selettore<T extends string>({
   etichetta,
   valore,
@@ -172,12 +196,7 @@ export function Selettore<T extends string>({
         className={`w-full cursor-pointer text-left ${className}`}
       >
         {children}
-        <Caret
-          size={12}
-          className={`ml-auto text-ink-2 transition-transform duration-150 ${
-            aperto ? "rotate-180 ease-out" : "rotate-0 ease-in"
-          }`}
-        />
+        <CaretTendina aperto={aperto} />
       </button>
 
       {montato && (

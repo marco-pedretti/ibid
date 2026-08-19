@@ -21,16 +21,19 @@ import { esempiDi } from "../app/esempi";
 import { usaLingua } from "../app/i18n";
 import { riepilogo } from "../app/verdetti";
 import type { Riepilogo } from "../app/verdetti";
+import { Barra } from "./Barra";
 import {
   Astensione,
   Avvertimento,
   Discordi,
+  DueColonne,
   FrecciaSu,
   NonCitata,
   NonSostiene,
   NonVerificata,
   Troncato,
 } from "./Icona";
+import { Suggerimento } from "./Suggerimento";
 import { Testo } from "./Testo";
 
 export function Chat() {
@@ -173,7 +176,7 @@ function Puntino({ stato }: { stato: "vivo" | "fermo" | "guasto" }) {
 
 function Corpo({ scambio }: { scambio: Scambio }) {
   const { t } = usaLingua();
-  const { invia, occupato } = usaChat();
+  const { invia, occupato, confronta } = usaChat();
   const r = scambio.risposta;
   const astensione = chiSiEAstenuto(r);
 
@@ -216,6 +219,26 @@ function Corpo({ scambio }: { scambio: Scambio }) {
           >
             {t("backend.retry")}
           </button>
+        </div>
+      )}
+
+      {/* Solo su una risposta **conclusa**: il confronto riparte dalla sua
+          configurazione, e senza `config` non si saprebbe nemmeno da quale dei
+          due bracci si sta partendo — una colonna intitolata a caso e' peggio di
+          un comando assente. */}
+      {r.fase === "conclusa" && r.config !== null && (
+        <div>
+          <Suggerimento testo={occupato ? t("compare.busy") : t("compare.action.hint")} fuoco={false}>
+            <button
+              type="button"
+              aria-disabled={occupato}
+              onClick={() => !occupato && confronta(scambio.id)}
+              className="flex items-center gap-1.5 rounded-md border border-line-2 px-[9px] py-[5px] text-[11px] text-ink-2 transition-colors hover:border-accent-2 hover:text-ink aria-disabled:opacity-45 aria-disabled:hover:border-line-2 aria-disabled:hover:text-ink-2"
+            >
+              <DueColonne size={12} />
+              {r.config.rag ? t("compare.action.bare") : t("compare.action.sourced")}
+            </button>
+          </Suggerimento>
         </div>
       )}
     </>
@@ -344,8 +367,7 @@ const RIGHE_MASSIME = 8;
 
 function Campo() {
   const { t } = usaLingua();
-  const { scelto } = usaDataset();
-  const { occupato, invia, ferma } = usaChat();
+  const { occupato, invia, ferma, impedimento } = usaChat();
   const [testo, setTesto] = useState("");
   const campo = useRef<HTMLTextAreaElement>(null);
 
@@ -373,10 +395,27 @@ function Campo() {
     setTesto("");
   };
 
-  const bloccato = scelto === null;
+  // Il segnaposto **e'** il messaggio: chiudere il campo senza dire quale
+  // precondizione manca lascia solo un campo che non risponde.
+  const bloccato = impedimento !== null;
+  const segnaposto =
+    impedimento === "dataset" ? t("chat.noDataset")
+    : impedimento === "modello" ? t("chat.noModel")
+    : t("chat.placeholder");
 
   return (
     <div className="border-t border-line bg-surface px-[22px] pt-3 pb-3.5">
+      {/* Sopra il campo, non sotto la barra: e' un'istruzione per il campo, e
+          sotto stava accanto a quattro comandi che decidono la risposta — due
+          cose che non si somigliano. Sparisce quando il campo e' chiuso: dire
+          come si manda una domanda che non si puo' mandare e' un invito a
+          provare, e il segnaposto sta gia' spiegando perche' no. */}
+      {!bloccato && (
+        <p className="mb-2 text-right font-mono text-[10px] text-muted">
+          {t("chat.hint.invio")}
+        </p>
+      )}
+
       <div className="flex items-end gap-3 rounded-[9px] border border-line-2 bg-paper px-3 py-2.5 focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-accent">
         <textarea
           ref={campo}
@@ -392,7 +431,7 @@ function Campo() {
               spedisci();
             }
           }}
-          placeholder={bloccato ? t("chat.noDataset") : t("chat.placeholder")}
+          placeholder={segnaposto}
           // `fuoco-delegato`: l'anello di fuoco lo disegna la cornice attorno,
           // che reagisce a `focus-within`. Non si rinuncia al fuoco visibile,
           // si sceglie dove disegnarlo.
@@ -429,7 +468,7 @@ function Campo() {
           </button>
         )}
       </div>
-      <p className="mt-2 font-mono text-[10px] text-muted">{t("chat.hint.invio")}</p>
+      <Barra />
     </div>
   );
 }

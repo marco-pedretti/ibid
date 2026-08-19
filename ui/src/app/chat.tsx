@@ -28,6 +28,8 @@ import { createContext, useCallback, useContext, useEffect, useRef, useState } f
 import type { ReactNode } from "react";
 
 import { streamQuery } from "../api/sse";
+import type { QueryRequest } from "../api/types";
+import { usaBackend } from "./backend";
 import { usaDataset } from "./dataset";
 import { applica, guasto, inizio, interrompi } from "./conversazione";
 import type { Risposta, Scambio } from "./conversazione";
@@ -42,6 +44,8 @@ import {
   vuota,
 } from "./cronologia";
 import type { Conversazione } from "./cronologia";
+import { usaBarra } from "./barra";
+import { campiRichiesta, modelloInstallato, stessaConfigurazione } from "./opzioni";
 
 /**
  * Quanto si aspetta prima di scrivere nel deposito.
@@ -58,7 +62,36 @@ import type { Conversazione } from "./cronologia";
  */
 const RITARDO_SALVATAGGIO_MS = 400;
 
+/**
+ * Le due risposte alla stessa domanda, e null quando non se ne sta guardando
+ * nessuna.
+ *
+ * **Non e' uno scambio della conversazione.** Il §12 dice che «affiancate, dalla
+ * stessa query, nella stessa sessione» non si ottiene con due messaggi
+ * consecutivi: il braccio nudo dentro il filo sarebbe una seconda risposta alla
+ * stessa domanda, e nella cronologia diventerebbe una conversazione che si
+ * contraddice da sola. Vive qui accanto, e chiudendolo sparisce.
+ */
+export interface Confronto {
+  domanda: string;
+  /** Quella gia' data, da cui si e' partiti. Il suo `config` dice **quale** dei
+   *  due bracci e', quindi da che parte va messa: non serve ricordarlo, e cosi'
+   *  la colonna la decide cio' che ha girato davvero. */
+  data: Risposta;
+  /** La stessa domanda col solo RAG invertito, mentre arriva. */
+  nuova: Risposta;
+}
+
 interface Chat {
+  /**
+   * Perche' non si puo' chiedere, o `null` se si puo'.
+   *
+   * Una precondizione che non c'e' **chiude il campo e dice quale**, invece di
+   * lasciar partire una domanda destinata a fallire: e' la forma che «scegli un
+   * dataset» aveva gia', ed e' l'unica che non fa aspettare undici secondi per
+   * scoprire una cosa che si sapeva prima di premere invio.
+   */
+  impedimento: "dataset" | "modello" | null;
   /** Gli scambi della conversazione aperta. */
   scambi: Scambio[];
   /** Tutte, la piu' recente per prima. Comprende quella aperta. */
@@ -72,6 +105,11 @@ interface Chat {
   nuova: () => void;
   apri: (id: string) => void;
   svuota: () => void;
+  /** Le due colonne, o `null` quando si sta guardando la conversazione. */
+  confronto: Confronto | null;
+  /** Rilancia lo scambio col RAG invertito e apre le due colonne. */
+  confronta: (idScambio: string) => void;
+  chiudiConfronto: () => void;
 }
 
 const Contesto = createContext<Chat | null>(null);
@@ -102,6 +140,35 @@ function statoIniziale(): Stato {
   };
 }
 
+/**
+ * Guida uno stream fino alla fine, e ci scrive dentro attraverso `aggiorna`.
+ *
+ * Non sa **dove** finisca la risposta che sta costruendo: quello lo decide chi
+ * chiama, passando la funzione che la va a prendere. Serve perche' gli stream
+ * non sono uno solo — una domanda nella conversazione e, dal confronto, la
+ * stessa domanda rilanciata a RAG invertito — e le tre righe che distinguono
+ * uno stream **annullato** da uno **caduto** non vanno ricopiate: sono la parte
+ * che a mano si sbaglia, e sbagliarla significa mostrare un guasto a chi ha solo
+ * premuto «Ferma».
+ */
+async function guida(
+  richiesta: QueryRequest,
+  ctrl: AbortController,
+  aggiorna: (f: (r: Risposta) => Risposta) => void,
+): Promise<void> {
+  try {
+    for await (const evento of streamQuery(richiesta, { signal: ctrl.signal })) {
+      aggiorna((r) => applica(r, evento));
+    }
+  } catch (e: unknown) {
+    // Annullato da «Ferma» non e' caduto: il primo l'ha deciso chi guarda, il
+    // secondo e' successo. Mostrarli uguali farebbe cercare un guasto a chi ha
+    // solo premuto un pulsante.
+    const messaggio = e instanceof Error ? e.message : String(e);
+    aggiorna((r) => (ctrl.signal.aborted ? interrompi(r) : guasto(r, messaggio)));
+  }
+}
+
 function conRisposta(
   cs: readonly Conversazione[],
   idConversazione: string,
@@ -116,7 +183,10 @@ function conRisposta(
 
 export function ProvvedeChat({ children }: { children: ReactNode }) {
   const { scelto, imposta } = usaDataset();
+  const { backend } = usaBackend();
+  const { opzioni, predefiniti } = usaBarra();
   const [stato, setStato] = useState<Stato>(statoIniziale);
+  const [confronto, setConfronto] = useState<Confronto | null>(null);
   const [occupato, setOccupato] = useState(false);
   const controller = useRef<AbortController | null>(null);
 
@@ -128,7 +198,11 @@ export function ProvvedeChat({ children }: { children: ReactNode }) {
   const invia = useCallback(
     (domanda: string) => {
       const testo = domanda.trim();
+      // Senza i predefiniti non si sa cosa la barra sta mostrando, quindi non si
+      // sa nemmeno cosa manderebbe: e' lo stesso motivo per cui il campo e'
+      // chiuso finche' non c'e' un dataset.
       if (testo === "" || scelto === null || controller.current !== null) return;
+      if (opzioni === null || predefiniti === null) return;
 
       const conversazione = stato.corrente;
       const id = nuovoId();
@@ -148,48 +222,93 @@ export function ProvvedeChat({ children }: { children: ReactNode }) {
       controller.current = ctrl;
       setOccupato(true);
 
-      void (async () => {
-        try {
-          // Il `dataset_id` viene dal selettore di U-01 e non da un default del
-          // server: e' cio' che rende vero «cambio dataset senza riavvio» anche
-          // per una domanda gia' in coda.
-          for await (const evento of streamQuery(
-            { query: testo, dataset_id: scelto.dataset_id },
-            { signal: ctrl.signal },
-          )) {
-            setStato((s) => ({
-              ...s,
-              conversazioni: conRisposta(s.conversazioni, conversazione, id, (r) =>
-                applica(r, evento),
-              ),
-            }));
-          }
-        } catch (e: unknown) {
-          // Annullato da «Ferma» non e' caduto: il primo l'ha deciso chi
-          // guarda, il secondo e' successo. Mostrarli uguali farebbe cercare un
-          // guasto a chi ha solo premuto un pulsante.
-          const messaggio = e instanceof Error ? e.message : String(e);
+      // Il `dataset_id` viene dal selettore di U-01 e non da un default del
+      // server: e' cio' che rende vero «cambio dataset senza riavvio» anche per
+      // una domanda gia' in coda. I campi della barra sono quelli di **quando
+      // si e' premuto invio**: `opzioni` e' la costante del render in cui
+      // `invia` e' nata, quindi toccare un controllo mentre il modello parla non
+      // riscrive una richiesta gia' partita.
+      void guida(
+        { query: testo, dataset_id: scelto.dataset_id, ...campiRichiesta(opzioni, predefiniti) },
+        ctrl,
+        (f) =>
           setStato((s) => ({
             ...s,
-            conversazioni: conRisposta(s.conversazioni, conversazione, id, (r) =>
-              ctrl.signal.aborted ? interrompi(r) : guasto(r, messaggio),
-            ),
-          }));
-        } finally {
-          if (controller.current === ctrl) {
-            controller.current = null;
-            setOccupato(false);
-          }
+            conversazioni: conRisposta(s.conversazioni, conversazione, id, f),
+          })),
+      ).finally(() => {
+        if (controller.current === ctrl) {
+          controller.current = null;
+          setOccupato(false);
         }
-      })();
+      });
     },
-    [scelto, stato.corrente],
+    [scelto, stato.corrente, opzioni, predefiniti],
   );
 
   const ferma = useCallback(() => controller.current?.abort(), []);
 
+  /**
+   * La stessa domanda, col RAG invertito, accanto a quella gia' data.
+   *
+   * Parte dalla configurazione **che ha girato** e non dalla barra: rilanciare
+   * con le opzioni correnti metterebbe nelle due colonne anche un modello
+   * diverso o un `top_k` cambiato nel frattempo, e il confronto direbbe «guarda
+   * cosa fa il RAG» mostrando l'effetto di tre cose. E' il §15 dentro
+   * l'interfaccia — mai due cambiamenti insieme.
+   *
+   * Solo su una risposta **conclusa**: senza `config` non si sa da quale dei due
+   * bracci si sta partendo, e una colonna intitolata a caso e' peggio di un
+   * comando assente.
+   */
+  const confronta = useCallback(
+    (idScambio: string) => {
+      if (controller.current !== null) return;
+      const c = trova(stato.conversazioni, stato.corrente);
+      const s = c?.scambi.find((x) => x.id === idScambio) ?? null;
+      const config = s?.risposta.config ?? null;
+      if (s === null || config === null) return;
+
+      setConfronto({ domanda: s.domanda, data: s.risposta, nuova: inizio() });
+
+      const ctrl = new AbortController();
+      controller.current = ctrl;
+      setOccupato(true);
+
+      void guida(
+        {
+          query: s.domanda,
+          // Il corpus e' quello della conversazione, non quello scelto adesso:
+          // il confronto parla della domanda gia' fatta.
+          ...(c?.dataset_id ? { dataset_id: c.dataset_id } : {}),
+          ...stessaConfigurazione(config),
+          rag: !config.rag,
+        },
+        ctrl,
+        (f) => setConfronto((x) => (x === null ? x : { ...x, nuova: f(x.nuova) })),
+      ).finally(() => {
+        if (controller.current === ctrl) {
+          controller.current = null;
+          setOccupato(false);
+        }
+      });
+    },
+    [stato.conversazioni, stato.corrente],
+  );
+
+  /** Si torna al filo. Non mentre il modello parla: la via d'uscita e' «Ferma»,
+   *  come per tutto il resto — vedi la nota in testa al file. */
+  const chiudiConfronto = useCallback(() => {
+    if (controller.current !== null) return;
+    setConfronto(null);
+  }, []);
+
   const nuova = useCallback(() => {
     if (controller.current !== null) return;
+    // Le tre azioni della corsia riportano al filo: si vedono anche dal
+    // confronto, e cambiare conversazione lasciando aperte due colonne che
+    // parlano di una domanda dell'altra sarebbe la peggiore delle due uscite.
+    setConfronto(null);
     setStato((s) => {
       const c = trova(s.conversazioni, s.corrente);
       // Gia' in una conversazione nuova: non se ne apre una seconda. Sarebbero
@@ -216,6 +335,7 @@ export function ProvvedeChat({ children }: { children: ReactNode }) {
       // la prossima domanda cadrebbe su un altro dataset dentro la stessa
       // conversazione, e nel filo non ci sarebbe niente che lo dice.
       if (c.dataset_id !== null) imposta(c.dataset_id);
+      setConfronto(null);
 
       // La conversazione vuota che si lascia non serve piu': la sua voce nella
       // corsia e' «Nuova conversazione», che c'e' comunque.
@@ -240,14 +360,22 @@ export function ProvvedeChat({ children }: { children: ReactNode }) {
   const svuota = useCallback(() => {
     if (controller.current !== null) return;
     const n = nuovaConversazione();
+    setConfronto(null);
     setStato({ conversazioni: [n], corrente: n.id });
   }, []);
 
   const scambi = trova(stato.conversazioni, stato.corrente)?.scambi ?? [];
 
+  const modelli = backend.stato === "pronto" ? backend.capabilities.models : [];
+  const impedimento =
+    scelto === null ? "dataset"
+    : opzioni !== null && !modelloInstallato(opzioni.modello, modelli) ? "modello"
+    : null;
+
   return (
     <Contesto.Provider
       value={{
+        impedimento,
         scambi,
         conversazioni: stato.conversazioni,
         corrente: stato.corrente,
@@ -257,6 +385,9 @@ export function ProvvedeChat({ children }: { children: ReactNode }) {
         nuova,
         apri,
         svuota,
+        confronto,
+        confronta,
+        chiudiConfronto,
       }}
     >
       {children}

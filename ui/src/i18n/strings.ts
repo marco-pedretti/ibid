@@ -93,7 +93,63 @@ export const it = {
   "chat.send": "Invia",
   "chat.stop": "Ferma",
   "chat.noDataset": "Scegli un dataset per poter chiedere.",
+  // Il modello configurato non è stato scaricato. Si segnala e non si scarica:
+  // il download è gigabyte, l’API per farlo è quella nativa di un motore solo, e
+  // U-08 chiede che la demo si apra in due minuti senza scaricare niente.
+  "chat.noModel": "Il modello configurato non è installato: scegline uno dalla barra qui sotto.",
   "chat.hint.invio": "Invio per mandare, Maiusc+Invio per andare a capo.",
+
+  "bar.rag": "RAG",
+  "bar.rag.hint":
+    "Acceso, la risposta viene dal corpus e porta le fonti. Spento, il modello risponde da solo: è l'altra metà del confronto, non un guasto.",
+  "bar.reasoning": "Ragionamento",
+  // L'unico comando dell'interfaccia che dichiara il proprio costo, e con i
+  // numeri veri di C-07: senza, un interruttore invita ad accendere ciò che
+  // abbiamo misurato non convenire. Niente sigle di task nella UI.
+  "bar.reasoning.hint":
+    "Fa ragionare il modello prima che risponda. L'abbiamo misurato: +0,6 punti di citazioni ben formate, 9,5× i token, e sui bilanci le domande a cui rifiuta di rispondere passano da 56 a 90 su 200.",
+  "bar.model": "Modello",
+  "bar.default": "predefinito",
+  "bar.model.hint":
+    "Chi risponde. Con un buon recupero la taglia del modello conta meno del previsto: è una delle cose che questo progetto misura.",
+  // `/config` dice come il servizio è configurato, non cosa è stato scaricato:
+  // il predefinito compare in elenco lo stesso, disabilitato, perché una voce
+  // assente non spiegherebbe perché non è selezionato niente.
+  "bar.model.notInstalled": "non installato",
+  "bar.model.missing":
+    "Il modello configurato non è fra quelli installati sul servizio di inferenza: scegline uno dall’elenco, oppure installalo lì.",
+  // Il nome si sa comunque, lo dice `/config`: ciò che manca non è sapere chi
+  // risponde, è poterlo cambiare — e la frase dice quello.
+  "bar.model.none":
+    "L'elenco dei modelli non è arrivato dal servizio di inferenza: risponde quello configurato, e per ora non si può cambiare.",
+  "bar.advanced": "Avanzate",
+  "bar.advanced.hint":
+    "Come si cerca nel corpus, prima che il modello scriva. Stanno chiuse di proposito: confrontare configurazioni è il lavoro del cruscotto, non di qui.",
+  "bar.advanced.mode": "Ricerca",
+  "bar.advanced.rerank": "Riordino",
+  "bar.advanced.on": "acceso",
+  "bar.advanced.off": "spento",
+  "bar.advanced.auto": "auto",
+  "bar.advanced.less": "Un passo in giù",
+  "bar.advanced.more": "Un passo in su",
+  "bar.advanced.reset": "Torna al predefinito",
+
+  // Il confronto. È un'azione su una risposta già data, non un secondo
+  // messaggio: le parole dicono «la stessa domanda», mai «chiedi di nuovo».
+  "compare.action.bare": "Confronta senza le fonti",
+  "compare.action.sourced": "Confronta con le fonti",
+  "compare.action.hint":
+    "Rifà la stessa domanda cambiando solo questo. Tutto il resto — modello, ricerca, temperatura — resta identico, altrimenti le due risposte differirebbero per più di una cosa.",
+  "compare.title": "Stessa domanda",
+  "compare.withSources": "Con le fonti",
+  "compare.withoutSources": "Senza fonti",
+  "compare.back": "Torna alla conversazione",
+  "compare.busy": "Aspetta che la risposta finisca, oppure fermala.",
+  "compare.verdicts": "{sostenute} su {citazioni} sostenute",
+  // Non «sbagliato»: senza fonti non si può sapere se è giusta, ed è il punto.
+  "compare.bare.title": "Niente di questo è verificabile.",
+  "compare.bare.body":
+    "Non c'è una fonte da aprire: nessuna frase di questa risposta si può controllare. È esattamente ciò che il progetto misura.",
 
   "example.note.numbers": "Un numero preciso: la citazione deve reggerlo.",
   "example.note.paper": "Sta dentro un paper: guarda da quale sezione arriva.",
@@ -227,10 +283,6 @@ export const it = {
   "index.sparse": "vettori sparsi",
   "index.missing": "Il server non elenca nessuna collection con questo nome.",
 
-  // i parametri avanzati, sotto «Avanzate»
-  "models.title": "Modelli",
-  "models.none":
-    "Nessun modello: il server che scrive le risposte non risponde. Cercare nel corpus funziona ancora.",
 } as const;
 
 export type Chiave = keyof typeof it;
@@ -275,7 +327,49 @@ export const en: Record<Chiave, string> = {
   "chat.send": "Send",
   "chat.stop": "Stop",
   "chat.noDataset": "Pick a dataset before asking.",
+  "chat.noModel": "The configured model is not installed: pick one from the bar below.",
   "chat.hint.invio": "Enter to send, Shift+Enter for a new line.",
+
+  "bar.rag": "RAG",
+  "bar.rag.hint":
+    "On, the answer comes from the corpus and carries its sources. Off, the model answers on its own: that is the other half of the comparison, not a failure.",
+  "bar.reasoning": "Reasoning",
+  "bar.reasoning.hint":
+    "Lets the model reason before it answers. We measured it: +0.6 points of well-formed citations, 9.5× the tokens, and on the ledgers the questions it refuses to answer go from 56 to 90 out of 200.",
+  "bar.model": "Model",
+  "bar.default": "default",
+  "bar.model.hint":
+    "Who answers. With good retrieval, model size matters less than expected: it is one of the things this project measures.",
+  "bar.model.notInstalled": "not installed",
+  "bar.model.missing":
+    "The configured model is not among those installed on the inference service: pick one from the list, or install it there.",
+  "bar.model.none":
+    "The model list did not arrive from the inference service: the configured one answers, and for now it cannot be changed.",
+  "bar.advanced": "Advanced",
+  "bar.advanced.hint":
+    "How the corpus is searched, before the model writes. Closed on purpose: comparing configurations is the dashboard's job, not this one's.",
+  "bar.advanced.mode": "Search",
+  "bar.advanced.rerank": "Reranking",
+  "bar.advanced.on": "on",
+  "bar.advanced.off": "off",
+  "bar.advanced.auto": "auto",
+  "bar.advanced.less": "One step down",
+  "bar.advanced.more": "One step up",
+  "bar.advanced.reset": "Back to the default",
+
+  "compare.action.bare": "Compare without the sources",
+  "compare.action.sourced": "Compare with the sources",
+  "compare.action.hint":
+    "Asks the same question again, changing only this. Everything else — model, search, temperature — stays identical, otherwise the two answers would differ in more than one thing.",
+  "compare.title": "Same question",
+  "compare.withSources": "With the sources",
+  "compare.withoutSources": "Without sources",
+  "compare.back": "Back to the conversation",
+  "compare.busy": "Wait for the answer to finish, or stop it.",
+  "compare.verdicts": "{sostenute} of {citazioni} supported",
+  "compare.bare.title": "None of this can be checked.",
+  "compare.bare.body":
+    "There is no source to open: not one sentence of this answer can be verified. That is exactly what this project measures.",
 
   "example.note.numbers": "A precise number: the citation has to hold it up.",
   "example.note.paper": "It sits inside a paper: look at which section it comes from.",
@@ -385,10 +479,6 @@ export const en: Record<Chiave, string> = {
   "index.sparse": "sparse vectors",
   "index.missing": "The server lists no collection with this name.",
 
-  // i parametri avanzati, sotto «Avanzate»
-  "models.title": "Models",
-  "models.none":
-    "No models: the server that writes the answers is not responding. Searching the corpus still works.",
 };
 
 export const LINGUE = ["it", "en"] as const;
