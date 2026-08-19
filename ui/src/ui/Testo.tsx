@@ -142,9 +142,16 @@ function Blocco({ blocco, contesto }: { blocco: BloccoMd; contesto: Contesto }) 
   if (blocco.tipo === "titolo") {
     return <p className={`${TITOLO} ${(blocco.livello ?? 1) <= 2 ? "mt-1" : ""}`}>{dentro}</p>;
   }
-  // `whitespace-pre-wrap` solo sul paragrafo: dentro un elenco o una cella gli
-  // a capo del sorgente non sono a capo del testo.
-  return <p className="whitespace-pre-wrap">{dentro}</p>;
+  // **Niente `whitespace-pre-wrap`, e non e' una svista.** Prima serviva: senza
+  // struttura, gli a capo del modello erano l'unica cosa che separava un
+  // paragrafo dal successivo. Ora i paragrafi sono blocchi, e tenere anche i
+  // ritorni a capo del sorgente li conta due volte — il testo si spezzava dove
+  // il modello era andato a capo per la larghezza della sua riga, non del
+  // nostro riquadro, e la colonna veniva fuori sfrangiata accanto a una fatta
+  // di elenchi. E' la regola del Markdown: dentro un paragrafo un a capo
+  // singolo e' uno spazio; a separare e' la riga vuota, che qui e' gia'
+  // diventata un blocco.
+  return <p>{dentro}</p>;
 }
 
 function Elenco({ voci, contesto }: { voci: BloccoMd[]; contesto: Contesto }) {
