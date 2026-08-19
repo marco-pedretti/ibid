@@ -318,9 +318,29 @@ function MenuFinestre({ catalogo }: { catalogo: readonly ModelView[] }) {
 
   const elenco = modelliDelCatalogo(catalogo);
   const attuale = modelloDi(elenco, opzioni.modello);
-  if (attuale === null || attuale.finestre.length < 2) return null;
+  if (attuale === null) return null;
 
   const scelta = finestraDi(elenco, opzioni.modello);
+
+  // **Con una finestra sola la pastiglia resta, attenuata.** Nasconderla era la
+  // prima scelta, col ragionamento che un menu da una voce non e' un controllo:
+  // vero, ma il risultato era che la funzione non esisteva finche' non si
+  // lanciava uno script che nessuno aveva detto di lanciare. Qui il comando c'e'
+  // e dice **perche'** non si puo' scegliere, che e' lo stesso rimedio gia' usato
+  // sul menu dei modelli quando l'elenco non arriva: cio' che manca non e' la
+  // scelta, e' che le taglie non sono state create.
+  if (attuale.finestre.length < 2) {
+    return (
+      <Suggerimento testo={t("bar.context.only")}>
+        <span
+          aria-disabled="true"
+          className={`${PASTIGLIA} border-line-2 font-mono text-muted opacity-45`}
+        >
+          {comeTaglia(scelta?.token ?? null, t("bar.context.default"))}
+        </span>
+      </Suggerimento>
+    );
+  }
   const nome = (f: { token: number | null }) => comeTaglia(f.token, t("bar.context.default"));
 
   return (

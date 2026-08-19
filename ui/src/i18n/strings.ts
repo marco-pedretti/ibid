@@ -135,6 +135,10 @@ export const it = {
   "bar.context.hint":
     "Quanto testo entra nel modello prima che risponda: più contesto vuol dire più fonti insieme, e più memoria occupata. Ci sono solo le misure che questo modello regge.",
   "bar.context.default": "predefinito",
+  // Attenuata: la finestra e' una sola, e la pastiglia dice perche' invece di
+  // sparire -- sparendo, la funzione non esisterebbe per chi non sa dello script.
+  "bar.context.only":
+    "Questo modello ha una finestra sola. Per poter scegliere, creane altre con «scripts/model_sizes.py».",
   "bar.advanced": "Avanzate",
   "bar.advanced.hint":
     "Come si cerca nel corpus, prima che il modello scriva. Stanno chiuse di proposito: confrontare configurazioni è il lavoro del cruscotto, non di qui.",
@@ -372,6 +376,8 @@ export const en: Record<Chiave, string> = {
   "bar.context.hint":
     "How much text fits into the model before it answers: more context means more sources at once, and more memory used. Only the sizes this model can take are listed.",
   "bar.context.default": "default",
+  "bar.context.only":
+    "This model has a single context size. To get a choice, create more with «scripts/model_sizes.py».",
   "bar.advanced": "Advanced",
   "bar.advanced.hint":
     "How the corpus is searched, before the model writes. Closed on purpose: comparing configurations is the dashboard's job, not this one's.",
