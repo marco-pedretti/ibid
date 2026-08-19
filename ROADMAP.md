@@ -416,8 +416,21 @@ Il criterio è ridurre il lavoro rifatto, non la difficoltà crescente. Q-03 e Q
 | A-05 | Backend come servizio in `docker compose`, con `QDRANT_URL` e `LLM_BASE_URL` da ambiente | Backend su una macchina, Qdrant e LLM su un'altra, senza modifiche al sorgente |
 | A-06 | **La dashboard Streamlit passa dall'API** invece di eseguire la pipeline | Nessun modulo di `dashboard/` importa `src.index`, `src.retrieval`, `src.generation`, `src.service`, `src.config`, e nessuno apre un client Qdrant. Gli import rimasti sono **elencati con la loro ragione** in `tests/test_dashboard_boundary.py` |
 | A-07 | **I tre buchi trovati disegnando la Fase 8**: lista modelli, `reasoning_effort` in richiesta, navigazione del corpus | Nessuna delle quattro schermate della bozza ha bisogno di una costante scritta a mano nel frontend né di una chiamata che non sia all'API. Le aggiunte sono **additive**: un client scritto contro A-04 continua a funzionare, verificato da un test che manda la richiesta minima `{"query": "..."}` |
+| A-08 | **Il catalogo dei modelli, con la finestra di contesto di ciascuno**: `Capabilities` porta, accanto ai nomi, di che famiglia sono e con che finestra girano | La coppia (modello, finestra) si legge dal server, **mai dedotta da un nome nel frontend**. Additivo: `models` resta `string[]` e un client scritto contro A-04 continua a funzionare |
 
 **A-02 è il task difficile, ed è bene saperlo prima.** Gli harness leggono `cfg` globale — è ciò che ha permesso a R-11 di passare `SEARCH_EXACT` da variabile d'ambiente senza toccare una firma. Comodo per uno script, **impossibile per un servizio**: due richieste concorrenti con `top_k` diverso condividerebbero lo stesso modulo. Finché A-02 non è fatto, l'API è monoutente e non lo sa.
+
+### A-08 — la finestra di contesto è una proprietà del modello, e si è dovuto misurarlo
+
+Deciso il 2026-08-19, dopo aver cercato un modo di far scegliere la finestra a chi usa la demo. Le tre cose verificate, perché nessuna era ovvia:
+
+1. **`num_ctx` non esiste sul contratto OpenAI.** L'elenco ufficiale dei campi di `/v1/chat/completions` non lo contiene, e la documentazione rimanda a un Modelfile. Mandandolo comunque, Ollama risponde **200 e lo ignora** — misurato: `num_ctx: 4096` sul filo, e il modello resta caricato a 32768. Un controllo costruito lì sembrerebbe funzionare senza fare niente.
+2. **Un `PARAMETER num_ctx` nel Modelfile invece ha effetto attraverso l'endpoint OpenAI.** Misurato creando un modello derivato a 8192: una chiamata a `/v1/chat/completions` lo carica a 8192. La finestra viaggia quindi col **nome del modello**, che è un campo pienamente supportato.
+3. **Da fermo non si può interrogare.** `/api/ps` elenca solo i modelli *caricati*: a servizio inattivo risponde vuoto, quindi non è una fonte di verità su cui costruire.
+
+Ne segue la forma di A-08. Chi guarda deve poter scegliere **modello e finestra separatamente**, come farebbe con due manopole; sotto, quella coppia è un nome nel catalogo. La traduzione fra le due cose sta nel **server**, non nel frontend: dedurre `gemma4-32k` → famiglia `gemma4`, finestra 32768 spezzando una stringa significherebbe scrivere una convenzione di nomi dentro l'interfaccia, cioè la quindicesima copia di Q-06 in TypeScript.
+
+> **Chiude anche D-14.** Se la finestra viaggia col nome del modello, `EvalRun.model` la implica e `context_window` smette di essere una costante che nessuno verifica: diventa una proprietà leggibile del catalogo. È la stessa correzione che `reasoning_enabled` ha già subito — dedotto, mai asserito.
 
 **A-06 è la verifica, non un extra.** La dashboard importa `src.` in **9 moduli, 22 volte**: è il consumatore più esigente che esista già. Se l'API le basta, basterà anche al frontend — e se non le basta, si scopre ora invece che a React scritto. Se dovesse rivelarsi sproporzionata, va **rimandata dichiarandolo**, non silenziosamente omessa: senza, il confine è affermato e non provato.
 
@@ -469,6 +482,7 @@ Il criterio nuovo dice la cosa che il vecchio approssimava: **la dashboard non d
 | U-10 | GIF o video di 90 secondi nel README | ≤ 90 secondi, mostra query → risposta citata → apertura della fonte, senza tagli che nascondano la latenza reale |
 | U-11 | README: le tre affermazioni del §0, architettura, tabelle per dataset, screenshot, limiti, future work | Le tre affermazioni del §0 compaiono ciascuna con la tabella per dataset che la sostiene, e la sezione limiti nomina i risultati negativi invece di ometterli |
 | U-12 | **Portabilità Linux**: provider ONNX scelto dalla piattaforma, dipendenze GPU come extra opzionali, nessun percorso che assuma Windows | Suite verde e `docker compose --profile demo up` su Linux x86_64, senza modifiche al sorgente |
+| U-16 | **Modello e finestra di contesto, due selettori**: si scelgono separatamente, e le finestre offerte sono solo quelle compatibili col modello scelto | Chi guarda sceglie due cose, non un nome di catalogo. Nessuna convenzione di nomi nel frontend: la coppia arriva da `Capabilities` (A-08). Una finestra che quel modello non regge **non compare**, invece di comparire e fallire |
 | U-15 | **Con quali parametri è stata data ogni risposta**: la configurazione che ha girato si rilegge nella conversazione, e fra una domanda e l'altra si vede **cosa è cambiato** | Riaprendo una conversazione si sa con quali parametri ogni risposta è stata prodotta, senza aprire niente. Nessun campo nuovo nel contratto né nel deposito: `ConfigView` è già dentro ogni risposta, e ciò che manca è mostrarlo |
 | U-14 | **Markdown e LaTeX nella risposta**: il prompt li **invita** invece di vietarli, e l'interfaccia li disegna | Ciò che il modello formatta si legge formattato, in tutte e due le colonne del confronto. I marcatori di citazione, i verdetti per frase e le frasi scoperte restano allineati al testo grezzo: il markdown è **decorazione su intervalli**, non un testo riscritto |
 | U-13 | **Conversazione nuova e cronologia locale**: pulsante «Nuova conversazione», elenco delle conversazioni nella corsia, persistenza in `localStorage` | Si comincia una conversazione nuova senza ricaricare la pagina, e la cronologia sopravvive a un ricaricamento **dichiarando** di essere locale a questo browser. Nessun endpoint, nessuna sessione lato server |
@@ -526,6 +540,14 @@ Ricavate disegnando quattro schermate prima di scrivere React. Quelle che vincol
 > **L'unità del verdetto è la coppia (frase, chunk), non il marcatore.** Lo stesso `[3]` può comparire in tre frasi e reggerne due; un verdetto per marcatore aggregherebbe la granularità che l'affermazione 1 del §0 esiste per misurare. Ne segue che il frontend deve sapere **dove finiscono le frasi** — e le ritrova invece di ritagliarle, perché una seconda copia di `split_claims` in TypeScript è precisamente ciò che U-00 vieta.
 
 > **Dove ci sono due verificatori, mostrarne uno è mostrare quello sbagliato.** `numeric` è additivo per contratto (§3.5, `schema.py`), e la pastiglia deve mostrarlo **accanto** a `supported`, non al suo posto: su `ledger` il 96,7% dei claim è numerico e l'NLI di C-03 non verifica un'asserzione numerica contro una tabella. Misurato dal vivo il 2026-08-17: capex di Sherwin-Williams, NLI «non sostiene» a 0,208, numerico che trova la cifra dentro la tabella citata. Sceglierne uno in codice sarebbe decidere quale verificatore ha ragione, e quella è una misura, non un `if`.
+
+### U-16 — due manopole sopra un nome solo
+
+Chi usa la demo deve poter scegliere **il modello** e **quanto contesto** indipendentemente, perché sono due domande diverse: *chi risponde* e *quanto testo gli entra*. Che sotto quella coppia sia un singolo nome nel catalogo di Ollama è un dettaglio dell'implementazione, e non deve affiorare in una tendina che elenca `gemma4-32k` accanto a `gemma4-8k` — quello è un catalogo, non una scelta.
+
+**Le finestre offerte sono solo quelle che quel modello ha davvero.** Una taglia che compare e poi fallisce è il difetto peggiore di una che non compare: fa scoprire il limite dopo l'attesa, e per giunta come un errore invece che come un vincolo.
+
+> **La suggerimento in base all'hardware è X-05, e non è qui di proposito.** Restringere le taglie a quelle che la macchina regge richiede una sonda di sistema — Ollama non pubblica la VRAM totale, e `/api/ps` risponde vuoto quando non c'è niente di caricato. U-16 dà la scelta; X-05 la restringe, e le due cose si consegnano separate perché la seconda può non arrivare mai senza rendere inutile la prima.
 
 ### U-15 — la configurazione era già salvata, mancava di essere letta
 
@@ -700,6 +722,7 @@ Solo se avanza tempo. Nessuno di questi è necessario perché il progetto sia co
 | X-02 | Multi-turno: contestualizzazione su cronologia, riusando il riscrittore di R-03 | **Il retrieval avviene sulla query riscritta**, mai sul messaggio grezzo né sulla cronologia concatenata |
 | X-03 | Controllo di scala: qualche migliaio di documenti non annotati | Solo tempo di indicizzazione, latenza, dimensione indice, VRAM |
 | X-04 | Retrieval visivo in stile ColPali sul dataset table-heavy | Il più ambizioso. Timebox rigido, si taglia senza rimpianti |
+| X-05 | **Taglie di contesto suggerite dall'hardware**: la preparazione guarda VRAM e memoria e crea solo le finestre che quella macchina regge, così il menu non offre mai una scelta che finisce in errore di memoria | Rinviato di proposito il 2026-08-19: U-16 dà la scelta, questo la restringe. Serve una sonda di sistema — Ollama non pubblica la VRAM totale, e `/api/ps` elenca solo i modelli **caricati** |
 
 ---
 
