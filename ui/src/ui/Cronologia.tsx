@@ -180,7 +180,10 @@ function Testata() {
           : "text-muted hover:bg-danger-soft hover:text-danger"
         }`}
       >
-        <Cestino size={12} />
+        {/* 13 e non 12: il cestino e' l'unica icona di questo insieme che sta
+            **da sola**, senza una parola accanto a portarne il peso ottico. Le
+            altre a 12 px hanno un testo di 11,5 accanto; questa deve reggersi. */}
+        <Cestino size={13} />
       </Attivabile>
     </div>
   );
