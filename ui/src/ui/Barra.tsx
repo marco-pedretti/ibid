@@ -31,8 +31,8 @@ import { usaBarra } from "../app/barra";
 import { usaLingua } from "../app/i18n";
 import { avanzateToccate, modelloInstallato, ragionamentoDisponibile } from "../app/opzioni";
 import type { Opzioni } from "../app/opzioni";
-import { Caret, Meno, Piu, Ritorno } from "./Icona";
-import { Selettore } from "./Selettore";
+import { Meno, Piu, Ritorno } from "./Icona";
+import { CaretTendina, Selettore } from "./Selettore";
 import type { Voce } from "./Selettore";
 import { Suggerimento } from "./Suggerimento";
 
@@ -97,7 +97,7 @@ export function Barra() {
             className={`${PASTIGLIA} ${avanzateToccate(opzioni, predefiniti) ? MOSSA : RIPOSO}`}
           >
             {t("bar.advanced")}
-            <Caret className={`transition-transform ${aperte ? "rotate-180" : ""}`} size={9} />
+            <CaretTendina aperto={aperte} />
           </button>
         </Suggerimento>
       </div>
