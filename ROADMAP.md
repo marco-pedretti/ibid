@@ -526,6 +526,8 @@ Ricavate disegnando quattro schermate prima di scrivere React. Quelle che vincol
 
 `ok` / `warn` / `wait` restano separati dall'accento: un verdetto colorato con l'accento smette di essere un verdetto e diventa decorazione.
 
+> **Il rosso è entrato con U-13 (2026-08-17), e solo per ciò che distrugge.** `danger` non è un `warn` più acceso: colorare «cancella la cronologia» con l'ocra dei verdetti darebbe lo stesso segnale a un rilievo — una citazione che non regge — e a un'azione irreversibile. Vale per il comando che cancella e per niente altro: se un giorno comparisse su un verdetto o su un avviso, la domanda da farsi è cosa è cambiato nella tesi del §0.
+
 **Le query d'esempio dello stato vuoto vincolano U-08.** Tre esempi, uno per affermazione del §0, così che la demo *sia* l'argomento invece di illustrarlo — e il video di U-10 abbia già il suo copione. Ma nel profilo `demo` l'indice contiene solo i chunk d'oro di ~30 query: se gli esempi non sono **quelle**, il primo clic di chi prova il progetto finisce in un'astensione. I due task si decidono insieme.
 
 ### Come si avvia, oggi e alla fine
