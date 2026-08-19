@@ -367,8 +367,7 @@ const RIGHE_MASSIME = 8;
 
 function Campo() {
   const { t } = usaLingua();
-  const { scelto } = usaDataset();
-  const { occupato, invia, ferma } = usaChat();
+  const { occupato, invia, ferma, impedimento } = usaChat();
   const [testo, setTesto] = useState("");
   const campo = useRef<HTMLTextAreaElement>(null);
 
@@ -396,7 +395,13 @@ function Campo() {
     setTesto("");
   };
 
-  const bloccato = scelto === null;
+  // Il segnaposto **e'** il messaggio: chiudere il campo senza dire quale
+  // precondizione manca lascia solo un campo che non risponde.
+  const bloccato = impedimento !== null;
+  const segnaposto =
+    impedimento === "dataset" ? t("chat.noDataset")
+    : impedimento === "modello" ? t("chat.noModel")
+    : t("chat.placeholder");
 
   return (
     <div className="border-t border-line bg-surface px-[22px] pt-3 pb-3.5">
@@ -415,7 +420,7 @@ function Campo() {
               spedisci();
             }
           }}
-          placeholder={bloccato ? t("chat.noDataset") : t("chat.placeholder")}
+          placeholder={segnaposto}
           // `fuoco-delegato`: l'anello di fuoco lo disegna la cornice attorno,
           // che reagisce a `focus-within`. Non si rinuncia al fuoco visibile,
           // si sceglie dove disegnarlo.

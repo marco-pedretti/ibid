@@ -28,7 +28,7 @@ import type { ReactNode } from "react";
 import { usaBackend } from "../app/backend";
 import { usaBarra } from "../app/barra";
 import { usaLingua } from "../app/i18n";
-import { avanzateToccate, ragionamentoDisponibile } from "../app/opzioni";
+import { avanzateToccate, modelloInstallato, ragionamentoDisponibile } from "../app/opzioni";
 import type { Opzioni } from "../app/opzioni";
 import { Caret, Meno, Piu, Ritorno } from "./Icona";
 import { Selettore } from "./Selettore";
@@ -163,6 +163,7 @@ function Menu<T extends string>({
   predefinito,
   voci,
   onCambia,
+  tono,
   children,
 }: {
   etichetta: string;
@@ -170,11 +171,17 @@ function Menu<T extends string>({
   predefinito: T;
   voci: readonly Voce<T>[];
   onCambia: (v: T) => void;
+  /** Sostituisce il tono normale quando la voce scelta e' un problema. */
+  tono?: string;
   children: ReactNode;
 }) {
   const { t } = usaLingua();
+  // Il dettaglio che c'e' gia' vince: «non installato» dice di piu' che
+  // «predefinito», e sulla stessa voce sono tutti e due veri.
   const marcate = voci.map((v) =>
-    v.valore === predefinito ? { ...v, dettaglio: t("bar.default") } : v,
+    v.valore === predefinito && v.dettaglio === undefined ?
+      { ...v, dettaglio: t("bar.default") }
+    : v,
   );
 
   return (
@@ -184,7 +191,7 @@ function Menu<T extends string>({
       voci={marcate}
       onCambia={onCambia}
       verso="su"
-      className={`${PASTIGLIA} ${valore === predefinito ? RIPOSO : MOSSA}`}
+      className={`${PASTIGLIA} ${tono ?? (valore === predefinito ? RIPOSO : MOSSA)}`}
     >
       {children}
     </Selettore>
@@ -226,14 +233,38 @@ function MenuModelli({ modelli }: { modelli: readonly string[] }) {
     );
   }
 
+  // Il predefinito puo' non essere fra gli installati: `/config` dice come il
+  // deployment e' configurato, non cosa e' stato scaricato. Allora compare in
+  // elenco lo stesso, **disabilitato**, perche' l'assenza di una voce non
+  // spiegherebbe perche' non e' selezionata niente.
+  const assente = !modelloInstallato(predefiniti.model, modelli);
+  const voci = [
+    ...(assente ?
+      [
+        {
+          valore: predefiniti.model,
+          testo: predefiniti.model,
+          dettaglio: t("bar.model.notInstalled"),
+          disabilitata: true,
+        },
+      ]
+    : []),
+    ...modelli.map((m) => ({ valore: m, testo: m })),
+  ];
+
+  const rotto = !modelloInstallato(opzioni.modello, modelli);
+
   return (
-    <Suggerimento testo={t("bar.model.hint")} fuoco={false}>
+    <Suggerimento testo={rotto ? t("bar.model.missing") : t("bar.model.hint")} fuoco={false}>
       <Menu
         etichetta={t("bar.model")}
         valore={opzioni.modello}
         predefinito={predefiniti.model}
-        voci={modelli.map((m) => ({ valore: m, testo: m }))}
+        voci={voci}
         onCambia={(m) => cambia("modello", m)}
+        // Non `danger`: non c'e' niente da distruggere, c'e' qualcosa da
+        // sistemare — ed e' lo stesso tono degli altri rilievi (§12).
+        tono={rotto ? "border-warn bg-warn-soft text-warn hover:border-warn" : undefined}
       >
         <span className="font-mono">{opzioni.modello}</span>
       </Menu>

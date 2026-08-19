@@ -29,6 +29,7 @@ import type { ReactNode } from "react";
 
 import { streamQuery } from "../api/sse";
 import type { QueryRequest } from "../api/types";
+import { usaBackend } from "./backend";
 import { usaDataset } from "./dataset";
 import { applica, guasto, inizio, interrompi } from "./conversazione";
 import type { Risposta, Scambio } from "./conversazione";
@@ -44,7 +45,7 @@ import {
 } from "./cronologia";
 import type { Conversazione } from "./cronologia";
 import { usaBarra } from "./barra";
-import { campiRichiesta, stessaConfigurazione } from "./opzioni";
+import { campiRichiesta, modelloInstallato, stessaConfigurazione } from "./opzioni";
 
 /**
  * Quanto si aspetta prima di scrivere nel deposito.
@@ -82,6 +83,15 @@ export interface Confronto {
 }
 
 interface Chat {
+  /**
+   * Perche' non si puo' chiedere, o `null` se si puo'.
+   *
+   * Una precondizione che non c'e' **chiude il campo e dice quale**, invece di
+   * lasciar partire una domanda destinata a fallire: e' la forma che «scegli un
+   * dataset» aveva gia', ed e' l'unica che non fa aspettare undici secondi per
+   * scoprire una cosa che si sapeva prima di premere invio.
+   */
+  impedimento: "dataset" | "modello" | null;
   /** Gli scambi della conversazione aperta. */
   scambi: Scambio[];
   /** Tutte, la piu' recente per prima. Comprende quella aperta. */
@@ -173,6 +183,7 @@ function conRisposta(
 
 export function ProvvedeChat({ children }: { children: ReactNode }) {
   const { scelto, imposta } = usaDataset();
+  const { backend } = usaBackend();
   const { opzioni, predefiniti } = usaBarra();
   const [stato, setStato] = useState<Stato>(statoIniziale);
   const [confronto, setConfronto] = useState<Confronto | null>(null);
@@ -355,9 +366,16 @@ export function ProvvedeChat({ children }: { children: ReactNode }) {
 
   const scambi = trova(stato.conversazioni, stato.corrente)?.scambi ?? [];
 
+  const modelli = backend.stato === "pronto" ? backend.capabilities.models : [];
+  const impedimento =
+    scelto === null ? "dataset"
+    : opzioni !== null && !modelloInstallato(opzioni.modello, modelli) ? "modello"
+    : null;
+
   return (
     <Contesto.Provider
       value={{
+        impedimento,
         scambi,
         conversazioni: stato.conversazioni,
         corrente: stato.corrente,

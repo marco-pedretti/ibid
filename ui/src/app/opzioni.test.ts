@@ -5,6 +5,7 @@ import {
   SFORZO,
   avanzateToccate,
   campiRichiesta,
+  modelloInstallato,
   opzioniDa,
   ragionamentoDisponibile,
   sforzoAcceso,
@@ -84,6 +85,20 @@ describe("cosa parte nella richiesta", () => {
 
     const acceso = campiRichiesta({ ...opzioniDa(CONFIG), ragionamento: true }, CONFIG);
     expect(acceso.reasoning_effort).toBe("high");
+  });
+
+  it("il predefinito puo' non essere installato, e allora non si manda niente", () => {
+    // `/config` dice come il servizio e' configurato, non cosa e' stato
+    // scaricato. Senza questo controllo la domanda partirebbe lo stesso, per
+    // fallire dopo l'attesa con un errore del modello.
+    expect(modelloInstallato("gemma4:latest", ["qwen3.5:latest"])).toBe(false);
+    expect(modelloInstallato("gemma4:latest", ["gemma4:latest", "qwen3.5:latest"])).toBe(true);
+  });
+
+  it("elenco vuoto vuol dire «non si sa», non «assente»", () => {
+    // L'endpoint dei modelli non ha risposto: dichiarare assente cio' che non
+    // si e' potuto verificare e' lo stesso errore che `catalog.models()` evita.
+    expect(modelloInstallato("gemma4:latest", [])).toBe(true);
   });
 
   it("senza tutti e due i capi il controllo sparisce invece di mandare un 422", () => {

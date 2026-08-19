@@ -93,6 +93,10 @@ export const it = {
   "chat.send": "Invia",
   "chat.stop": "Ferma",
   "chat.noDataset": "Scegli un dataset per poter chiedere.",
+  // Il modello configurato non è stato scaricato. Si segnala e non si scarica:
+  // il download è gigabyte, l’API per farlo è quella nativa di un motore solo, e
+  // U-08 chiede che la demo si apra in due minuti senza scaricare niente.
+  "chat.noModel": "Il modello configurato non è installato: scegline uno dalla barra qui sotto.",
   "chat.hint.invio": "Invio per mandare, Maiusc+Invio per andare a capo.",
 
   "bar.rag": "RAG",
@@ -108,6 +112,12 @@ export const it = {
   "bar.default": "predefinito",
   "bar.model.hint":
     "Chi risponde. Con un buon recupero la taglia del modello conta meno del previsto: è una delle cose che questo progetto misura.",
+  // `/config` dice come il servizio è configurato, non cosa è stato scaricato:
+  // il predefinito compare in elenco lo stesso, disabilitato, perché una voce
+  // assente non spiegherebbe perché non è selezionato niente.
+  "bar.model.notInstalled": "non installato",
+  "bar.model.missing":
+    "Il modello configurato non è fra quelli installati sul servizio di inferenza: scegline uno dall’elenco, oppure installalo lì.",
   // Il nome si sa comunque, lo dice `/config`: ciò che manca non è sapere chi
   // risponde, è poterlo cambiare — e la frase dice quello.
   "bar.model.none":
@@ -319,6 +329,7 @@ export const en: Record<Chiave, string> = {
   "chat.send": "Send",
   "chat.stop": "Stop",
   "chat.noDataset": "Pick a dataset before asking.",
+  "chat.noModel": "The configured model is not installed: pick one from the bar below.",
   "chat.hint.invio": "Enter to send, Shift+Enter for a new line.",
 
   "bar.rag": "RAG",
@@ -331,6 +342,9 @@ export const en: Record<Chiave, string> = {
   "bar.default": "default",
   "bar.model.hint":
     "Who answers. With good retrieval, model size matters less than expected: it is one of the things this project measures.",
+  "bar.model.notInstalled": "not installed",
+  "bar.model.missing":
+    "The configured model is not among those installed on the inference service: pick one from the list, or install it there.",
   "bar.model.none":
     "The model list did not arrive from the inference service: the configured one answers, and for now it cannot be changed.",
   "bar.advanced": "Advanced",

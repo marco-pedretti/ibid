@@ -97,6 +97,31 @@ export function sforzoAcceso(c: ConfigView): string {
   return c.reasoning_effort === SFORZO.spento ? SFORZO.acceso : c.reasoning_effort;
 }
 
+/**
+ * Il modello scelto c'e' davvero sul servizio di inferenza?
+ *
+ * Il caso che conta e' il **predefinito assente**: `/config` dice
+ * `gemma4:latest` perche' e' cosi' che il deployment e' configurato, ma nessuno
+ * garantisce che sia stato scaricato. Senza questo controllo la pastiglia
+ * mostrerebbe un nome, il menu ne evidenzierebbe un altro — il primo
+ * dell'elenco, per ripiego — e la domanda partirebbe lo stesso, per fallire dopo
+ * l'attesa con un errore del modello.
+ *
+ * **Scaricarlo non e' un'opzione.** `POST /api/pull` e' l'API nativa di Ollama,
+ * e STACK.md tiene l'inferenza dietro un endpoint OpenAI-compatibile proprio
+ * perche' il repo giri anche su vLLM o llama.cpp server: un comando che scarica
+ * ci inchioderebbe a un motore solo. E sono gigabyte su una macchina che puo'
+ * non essere questa — mentre U-08 chiede che la demo si apra «in meno di 2
+ * minuti **senza download**».
+ *
+ * Elenco vuoto vuol dire `true`: l'endpoint dei modelli non ha risposto, quindi
+ * non si sa, e dichiarare assente cio' che non si e' potuto verificare e' lo
+ * stesso errore che `catalog.models()` evita restituendo `[]`.
+ */
+export function modelloInstallato(modello: string, modelli: readonly string[]): boolean {
+  return modelli.length === 0 || modelli.includes(modello);
+}
+
 /** I controlli aperti su cio' che girerebbe comunque. */
 export function opzioniDa(c: ConfigView): Opzioni {
   return {
