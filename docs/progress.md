@@ -1600,7 +1600,7 @@ Per la stessa ragione `/document/{doc_id}/chunks` restituisce i chunk **in ordin
 | U-00 | âœ… fatto (2026-08-14) | Scheletro `ui/`: Vite 8 + React 19 + TypeScript 7 + Tailwind 4, client SSE scritto a mano, temi, i18n IT/EN, `/datasets` all'avvio. **19 test Vitest** + 15 test Python sul contratto generato. `npm run typecheck && npm test && npm run build` verdi; catena provata contro l'API viva. Dettaglio sotto. |
 | U-01 | ✅ fatto (2026-08-14) | Selettore dataset nella corsia laterale del mockup, scelta ricordata in `localStorage` e **validata** contro `/datasets`. La regola di selezione è in funzioni pure: **9 test Vitest** in più (28 in tutto), senza jsdom. Provato contro l'API viva: `open_ragbench` 18.840 e `ledger` 47.110 chunk. Dettaglio sotto. |
 | U-02 | ✅ fatto (2026-08-14) | Schermata di chat con **pannello fonti sempre visibile** (nel telaio, non nella chat): otto stati, uno per evento del §3.5, macchina a stati in un reducer puro con **16 test** (44 lato Vitest). Marcatori inerti finché non arriva `answer`. I valori di `abstention` ora sono generati come i tipi. Esempi dello stato vuoto presi da `eval/golden`. Provato contro l'API viva su una query d'oro reale. **Rendering LaTeX** con KaTeX, regola dei delimitatori misurata: 49 falsi positivi tolti su 49, zero formule vere perse. Dettaglio sotto. |
-| U-15 | ✅ fatto (2026-08-19) | **Con quali parametri e' stata data ogni risposta**: la configurazione che ha girato si rilegge nella conversazione, e fra una domanda e l'altra si vede cosa è cambiato. **Nessun campo nuovo**: `ConfigView` era già dentro ogni risposta e già nel deposito da U-13. **6 test Vitest** in più (178 in tutto). Dettaglio sotto. |
+| U-15 | ✅ fatto (2026-08-19) | **Con quali parametri e' stata data ogni risposta**: la configurazione che ha girato si rilegge nella conversazione, e fra una domanda e l'altra si vede cosa è cambiato. **Nessun campo nuovo**: `ConfigView` era già dentro ogni risposta e già nel deposito da U-13. **11 test Vitest** in più (183 in tutto). Dettaglio sotto. |
 | U-14 | ✅ fatto (2026-08-19) | **Markdown e LaTeX nella risposta**: il prompt li invita invece di vietarli, e l'interfaccia li disegna — come **intervalli sul testo grezzo**, così verdetti per frase e frasi scoperte restano allineati. **15 test Vitest** in più (172 in tutto). Debito dichiarato: `prompt_hash` cambia, C-01/C-02/C-07 da rimisurare. Dettaglio sotto. |
 | U-03 | ✅ fatto (2026-08-19) | **La barra di composizione e il confronto affiancato**: i quattro controlli del mockup (RAG, ragionamento, modello, «Avanzate») e la stessa domanda rilanciata a RAG invertito in due colonne. Il secondo braccio riparte dalla configurazione *che ha girato*, non dalla barra — §15 dentro l'interfaccia. **3 test Vitest** in più (155 in tutto), e ogni controllo si apre sul valore in vigore letto da `/config`. Dettaglio sotto. |
 | U-13 | ✅ fatto (2026-08-17) | **Conversazione nuova e cronologia locale**: l'elenco nella corsia, persistenza in `localStorage`, e il ricaricamento riapre una conversazione *nuova*, con la cronologia accanto. Cosa si ricorda e come si rilegge è in funzioni pure: **17 test Vitest** in più (147 in tutto). Cancellare la cronologia c'è, a due tempi, ed è il primo posto in cui la palette ha un rosso — `danger`, solo per ciò che distrugge. Due giri di revisione. Dettaglio sotto. |
@@ -2241,6 +2241,29 @@ nome.
 | una risposta interrotta **in mezzo** | il confronto la salta all'indietro | un «Ferma» non ha toccato nessun parametro: dire «tutto cambiato» dopo quel gesto sarebbe falso |
 | nessuna differenza | non c'è riga (tranne la prima) | una nota che c'è sempre smette di essere letta — la stessa regola del riepilogo dei verdetti |
 
+#### La riga compare premendo invio, non a generazione finita
+
+Prima correzione di Marco. `Risposta.config` dice cosa ha girato e arriva con
+`done`, cioè dopo ~11 s: la riga compariva quindi solo a cose fatte, e diceva
+cosa era cambiato **dopo** che la risposta l'aveva già subito.
+
+Ma cosa è stato **chiesto** si sa nell'istante in cui si preme invio.
+`Scambio.chiesto` lo porta, ed è un secondo campo e non una sostituzione: quasi
+sempre i due coincidono, e quando non coincidono è il server ad aver deciso
+altrimenti — un fatto che si vuole poter vedere, non appianare. Si mostra
+`config` appena c'è e `chiesto` nel frattempo, quindi al passaggio non si vede
+niente.
+
+**`campiRichiesta` è derivata da `configChiesta`, non parallela**, ed è la parte
+che conta: ciò che si mostra come chiesto e ciò che parte sul filo sono lo stesso
+oggetto letto due volte. Due funzioni separate si sarebbero allontanate al primo
+campo aggiunto alla barra, e la riga avrebbe dichiarato una configurazione
+diversa da quella mandata — un errore che nessuno vedrebbe, perché il valore
+sbagliato sarebbe *plausibile*. Un test lo fissa campo per campo.
+
+Un deposito scritto prima non ha `chiesto`: vale `null`, la riga tace, nessuna
+`VERSIONE` da alzare.
+
 #### Il peso è quello di una nota a margine
 
 Mono, 10 px, attenuato, sopra la domanda. **Non è un messaggio della
@@ -2254,4 +2277,4 @@ eseguita, e leggerlo dopo averne letto l'esito sarebbe scoprire le regole a
 partita finita. La configurazione **intera** sta nel suggerimento, che è il posto
 dove la si va a cercare — ed è un dato, quindi si apre subito (140 ms).
 
-`npm run typecheck && npm test && npm run build` verdi, **178 test Vitest**.
+`npm run typecheck && npm test && npm run build` verdi, **183 test Vitest**.
