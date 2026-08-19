@@ -49,6 +49,7 @@ export function PannelloFonti() {
         <Etichetta>{t("sources.title")}</Etichetta>
         {(r?.chunks.length ?? 0) > 0 && (
           <Suggerimento
+            dato
             testo={t("sources.count")}
             className="font-mono text-[10px] text-muted tabular-nums"
           >
@@ -118,6 +119,7 @@ function Scheda({
     >
       <div className="flex items-center gap-1.5">
         <Suggerimento
+          dato
           testo={t("score.marker", { marker: chunk.marker })}
           className={`rounded font-mono text-[10px] font-semibold tabular-nums ${
             citata ? "bg-accent text-accent-ink" : "bg-ink text-paper"
@@ -128,7 +130,11 @@ function Scheda({
         {/* Il nome del documento e la sezione sono **troncati** in 272 px, ed e'
             il posto dove un suggerimento serve piu' che altrove: qui non spiega,
             mostra cio' che il taglio ha nascosto. */}
-        <Suggerimento testo={chunk.doc_id} className="min-w-0 truncate text-[11px] font-medium text-ink">
+        <Suggerimento
+          dato
+          testo={chunk.doc_id}
+          className="min-w-0 truncate text-[11px] font-medium text-ink"
+        >
           {chunk.doc_id}
         </Suggerimento>
         {/* Cosa sia questo numero **dipende dalla configurazione che ha girato**:
@@ -136,6 +142,7 @@ function Scheda({
             giudizio di un cross-encoder col rerank. Un'etichetta sola sarebbe vera
             e inutile — 0,875 e 0,016 possono essere due fonti ottime. */}
         <Suggerimento
+          dato
           testo={t(spiegaPunteggio(risposta?.config ?? null))}
           className="ml-auto font-mono text-[10px] text-muted tabular-nums"
         >
@@ -146,6 +153,7 @@ function Scheda({
       {chunk.section_path !== "" && (
         <p className="min-w-0">
           <Suggerimento
+            dato
             testo={chunk.section_path}
             className="block truncate font-mono text-[9.5px] text-muted"
           >
