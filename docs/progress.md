@@ -1600,6 +1600,7 @@ Per la stessa ragione `/document/{doc_id}/chunks` restituisce i chunk **in ordin
 | U-00 | âœ… fatto (2026-08-14) | Scheletro `ui/`: Vite 8 + React 19 + TypeScript 7 + Tailwind 4, client SSE scritto a mano, temi, i18n IT/EN, `/datasets` all'avvio. **19 test Vitest** + 15 test Python sul contratto generato. `npm run typecheck && npm test && npm run build` verdi; catena provata contro l'API viva. Dettaglio sotto. |
 | U-01 | ✅ fatto (2026-08-14) | Selettore dataset nella corsia laterale del mockup, scelta ricordata in `localStorage` e **validata** contro `/datasets`. La regola di selezione è in funzioni pure: **9 test Vitest** in più (28 in tutto), senza jsdom. Provato contro l'API viva: `open_ragbench` 18.840 e `ledger` 47.110 chunk. Dettaglio sotto. |
 | U-02 | ✅ fatto (2026-08-14) | Schermata di chat con **pannello fonti sempre visibile** (nel telaio, non nella chat): otto stati, uno per evento del §3.5, macchina a stati in un reducer puro con **16 test** (44 lato Vitest). Marcatori inerti finché non arriva `answer`. I valori di `abstention` ora sono generati come i tipi. Esempi dello stato vuoto presi da `eval/golden`. Provato contro l'API viva su una query d'oro reale. **Rendering LaTeX** con KaTeX, regola dei delimitatori misurata: 49 falsi positivi tolti su 49, zero formule vere perse. Dettaglio sotto. |
+| U-03 | ✅ fatto (2026-08-19) | **La barra di composizione e il confronto affiancato**: i quattro controlli del mockup (RAG, ragionamento, modello, «Avanzate») e la stessa domanda rilanciata a RAG invertito in due colonne. Il secondo braccio riparte dalla configurazione *che ha girato*, non dalla barra — §15 dentro l'interfaccia. **3 test Vitest** in più (155 in tutto). Dettaglio sotto. |
 | U-13 | ✅ fatto (2026-08-17) | **Conversazione nuova e cronologia locale**: l'elenco nella corsia, persistenza in `localStorage`, e il ricaricamento riapre una conversazione *nuova*, con la cronologia accanto. Cosa si ricorda e come si rilegge è in funzioni pure: **17 test Vitest** in più (147 in tutto). Cancellare la cronologia c'è, a due tempi, ed è il primo posto in cui la palette ha un rosso — `danger`, solo per ciò che distrugge. Due giri di revisione. Dettaglio sotto. |
 | U-07 | ✅ fatto (2026-08-17) | Ogni citazione porta il **proprio verdetto**, sul marcatore in mezzo alla prosa e sulla scheda della fonte, e **nessuna è nascosta**. Cinque stati per il marcatore e sei per la scheda, distinti da glifo, colore e parola insieme (§12). Le frasi senza citazione sono sottolineate dove stanno. La corrispondenza frase↔marcatore è in funzioni pure: **38 test Vitest** in più (116 in tutto). Provato contro l'API viva su `open_ragbench` e `ledger`. Dettaglio sotto. |
 
@@ -1982,3 +1983,94 @@ Ma un elemento `disabled` non riceve gli eventi del puntatore, quindi il suggeri
 **E il rosso è entrato nella palette** (seconda revisione), che finora non ce l'aveva: `danger` non è un `warn` più acceso, è il colore di ciò che distrugge. Colorare «cancella» con l'ocra dei verdetti avrebbe dato lo stesso segnale a un rilievo — una citazione che non regge, che il §0 dice essere il dato — e a un'azione irreversibile. È l'unico posto dove compare. Il comando è un cestino disegnato con le cinque regole di `Icona.tsx`, solo icona col nome nell'`aria-label`, e quando è armato la domanda «Cancellare tutto?» prende il posto del nome della sezione: un'icona che cambia colore dice che è cambiato qualcosa, non cosa.
 
 `npm run typecheck && npm test && npm run build` verdi, **147 test Vitest**.
+
+### U-03 — la barra intera, e un confronto che cambia una cosa sola
+
+Il ROADMAP dava a U-03 un solo controllo. Contandoli, il mockup ne mette **cinque**
+sotto il campo e solo due avevano un ID: RAG (U-03) e il prompt del baseline (U-04).
+Ragionamento, menu dei modelli e «Avanzate» stavano nel disegno, nelle decisioni del
+§12 e persino nell'API — `reasoning_effort` e `models` esistono perché A-07 li ha
+aggiunti *guardando questa barra* — ma in nessun posto con un criterio. È la situazione
+della cronologia prima che diventasse U-13, e sono stati accorpati qui (2026-08-19):
+la barra la costruisce U-03, ed è il primo task che ne ha bisogno.
+
+#### Il confronto è un layout, e il §15 dentro l'interfaccia
+
+«Affiancate, dalla stessa query, nella stessa sessione» non si ottiene con due messaggi
+consecutivi: si leggono uno dopo l'altro, e la domanda in mezzo si dimentica. Il toggle
+della barra decide la **prossima** domanda; il confronto è un'azione su una risposta
+**già data**, che la rilancia col RAG invertito.
+
+Da cosa riparte è la decisione che conta. Non dalla barra — rilanciare con le opzioni
+correnti metterebbe nelle due colonne anche un modello diverso o un `top_k` cambiato nel
+frattempo, e il confronto direbbe «guarda cosa fa il RAG» mostrando l'effetto di tre
+cose. Riparte da `ConfigView`, cioè da ciò che ha girato, e inverte un campo solo.
+
+Il test conta le chiavi: `Object.keys(stessaConfigurazione(c))` deve coincidere con
+`Object.keys(c)`. Un campo aggiunto al contratto e dimenticato lì uscirebbe dal
+confronto **in silenzio**, cioè diventerebbe esattamente la seconda variabile che quella
+funzione esiste per impedire.
+
+Ne segue che il comando compare solo su una risposta **conclusa**: da che parte va
+ciascuna colonna lo dice `config.rag`, e senza `config` non si saprebbe da quale braccio
+si parte. Una colonna intitolata a caso è peggio di un comando assente.
+
+#### La colonna nuda non dice «sbagliato»
+
+Il mockup ci aveva scritto «Plausibile, e sbagliato». È vero del suo esempio e non di
+ogni risposta: senza fonti non si può *sapere* se è giusta — ed è esattamente il punto.
+L'avviso dice ciò che si sa, cioè che non c'è niente da aprire.
+
+Nel confronto il pannello fonti laterale sparisce e le fonti stanno **dentro** la
+colonna. Non è un'eccezione al criterio di U-02: averle da una parte e non dall'altra è
+l'argomento della schermata, e una colonna sola di fianco mostrerebbe le fonti di uno
+dei due bracci senza dire di quale.
+
+#### Ciò che il frontend non sa, non lo manda
+
+RAG e ragionamento partono **sempre**, espliciti, anche quando coincidono col default:
+il campo che parte è quello che torna in `ConfigView`, e una richiesta che tace lascia
+decidere al server una cosa che sullo schermo appare già decisa.
+
+Il modello e i quattro parametri di «Avanzate» fanno l'opposto, e per la stessa ragione
+rovesciata: `Capabilities` elenca i valori *ammessi*, non quelli *configurati*.
+Preselezionare il primo dell'elenco scriverebbe sopra la scelta del deployment una
+scelta che nessuno ha fatto — e l'ordine è alfabetico, quindi il primo non ha rapporto
+con niente. Sullo schermo c'è scritto «come configurato», e mandare un valore lo
+smentirebbe.
+
+Elenco modelli vuoto ≠ elenco assente: A-07 restituisce `[]` quando non raggiunge
+`LLM_BASE_URL`, perché elencare il modello configurato affermerebbe che esiste. La
+pastiglia resta **visibile e attenuata** col motivo nel suggerimento — nasconderla
+farebbe sparire insieme al comando anche la ragione per cui non c'è. Attenuata e non
+`disabled`, che non riceve il puntatore e chiuderebbe la bolla che spiega: la lezione
+delle voci di cronologia in U-13.
+
+#### Il ragionamento è l'unico comando che dichiara il proprio costo
+
+Acceso/spento e non cinque livelli — cinque livelli sono un'ablation, cioè il lavoro
+della dashboard — e i due capi sono quelli su cui **C-07 ha misurato**, `none` e `high`,
+perché il suggerimento porta i numeri di quella misura e un interruttore che mandasse un
+livello diverso li farebbe descrivere un'altra cosa. Sul modello l'asse è davvero
+binario: `low` produce già lo stesso ragionamento di `high` (1410 token contro 267).
+
+Parte **spento**, e per una volta il predefinito non è «il modo migliore» ma il modo
+misurato: acceso compra +0,6 punti di conformità pagando 9,5× i token e trentaquattro
+astensioni in più su 200. Il suggerimento lo scrive. Sta lì perché il progetto misura
+anche ciò che non conviene, e nasconderlo dietro un interruttore muto sarebbe la prima
+volta che una misura resta fuori dalla UI perché è scomoda.
+
+I due valori sono del server e stanno scritti nel frontend, quindi hanno la verifica
+accanto: se `Capabilities` smette di offrirli il comando **sparisce** invece di mandare
+un 422 — un guasto nostro presentato come un errore di chi clicca.
+
+#### Niente della barra si ricorda oltre la sessione
+
+È l'unica decisione di stato che la barra contiene. Il dataset si ricorda perché è una
+preferenza — su quale corpus sto lavorando. «RAG spento, `top_k` 20, ragionamento
+acceso» non è una preferenza, è un **esperimento**, e ritrovarlo ancora impostato domani
+è il modo in cui un risultato si legge come il prodotto. Un ricaricamento riporta la
+barra al modo in cui il progetto è pensato per funzionare, che è anche quello in cui è
+stato misurato. Stessa lettura di U-13: il caso frequente vince sul raro.
+
+`npm run typecheck && npm test && npm run build` verdi, **155 test Vitest**.
