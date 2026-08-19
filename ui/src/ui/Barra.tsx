@@ -16,17 +16,33 @@
  * e non vale una riga di altezza tolta alla risposta. Qui occupa lo spazio che
  * la fila lascia libero comunque.
  */
+import { usaBackend } from "../app/backend";
 import { usaBarra } from "../app/barra";
 import { usaLingua } from "../app/i18n";
+import { ragionamentoDisponibile } from "../app/opzioni";
 import type { Opzioni } from "../app/opzioni";
 import { Suggerimento } from "./Suggerimento";
 
 export function Barra() {
   const { t } = usaLingua();
+  const { backend } = usaBackend();
+  const sforzi = backend.stato === "pronto" ? backend.capabilities.reasoning_efforts : [];
 
   return (
     <div className="mt-[9px] flex flex-wrap items-center gap-1.5">
       <Interruttore chiave="rag" etichetta={t("bar.rag")} suggerimento={t("bar.rag.hint")} />
+
+      {/* Sparisce se il server non offre piu' i due capi dell'asse. Mostrarlo
+          comunque darebbe un comando che risponde con un 422 — cioe' un guasto
+          nostro presentato come un errore di chi clicca. */}
+      {ragionamentoDisponibile(sforzi) && (
+        <Interruttore
+          chiave="ragionamento"
+          etichetta={t("bar.reasoning")}
+          suggerimento={t("bar.reasoning.hint")}
+        />
+      )}
+
       <p className="ml-auto font-mono text-[10px] text-muted">{t("chat.hint.invio")}</p>
     </div>
   );

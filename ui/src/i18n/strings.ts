@@ -98,6 +98,12 @@ export const it = {
   "bar.rag": "RAG",
   "bar.rag.hint":
     "Acceso, la risposta viene dal corpus e porta le fonti. Spento, il modello risponde da solo: è l'altra metà del confronto, non un guasto.",
+  "bar.reasoning": "Ragionamento",
+  // L'unico comando dell'interfaccia che dichiara il proprio costo, e con i
+  // numeri veri di C-07: senza, un interruttore invita ad accendere ciò che
+  // abbiamo misurato non convenire. Niente sigle di task nella UI.
+  "bar.reasoning.hint":
+    "Fa ragionare il modello prima che risponda. L'abbiamo misurato: +0,6 punti di citazioni ben formate, 9,5× i token, e sui bilanci le domande a cui rifiuta di rispondere passano da 56 a 90 su 200.",
 
   "example.note.numbers": "Un numero preciso: la citazione deve reggerlo.",
   "example.note.paper": "Sta dentro un paper: guarda da quale sezione arriva.",
@@ -284,6 +290,9 @@ export const en: Record<Chiave, string> = {
   "bar.rag": "RAG",
   "bar.rag.hint":
     "On, the answer comes from the corpus and carries its sources. Off, the model answers on its own: that is the other half of the comparison, not a failure.",
+  "bar.reasoning": "Reasoning",
+  "bar.reasoning.hint":
+    "Lets the model reason before it answers. We measured it: +0.6 points of well-formed citations, 9.5× the tokens, and on the ledgers the questions it refuses to answer go from 56 to 90 out of 200.",
 
   "example.note.numbers": "A precise number: the citation has to hold it up.",
   "example.note.paper": "It sits inside a paper: look at which section it comes from.",

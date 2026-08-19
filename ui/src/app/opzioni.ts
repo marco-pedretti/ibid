@@ -27,6 +27,32 @@ export interface Opzioni {
   /** Il recupero dal corpus. Spento, il modello risponde da solo: e' la meta'
    *  nuda del confronto di U-03, non un guasto. */
   rag: boolean;
+  /** Il ragionamento esteso. Acceso/spento e non cinque livelli: cinque livelli
+   *  sono un'ablation, che e' il lavoro della dashboard. */
+  ragionamento: boolean;
+}
+
+/**
+ * I due capi dell'asse che C-07 ha misurato.
+ *
+ * Non sono una scelta di comodo: il suggerimento del controllo porta i numeri
+ * di quella misura, e un interruttore che mandasse un livello diverso farebbe
+ * descrivere a quei numeri un'altra cosa. Sul modello l'asse e' davvero binario
+ * — `low` gia' produce lo stesso ragionamento di `high` (1410 token contro 267
+ * di `none`), quindi «acceso» ha un solo significato.
+ *
+ * Sono due valori del server scritti qui, ed e' il motivo di
+ * `ragionamentoDisponibile`: se `Capabilities` smette di offrirli, il comando
+ * sparisce invece di mandare un 422. Una copia con la sua verifica accanto, non
+ * una copia e basta.
+ */
+export const SFORZO = { spento: "none", acceso: "high" } as const;
+
+/** Il server offre ancora tutti e due i capi dell'asse? Se no, l'interruttore
+ *  non ha niente da mandare, e un comando che gira a vuoto e' il difetto che il
+ *  criterio di U-03 nomina. */
+export function ragionamentoDisponibile(sforzi: readonly string[]): boolean {
+  return sforzi.includes(SFORZO.spento) && sforzi.includes(SFORZO.acceso);
 }
 
 /**
@@ -35,8 +61,14 @@ export interface Opzioni {
  * `rag: true` non e' una copia del default del server — quello non lo
  * conosciamo, e U-00 vieta di tenerne una costante qui. E' la decisione della
  * barra: si comincia dal modo in cui il progetto funziona.
+ *
+ * Il ragionamento parte **spento**, e per una volta il default non e' «il modo
+ * migliore» ma il modo misurato: C-07 dice che acceso compra +0,6 punti di
+ * conformita' pagando 9,5x i token e trentaquattro astensioni in piu' su 200.
+ * Accenderlo di partenza consegnerebbe come predefinito cio' che il progetto ha
+ * misurato non convenire.
  */
-export const PREDEFINITE: Opzioni = { rag: true };
+export const PREDEFINITE: Opzioni = { rag: true, ragionamento: false };
 
 /**
  * Cosa la barra mette nella richiesta.
@@ -46,5 +78,8 @@ export const PREDEFINITE: Opzioni = { rag: true };
  * cosa che sullo schermo appare gia' decisa.
  */
 export function campiRichiesta(o: Opzioni): Partial<QueryRequest> {
-  return { rag: o.rag };
+  return {
+    rag: o.rag,
+    reasoning_effort: o.ragionamento ? SFORZO.acceso : SFORZO.spento,
+  };
 }
