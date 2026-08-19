@@ -173,7 +173,7 @@ function conRisposta(
 
 export function ProvvedeChat({ children }: { children: ReactNode }) {
   const { scelto, imposta } = usaDataset();
-  const { opzioni } = usaBarra();
+  const { opzioni, predefiniti } = usaBarra();
   const [stato, setStato] = useState<Stato>(statoIniziale);
   const [confronto, setConfronto] = useState<Confronto | null>(null);
   const [occupato, setOccupato] = useState(false);
@@ -187,7 +187,11 @@ export function ProvvedeChat({ children }: { children: ReactNode }) {
   const invia = useCallback(
     (domanda: string) => {
       const testo = domanda.trim();
+      // Senza i predefiniti non si sa cosa la barra sta mostrando, quindi non si
+      // sa nemmeno cosa manderebbe: e' lo stesso motivo per cui il campo e'
+      // chiuso finche' non c'e' un dataset.
       if (testo === "" || scelto === null || controller.current !== null) return;
+      if (opzioni === null || predefiniti === null) return;
 
       const conversazione = stato.corrente;
       const id = nuovoId();
@@ -214,7 +218,7 @@ export function ProvvedeChat({ children }: { children: ReactNode }) {
       // `invia` e' nata, quindi toccare un controllo mentre il modello parla non
       // riscrive una richiesta gia' partita.
       void guida(
-        { query: testo, dataset_id: scelto.dataset_id, ...campiRichiesta(opzioni) },
+        { query: testo, dataset_id: scelto.dataset_id, ...campiRichiesta(opzioni, predefiniti) },
         ctrl,
         (f) =>
           setStato((s) => ({
@@ -228,7 +232,7 @@ export function ProvvedeChat({ children }: { children: ReactNode }) {
         }
       });
     },
-    [scelto, stato.corrente, opzioni],
+    [scelto, stato.corrente, opzioni, predefiniti],
   );
 
   const ferma = useCallback(() => controller.current?.abort(), []);

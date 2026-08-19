@@ -2,83 +2,88 @@ import { describe, expect, it } from "vitest";
 
 import type { ConfigView } from "../api/types";
 import {
-  AVANZATE_INTATTE,
-  COME_CONFIGURATO,
-  PREDEFINITE,
-  avanzateToccate,
   SFORZO,
+  avanzateToccate,
   campiRichiesta,
+  opzioniDa,
   ragionamentoDisponibile,
+  sforzoAcceso,
   stessaConfigurazione,
 } from "./opzioni";
 
 const SFORZI = ["none", "low", "medium", "high", "max"];
 
+/** I default veri di questo deployment, come li restituisce `GET /config`. */
 const CONFIG: ConfigView = {
   top_k: 5,
-  retrieval_mode: "hybrid",
-  rerank: true,
+  retrieval_mode: "dense",
+  rerank: false,
   query_rewrite: false,
   filter_content_type: "",
   search_exact: false,
-  hnsw_ef: 128,
-  model: "gemma4:e4b",
+  hnsw_ef: null,
+  model: "gemma4:latest",
   temperature: 0,
-  max_new_tokens: 2048,
+  max_new_tokens: 1024,
   reasoning_effort: "none",
   rag: true,
   baseline_prompt: "strict",
   verify: true,
 };
 
-describe("le opzioni della barra", () => {
-  it("si parte col RAG acceso, il ragionamento spento e niente scelto a mano", () => {
-    // Il secondo non e' pessimismo: C-07 ha misurato che acceso non conviene, e
-    // un predefinito diverso consegnerebbe quella misura al contrario.
-    expect(PREDEFINITE).toEqual({
+describe("i controlli si aprono su cio' che e' in vigore", () => {
+  it("ogni voce viene dai predefiniti del servizio, nessuna e' decisa qui", () => {
+    // Era una costante scritta a mano, e diceva «non lo so» con una voce «come
+    // configurato» in ogni menu. `/config` lo dice, bastava chiederlo.
+    expect(opzioniDa(CONFIG)).toEqual({
       rag: true,
       ragionamento: false,
-      modello: COME_CONFIGURATO,
-      avanzate: AVANZATE_INTATTE,
+      modello: "gemma4:latest",
+      retrieval_mode: "dense",
+      rerank: false,
+      top_k: 5,
+      hnsw_ef: null,
     });
-    expect(avanzateToccate(AVANZATE_INTATTE)).toBe(false);
   });
 
-  it("le avanzate mandano solo cio' che si tocca", () => {
-    // Riempirle coi default del servizio e' impossibile — non li conosciamo — e
-    // riempirle con dei numeri qualsiasi scriverebbe sopra la configurazione del
-    // deployment dei valori che nessuno ha deciso.
-    expect(campiRichiesta(PREDEFINITE)).not.toHaveProperty("top_k");
-    expect(campiRichiesta(PREDEFINITE)).not.toHaveProperty("rerank");
-
-    const toccate = { ...AVANZATE_INTATTE, top_k: 12, rerank: false };
-    expect(avanzateToccate(toccate)).toBe(true);
-    const campi = campiRichiesta({ ...PREDEFINITE, avanzate: toccate });
-    expect(campi.top_k).toBe(12);
-    expect(campi.rerank).toBe(false);
-    expect(campi).not.toHaveProperty("hnsw_ef");
+  it("il ragionamento e' acceso se il livello configurato non e' «spento»", () => {
+    expect(opzioniDa({ ...CONFIG, reasoning_effort: "medium" }).ragionamento).toBe(true);
   });
 
-  it("ogni campo parte sempre, anche quando coincide col default", () => {
+  it("appena aperti, nessun controllo risulta mosso", () => {
+    expect(avanzateToccate(opzioniDa(CONFIG), CONFIG)).toBe(false);
+    expect(avanzateToccate({ ...opzioniDa(CONFIG), top_k: 12 }, CONFIG)).toBe(true);
+    // Il modello non sta sotto «Avanzate»: la sua pastiglia si accende da sola.
+    expect(avanzateToccate({ ...opzioniDa(CONFIG), modello: "altro" }, CONFIG)).toBe(false);
+  });
+});
+
+describe("cosa parte nella richiesta", () => {
+  it("tutto, esplicito, anche quando coincide col predefinito", () => {
     // Una richiesta che tace lascerebbe decidere al server una cosa che sullo
-    // schermo appare gia' decisa, e `ConfigView` tornerebbe con un valore che
-    // nessun controllo ha scelto.
-    expect(campiRichiesta(PREDEFINITE)).toEqual({ rag: true, reasoning_effort: "none" });
-    expect(campiRichiesta({ ...PREDEFINITE, rag: false, ragionamento: true })).toEqual({
-      rag: false,
-      reasoning_effort: "high",
+    // schermo appare gia' decisa — e ora sullo schermo c'e' scritto quale.
+    expect(campiRichiesta(opzioniDa(CONFIG), CONFIG)).toEqual({
+      rag: true,
+      reasoning_effort: "none",
+      model: "gemma4:latest",
+      retrieval_mode: "dense",
+      rerank: false,
+      top_k: 5,
+      hnsw_ef: null,
     });
   });
 
-  it("il modello e' l'eccezione: scelto parte, «come configurato» tace", () => {
-    // Tacere e' l'unico modo di dire il vero: il frontend non sa quale modello
-    // il servizio userebbe, e mandarne uno smentirebbe la parola sullo schermo.
-    expect(campiRichiesta(PREDEFINITE)).not.toHaveProperty("model");
-    expect(campiRichiesta({ ...PREDEFINITE, modello: "gemma4:e4b" }).model).toBe("gemma4:e4b");
-  });
-
-  it("i due capi dell'asse sono quelli che C-07 ha misurato", () => {
+  it("acceso vuol dire il capo di C-07, o il livello del servizio se ne ha uno", () => {
+    // Il suggerimento porta i numeri di quella misura: mandare un livello
+    // diverso li farebbe descrivere un'altra cosa. Ma se il deployment ragiona
+    // gia', «acceso» deve tornare al **suo**, altrimenti il predefinito marcato
+    // nel menu e il valore che parte non sarebbero lo stesso.
     expect([SFORZO.spento, SFORZO.acceso]).toEqual(["none", "high"]);
+    expect(sforzoAcceso(CONFIG)).toBe("high");
+    expect(sforzoAcceso({ ...CONFIG, reasoning_effort: "medium" })).toBe("medium");
+
+    const acceso = campiRichiesta({ ...opzioniDa(CONFIG), ragionamento: true }, CONFIG);
+    expect(acceso.reasoning_effort).toBe("high");
   });
 
   it("senza tutti e due i capi il controllo sparisce invece di mandare un 422", () => {

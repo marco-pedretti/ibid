@@ -2,20 +2,31 @@
  * Come nasce la **prossima** risposta: i controlli della barra sotto il campo.
  *
  * Ogni voce qui e' un campo di `QueryRequest` che l'API accetta gia' — la barra
- * non aggiunge potere al servizio, gli da' una manopola. Il vocabolario dei
- * valori ammessi (`retrieval_modes`, `models`, `reasoning_efforts`,
- * `baseline_prompts`) viene da `Capabilities` e non da un elenco scritto qui:
- * e' la lezione di Q-06, e A-07 ha aggiunto due di quei campi guardando proprio
- * questa barra.
+ * non aggiunge potere al servizio, gli da' una manopola. E ogni voce **parte dal
+ * valore in vigore**, letto da `/config`: i controlli si aprono su cio' che
+ * girerebbe comunque, e nel menu quella voce e' marcata «predefinito».
+ *
+ * Non era cosi' alla prima stesura, e vale la pena scrivere perche'. `/datasets`
+ * elenca i valori *ammessi* e non quelli *configurati*, quindi ogni menu apriva
+ * su una voce «come configurato» che significava «non lo mando e decidi tu». Era
+ * onesto e sbagliato: l'interfaccia dichiarava di non sapere una cosa che il
+ * servizio pubblica da A-04, e chi guardava non poteva vedere da dove stava
+ * partendo. Bastava chiedere. Da qui **tutto parte esplicito**, e l'eccezione
+ * non esiste piu'.
+ *
+ * Il vocabolario dei valori ammessi (`retrieval_modes`, `models`,
+ * `reasoning_efforts`) resta quello di `Capabilities`, mai un elenco scritto
+ * qui: e' la lezione di Q-06, e A-07 ha aggiunto due di quei campi guardando
+ * proprio questa barra.
  *
  * **Niente di questa barra si ricorda oltre la sessione**, ed e' l'unica
  * decisione di stato che contiene. Il dataset si ricorda perche' e' una
- * preferenza — su quale corpus sto lavorando. «RAG spento, prompt permissivo,
- * `top_k` a 20» non e' una preferenza: e' un **esperimento**, e ritrovarlo
- * ancora impostato domani e' il modo in cui un risultato si legge come il
- * prodotto. Un ricaricamento riporta la barra al modo in cui il progetto e'
- * pensato per funzionare, che e' anche quello in cui e' stato misurato. Stessa
- * lettura di U-13: il caso frequente vince sul raro.
+ * preferenza — su quale corpus sto lavorando. «RAG spento, `top_k` a 20,
+ * ragionamento acceso» non e' una preferenza: e' un **esperimento**, e
+ * ritrovarlo ancora impostato domani e' il modo in cui un risultato si legge
+ * come il prodotto. Un ricaricamento riporta la barra al modo in cui il servizio
+ * e' configurato, che e' anche quello in cui e' stato misurato. Stessa lettura
+ * di U-13: il caso frequente vince sul raro.
  *
  * La barra decide la prossima domanda; **cosa ha girato davvero** lo dice la
  * risposta, che porta il proprio `ConfigView`. Sono due dati diversi e non vanno
@@ -23,6 +34,14 @@
  */
 import type { ConfigView, QueryRequest } from "../api/types";
 
+/**
+ * Piatta, e non con le avanzate in un oggetto annidato.
+ *
+ * «Avanzate» e' un raggruppamento dell'interfaccia — quattro controlli dietro
+ * una pastiglia — non una proprieta' del dato: sul filo sono campi come gli
+ * altri. Piatta si sovrappone ai predefiniti una chiave per volta, che e' il
+ * modo in cui `ProvvedeBarra` tiene solo cio' che e' stato toccato.
+ */
 export interface Opzioni {
   /** Il recupero dal corpus. Spento, il modello risponde da solo: e' la meta'
    *  nuda del confronto di U-03, non un guasto. */
@@ -30,62 +49,18 @@ export interface Opzioni {
   /** Il ragionamento esteso. Acceso/spento e non cinque livelli: cinque livelli
    *  sono un'ablation, che e' il lavoro della dashboard. */
   ragionamento: boolean;
-  /** Il modello che risponde, o `COME_CONFIGURATO` per non scegliere. */
   modello: string;
-  /** I parametri di ricerca, chiusi sotto «Avanzate». */
-  avanzate: Avanzate;
-}
-
-/**
- * «Non scelgo io»: il campo non parte, e decide il servizio.
- *
- * Serve perche' il frontend **non sa** cosa il servizio userebbe. `Capabilities`
- * elenca i modelli disponibili e le modalita' ammesse, non quelli configurati, e
- * preselezionare il primo dell'elenco scriverebbe una scelta che nessuno ha
- * fatto sopra quella del deployment — con l'aggravante che l'ordine e'
- * alfabetico, quindi il primo non ha alcun rapporto con niente. Qui tacere e'
- * l'unico modo di dire il vero, ed e' l'eccezione alla regola di
- * `campiRichiesta`.
- */
-export const COME_CONFIGURATO = "";
-
-/**
- * Le manopole del retrieval.
- *
- * Stanno chiuse, e il §12 dice perche': un muro di manopole mostra l'ablation,
- * che e' il lavoro della dashboard. Restano pero' **raggiungibili**, perche' la
- * demo le accetta gia' e nasconderle del tutto significherebbe avere un'API piu'
- * espressiva dell'interfaccia che la presenta.
- *
- * Ogni voce parte da «non scelto» — `""` o `null` — per lo stesso motivo del
- * modello: il frontend non conosce i default del servizio, e riempire i campi
- * con dei numeri scriverebbe sopra la configurazione del deployment dei valori
- * che nessuno ha deciso. Si manda solo cio' che si tocca.
- */
-export interface Avanzate {
   retrieval_mode: string;
-  rerank: boolean | null;
-  top_k: number | null;
+  rerank: boolean;
+  top_k: number;
+  /** `null` e' un valore vero e non «non scelto»: significa lasciare decidere
+   *  l'indice, ed e' il predefinito di questo servizio. */
   hnsw_ef: number | null;
 }
 
-export const AVANZATE_INTATTE: Avanzate = {
-  retrieval_mode: COME_CONFIGURATO,
-  rerank: null,
-  top_k: null,
-  hnsw_ef: null,
-};
-
-/** Qualcuno ha toccato qualcosa: la pastiglia lo dice, altrimenti «Avanzate»
- *  chiuso nasconderebbe una configurazione diversa da quella che sembra. */
-export function avanzateToccate(a: Avanzate): boolean {
-  return (
-    a.retrieval_mode !== COME_CONFIGURATO ||
-    a.rerank !== null ||
-    a.top_k !== null ||
-    a.hnsw_ef !== null
-  );
-}
+/** Le quattro che stanno chiuse sotto «Avanzate». Un elenco e non un oggetto
+ *  annidato: vedi la nota su `Opzioni`. */
+export const AVANZATE = ["retrieval_mode", "rerank", "top_k", "hnsw_ef"] as const;
 
 /**
  * I due capi dell'asse che C-07 ha misurato.
@@ -111,46 +86,53 @@ export function ragionamentoDisponibile(sforzi: readonly string[]): boolean {
 }
 
 /**
- * Da dove si parte, e a dove si torna ricaricando.
+ * Che livello vuol dire «acceso» su questo deployment.
  *
- * `rag: true` non e' una copia del default del server — quello non lo
- * conosciamo, e U-00 vieta di tenerne una costante qui. E' la decisione della
- * barra: si comincia dal modo in cui il progetto funziona.
- *
- * Il ragionamento parte **spento**, e per una volta il default non e' «il modo
- * migliore» ma il modo misurato: C-07 dice che acceso compra +0,6 punti di
- * conformita' pagando 9,5x i token e trentaquattro astensioni in piu' su 200.
- * Accenderlo di partenza consegnerebbe come predefinito cio' che il progetto ha
- * misurato non convenire.
+ * Se il servizio e' configurato con un ragionamento acceso, accendere
+ * l'interruttore deve tornare **al suo**, non al capo di C-07: altrimenti il
+ * predefinito marcato nel menu e il valore che parte non sarebbero lo stesso, e
+ * il controllo mentirebbe sul proprio stato di riposo.
  */
-export const PREDEFINITE: Opzioni = {
-  rag: true,
-  ragionamento: false,
-  modello: COME_CONFIGURATO,
-  avanzate: AVANZATE_INTATTE,
-};
+export function sforzoAcceso(c: ConfigView): string {
+  return c.reasoning_effort === SFORZO.spento ? SFORZO.acceso : c.reasoning_effort;
+}
+
+/** I controlli aperti su cio' che girerebbe comunque. */
+export function opzioniDa(c: ConfigView): Opzioni {
+  return {
+    rag: c.rag,
+    ragionamento: c.reasoning_effort !== SFORZO.spento,
+    modello: c.model,
+    retrieval_mode: c.retrieval_mode,
+    rerank: c.rerank,
+    top_k: c.top_k,
+    hnsw_ef: c.hnsw_ef,
+  };
+}
+
+/** Qualcosa sotto «Avanzate» e' stato mosso: la pastiglia chiusa lo dice,
+ *  altrimenti nasconderebbe una configurazione diversa da quella che sembra. */
+export function avanzateToccate(o: Opzioni, c: ConfigView): boolean {
+  return AVANZATE.some((k) => o[k] !== c[k]);
+}
 
 /**
- * Cosa la barra mette nella richiesta.
+ * Cosa la barra mette nella richiesta: **tutto**, esplicito.
  *
- * Esplicito anche quando coincide col default: il campo che parte e' quello che
- * torna in `ConfigView`, e una richiesta che tace lascia decidere al server una
- * cosa che sullo schermo appare gia' decisa.
- *
- * Le eccezioni sono il modello e le avanzate, e per il motivo opposto: la'
- * sullo schermo c'e' scritto «come configurato», cioe' *non l'ho deciso io*, e
- * mandare un valore lo smentirebbe. Vedi `COME_CONFIGURATO`.
+ * Anche quando coincide col predefinito. Il campo che parte e' quello che torna
+ * in `ConfigView`, e una richiesta che tace lascerebbe decidere al server una
+ * cosa che sullo schermo appare gia' decisa — con la differenza, ora che i
+ * controlli mostrano i valori veri, che sullo schermo c'e' scritto **quale**.
  */
-export function campiRichiesta(o: Opzioni): Partial<QueryRequest> {
-  const a = o.avanzate;
+export function campiRichiesta(o: Opzioni, predefiniti: ConfigView): Partial<QueryRequest> {
   return {
     rag: o.rag,
-    reasoning_effort: o.ragionamento ? SFORZO.acceso : SFORZO.spento,
-    ...(o.modello !== COME_CONFIGURATO && { model: o.modello }),
-    ...(a.retrieval_mode !== COME_CONFIGURATO && { retrieval_mode: a.retrieval_mode }),
-    ...(a.rerank !== null && { rerank: a.rerank }),
-    ...(a.top_k !== null && { top_k: a.top_k }),
-    ...(a.hnsw_ef !== null && { hnsw_ef: a.hnsw_ef }),
+    reasoning_effort: o.ragionamento ? sforzoAcceso(predefiniti) : SFORZO.spento,
+    model: o.modello,
+    retrieval_mode: o.retrieval_mode,
+    rerank: o.rerank,
+    top_k: o.top_k,
+    hnsw_ef: o.hnsw_ef,
   };
 }
 

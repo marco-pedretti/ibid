@@ -16,11 +16,16 @@
 import { createContext, useCallback, useContext, useMemo, useState } from "react";
 import type { ReactNode } from "react";
 
-import { PREDEFINITE } from "./opzioni";
+import type { ConfigView } from "../api/types";
+import { usaBackend } from "./backend";
+import { opzioniDa } from "./opzioni";
 import type { Opzioni } from "./opzioni";
 
 interface Barra {
-  opzioni: Opzioni;
+  /** `null` finche' non si sa da quali valori si parte: i controlli non hanno
+   *  niente da mostrare, e inventarglielo e' proprio cio' che si e' tolto. */
+  opzioni: Opzioni | null;
+  predefiniti: ConfigView | null;
   /** Cambia **una** voce. Un `setOpzioni` esposto intero lascerebbe a chi chiama
    *  il compito di ricopiare le altre, che e' il modo in cui una si perde. */
   cambia: <K extends keyof Opzioni>(chiave: K, valore: Opzioni[K]) => void;
@@ -29,15 +34,29 @@ interface Barra {
 const Contesto = createContext<Barra | null>(null);
 
 export function ProvvedeBarra({ children }: { children: ReactNode }) {
-  const [opzioni, setOpzioni] = useState<Opzioni>(PREDEFINITE);
+  const { backend } = usaBackend();
+  // **Solo cio' che e' stato toccato.** Le altre voci si prendono dai
+  // predefiniti a ogni render, senza un effetto che le copi nello stato: cosi'
+  // non esiste il render in cui le due sorgenti non concordano, ed e' lo stesso
+  // motivo per cui `dataset.tsx` deriva la scelta invece di sincronizzarla.
+  const [mosse, setMosse] = useState<Partial<Opzioni>>({});
+
+  const predefiniti = backend.stato === "pronto" ? backend.predefiniti : null;
+  const opzioni = useMemo(
+    () => (predefiniti === null ? null : { ...opzioniDa(predefiniti), ...mosse }),
+    [predefiniti, mosse],
+  );
 
   const cambia = useCallback(
     <K extends keyof Opzioni>(chiave: K, valore: Opzioni[K]) =>
-      setOpzioni((o) => ({ ...o, [chiave]: valore })),
+      setMosse((m) => ({ ...m, [chiave]: valore })),
     [],
   );
 
-  const valore = useMemo(() => ({ opzioni, cambia }), [opzioni, cambia]);
+  const valore = useMemo(
+    () => ({ opzioni, predefiniti, cambia }),
+    [opzioni, predefiniti, cambia],
+  );
   return <Contesto.Provider value={valore}>{children}</Contesto.Provider>;
 }
 

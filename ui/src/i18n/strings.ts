@@ -105,13 +105,13 @@ export const it = {
   "bar.reasoning.hint":
     "Fa ragionare il modello prima che risponda. L'abbiamo misurato: +0,6 punti di citazioni ben formate, 9,5× i token, e sui bilanci le domande a cui rifiuta di rispondere passano da 56 a 90 su 200.",
   "bar.model": "Modello",
-  "bar.model.default": "come configurato",
+  "bar.default": "predefinito",
   "bar.model.hint":
     "Chi risponde. Con un buon recupero la taglia del modello conta meno del previsto: è una delle cose che questo progetto misura.",
-  // Elenco vuoto ≠ elenco assente: il servizio non ha raggiunto l'endpoint dei
-  // modelli, e mostrare quello configurato affermerebbe che esiste.
+  // Il nome si sa comunque, lo dice `/config`: ciò che manca non è sapere chi
+  // risponde, è poterlo cambiare — e la frase dice quello.
   "bar.model.none":
-    "L'elenco dei modelli non è arrivato: risponde quello configurato nel servizio. Resta vuoto invece di mostrarne uno che non abbiamo potuto verificare.",
+    "L'elenco dei modelli non è arrivato dal servizio di inferenza: risponde quello configurato, e per ora non si può cambiare.",
   "bar.advanced": "Avanzate",
   "bar.advanced.hint":
     "Come si cerca nel corpus, prima che il modello scriva. Stanno chiuse di proposito: confrontare configurazioni è il lavoro del cruscotto, non di qui.",
@@ -119,8 +119,12 @@ export const it = {
   "bar.advanced.rerank": "Riordino",
   "bar.advanced.on": "acceso",
   "bar.advanced.off": "spento",
+  "bar.advanced.auto": "auto",
+  "bar.advanced.less": "Un passo in giù",
+  "bar.advanced.more": "Un passo in su",
+  "bar.advanced.reset": "Torna al predefinito",
   "bar.advanced.note":
-    "Quello che non tocchi resta come l'ha configurato il servizio: si manda solo ciò che scegli.",
+    "Ogni manopola parte da come l’ha configurata il servizio, e quella voce è marcata nel menu. Se la sposti, torna indietro col segno accanto al numero.",
 
   // Il confronto. È un'azione su una risposta già data, non un secondo
   // messaggio: le parole dicono «la stessa domanda», mai «chiedi di nuovo».
@@ -324,11 +328,11 @@ export const en: Record<Chiave, string> = {
   "bar.reasoning.hint":
     "Lets the model reason before it answers. We measured it: +0.6 points of well-formed citations, 9.5× the tokens, and on the ledgers the questions it refuses to answer go from 56 to 90 out of 200.",
   "bar.model": "Model",
-  "bar.model.default": "as configured",
+  "bar.default": "default",
   "bar.model.hint":
     "Who answers. With good retrieval, model size matters less than expected: it is one of the things this project measures.",
   "bar.model.none":
-    "The model list did not arrive: the one configured in the service answers. It stays empty rather than showing one we could not verify.",
+    "The model list did not arrive from the inference service: the configured one answers, and for now it cannot be changed.",
   "bar.advanced": "Advanced",
   "bar.advanced.hint":
     "How the corpus is searched, before the model writes. Closed on purpose: comparing configurations is the dashboard's job, not this one's.",
@@ -336,8 +340,12 @@ export const en: Record<Chiave, string> = {
   "bar.advanced.rerank": "Reranking",
   "bar.advanced.on": "on",
   "bar.advanced.off": "off",
+  "bar.advanced.auto": "auto",
+  "bar.advanced.less": "One step down",
+  "bar.advanced.more": "One step up",
+  "bar.advanced.reset": "Back to the default",
   "bar.advanced.note":
-    "Whatever you leave alone stays as the service configured it: only what you choose is sent.",
+    "Every knob starts from how the service configured it, and that entry is marked in the menu. If you move it, the sign next to the number brings it back.",
 
   "compare.action.bare": "Compare without the sources",
   "compare.action.sourced": "Compare with the sources",

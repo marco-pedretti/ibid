@@ -75,6 +75,26 @@ export function Caret(p: PropsIcona) {
   );
 }
 
+/** Un passo in giu' su una manopola numerica. */
+export function Meno(p: PropsIcona) {
+  return (
+    <Base {...p}>
+      <path d="M3.6 8 L12.4 8" />
+    </Base>
+  );
+}
+
+/** Rimette una manopola sul valore configurato: l'arco che torna al punto di
+ *  partenza, e non una freccia, perche' non porta *indietro di uno*. */
+export function Ritorno(p: PropsIcona) {
+  return (
+    <Base {...p}>
+      <path d="M3.4 8 A4.6 4.6 0 1 1 5.9 12.1" />
+      <path d="M3.4 4.8 L3.4 8 L6.6 8" />
+    </Base>
+  );
+}
+
 /** Torna da dove si era arrivati. Sul confronto, che e' l'unica schermata da
  *  cui si esce invece di cambiare pagina. */
 export function Indietro(p: PropsIcona) {
