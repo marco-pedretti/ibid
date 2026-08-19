@@ -95,6 +95,24 @@ export function Piu(p: PropsIcona) {
   );
 }
 
+/**
+ * Butta via. L'unico comando dell'interfaccia che distrugge, ed e' l'unico posto
+ * dove il token `danger` compare.
+ *
+ * Tre tratti e non di piu': coperchio, presa, corpo. Le righine verticali che i
+ * cestini disegnati in grande hanno dentro, a 12 px diventano un'ombra grigia —
+ * e quello che deve arrivare a quella misura e' la sagoma.
+ */
+export function Cestino(p: PropsIcona) {
+  return (
+    <Base {...p}>
+      <path d="M3.2 5.2 L12.8 5.2" />
+      <path d="M6.3 5.2 L6.3 3.3 L9.7 3.3 L9.7 5.2" />
+      <path d="M4.7 5.2 L5.3 12.9 L10.7 12.9 L11.3 5.2" />
+    </Base>
+  );
+}
+
 /* --- i tre temi ----------------------------------------------------------
    Tre forme che si distinguono **di silhouette** e non di dettaglio: a 12 px il
    dettaglio non arriva, e tre cerchi con dentro cose diverse sarebbero tre

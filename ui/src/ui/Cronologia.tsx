@@ -22,9 +22,11 @@
  * passaggio di distanza invece di occupare cinque righe di una corsia larga
  * 200 px.
  *
- * **Cancellare e' a due tempi**, e il comando sta nella riga dell'etichetta in
- * 9,5 px: e' la via d'uscita da una cronologia che si e' riempita provando, non
- * un comando del lavoro normale. Vedi `Cancella` per il perche' dei due tempi.
+ * **Cancellare e' a due tempi**, e il comando e' un cestino nella riga
+ * dell'etichetta: e' la via d'uscita da una cronologia che si e' riempita
+ * provando, non un comando del lavoro normale. E' l'unico posto in cui compare il
+ * rosso — `danger` non e' un `warn` piu' acceso, e' il colore di cio' che
+ * distrugge. Vedi `Testata` per il resto.
  *
  * **L'elenco compare quando c'e' qualcosa dentro.** Al primo avvio ci sarebbero
  * un'etichetta e il vuoto; il bottone invece c'e' sempre, perche' e' un comando e
@@ -48,7 +50,7 @@ import { titoloDi, vuota } from "../app/cronologia";
 import type { Conversazione } from "../app/cronologia";
 import { usaLingua } from "../app/i18n";
 import { Etichetta } from "./Etichetta";
-import { Piu } from "./Icona";
+import { Cestino, Piu } from "./Icona";
 import { Suggerimento } from "./Suggerimento";
 
 /** Quanto resta armato «Cancella» prima di tornare innocuo. Abbastanza per un
@@ -66,15 +68,7 @@ export function Cronologia() {
 
       {voci.length > 0 && (
         <section className="flex min-h-0 flex-1 flex-col">
-          <div className="mb-[7px] flex items-baseline justify-between gap-2 px-1">
-            {/* Il suggerimento sta **dentro** l'etichetta e non attorno: il
-                bersaglio di `Suggerimento` e' uno `<span>`, e un titolo dentro
-                uno span non e' annidamento valido. */}
-            <Etichetta>
-              <Suggerimento testo={t("history.hint")}>{t("history.title")}</Suggerimento>
-            </Etichetta>
-            <Cancella />
-          </div>
+          <Testata />
 
           {/* Scorre l'elenco, non la corsia: la tendina del dataset sta sopra e
               fuori da qui, quindi nessun contenitore di scorrimento la puo'
@@ -125,7 +119,14 @@ function BottoneNuova() {
 }
 
 /**
- * «Cancella», e al secondo clic cancella davvero.
+ * Il nome della sezione e il cestino — e quando il cestino e' armato, la riga
+ * **diventa la domanda**.
+ *
+ * E' la sola forma che ci sta. Il cestino da solo non puo' dire «ancora un clic»
+ * (un'icona che cambia colore dice che e' cambiato qualcosa, non cosa), e la
+ * parola accanto al nome non entra: in 176 px «CRONOLOGIA LOCALE» piu' una
+ * conferma escono dalla corsia. Sostituendo il nome invece c'e' spazio, e la
+ * domanda finisce nel posto dove si stava guardando.
  *
  * **A due tempi, e non un `confirm()` del browser**: colori e forma del sistema
  * operativo in mezzo a un'interfaccia che ha i propri, cioe' lo stesso difetto
@@ -135,11 +136,11 @@ function BottoneNuova() {
  * entro pochi secondi, poi il comando si disarma da se': un bottone che resta
  * armato aspetta un clic che qualcuno dara' mezz'ora dopo senza ricordarsi.
  *
- * Sta nella riga dell'etichetta e in 9,5 px perche' non e' una cosa da fare
- * spesso: e' la via d'uscita da una cronologia che si e' riempita provando, non
- * un comando del lavoro normale.
+ * Il cestino e' **solo l'icona**, con il nome nell'`aria-label`: in questa riga
+ * la parola sarebbe la terza cosa in 176 px, e il §12 ammette l'icona sola
+ * quando il controllo porta il proprio nome per chi ascolta.
  */
-function Cancella() {
+function Testata() {
   const { t } = usaLingua();
   const { occupato, svuota } = usaChat();
   const [armato, setArmato] = useState(false);
@@ -151,21 +152,37 @@ function Cancella() {
   }, [armato]);
 
   return (
-    <Attivabile
-      bloccato={occupato}
-      suggerimento={armato ? t("history.clear.again") : t("history.clear.hint")}
-      onClick={() => {
-        if (armato) svuota();
-        setArmato(!armato);
-      }}
-      className={`shrink-0 rounded px-1 py-px font-mono text-[9.5px] tracking-[0.06em] uppercase transition-colors ${
-        armato ? "bg-warn-soft font-semibold text-warn"
-        : occupato ? "text-muted"
-        : "text-muted hover:text-ink-2"
-      }`}
-    >
-      {armato ? t("history.clear.confirm") : t("history.clear")}
-    </Attivabile>
+    <div className="mb-[7px] flex items-center justify-between gap-2 px-1">
+      {armato ? (
+        <p className="min-w-0 truncate font-mono text-[9.5px] font-semibold tracking-[0.12em] text-danger uppercase">
+          {t("history.clear.confirm")}
+        </p>
+      ) : (
+        // Il suggerimento sta **dentro** l'etichetta e non attorno: il bersaglio
+        // di `Suggerimento` e' uno `<span>`, e un titolo dentro uno span non e'
+        // annidamento valido.
+        <Etichetta>
+          <Suggerimento testo={t("history.hint")}>{t("history.title")}</Suggerimento>
+        </Etichetta>
+      )}
+
+      <Attivabile
+        bloccato={occupato}
+        etichetta={t("history.clear")}
+        suggerimento={armato ? t("history.clear.again") : t("history.clear.hint")}
+        onClick={() => {
+          if (armato) svuota();
+          setArmato(!armato);
+        }}
+        className={`shrink-0 rounded p-[3px] transition-colors ${
+          armato ? "bg-danger-soft text-danger"
+          : occupato ? "text-muted"
+          : "text-muted hover:bg-danger-soft hover:text-danger"
+        }`}
+      >
+        <Cestino size={12} />
+      </Attivabile>
+    </div>
   );
 }
 
@@ -205,6 +222,7 @@ function Attivabile({
   bloccato,
   suggerimento,
   attiva = false,
+  etichetta,
   onClick,
   className,
   children,
@@ -212,6 +230,10 @@ function Attivabile({
   bloccato: boolean;
   suggerimento: string | null;
   attiva?: boolean;
+  /** Il nome del comando quando dentro c'e' solo un'icona: le icone sono
+   *  `aria-hidden` per costruzione, quindi senza questo il bottone non ne
+   *  avrebbe nessuno. */
+  etichetta?: string;
   onClick: () => void;
   className: string;
   children: ReactNode;
@@ -219,6 +241,7 @@ function Attivabile({
   const bottone = (
     <button
       type="button"
+      aria-label={etichetta}
       aria-current={attiva ? "true" : undefined}
       aria-disabled={bloccato ? true : undefined}
       onClick={() => {

@@ -77,8 +77,11 @@ export const it = {
   // Sulle voci mentre una risposta sta arrivando: dice **cosa fare**, non solo
   // che non si può. Lo stream scrive in una conversazione sola.
   "history.busy": "Aspetta che la risposta finisca, o premi «Ferma».",
-  "history.clear": "Cancella",
-  "history.clear.confirm": "Confermi?",
+  // Il nome del cestino per chi ascolta: nella riga è solo un'icona.
+  "history.clear": "Cancella la cronologia",
+  // Armato, questa domanda **prende il posto** del nome della sezione: accanto
+  // non ci starebbe, e sotto il puntatore c'è già il cestino a cui rispondere.
+  "history.clear.confirm": "Cancellare tutto?",
   "history.clear.hint":
     "Toglie tutte le conversazioni da questo browser: chiede un secondo clic, e non si torna indietro.",
   "history.clear.again": "Ancora un clic e sono via.",
@@ -259,8 +262,8 @@ export const en: Record<Chiave, string> = {
     "Conversations stay in this browser: no account and no server, so you will not find them on another machine.",
   "history.new": "New conversation",
   "history.busy": "Wait for the answer to finish, or press “Stop”.",
-  "history.clear": "Clear",
-  "history.clear.confirm": "Confirm?",
+  "history.clear": "Clear the history",
+  "history.clear.confirm": "Clear everything?",
   "history.clear.hint":
     "Removes every conversation from this browser: it asks for a second click, and there is no undo.",
   "history.clear.again": "One more click and they are gone.",
