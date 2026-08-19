@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import type { ConfigView } from "../api/types";
-import { configPrecedente, differenze, intera } from "./parametri";
+import { configDi, configPrecedente, differenze, intera } from "./parametri";
 
 const CONFIG: ConfigView = {
   top_k: 5,
@@ -20,7 +20,10 @@ const CONFIG: ConfigView = {
   verify: true,
 };
 
-const scambio = (config: ConfigView | null) => ({ risposta: { config } });
+const scambio = (config: ConfigView | null, chiesto: ConfigView | null = null) => ({
+  risposta: { config },
+  chiesto,
+});
 
 describe("cosa e' cambiato", () => {
   it("niente, se la configurazione e' la stessa", () => {
@@ -49,6 +52,27 @@ describe("cosa e' cambiato", () => {
       { campo: "temperature", prima: 0, dopo: 0.7 },
     ]);
     expect(intera(CONFIG).map((d) => d.campo)).toEqual(Object.keys(CONFIG));
+  });
+});
+
+describe("cosa mostrare, e quando", () => {
+  it("cosa ha girato batte cosa era stato chiesto", () => {
+    // `config` e' la verita' del server, `chiesto` cio' che avevamo mandato.
+    // Quando non coincidono, quella che conta e' la prima.
+    const girato = { ...CONFIG, top_k: 3 };
+    expect(configDi(scambio(girato, CONFIG))).toBe(girato);
+  });
+
+  it("finche' `done` non arriva si mostra cio' che era stato chiesto", () => {
+    // Senza questo la riga comparirebbe solo a generazione finita, cioe'
+    // direbbe cosa e' cambiato **dopo** che la risposta l'ha gia' subito.
+    expect(configDi(scambio(null, CONFIG))).toBe(CONFIG);
+  });
+
+  it("null solo quando non si sa nessuna delle due", () => {
+    // Uno scambio riletto da un deposito scritto prima di U-15. Li' la riga
+    // tace, perche' «non si sa» non e' «non e' cambiato niente».
+    expect(configDi(scambio(null, null))).toBeNull();
   });
 });
 

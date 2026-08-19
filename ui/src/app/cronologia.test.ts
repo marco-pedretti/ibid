@@ -75,7 +75,7 @@ function conclusa(testo = "Il valore è 0.0226 [1]."): Risposta {
 }
 
 function scambio(domanda: string, risposta: Risposta): Scambio {
-  return { id: `s-${domanda}`, domanda, risposta };
+  return { id: `s-${domanda}`, domanda, risposta, chiesto: null };
 }
 
 function conv(

@@ -46,32 +46,47 @@ export function differenze(prima: ConfigView | null, dopo: ConfigView): Differen
     .map((k) => ({ campo: k, prima: p === null ? undefined : p[k], dopo: d[k] }));
 }
 
+/** Il minimo di uno scambio che serve qui: cosa ha girato, e cosa era stato
+ *  chiesto. Strutturale invece di `Scambio` intero perche' i test non devono
+ *  costruire una `Risposta` finta per provare una differenza. */
+export interface ConParametri {
+  risposta: { config: ConfigView | null };
+  chiesto: ConfigView | null;
+}
+
 /**
- * La configurazione di uno scambio, quando esiste.
+ * La configurazione da mostrare per uno scambio.
  *
- * `null` mentre la risposta arriva, e su una interrotta o caduta: `config` viene
- * con `done`, che li' non e' mai arrivato. Chi legge deve saper distinguere «non
- * e' cambiato niente» da «non si sa cosa ha girato», e le due cose non possono
- * essere lo stesso valore.
+ * **Cosa ha girato batte cosa e' stato chiesto**, e non il contrario: `config`
+ * e' la verita' del server, `chiesto` e' cio' che avevamo mandato. Quasi sempre
+ * coincidono; quando non coincidono, quella che conta e' la prima.
+ *
+ * Ma `config` arriva con `done`, cioe' dopo ~11 s, e una riga che comparisse
+ * solo a generazione finita direbbe cosa e' cambiato **dopo** che la risposta
+ * l'ha gia' subito. Quindi nel frattempo si mostra `chiesto`, che si conosce
+ * nell'istante dell'invio, e all'arrivo di `done` viene sostituito senza che si
+ * veda — se le due configurazioni concordano, e concordano sempre tranne quando
+ * c'e' qualcosa da sapere.
+ *
+ * `null` solo quando non si sa **nessuna** delle due: uno scambio riletto da un
+ * deposito scritto prima di U-15, o interrotto prima ancora di partire. Li' la
+ * riga tace, perche' «non si sa» non e' «non e' cambiato niente».
  */
-export function configDi(scambio: { risposta: { config: ConfigView | null } }): ConfigView | null {
-  return scambio.risposta.config;
+export function configDi(scambio: ConParametri): ConfigView | null {
+  return scambio.risposta.config ?? scambio.chiesto;
 }
 
 /**
  * L'ultima configurazione **conosciuta** prima dell'indice `i`.
  *
- * Si salta all'indietro sulle risposte senza `config` invece di trattarle come
- * una rottura: una generazione fermata a meta' non ha cambiato niente, e
- * mostrare «tutto cambiato» dopo un «Ferma» direbbe una cosa falsa su un gesto
- * che non ha toccato nessun parametro.
+ * Si salta all'indietro sugli scambi che non ne hanno nessuna invece di
+ * trattarli come una rottura: una generazione fermata prima di partire non ha
+ * cambiato niente, e mostrare «tutto cambiato» dopo un «Ferma» direbbe una cosa
+ * falsa su un gesto che non ha toccato nessun parametro.
  */
-export function configPrecedente(
-  scambi: readonly { risposta: { config: ConfigView | null } }[],
-  i: number,
-): ConfigView | null {
+export function configPrecedente(scambi: readonly ConParametri[], i: number): ConfigView | null {
   for (let k = i - 1; k >= 0; k -= 1) {
-    const c = scambi[k].risposta.config;
+    const c = configDi(scambi[k]);
     if (c !== null) return c;
   }
   return null;
