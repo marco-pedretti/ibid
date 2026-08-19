@@ -37,6 +37,7 @@ import {
   finestraDi,
   modelli as modelliDelCatalogo,
   modelloDi,
+  risolvi,
 } from "../app/catalogo";
 import { avanzateToccate, modelloInstallato, ragionamentoDisponibile } from "../app/opzioni";
 import type { Opzioni } from "../app/opzioni";
@@ -345,7 +346,13 @@ function MenuFinestre({ catalogo }: { catalogo: readonly ModelView[] }) {
       <Menu
         etichetta={t("bar.context")}
         valore={opzioni.modello}
-        predefinito={finestraDi(elenco, predefiniti.model)?.modello ?? attuale.finestre[0].modello}
+        // **Lo stesso `risolvi` che decide da dove si parte.** Calcolarlo in un
+        // altro modo era il difetto: `finestraDi` sul modello base non trova
+        // niente -- il base non e' piu' una finestra -- e si ripiegava sulla
+        // prima taglia, cioe' 8k. Risultato: la pastiglia si apriva gia'
+        // accento, come se qualcuno avesse mosso qualcosa, e il menu marcava
+        // «predefinito» una voce che non lo era.
+        predefinito={risolvi(elenco, predefiniti.model)}
         voci={attuale.finestre.map((f) => ({
           valore: f.modello,
           testo: nome(f),

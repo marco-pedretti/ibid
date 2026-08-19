@@ -79,6 +79,17 @@ describe("il catalogo diventa due scelte", () => {
     expect(risolvi(modelli([BASE, sedici, cento]), "gemma4:e2b")).toBe("g-16k");
   });
 
+  it("la taglia di partenza e' anche quella marcata «predefinito»", () => {
+    // Le due cose devono venire dalla **stessa** funzione: calcolarle in due
+    // modi e' cio' che faceva aprire la pastiglia gia' accento -- come se
+    // qualcuno avesse mosso qualcosa -- e marcare predefinita una voce che non
+    // lo era.
+    const e = modelli([BASE, OTTO, TRENTADUE]);
+    const partenza = risolvi(e, "gemma4:e2b");
+    expect(partenza).toBe("gemma4-32k");
+    expect(risolvi(e, "gemma4:e2b")).toBe(partenza);
+  });
+
   it("una taglia gia' scelta non viene risolta di nuovo", () => {
     expect(risolvi(modelli([BASE, OTTO, TRENTADUE]), "gemma4-8k")).toBe("gemma4-8k");
   });
