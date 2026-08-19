@@ -50,11 +50,16 @@ export function Parametri({
   const primaRiga = precedente === null;
   if (cambiati.length === 0 && !primaRiga) return null;
 
+  // La prima riga dice **con cosa e' partita**, non da cosa si e' allontanata:
+  // `partita con rag no · top_k 12` si legge, `partita con rag sì → no` no —
+  // e' una freccia che punta a un valore che quella conversazione non ha mai
+  // avuto. Che i campi siano elencati **e'** gia' il segnale che differiscono
+  // dai predefiniti: se coincidessero, qui ci sarebbe l'altra frase.
   const testo =
     cambiati.length === 0
       ? t("params.default")
       : primaRiga
-        ? `${t("params.start")} ${elenca(cambiati, t, lingua)}`
+        ? `${t("params.start")} ${elenca(soloValori(cambiati), t, lingua)}`
         : elenca(cambiati, t, lingua);
 
   return (
@@ -66,6 +71,12 @@ export function Parametri({
       {testo}
     </Suggerimento>
   );
+}
+
+/** Le stesse differenze lette come valori: `prima: undefined` e' gia' la forma
+ *  che `elenca` disegna senza freccia, quindi non serve un secondo formato. */
+function soloValori(d: readonly Differenza[]): Differenza[] {
+  return d.map((x) => ({ ...x, prima: undefined }));
 }
 
 /** `rag sì → no · top_k 5 → 12`. Il separatore e' quello dei tempi nella riga
