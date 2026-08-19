@@ -1600,6 +1600,7 @@ Per la stessa ragione `/document/{doc_id}/chunks` restituisce i chunk **in ordin
 | U-00 | âœ… fatto (2026-08-14) | Scheletro `ui/`: Vite 8 + React 19 + TypeScript 7 + Tailwind 4, client SSE scritto a mano, temi, i18n IT/EN, `/datasets` all'avvio. **19 test Vitest** + 15 test Python sul contratto generato. `npm run typecheck && npm test && npm run build` verdi; catena provata contro l'API viva. Dettaglio sotto. |
 | U-01 | ✅ fatto (2026-08-14) | Selettore dataset nella corsia laterale del mockup, scelta ricordata in `localStorage` e **validata** contro `/datasets`. La regola di selezione è in funzioni pure: **9 test Vitest** in più (28 in tutto), senza jsdom. Provato contro l'API viva: `open_ragbench` 18.840 e `ledger` 47.110 chunk. Dettaglio sotto. |
 | U-02 | ✅ fatto (2026-08-14) | Schermata di chat con **pannello fonti sempre visibile** (nel telaio, non nella chat): otto stati, uno per evento del §3.5, macchina a stati in un reducer puro con **16 test** (44 lato Vitest). Marcatori inerti finché non arriva `answer`. I valori di `abstention` ora sono generati come i tipi. Esempi dello stato vuoto presi da `eval/golden`. Provato contro l'API viva su una query d'oro reale. **Rendering LaTeX** con KaTeX, regola dei delimitatori misurata: 49 falsi positivi tolti su 49, zero formule vere perse. Dettaglio sotto. |
+| U-16 | ✅ fatto (2026-08-19) | **Modello e contesto, due selettori**: il primo elenca i modelli, il secondo le finestre che quel modello regge — e compare solo quando ce n'è più di una. Nessuna convenzione sui nomi: il raggruppamento passa da `parent_model`. Con `scripts/model_sizes.py` che crea le taglie. **15 test Vitest** in più (198 in tutto). Dettaglio sotto. |
 | A-08 | ✅ fatto (2026-08-19) | **Il catalogo dei modelli**: `Capabilities` porta famiglia, finestra massima e quantizzazione di ciascuno. La finestra si legge **per pattern** (`*.context_length`), quindi vale per qualunque famiglia — e il massimo non è uno solo: 131.072 per `gemma4:latest`, 262.144 per `gemma4:12b`. **12 test** in più (1690 in tutto). Additivo: `models` invariato. Dettaglio sotto. |
 | U-15 | ✅ fatto (2026-08-19) | **Con quali parametri e' stata data ogni risposta**: la configurazione che ha girato si rilegge nella conversazione, e fra una domanda e l'altra si vede cosa è cambiato. **Nessun campo nuovo**: `ConfigView` era già dentro ogni risposta e già nel deposito da U-13. **11 test Vitest** in più (183 in tutto). Dettaglio sotto. |
 | U-14 | ✅ fatto (2026-08-19) | **Markdown e LaTeX nella risposta**: il prompt li invita invece di vietarli, e l'interfaccia li disegna — come **intervalli sul testo grezzo**, così verdetti per frase e frasi scoperte restano allineati. **15 test Vitest** in più (172 in tutto). Debito dichiarato: `prompt_hash` cambia, C-01/C-02/C-07 da rimisurare. Dettaglio sotto. |
@@ -2353,3 +2354,127 @@ coprono il catalogo e il caso del motore muto.
 
 **1690 test Python** (10 nuovi sul catalogo, 2 sugli endpoint), 183 Vitest,
 typecheck verde, tipi TypeScript rigenerati.
+
+### U-16 — due manopole sopra un nome solo
+
+Chi usa la demo sceglie **il modello** e **quanto contesto**, indipendentemente,
+perché sono due domande diverse: *chi risponde* e *quanto testo gli entra*. Che
+sotto la coppia sia un singolo nome nel catalogo di Ollama è un dettaglio
+dell'implementazione, e non affiora: il primo selettore elenca `gemma4:e2b`, non
+`gemma4:e2b-8k` accanto a `gemma4:e2b-32k`.
+
+**Il raggruppamento non interpreta i nomi.** Ogni voce derivata porta il proprio
+`parent`, che il motore dichiara (A-08). Dedurre `gemma4-8k` → `gemma4`
+spezzando una stringa sarebbe una convenzione dentro l'interfaccia, e le
+convenzioni si rompono il giorno in cui qualcuno chiama un modello diversamente
+— c'è un test con una taglia chiamata `taglia-corta`, cioè un nome che nessuna
+convenzione riconoscerebbe.
+
+Attenzione a una trappola vicina: **raggruppare per `family` sarebbe sbagliato**.
+`gemma4:e2b` e `gemma4:12b` hanno la stessa famiglia e sono due modelli diversi;
+per famiglia si sarebbero fusi in una voce sola.
+
+#### Il secondo selettore compare solo quando c'è una scelta
+
+Se quel modello ha una finestra sola — perché nessuno ne ha create altre, o
+perché il motore non pubblica il catalogo — un menu da una voce non è un
+controllo: è un'etichetta che gli assomiglia. Sparisce, come sparisce il
+ragionamento quando l'asse non c'è.
+
+E senza catalogo si continua a scegliere il modello: `daNomi` costruisce la
+stessa forma dalla lista piatta. Su un server più vecchio di A-08, o su un motore
+che non è Ollama, si perde la scelta della finestra e non quella del modello.
+
+**Le taglie offerte sono solo quelle che il modello regge.** Il massimo non è uno
+solo — 131.072 per `gemma4:e2b`, 262.144 per `gemma4:12b` — quindi non esiste una
+lista valida per tutti. Una taglia che compare e poi fallisce è peggio di una che
+non compare: fa scoprire il limite dopo l'attesa, e per giunta come un errore
+invece che come un vincolo. Senza un massimo noto si offre tutto, perché
+nascondere per un limite non dichiarato sarebbe inventare un vincolo.
+
+#### Cambiare modello tiene la finestra
+
+Chi confronta due modelli sulla stessa domanda sta cambiando **una** cosa:
+ripartire dal default gliene cambierebbe due sotto le mani, che è il §15 rotto
+dentro un menu. `conModello` sceglie la finestra più vicina a quella che si
+aveva fra quelle che il nuovo modello ha.
+
+#### Chi crea le taglie
+
+`scripts/model_sizes.py`, e non un campo della richiesta — la ragione è misurata
+in A-08. Riceve le taglie, non le indovina: restringerle a quelle che la macchina
+regge è **X-05**, rinviato di proposito. Rifiuta una taglia oltre il massimo
+dell'architettura, perché altrimenti la creerebbe e il menu non la mostrerebbe,
+lasciandola invisibile e non spiegata.
+
+Il suffisso `-8k` è per chi legge `ollama list`, **non** per il programma: il
+raggruppamento passa da `parent_model`. Se fosse il nome a decidere, rinominare
+un modello a mano lo scollegherebbe dal suo gruppo in silenzio.
+
+Provato per intero: `262144` su `gemma4:e2b` viene rifiutato (regge 131.072),
+`8192` crea `gemma4:e2b-8k`, e il catalogo lo rilegge con `parent='gemma4:e2b'` e
+`context=8192`. `ollama create` da un modello già scaricato riusa i blob, quindi
+non scarica e non duplica i pesi.
+
+**198 test Vitest** (15 nuovi sul catalogo), 1699 Python, typecheck e build verdi.
+
+#### Cinque correzioni alla revisione, e la piu' utile e' la prima
+
+**«L'utente non dovrebbe occuparsi di questo.»** Le taglie sono modelli derivati,
+e chiedere a chi guarda di crearli significava che il selettore non esisteva
+finché non aveva letto la documentazione giusta. `--assicura` è idempotente e la
+chiama `scripts/dev.py` a ogni avvio. **Non la chiama il servizio**, ed è una
+decisione: `LLM_BASE_URL` può puntare a un motore condiviso o su un'altra
+macchina, e un backend che scrivesse modelli nel registro di qualcun altro a ogni
+avvio modificherebbe lo stato di chi non ha chiesto niente.
+
+**La scala arriva al massimo del modello, e la cautela di partenza era falsa.**
+Si era fermata a 32k temendo che una finestra troppo grande facesse *fallire* la
+generazione. La documentazione di Ollama dice il contrario: quando la cache delle
+chiavi non entra in VRAM, il motore sposta parte del modello in RAM di sistema e
+continua — molto più lento, non rotto. Quindi il costo è un rallentamento, e un
+rallentamento **si vede**: la riga dei tempi lo mostra a ogni risposta.
+Nascondere una scelta per un costo visibile toglie proprio la misura che il
+progetto esiste per far vedere.
+
+**I pioli sono nostri, il tetto no — e mancava un pezzo.** `context_max` si
+leggeva già dal motore, ma la scala era una lista fissa che veniva solo tagliata:
+un modello il cui massimo non cade su una potenza di due non avrebbe mai visto la
+propria finestra più grande. Oggi non si notava — i quattro installati hanno
+massimi di 128k e 256k, che *sono* pioli — e sarebbe stato il difetto che si
+scopre con un modello nuovo e sembra un guasto di quel modello.
+
+**Via la voce «non fissata».** Il modello base non scrive `num_ctx`, quindi la
+finestra la sceglie il servizio e il numero non lo sappiamo: in un menu di misure
+era l'unica voce che non era una misura. Nessuna riscrittura dell'etichetta la
+rendeva meno vaga, perché il problema era la voce. Si parte da **32k**, la
+finestra con cui il progetto misura, e su un modello che non ce l'ha si prende la
+più vicina e non la più grande — la più grande sarebbe la più lenta. La scelta
+guardata dall'hardware è X-05, dove quella voce torna come *una misura decisa
+dalla macchina* invece che come un'incognita.
+
+**Il predefinito si calcola come il valore di partenza.** La pastiglia si apriva
+in accento — il tono che qui significa «qualcuno ha mosso questo» — e il menu
+marcava predefinita la taglia da 8k. Causa: `finestraDi` sul modello base non
+trova niente, perché il base non è più una finestra, e ripiegava sulla prima
+dell'elenco. Ora è lo stesso `risolvi` a decidere le due cose, che è la stessa
+disciplina per cui `campiRichiesta` è derivata da `configChiesta`.
+
+#### Una regressione, trovata misurando
+
+Con sedici modelli `/datasets` è passato a **38 secondi** — misurato sul processo
+vivo — perché `model_catalog()` chiedeva `/api/show` una volta per modello, in
+fila, ~2 s l'una. È la prima chiamata che il frontend fa all'avvio: la pagina
+sarebbe rimasta quaranta secondi in «Contatto il server…», che nessuno legge come
+lentezza.
+
+| | |
+|---|---|
+| prima | 35,2 s |
+| in parallelo, a freddo | **6,3 s** |
+| con la cache, a caldo | **2,0 s** |
+
+Servono tutti e due: la cache da sola avrebbe nascosto il costo alla seconda
+volta invece di toglierlo. Un fallimento **non** si memorizza — un motore muto
+adesso può rispondere fra un minuto — e un test fissa anche l'ordine, perché un
+menu che si riordina da solo fa saltare la selezione a chi ha appena scelto.

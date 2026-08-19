@@ -22,6 +22,7 @@ import json
 import urllib.error
 import urllib.request
 from collections.abc import Callable
+from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
 
 import src.config as cfg
@@ -208,6 +209,26 @@ def _nativo(base_url: str) -> str:
     return u[: -len("/v1")] if u.endswith("/v1") else u
 
 
+#: I dettagli gia' chiesti, per nome. **Non e' un'ottimizzazione prematura**:
+#: misurato il 2026-08-19, `/api/show` costa ~2 s e va chiesto una volta per
+#: modello, quindi con sedici modelli `/datasets` passava da 2 a **35 secondi** --
+#: e `/datasets` e' la prima chiamata che il frontend fa all'avvio.
+#:
+#: La chiave e' il nome, e i nomi vengono da `/v1/models` a ogni richiesta: un
+#: modello creato adesso non e' in cache e viene chiesto, uno cancellato sparisce
+#: dall'elenco e non viene piu' letto. Resta un caso scoperto, ed e' scritto qui
+#: perche' non si scopra da soli: un modello **sostituito tenendo lo stesso
+#: nome** continua a leggersi con i dettagli vecchi finche' il processo vive.
+_dettagli_noti: dict[str, ModelInfo] = {}
+
+
+def dimentica_modelli() -> None:
+    """Svuota la cache dei dettagli. Serve ai test e a chi ricrea i modelli
+    nello stesso processo -- non c'e' un momento, nel servizio, in cui valga la
+    pena chiamarla da sola."""
+    _dettagli_noti.clear()
+
+
 def model_catalog(
     base_url: str | None = None,
     *,
@@ -234,17 +255,32 @@ def model_catalog(
         return []
 
     chiedi = dettagli or _mostra
-    fuori: list[ModelInfo] = []
-    for nome in nomi:
+    nativo = _nativo(base)
+
+    def uno(nome: str) -> ModelInfo:
+        noto = _dettagli_noti.get(nome)
+        if noto is not None:
+            return noto
         try:
-            d = chiedi(_nativo(base), nome, 10)
+            d = chiedi(nativo, nome, 10)
         except Exception:
             # Un motore che non e' Ollama, o un modello sparito fra l'elenco e
-            # la domanda: si tiene il nome, che e' l'unica cosa certa.
-            fuori.append(ModelInfo(name=nome))
-            continue
-        fuori.append(_come_info(nome, d))
-    return fuori
+            # la domanda: si tiene il nome, che e' l'unica cosa certa. **Non si
+            # ricorda**: un motore che non risponde adesso puo' rispondere fra
+            # un minuto, e memorizzare il fallimento lo renderebbe permanente.
+            return ModelInfo(name=nome)
+        info = _come_info(nome, d)
+        _dettagli_noti[nome] = info
+        return info
+
+    # **In parallelo, e non e' una micro-ottimizzazione.** Sono richieste HTTP
+    # indipendenti da ~2 s l'una: in fila, sedici modelli costavano 35 s alla
+    # prima chiamata dopo un riavvio -- cioe' il primo caricamento della pagina.
+    # La cache da sola nasconde quel costo alla seconda volta invece di toglierlo.
+    # L'ordine resta quello dei nomi, che e' alfabetico: `map` lo conserva, e un
+    # menu che si riordina da solo fa saltare la selezione.
+    with ThreadPoolExecutor(max_workers=min(8, len(nomi))) as pool:
+        return list(pool.map(uno, nomi))
 
 
 def _mostra(base_nativo: str, nome: str, timeout: int) -> dict:

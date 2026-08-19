@@ -129,6 +129,19 @@ export const it = {
   // risponde, è poterlo cambiare — e la frase dice quello.
   "bar.model.none":
     "L'elenco dei modelli non è arrivato dal servizio di inferenza: risponde quello configurato, e per ora non si può cambiare.",
+  // Il secondo selettore di U-16. «Contesto» e non «finestra di contesto»: la
+  // pastiglia sta accanto ad altre quattro, e la parola lunga la fa a capo.
+  "bar.context": "Contesto",
+  // Il costo di una finestra grande è un **rallentamento**, non un guasto: se la
+  // memoria della scheda non basta il servizio continua sulla CPU. Dirlo qui è
+  // meglio che nascondere le taglie grandi, perché il rallentamento si vede da
+  // sé nella riga dei tempi.
+  "bar.context.hint":
+    "Quanto testo entra nel modello prima che risponda. Le finestre grandi tengono più fonti insieme ma occupano più memoria: oltre quella della scheda il servizio continua sulla CPU e diventa molto più lento.",
+  // Attenuata: la finestra e' una sola, e la pastiglia dice perche' invece di
+  // sparire -- sparendo, la funzione non esisterebbe per chi non sa dello script.
+  "bar.context.only":
+    "Questo modello ha una finestra sola. Per poter scegliere, creane altre con «scripts/model_sizes.py».",
   "bar.advanced": "Avanzate",
   "bar.advanced.hint":
     "Come si cerca nel corpus, prima che il modello scriva. Stanno chiuse di proposito: confrontare configurazioni è il lavoro del cruscotto, non di qui.",
@@ -362,6 +375,11 @@ export const en: Record<Chiave, string> = {
     "The configured model is not among those installed on the inference service: pick one from the list, or install it there.",
   "bar.model.none":
     "The model list did not arrive from the inference service: the configured one answers, and for now it cannot be changed.",
+  "bar.context": "Context",
+  "bar.context.hint":
+    "How much text fits into the model before it answers. Larger windows hold more sources at once but take more memory: past what the card has, the service keeps going on the CPU and gets much slower.",
+  "bar.context.only":
+    "This model has a single context size. To get a choice, create more with «scripts/model_sizes.py».",
   "bar.advanced": "Advanced",
   "bar.advanced.hint":
     "How the corpus is searched, before the model writes. Closed on purpose: comparing configurations is the dashboard's job, not this one's.",

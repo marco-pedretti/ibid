@@ -11,7 +11,23 @@ from __future__ import annotations
 
 import pytest
 
-from src.service.catalog import ModelInfo, _come_info, _nativo, model_catalog
+from src.service.catalog import (
+    ModelInfo,
+    _come_info,
+    _nativo,
+    dimentica_modelli,
+    model_catalog,
+)
+
+
+@pytest.fixture(autouse=True)
+def cache_pulita():
+    """La cache dei dettagli e' di modulo, quindi due casi che usano lo stesso
+    nome del modello si passerebbero il risultato. Azzerarla prima di ognuno e'
+    piu' onesto che dare nomi diversi a ogni test per aggirare il problema."""
+    dimentica_modelli()
+    yield
+    dimentica_modelli()
 
 
 def _elenco(*nomi: str):
@@ -166,3 +182,46 @@ class TestLaTagliaConfigurataEIlSuoModello:
         )
         sotto = {m.name for m in c if m.parent == "gemma4:e2b"}
         assert sotto == {"taglia-corta"}
+
+
+class TestIlCostoDiChiederli:
+    """Misurato il 2026-08-19: `/api/show` costa ~2 s e va chiesto per modello.
+
+    Con sedici modelli `/datasets` -- la prima chiamata che il frontend fa --
+    passava da 2 a **35 secondi**. Due rimedi, e servono tutti e due: il
+    parallelo toglie il costo, la cache lo toglie anche alla seconda volta.
+    """
+
+    def test_i_dettagli_si_chiedono_una_volta_sola(self):
+        chiamate: list[str] = []
+
+        def conta(base: str, nome: str, timeout: int) -> dict:
+            chiamate.append(nome)
+            return GEMMA
+
+        for _ in range(3):
+            model_catalog("http://x/v1", fetch=_elenco("a", "b"), dettagli=conta)
+        assert sorted(chiamate) == ["a", "b"]
+
+    def test_un_motore_che_non_risponde_non_si_ricorda(self):
+        """Memorizzare un fallimento lo renderebbe permanente: un motore muto
+        adesso puo' rispondere fra un minuto."""
+        tentativi: list[str] = []
+
+        def rotto(base: str, nome: str, timeout: int) -> dict:
+            tentativi.append(nome)
+            raise RuntimeError("muto")
+
+        for _ in range(2):
+            model_catalog("http://x/v1", fetch=_elenco("a"), dettagli=rotto)
+        assert tentativi == ["a", "a"]
+
+    def test_l_ordine_resta_quello_dei_nomi(self):
+        """Il parallelo non deve riordinare: un menu che si riordina da solo fa
+        saltare la selezione a chi ha appena scelto."""
+        c = model_catalog(
+            "http://x/v1",
+            fetch=_elenco("a", "b", "c"),
+            dettagli=_mostra({"a": GEMMA, "b": QWEN, "c": GEMMA}),
+        )
+        assert [m.name for m in c] == ["a", "b", "c"]

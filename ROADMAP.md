@@ -729,7 +729,7 @@ Solo se avanza tempo. Nessuno di questi è necessario perché il progetto sia co
 | X-02 | Multi-turno: contestualizzazione su cronologia, riusando il riscrittore di R-03 | **Il retrieval avviene sulla query riscritta**, mai sul messaggio grezzo né sulla cronologia concatenata |
 | X-03 | Controllo di scala: qualche migliaio di documenti non annotati | Solo tempo di indicizzazione, latenza, dimensione indice, VRAM |
 | X-04 | Retrieval visivo in stile ColPali sul dataset table-heavy | Il più ambizioso. Timebox rigido, si taglia senza rimpianti |
-| X-05 | **Taglie di contesto suggerite dall'hardware**: la preparazione guarda VRAM e memoria e crea solo le finestre che quella macchina regge, così il menu non offre mai una scelta che finisce in errore di memoria | Rinviato di proposito il 2026-08-19: U-16 dà la scelta, questo la restringe. Serve una sonda di sistema — Ollama non pubblica la VRAM totale, e `/api/ps` elenca solo i modelli **caricati** |
+| X-05 | **La finestra di contesto decisa dall'hardware**: la preparazione guarda VRAM e memoria, sceglie la taglia di partenza e crea quelle che ha senso avere | Rinviato di proposito il 2026-08-19: U-16 dà la scelta con una partenza fissa a 32k — la finestra con cui il progetto misura — e questo la fa dipendere dalla macchina. Ci finisce anche la voce «non fissata», tolta dal menu perché era l'unica che non è una misura: qui tornerebbe come *una misura scelta guardando l'hardware*. Serve una sonda di sistema — Ollama non pubblica la VRAM totale, e `/api/ps` elenca solo i modelli **caricati** |
 
 ---
 
