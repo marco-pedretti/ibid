@@ -49,14 +49,19 @@ import type { Posa } from "./collocazione";
  * Su un **comando** o sul nome di una sezione il puntatore non chiede niente:
  * sta passando per andare altrove. Con la stessa attesa breve ogni movimento del
  * mouse accende una bolla lungo il tragitto, e un'interfaccia che vuole essere
- * minimale si riempie di riquadri che nessuno ha chiesto. Mezzo secondo e' il
- * tempo oltre il quale un puntatore fermo e' una domanda e non un transito.
+ * minimale si riempie di riquadri che nessuno ha chiesto. Un secondo e mezzo e'
+ * il tempo oltre il quale un puntatore fermo non e' piu' spiegabile come
+ * transito: chi e' rimasto li' cosi' a lungo sta chiedendo.
+ *
+ * Che sia **la stessa attesa del `title` nativo** criticato qui sopra non e' una
+ * contraddizione: il rimprovero non era la durata, era che nessuno la sceglie e
+ * che vale identica per tutto. Qui e' scelta, ed e' una delle due.
  *
  * Il ritardo lungo e' il **predefinito**: un suggerimento aggiunto domani nasce
  * calmo, e per renderlo rapido bisogna dichiarare che spiega un dato.
  */
 const ATTESA_DATO_MS = 140;
-const ATTESA_COMANDO_MS = 500;
+const ATTESA_COMANDO_MS = 1500;
 
 /** Rete di sicurezza per lo smontaggio: se la transizione non parte affatto
  *  (scheda in secondo piano) `transitionend` non arriva mai. Come nella tendina. */
