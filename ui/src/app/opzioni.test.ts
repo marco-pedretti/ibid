@@ -1,14 +1,33 @@
 import { describe, expect, it } from "vitest";
 
+import type { ConfigView } from "../api/types";
 import {
   COME_CONFIGURATO,
   PREDEFINITE,
   SFORZO,
   campiRichiesta,
   ragionamentoDisponibile,
+  stessaConfigurazione,
 } from "./opzioni";
 
 const SFORZI = ["none", "low", "medium", "high", "max"];
+
+const CONFIG: ConfigView = {
+  top_k: 5,
+  retrieval_mode: "hybrid",
+  rerank: true,
+  query_rewrite: false,
+  filter_content_type: "",
+  search_exact: false,
+  hnsw_ef: 128,
+  model: "gemma4:e4b",
+  temperature: 0,
+  max_new_tokens: 2048,
+  reasoning_effort: "none",
+  rag: true,
+  baseline_prompt: "strict",
+  verify: true,
+};
 
 describe("le opzioni della barra", () => {
   it("si parte col RAG acceso, il ragionamento spento e nessun modello scelto", () => {
@@ -43,5 +62,23 @@ describe("le opzioni della barra", () => {
     expect(ragionamentoDisponibile(SFORZI)).toBe(true);
     expect(ragionamentoDisponibile(["none", "low"])).toBe(false);
     expect(ragionamentoDisponibile([])).toBe(false);
+  });
+});
+
+describe("il confronto riparte da cio' che ha girato", () => {
+  it("copia ogni campo della configurazione, e il test lo conta", () => {
+    // E' la rete: un campo aggiunto a `ConfigView` e non aggiunto li' uscirebbe
+    // dal confronto **in silenzio**, cioe' diventerebbe la seconda variabile che
+    // `stessaConfigurazione` esiste per impedire (§15).
+    expect(Object.keys(stessaConfigurazione(CONFIG)).sort()).toEqual(Object.keys(CONFIG).sort());
+    expect(stessaConfigurazione(CONFIG)).toEqual(CONFIG);
+  });
+
+  it("invertire il RAG cambia una cosa sola", () => {
+    const rilancio = { ...stessaConfigurazione(CONFIG), rag: !CONFIG.rag };
+    const diversi = Object.keys(CONFIG).filter(
+      (k) => rilancio[k as keyof ConfigView] !== CONFIG[k as keyof ConfigView],
+    );
+    expect(diversi).toEqual(["rag"]);
   });
 });

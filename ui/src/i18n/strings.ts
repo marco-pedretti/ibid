@@ -113,6 +113,23 @@ export const it = {
   "bar.model.none":
     "L'elenco dei modelli non è arrivato: risponde quello configurato nel servizio. Resta vuoto invece di mostrarne uno che non abbiamo potuto verificare.",
 
+  // Il confronto. È un'azione su una risposta già data, non un secondo
+  // messaggio: le parole dicono «la stessa domanda», mai «chiedi di nuovo».
+  "compare.action.bare": "Confronta senza le fonti",
+  "compare.action.sourced": "Confronta con le fonti",
+  "compare.action.hint":
+    "Rifà la stessa domanda cambiando solo questo. Tutto il resto — modello, ricerca, temperatura — resta identico, altrimenti le due risposte differirebbero per più di una cosa.",
+  "compare.title": "Stessa domanda",
+  "compare.withSources": "Con le fonti",
+  "compare.withoutSources": "Senza fonti",
+  "compare.back": "Torna alla conversazione",
+  "compare.busy": "Aspetta che la risposta finisca, oppure fermala.",
+  "compare.verdicts": "{sostenute} su {citazioni} sostenute",
+  // Non «sbagliato»: senza fonti non si può sapere se è giusta, ed è il punto.
+  "compare.bare.title": "Niente di questo è verificabile.",
+  "compare.bare.body":
+    "Non c'è una fonte da aprire: nessuna frase di questa risposta si può controllare. È esattamente ciò che il progetto misura.",
+
   "example.note.numbers": "Un numero preciso: la citazione deve reggerlo.",
   "example.note.paper": "Sta dentro un paper: guarda da quale sezione arriva.",
   "example.note.table": "La risposta sta in una tabella.",
@@ -307,6 +324,20 @@ export const en: Record<Chiave, string> = {
     "Who answers. With good retrieval, model size matters less than expected: it is one of the things this project measures.",
   "bar.model.none":
     "The model list did not arrive: the one configured in the service answers. It stays empty rather than showing one we could not verify.",
+
+  "compare.action.bare": "Compare without the sources",
+  "compare.action.sourced": "Compare with the sources",
+  "compare.action.hint":
+    "Asks the same question again, changing only this. Everything else — model, search, temperature — stays identical, otherwise the two answers would differ in more than one thing.",
+  "compare.title": "Same question",
+  "compare.withSources": "With the sources",
+  "compare.withoutSources": "Without sources",
+  "compare.back": "Back to the conversation",
+  "compare.busy": "Wait for the answer to finish, or stop it.",
+  "compare.verdicts": "{sostenute} of {citazioni} supported",
+  "compare.bare.title": "None of this can be checked.",
+  "compare.bare.body":
+    "There is no source to open: not one sentence of this answer can be verified. That is exactly what this project measures.",
 
   "example.note.numbers": "A precise number: the citation has to hold it up.",
   "example.note.paper": "It sits inside a paper: look at which section it comes from.",

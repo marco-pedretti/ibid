@@ -21,7 +21,7 @@
  * risposta, che porta il proprio `ConfigView`. Sono due dati diversi e non vanno
  * confusi: cambiare un controllo non riscrive le risposte gia' sullo schermo.
  */
-import type { QueryRequest } from "../api/types";
+import type { ConfigView, QueryRequest } from "../api/types";
 
 export interface Opzioni {
   /** Il recupero dal corpus. Spento, il modello risponde da solo: e' la meta'
@@ -104,5 +104,39 @@ export function campiRichiesta(o: Opzioni): Partial<QueryRequest> {
     rag: o.rag,
     reasoning_effort: o.ragionamento ? SFORZO.acceso : SFORZO.spento,
     ...(o.modello !== COME_CONFIGURATO && { model: o.modello }),
+  };
+}
+
+/**
+ * La configurazione che **ha girato**, rimessa in una richiesta.
+ *
+ * Serve al confronto, e la ragione e' il §15: *mai due cambiamenti insieme*.
+ * Rilanciare la domanda con le opzioni della barra invece che con quelle della
+ * risposta gia' data metterebbe nelle due colonne anche un modello diverso, o
+ * un `top_k` cambiato nel frattempo — e il confronto direbbe «guarda cosa fa il
+ * RAG» mostrando l'effetto di tre cose. Qui si copia tutto e si inverte una cosa
+ * sola, che e' la definizione dell'esperimento.
+ *
+ * Copia **tutti** i campi di `ConfigView`, e un test lo verifica contando le
+ * chiavi: un campo aggiunto al contratto e non aggiunto qui uscirebbe dal
+ * confronto in silenzio, cioe' diventerebbe la seconda variabile che questa
+ * funzione esiste per impedire.
+ */
+export function stessaConfigurazione(c: ConfigView): Partial<QueryRequest> {
+  return {
+    top_k: c.top_k,
+    retrieval_mode: c.retrieval_mode,
+    rerank: c.rerank,
+    query_rewrite: c.query_rewrite,
+    filter_content_type: c.filter_content_type,
+    search_exact: c.search_exact,
+    hnsw_ef: c.hnsw_ef,
+    model: c.model,
+    temperature: c.temperature,
+    max_new_tokens: c.max_new_tokens,
+    reasoning_effort: c.reasoning_effort,
+    rag: c.rag,
+    baseline_prompt: c.baseline_prompt,
+    verify: c.verify,
   };
 }

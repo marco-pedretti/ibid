@@ -75,6 +75,28 @@ export function Caret(p: PropsIcona) {
   );
 }
 
+/** Torna da dove si era arrivati. Sul confronto, che e' l'unica schermata da
+ *  cui si esce invece di cambiare pagina. */
+export function Indietro(p: PropsIcona) {
+  return (
+    <Base {...p}>
+      <path d="M12.5 8 L4 8" />
+      <path d="M8 4 L4 8 L8 12" />
+    </Base>
+  );
+}
+
+/** Le due risposte alla stessa domanda, una accanto all'altra. */
+export function DueColonne(p: PropsIcona) {
+  return (
+    <Base {...p}>
+      <path d="M3 3.5 L3 12.5" />
+      <path d="M8 2.5 L8 13.5" />
+      <path d="M13 3.5 L13 12.5" />
+    </Base>
+  );
+}
+
 /** Manda la domanda. */
 export function FrecciaSu(p: PropsIcona) {
   return (

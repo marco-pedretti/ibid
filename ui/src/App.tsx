@@ -13,11 +13,12 @@
  */
 import { ProvvedeBackend, usaBackend } from "./app/backend";
 import { ProvvedeBarra } from "./app/barra";
-import { ProvvedeChat } from "./app/chat";
+import { ProvvedeChat, usaChat } from "./app/chat";
 import { ProvvedeDataset } from "./app/dataset";
 import { ProvvedeLingua, usaLingua } from "./app/i18n";
 import { ProvvedeTema } from "./app/theme";
 import { Chat } from "./ui/Chat";
+import { Confronto } from "./ui/Confronto";
 import { PannelloFonti } from "./ui/PannelloFonti";
 import { Telaio } from "./ui/Telaio";
 
@@ -29,18 +30,44 @@ export function App() {
           <ProvvedeDataset>
             <ProvvedeBarra>
               <ProvvedeChat>
-                {/* Il pannello fonti e' passato al telaio e non alla chat: il
-                    criterio di U-02 dice «visibile in ogni stato», e uno stato
-                    in cui la chat non c'e' e' comunque uno stato. */}
-                <Telaio fianco={<PannelloFonti />}>
-                  <Colonna />
-                </Telaio>
+                <Schermata />
               </ProvvedeChat>
             </ProvvedeBarra>
           </ProvvedeDataset>
         </ProvvedeBackend>
       </ProvvedeTema>
     </ProvvedeLingua>
+  );
+}
+
+/**
+ * Quale schermata sta nel telaio, e se il pannello fonti c'e'.
+ *
+ * Il pannello e' passato al telaio e non alla chat: il criterio di U-02 dice
+ * «visibile in ogni stato», e uno stato in cui la chat non c'e' e' comunque uno
+ * stato. Con **una** eccezione, e non e' un'eccezione al criterio: nel confronto
+ * le fonti stanno dentro la colonna «con le fonti», perche' averle da una parte
+ * e non dall'altra e' l'argomento di quella schermata. Una colonna sola di
+ * fianco mostrerebbe le fonti di uno dei due bracci senza dire di quale.
+ *
+ * Un componente e non `App` perche' `usaChat` va chiamato **sotto**
+ * `<ProvvedeChat>`.
+ */
+function Schermata() {
+  const { confronto } = usaChat();
+
+  if (confronto !== null) {
+    return (
+      <Telaio>
+        <Confronto confronto={confronto} />
+      </Telaio>
+    );
+  }
+
+  return (
+    <Telaio fianco={<PannelloFonti />}>
+      <Colonna />
+    </Telaio>
   );
 }
 

@@ -44,7 +44,7 @@ import {
 } from "./cronologia";
 import type { Conversazione } from "./cronologia";
 import { usaBarra } from "./barra";
-import { campiRichiesta } from "./opzioni";
+import { campiRichiesta, stessaConfigurazione } from "./opzioni";
 
 /**
  * Quanto si aspetta prima di scrivere nel deposito.
@@ -61,6 +61,26 @@ import { campiRichiesta } from "./opzioni";
  */
 const RITARDO_SALVATAGGIO_MS = 400;
 
+/**
+ * Le due risposte alla stessa domanda, e null quando non se ne sta guardando
+ * nessuna.
+ *
+ * **Non e' uno scambio della conversazione.** Il §12 dice che «affiancate, dalla
+ * stessa query, nella stessa sessione» non si ottiene con due messaggi
+ * consecutivi: il braccio nudo dentro il filo sarebbe una seconda risposta alla
+ * stessa domanda, e nella cronologia diventerebbe una conversazione che si
+ * contraddice da sola. Vive qui accanto, e chiudendolo sparisce.
+ */
+export interface Confronto {
+  domanda: string;
+  /** Quella gia' data, da cui si e' partiti. Il suo `config` dice **quale** dei
+   *  due bracci e', quindi da che parte va messa: non serve ricordarlo, e cosi'
+   *  la colonna la decide cio' che ha girato davvero. */
+  data: Risposta;
+  /** La stessa domanda col solo RAG invertito, mentre arriva. */
+  nuova: Risposta;
+}
+
 interface Chat {
   /** Gli scambi della conversazione aperta. */
   scambi: Scambio[];
@@ -75,6 +95,11 @@ interface Chat {
   nuova: () => void;
   apri: (id: string) => void;
   svuota: () => void;
+  /** Le due colonne, o `null` quando si sta guardando la conversazione. */
+  confronto: Confronto | null;
+  /** Rilancia lo scambio col RAG invertito e apre le due colonne. */
+  confronta: (idScambio: string) => void;
+  chiudiConfronto: () => void;
 }
 
 const Contesto = createContext<Chat | null>(null);
@@ -150,6 +175,7 @@ export function ProvvedeChat({ children }: { children: ReactNode }) {
   const { scelto, imposta } = usaDataset();
   const { opzioni } = usaBarra();
   const [stato, setStato] = useState<Stato>(statoIniziale);
+  const [confronto, setConfronto] = useState<Confronto | null>(null);
   const [occupato, setOccupato] = useState(false);
   const controller = useRef<AbortController | null>(null);
 
@@ -207,8 +233,67 @@ export function ProvvedeChat({ children }: { children: ReactNode }) {
 
   const ferma = useCallback(() => controller.current?.abort(), []);
 
+  /**
+   * La stessa domanda, col RAG invertito, accanto a quella gia' data.
+   *
+   * Parte dalla configurazione **che ha girato** e non dalla barra: rilanciare
+   * con le opzioni correnti metterebbe nelle due colonne anche un modello
+   * diverso o un `top_k` cambiato nel frattempo, e il confronto direbbe «guarda
+   * cosa fa il RAG» mostrando l'effetto di tre cose. E' il §15 dentro
+   * l'interfaccia — mai due cambiamenti insieme.
+   *
+   * Solo su una risposta **conclusa**: senza `config` non si sa da quale dei due
+   * bracci si sta partendo, e una colonna intitolata a caso e' peggio di un
+   * comando assente.
+   */
+  const confronta = useCallback(
+    (idScambio: string) => {
+      if (controller.current !== null) return;
+      const c = trova(stato.conversazioni, stato.corrente);
+      const s = c?.scambi.find((x) => x.id === idScambio) ?? null;
+      const config = s?.risposta.config ?? null;
+      if (s === null || config === null) return;
+
+      setConfronto({ domanda: s.domanda, data: s.risposta, nuova: inizio() });
+
+      const ctrl = new AbortController();
+      controller.current = ctrl;
+      setOccupato(true);
+
+      void guida(
+        {
+          query: s.domanda,
+          // Il corpus e' quello della conversazione, non quello scelto adesso:
+          // il confronto parla della domanda gia' fatta.
+          ...(c?.dataset_id ? { dataset_id: c.dataset_id } : {}),
+          ...stessaConfigurazione(config),
+          rag: !config.rag,
+        },
+        ctrl,
+        (f) => setConfronto((x) => (x === null ? x : { ...x, nuova: f(x.nuova) })),
+      ).finally(() => {
+        if (controller.current === ctrl) {
+          controller.current = null;
+          setOccupato(false);
+        }
+      });
+    },
+    [stato.conversazioni, stato.corrente],
+  );
+
+  /** Si torna al filo. Non mentre il modello parla: la via d'uscita e' «Ferma»,
+   *  come per tutto il resto — vedi la nota in testa al file. */
+  const chiudiConfronto = useCallback(() => {
+    if (controller.current !== null) return;
+    setConfronto(null);
+  }, []);
+
   const nuova = useCallback(() => {
     if (controller.current !== null) return;
+    // Le tre azioni della corsia riportano al filo: si vedono anche dal
+    // confronto, e cambiare conversazione lasciando aperte due colonne che
+    // parlano di una domanda dell'altra sarebbe la peggiore delle due uscite.
+    setConfronto(null);
     setStato((s) => {
       const c = trova(s.conversazioni, s.corrente);
       // Gia' in una conversazione nuova: non se ne apre una seconda. Sarebbero
@@ -235,6 +320,7 @@ export function ProvvedeChat({ children }: { children: ReactNode }) {
       // la prossima domanda cadrebbe su un altro dataset dentro la stessa
       // conversazione, e nel filo non ci sarebbe niente che lo dice.
       if (c.dataset_id !== null) imposta(c.dataset_id);
+      setConfronto(null);
 
       // La conversazione vuota che si lascia non serve piu': la sua voce nella
       // corsia e' «Nuova conversazione», che c'e' comunque.
@@ -259,6 +345,7 @@ export function ProvvedeChat({ children }: { children: ReactNode }) {
   const svuota = useCallback(() => {
     if (controller.current !== null) return;
     const n = nuovaConversazione();
+    setConfronto(null);
     setStato({ conversazioni: [n], corrente: n.id });
   }, []);
 
@@ -276,6 +363,9 @@ export function ProvvedeChat({ children }: { children: ReactNode }) {
         nuova,
         apri,
         svuota,
+        confronto,
+        confronta,
+        chiudiConfronto,
       }}
     >
       {children}

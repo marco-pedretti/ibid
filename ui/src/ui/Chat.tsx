@@ -26,12 +26,14 @@ import {
   Astensione,
   Avvertimento,
   Discordi,
+  DueColonne,
   FrecciaSu,
   NonCitata,
   NonSostiene,
   NonVerificata,
   Troncato,
 } from "./Icona";
+import { Suggerimento } from "./Suggerimento";
 import { Testo } from "./Testo";
 
 export function Chat() {
@@ -174,7 +176,7 @@ function Puntino({ stato }: { stato: "vivo" | "fermo" | "guasto" }) {
 
 function Corpo({ scambio }: { scambio: Scambio }) {
   const { t } = usaLingua();
-  const { invia, occupato } = usaChat();
+  const { invia, occupato, confronta } = usaChat();
   const r = scambio.risposta;
   const astensione = chiSiEAstenuto(r);
 
@@ -217,6 +219,26 @@ function Corpo({ scambio }: { scambio: Scambio }) {
           >
             {t("backend.retry")}
           </button>
+        </div>
+      )}
+
+      {/* Solo su una risposta **conclusa**: il confronto riparte dalla sua
+          configurazione, e senza `config` non si saprebbe nemmeno da quale dei
+          due bracci si sta partendo — una colonna intitolata a caso e' peggio di
+          un comando assente. */}
+      {r.fase === "conclusa" && r.config !== null && (
+        <div>
+          <Suggerimento testo={occupato ? t("compare.busy") : t("compare.action.hint")} fuoco={false}>
+            <button
+              type="button"
+              aria-disabled={occupato}
+              onClick={() => !occupato && confronta(scambio.id)}
+              className="flex items-center gap-1.5 rounded-md border border-line-2 px-[9px] py-[5px] text-[11px] text-ink-2 transition-colors hover:border-accent-2 hover:text-ink aria-disabled:opacity-45 aria-disabled:hover:border-line-2 aria-disabled:hover:text-ink-2"
+            >
+              <DueColonne size={12} />
+              {r.config.rag ? t("compare.action.bare") : t("compare.action.sourced")}
+            </button>
+          </Suggerimento>
         </div>
       )}
     </>
