@@ -59,7 +59,15 @@ export function marcatoriCitati(testo: string): Set<number> {
 export function Testo({ risposta }: { risposta: Risposta }) {
   const { blocchi, annotazioni, stili, nascosti } = useMemo(() => {
     const marcati = marcatoriDelTesto(risposta);
-    const scoperte = spanSenzaCitazione(risposta);
+    // **Senza fonti recuperate non c'e' niente da sottolineare.** «Questa frase
+    // non cita nessuna fonte» e' un rilievo quando le fonti c'erano e la frase
+    // non le ha usate; col RAG spento — e in un'astensione del gate — non ce
+    // n'era nessuna, quindi la frase e' vera di ogni riga e non dice niente di
+    // nessuna. Sottolineare tutta la colonna la fa anche sembrare *analizzata*,
+    // che e' l'opposto di cio' che quella meta' del confronto merita: li' non
+    // c'e' un verdetto piu' severo, non c'e' proprio niente da verificare, e a
+    // dirlo basta l'avviso — una volta.
+    const scoperte = risposta.chunks.length === 0 ? [] : spanSenzaCitazione(risposta);
     const md = analizza(risposta.testo);
     return {
       ...md,

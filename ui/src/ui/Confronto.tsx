@@ -108,18 +108,13 @@ function Colonna({
         )}
       </div>
 
-      {risposta.testo === "" && inCorso(risposta) ? (
-        <p className="font-mono text-[11px] text-muted">
-          <span className="mr-2 inline-block h-1.5 w-1.5 animate-pulse rounded-full bg-accent align-middle" />
-          {t("stato.attesa")}
-        </p>
-      ) : (
-        <Testo risposta={risposta} />
-      )}
-
-      {fonti ? (
-        <Schede risposta={risposta} />
-      ) : (
+      {/* L'avviso sta **prima** del testo, e le fonti dopo. Non e' simmetria
+          rotta per caso: le fonti sono cio' che si va a controllare *dopo* aver
+          letto, mentre «niente di questo e' verificabile» e' la premessa con cui
+          va letto. In fondo alla colonna arrivava dopo una risposta lunga e ben
+          formattata — cioe' si scopriva che non c'era niente da aprire solo dopo
+          essersi convinti. */}
+      {!fonti && (
         <div className="flex items-start gap-2.5 rounded-[7px] border border-line-2 border-l-[3px] border-l-warn bg-warn-soft px-3 py-2.5 text-warn">
           <span className="mt-px">
             <Avvertimento size={13} />
@@ -130,6 +125,17 @@ function Colonna({
           </div>
         </div>
       )}
+
+      {risposta.testo === "" && inCorso(risposta) ? (
+        <p className="font-mono text-[11px] text-muted">
+          <span className="mr-2 inline-block h-1.5 w-1.5 animate-pulse rounded-full bg-accent align-middle" />
+          {t("stato.attesa")}
+        </p>
+      ) : (
+        <Testo risposta={risposta} />
+      )}
+
+      {fonti && <Schede risposta={risposta} />}
 
       {/* Tempo e modello in fondo, come nel mockup: i due bracci della stessa
           domanda costano diverso, e quanto costano e' parte di cio' che si sta
