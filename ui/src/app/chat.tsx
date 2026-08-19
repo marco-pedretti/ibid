@@ -7,7 +7,7 @@
  *
  * Da U-13 tiene anche la cronologia, e nello stesso posto e non in un contesto
  * accanto: la conversazione aperta e' **una voce dell'elenco**, non un'altra
- * cosa. Due contesti dovrebbero scambiarsi continuamente la stessa lista — uno
+ * cosa. All'avvio pero' e' sempre una nuova — vedi `statoIniziale`. Due contesti dovrebbero scambiarsi continuamente la stessa lista — uno
  * per leggerla, l'altro per riscriverla a ogni token — e il primo bug sarebbe
  * una delle due copie in ritardo di un render. Cosa si ricorda e come si rilegge
  * sta in `cronologia.ts`, che e' provato; qui c'e' solo lo stream.
@@ -41,7 +41,7 @@ import {
   trova,
   vuota,
 } from "./cronologia";
-import type { Conversazione, Stato } from "./cronologia";
+import type { Conversazione } from "./cronologia";
 
 /**
  * Quanto si aspetta prima di scrivere nel deposito.
@@ -76,11 +76,30 @@ interface Chat {
 
 const Contesto = createContext<Chat | null>(null);
 
+/** Le conversazioni e quale e' aperta. Solo in memoria: nel deposito va la
+ *  cronologia, non il punto in cui si stava leggendo. */
+interface Stato {
+  conversazioni: Conversazione[];
+  corrente: string;
+}
+
+/**
+ * Si riapre **sempre** su una conversazione nuova, con la cronologia accanto.
+ *
+ * Il campo che diceva quale conversazione era aperta c'era, ed e' stato tolto:
+ * chi apre `ibid` lo fa per **chiedere qualcosa**, e ritrovarsi in fondo a una
+ * conversazione di ieri mette un clic davanti alla cosa piu' comune. Tornarci e'
+ * una voce della corsia, cioe' un clic davanti a quella meno comune — che e' il
+ * verso giusto.
+ */
 function statoIniziale(): Stato {
-  const salvato = leggiCronologia();
-  if (salvato !== null) return salvato;
-  const c = nuovaConversazione();
-  return { conversazioni: [c], corrente: c.id };
+  const n = nuovaConversazione();
+  // Il tetto conta anche qui, come in `nuova`: la corsia non mostra
+  // conversazioni che un ricaricamento farebbe sparire.
+  return {
+    conversazioni: [n, ...leggiCronologia().slice(0, MASSIME - 1)],
+    corrente: n.id,
+  };
 }
 
 function conRisposta(
@@ -102,7 +121,7 @@ export function ProvvedeChat({ children }: { children: ReactNode }) {
   const controller = useRef<AbortController | null>(null);
 
   useEffect(() => {
-    const t = setTimeout(() => salvaCronologia(stato), RITARDO_SALVATAGGIO_MS);
+    const t = setTimeout(() => salvaCronologia(stato.conversazioni), RITARDO_SALVATAGGIO_MS);
     return () => clearTimeout(t);
   }, [stato]);
 

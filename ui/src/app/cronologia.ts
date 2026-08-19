@@ -11,9 +11,17 @@
  * riusare i messaggi precedenti per il retrieval e' X-02. Qui si ricorda cio'
  * che e' stato chiesto e cio' che e' arrivato, niente di piu'.
  *
- * **Si ricorda anche quale conversazione si stava guardando.** Senza,
- * ricaricando si tornerebbe sulla piu' recente, che non e' la stessa cosa: la
- * cronologia sopravvivrebbe al ricaricamento, ma la lettura no.
+ * **Non si ricorda quale conversazione era aperta**, e non e' una dimenticanza:
+ * riaprendo si comincia da una conversazione **nuova**, e la cronologia sta li'
+ * accanto per chi voglia tornarci. Avevo salvato anche quel dato, ragionando che
+ * altrimenti la cronologia sopravvive al ricaricamento ma la lettura no —
+ * decisione ribaltata da Marco alla revisione, ed e' la lettura giusta: il caso
+ * frequente e' aprire per **chiedere qualcosa**, e ritrovarsi in fondo a una
+ * conversazione di ieri costringe a un clic per fare la cosa piu' comune. Da qui
+ * il campo non c'e' proprio: un dato scritto che nessuno rilegge invecchia
+ * peggio di un dato assente. Chi rilegge un deposito piu' vecchio lo trova
+ * comunque — un campo di troppo viene ignorato, non fa scartare niente, che e'
+ * la stessa proprieta' che rende `VERSIONE` una risorsa per le rotture vere.
  *
  * **Una risposta a meta' torna sigillata.** Chiudendo la scheda durante gli ~11 s
  * di generazione, cio' che finisce nel deposito ha `fase: "scrittura"`: al
@@ -59,12 +67,6 @@ export interface Conversazione {
    *  cadrebbe su un corpus diverso senza dirlo. */
   dataset_id: string | null;
   scambi: Scambio[];
-}
-
-/** Cosa c'e' nel deposito, e cosa si tiene in memoria: la stessa cosa. */
-export interface Stato {
-  conversazioni: Conversazione[];
-  corrente: string;
 }
 
 /** Il minimo di `localStorage` che serve qui. Un'interfaccia invece del globale
@@ -129,42 +131,26 @@ export function daRicordare(cs: readonly Conversazione[]): Conversazione[] {
   return cs.filter((c) => !vuota(c)).slice(0, MASSIME);
 }
 
-export function serializza(s: Stato): string {
-  return JSON.stringify({
-    v: VERSIONE,
-    corrente: s.corrente,
-    conversazioni: daRicordare(s.conversazioni),
-  });
+export function serializza(cs: readonly Conversazione[]): string {
+  return JSON.stringify({ v: VERSIONE, conversazioni: daRicordare(cs) });
 }
 
-/** Cio' che c'era nel deposito, o `null` se non c'era niente di usabile. */
-export function deserializza(json: string | null): Stato | null {
-  if (json === null) return null;
+/** Cio' che c'era nel deposito: vuoto se non c'era niente di usabile. */
+export function deserializza(json: string | null): Conversazione[] {
+  if (json === null) return [];
 
   let letto: unknown;
   try {
     letto = JSON.parse(json);
   } catch {
-    return null;
+    return [];
   }
-  if (typeof letto !== "object" || letto === null) return null;
+  if (typeof letto !== "object" || letto === null) return [];
 
   const s = letto as Record<string, unknown>;
-  if (s.v !== VERSIONE || !Array.isArray(s.conversazioni)) return null;
+  if (s.v !== VERSIONE || !Array.isArray(s.conversazioni)) return [];
 
-  const conversazioni = s.conversazioni
-    .map(comeConversazione)
-    .filter((c): c is Conversazione => c !== null);
-  if (conversazioni.length === 0) return null;
-
-  // Un id che non c'e' piu' (la conversazione era vuota, o e' caduta oltre il
-  // tetto) non e' un guasto: si riapre la piu' recente.
-  const corrente =
-    typeof s.corrente === "string" && conversazioni.some((c) => c.id === s.corrente)
-      ? s.corrente
-      : conversazioni[0].id;
-
-  return { conversazioni, corrente };
+  return s.conversazioni.map(comeConversazione).filter((c): c is Conversazione => c !== null);
 }
 
 function comeConversazione(x: unknown): Conversazione | null {
@@ -211,12 +197,12 @@ function comeRisposta(x: unknown): Risposta {
   return interrompi(r);
 }
 
-export function leggiCronologia(deposito: Deposito | null = locale()): Stato | null {
-  if (deposito === null) return null;
+export function leggiCronologia(deposito: Deposito | null = locale()): Conversazione[] {
+  if (deposito === null) return [];
   try {
     return deserializza(deposito.getItem(CHIAVE_CRONOLOGIA));
   } catch {
-    return null;
+    return [];
   }
 }
 
@@ -229,16 +215,16 @@ export function leggiCronologia(deposito: Deposito | null = locale()): Stato | n
  * ricaricamento senza un motivo visibile. Si sacrificano le piu' vecchie, che e'
  * cio' che il tetto fa comunque, solo prima del previsto.
  */
-export function salvaCronologia(s: Stato, deposito: Deposito | null = locale()): void {
+export function salvaCronologia(
+  conversazioni: readonly Conversazione[],
+  deposito: Deposito | null = locale(),
+): void {
   if (deposito === null) return;
 
-  const cs = daRicordare(s.conversazioni);
+  const cs = daRicordare(conversazioni);
   for (let n = cs.length; n > 0; n -= 1) {
     try {
-      deposito.setItem(
-        CHIAVE_CRONOLOGIA,
-        serializza({ corrente: s.corrente, conversazioni: cs.slice(0, n) }),
-      );
+      deposito.setItem(CHIAVE_CRONOLOGIA, serializza(cs.slice(0, n)));
       return;
     } catch {
       /* pieno: si riprova con una conversazione in meno */

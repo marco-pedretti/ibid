@@ -18,7 +18,7 @@ import {
   trova,
   vuota,
 } from "./cronologia";
-import type { Conversazione, Deposito, Stato } from "./cronologia";
+import type { Conversazione, Deposito } from "./cronologia";
 
 const CHUNK: ChunkView = {
   marker: 1,
@@ -104,22 +104,28 @@ describe("cosa si ricorda", () => {
 });
 
 describe("rileggere il deposito", () => {
-  it("niente, spazzatura e versione diversa danno tutti `null`", () => {
-    expect(deserializza(null)).toBeNull();
-    expect(deserializza("{ non json")).toBeNull();
-    expect(deserializza("42")).toBeNull();
-    expect(deserializza(JSON.stringify({ v: VERSIONE + 1, conversazioni: [conv("a", ["q"])] }))).toBeNull();
+  it("niente, spazzatura e versione diversa danno tutti un elenco vuoto", () => {
+    expect(deserializza(null)).toEqual([]);
+    expect(deserializza("{ non json")).toEqual([]);
+    expect(deserializza("42")).toEqual([]);
+    expect(deserializza(JSON.stringify({ v: VERSIONE + 1, conversazioni: [conv("a", ["q"])] }))).toEqual([]);
   });
 
   it("un giro completo conserva fonti e verdetti", () => {
-    const stato: Stato = { conversazioni: [conv("a", ["Qual è l'RMSE?"])], corrente: "a" };
-    const dopo = deserializza(serializza(stato));
-    expect(dopo?.corrente).toBe("a");
-    const r = dopo?.conversazioni[0].scambi[0].risposta;
-    expect(r?.fase).toBe("conclusa");
-    expect(r?.chunks[0].text).toBe(CHUNK.text);
-    expect(r?.citazioni[0].supported).toBe(true);
-    expect(r?.tempi.generation_s).toBe(3.01);
+    const dopo = deserializza(serializza([conv("a", ["Qual è l'RMSE?"])]));
+    const r = dopo[0].scambi[0].risposta;
+    expect(r.fase).toBe("conclusa");
+    expect(r.chunks[0].text).toBe(CHUNK.text);
+    expect(r.citazioni[0].supported).toBe(true);
+    expect(r.tempi.generation_s).toBe(3.01);
+  });
+
+  it("non ricorda quale conversazione era aperta: si riparte da una nuova", () => {
+    // Il campo `corrente` c'era e non c'e' piu'. Un deposito piu' vecchio lo
+    // porta ancora: viene ignorato, non fa scartare niente.
+    expect(serializza([conv("a", ["q"])])).not.toContain("corrente");
+    const vecchio = JSON.stringify({ v: VERSIONE, corrente: "b", conversazioni: [conv("b", ["q"])] });
+    expect(deserializza(vecchio).map((c) => c.id)).toEqual(["b"]);
   });
 
   it("una risposta rimasta a meta' torna sigillata, col parziale intatto", () => {
@@ -132,21 +138,17 @@ describe("rileggere il deposito", () => {
       testo: "Il valore è 0.0",
       verificaInCorso: true,
     };
-    const stato: Stato = {
-      conversazioni: [{ id: "a", dataset_id: null, scambi: [scambio("q", meta)] }],
-      corrente: "a",
-    };
+    const cs = [{ id: "a", dataset_id: null, scambi: [scambio("q", meta)] }];
 
-    const r = deserializza(serializza(stato))?.conversazioni[0].scambi[0].risposta;
-    expect(r?.fase).toBe("interrotta");
-    expect(r?.verificaInCorso).toBe(false);
-    expect(r?.testo).toBe("Il valore è 0.0");
-    expect(r?.chunks).toHaveLength(1);
+    const r = deserializza(serializza(cs))[0].scambi[0].risposta;
+    expect(r.fase).toBe("interrotta");
+    expect(r.verificaInCorso).toBe(false);
+    expect(r.testo).toBe("Il valore è 0.0");
+    expect(r.chunks).toHaveLength(1);
   });
 
   it("una risposta conclusa non viene sigillata", () => {
-    const stato: Stato = { conversazioni: [conv("a", ["q"])], corrente: "a" };
-    expect(deserializza(serializza(stato))?.conversazioni[0].scambi[0].risposta.fase).toBe("conclusa");
+    expect(deserializza(serializza([conv("a", ["q"])]))[0].scambi[0].risposta.fase).toBe("conclusa");
   });
 
   it("un campo che non c'era prende il suo default, uno col tipo sbagliato torna al default", () => {
@@ -154,7 +156,6 @@ describe("rileggere il deposito", () => {
     // Il secondo e' un deposito modificato a mano, e non deve far cadere niente.
     const json = JSON.stringify({
       v: VERSIONE,
-      corrente: "a",
       conversazioni: [
         {
           id: "a",
@@ -163,81 +164,63 @@ describe("rileggere il deposito", () => {
       ],
     });
 
-    const r = deserializza(json)?.conversazioni[0].scambi[0].risposta;
-    expect(r?.chunks).toEqual([]);
-    expect(r?.senzaCitazione).toEqual([]);
-    expect(r?.tempi).toEqual({});
-    expect(r?.riparato).toBe(false);
-    expect(r?.testo).toBe("x");
+    const r = deserializza(json)[0].scambi[0].risposta;
+    expect(r.chunks).toEqual([]);
+    expect(r.senzaCitazione).toEqual([]);
+    expect(r.tempi).toEqual({});
+    expect(r.riparato).toBe(false);
+    expect(r.testo).toBe("x");
   });
 
   it("scarta le conversazioni illeggibili e tiene le altre", () => {
     const json = JSON.stringify({
       v: VERSIONE,
-      corrente: "b",
       conversazioni: [{ id: 7 }, { id: "vuota", scambi: [] }, conv("b", ["q"])],
     });
-    const dopo = deserializza(json);
-    expect(dopo?.conversazioni.map((c) => c.id)).toEqual(["b"]);
-    expect(dopo?.corrente).toBe("b");
+    expect(deserializza(json).map((c) => c.id)).toEqual(["b"]);
   });
 
-  it("se la corrente non c'e' piu' si riapre la piu' recente", () => {
-    const stato: Stato = { conversazioni: [conv("a", ["q"]), conv("b", ["q"])], corrente: "sparita" };
-    expect(deserializza(serializza(stato))?.corrente).toBe("a");
-  });
-
-  it("la corrente vuota non e' salvata, e al ritorno si riapre la prima con qualcosa dentro", () => {
-    const nuova = nuovaConversazione();
-    const stato: Stato = { conversazioni: [nuova, conv("a", ["q"])], corrente: nuova.id };
-    const dopo = deserializza(serializza(stato));
-    expect(dopo?.conversazioni.map((c) => c.id)).toEqual(["a"]);
-    expect(dopo?.corrente).toBe("a");
+  it("la conversazione aperta, se vuota, non finisce nel deposito", () => {
+    const dopo = deserializza(serializza([nuovaConversazione(), conv("a", ["q"])]));
+    expect(dopo.map((c) => c.id)).toEqual(["a"]);
   });
 });
 
 describe("scrivere nel deposito", () => {
   it("scrive e rilegge", () => {
     const d = deposito();
-    const stato: Stato = { conversazioni: [conv("a", ["q"])], corrente: "a" };
-    salvaCronologia(stato, d);
-    expect(leggiCronologia(d)?.conversazioni[0].scambi[0].domanda).toBe("q");
+    salvaCronologia([conv("a", ["q"])], d);
+    expect(leggiCronologia(d)[0].scambi[0].domanda).toBe("q");
   });
 
   it("se non ci sta scrive meno conversazioni invece di nessuna", () => {
-    const stato: Stato = {
-      conversazioni: [conv("a", ["q"]), conv("b", ["q"]), conv("c", ["q"])],
-      corrente: "a",
-    };
+    const cs = [conv("a", ["q"]), conv("b", ["q"]), conv("c", ["q"])];
     // Un tetto che sta fra il costo di una conversazione e quello di tre.
-    const tetto = serializza({ conversazioni: [conv("a", ["q"])], corrente: "a" }).length + 10;
+    const tetto = serializza([conv("a", ["q"])]).length + 10;
     const d = deposito(tetto);
-    salvaCronologia(stato, d);
+    salvaCronologia(cs, d);
 
     const letto = leggiCronologia(d);
-    expect(letto?.conversazioni.length).toBeGreaterThan(0);
-    expect(letto?.conversazioni.length).toBeLessThan(3);
-    expect(letto?.conversazioni[0].id).toBe("a");
+    expect(letto.length).toBeGreaterThan(0);
+    expect(letto.length).toBeLessThan(3);
+    expect(letto[0].id).toBe("a");
   });
 
   it("senza niente da ricordare la chiave si toglie, invece di restare vecchia", () => {
     const d = deposito();
-    salvaCronologia({ conversazioni: [conv("a", ["q"])], corrente: "a" }, d);
+    salvaCronologia([conv("a", ["q"])], d);
     expect(d.dati.has(CHIAVE_CRONOLOGIA)).toBe(true);
 
-    const nuova = nuovaConversazione();
-    salvaCronologia({ conversazioni: [nuova], corrente: nuova.id }, d);
+    salvaCronologia([nuovaConversazione()], d);
     expect(d.dati.has(CHIAVE_CRONOLOGIA)).toBe(false);
   });
 
   it("un deposito negato non solleva: la sessione resta valida, solo non si ricorda", () => {
-    expect(leggiCronologia(null)).toBeNull();
-    expect(() =>
-      salvaCronologia({ conversazioni: [conv("a", ["q"])], corrente: "a" }, null),
-    ).not.toThrow();
+    expect(leggiCronologia(null)).toEqual([]);
+    expect(() => salvaCronologia([conv("a", ["q"])], null)).not.toThrow();
   });
 
-  it("un deposito che solleva in lettura da' `null` invece di far cadere l'avvio", () => {
+  it("un deposito che solleva in lettura da' un elenco vuoto invece di far cadere l'avvio", () => {
     const rotto: Deposito = {
       getItem: () => {
         throw new Error("SecurityError");
@@ -245,6 +228,6 @@ describe("scrivere nel deposito", () => {
       setItem: () => {},
       removeItem: () => {},
     };
-    expect(leggiCronologia(rotto)).toBeNull();
+    expect(leggiCronologia(rotto)).toEqual([]);
   });
 });
