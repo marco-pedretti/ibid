@@ -156,14 +156,33 @@ class TestDatasets:
             api,
             "model_catalog",
             lambda: [
-                ModelInfo("gemma4:12b", "gemma4", 262144, "Q4_K_M", "11.9B"),
-                ModelInfo("qwen3.5:latest", "qwen35", 262144, "Q4_K_M", "9.7B"),
+                # A chiave e non per posizione: A-08 ha guadagnato due campi in
+                # mezzo poche ore dopo, e un test posizionale li avrebbe letti
+                # come gli altri senza dirlo.
+                ModelInfo(
+                    name="gemma4:12b",
+                    family="gemma4",
+                    context_max=262144,
+                    quantization="Q4_K_M",
+                    parameter_size="11.9B",
+                ),
+                ModelInfo(
+                    name="qwen3.5:latest",
+                    family="qwen35",
+                    context_max=262144,
+                    context=32768,
+                    quantization="Q4_K_M",
+                ),
             ],
         )
         catalogo = client.get("/datasets").json()["model_catalog"]
         assert [m["context_max"] for m in catalogo] == [262144, 262144]
         assert [m["family"] for m in catalogo] == ["gemma4", "qwen35"]
         assert catalogo[0]["quantization"] == "Q4_K_M"
+        # `context_max` e `context` sono due cose: cosa l'architettura regge, e
+        # cosa girera' davvero. Confonderle offrirebbe 262.144 a un modello
+        # fissato a 32.768.
+        assert [m["context"] for m in catalogo] == [None, 32768]
 
     def test_un_motore_muto_da_un_catalogo_di_soli_nomi(self, client, monkeypatch):
         """Su un motore che non e' Ollama i dettagli non arrivano: `context_max`
@@ -177,6 +196,8 @@ class TestDatasets:
                 "name": "mistral",
                 "family": "",
                 "context_max": None,
+                "context": None,
+                "parent": "",
                 "quantization": "",
                 "parameter_size": "",
             }

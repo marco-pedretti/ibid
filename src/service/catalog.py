@@ -169,6 +169,16 @@ class ModelInfo:
     family: str = ""
     #: La finestra piu' grande che questo modello regge. `None` = non si sa.
     context_max: int | None = None
+    #: La finestra con cui questa voce e' **configurata**, se qualcuno l'ha
+    #: fissata. `None` = decide il motore. Non e' `context_max`: quello dice cosa
+    #: l'architettura regge, questo cosa girera' davvero.
+    context: int | None = None
+    #: Il modello da cui questa voce deriva, se deriva da uno. Lo dice il motore
+    #: (`details.parent_model`), quindi raggruppare le taglie sotto il loro
+    #: modello **non richiede di interpretare i nomi**: `gemma4-8k` -> `gemma4`
+    #: spezzando una stringa sarebbe una convenzione, e le convenzioni si
+    #: rompono il giorno in cui qualcuno chiama un modello diversamente.
+    parent: str = ""
     #: `Q4_K_M`. Sostituisce la costante `LLM_QUANTIZATION`, che era vera per
     #: coincidenza -- vedi A-08 nel ROADMAP.
     quantization: str = ""
@@ -271,9 +281,32 @@ def _come_info(nome: str, d: object) -> ModelInfo:
         name=nome,
         family=str(det.get("family") or ""),
         context_max=contesto,
+        context=_num_ctx(d.get("parameters")),
+        parent=str(det.get("parent_model") or ""),
         quantization=str(det.get("quantization_level") or ""),
         parameter_size=str(det.get("parameter_size") or ""),
     )
+
+
+def _num_ctx(parametri: object) -> int | None:
+    """`num_ctx` dentro il blocco di testo che `/api/show` chiama `parameters`.
+
+    E' testo e non JSON -- `"num_ctx                        8192"` -- quindi si
+    legge riga per riga invece che con una chiave. Assente significa **non
+    fissato**, cioe' decide il motore: e' un'informazione, non un dato mancante,
+    ed e' la differenza fra «questo modello gira a 8192» e «questo modello gira
+    a quello che il servizio ha deciso».
+    """
+    if not isinstance(parametri, str):
+        return None
+    for riga in parametri.splitlines():
+        pezzi = riga.split()
+        if len(pezzi) == 2 and pezzi[0] == "num_ctx":
+            try:
+                return int(pezzi[1])
+            except ValueError:
+                return None
+    return None
 
 
 @dataclass(frozen=True)

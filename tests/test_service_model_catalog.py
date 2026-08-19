@@ -102,3 +102,67 @@ class TestLUrlNativo:
         """E l'URL che ne esce non rispondera' a `/api/show`: la scoperta
         fallisce da sola, che e' il comportamento voluto su un motore diverso."""
         assert _nativo("http://vllm:8000") == "http://vllm:8000"
+
+
+DERIVATO = {
+    "model_info": {"gemma4.context_length": 131072},
+    "parameters": (
+        "num_ctx                        8192\n"
+        "temperature                    1\n"
+        "top_k                          64"
+    ),
+    "details": {
+        "parent_model": "gemma4:e2b",
+        "family": "gemma4",
+        "quantization_level": "Q4_K_M",
+        "parameter_size": "5.1B",
+    },
+}
+
+
+class TestLaTagliaConfigurataEIlSuoModello:
+    """Cio' che U-16 mette nei due selettori.
+
+    `context_max` dice cosa l'architettura regge, `context` cosa girera'
+    davvero: sono due cose, e confonderle farebbe offrire 131.072 a un modello
+    fissato a 8192.
+    """
+
+    def test_un_modello_derivato_porta_la_sua_finestra_e_il_suo_genitore(self):
+        c = model_catalog(
+            "http://x/v1",
+            fetch=_elenco("gemma4-8k"),
+            dettagli=_mostra({"gemma4-8k": DERIVATO}),
+        )[0]
+        assert c.context == 8192
+        assert c.context_max == 131072
+        assert c.parent == "gemma4:e2b"
+
+    def test_un_modello_base_non_ha_finestra_fissata_ne_genitore(self):
+        """Assente significa «decide il motore», che e' un'informazione e non un
+        dato mancante: e' la differenza fra «gira a 8192» e «gira a quello che il
+        servizio ha deciso»."""
+        c = model_catalog(
+            "http://x/v1", fetch=_elenco("gemma4:e2b"), dettagli=_mostra({"gemma4:e2b": GEMMA})
+        )[0]
+        assert c.context is None
+        assert c.parent == ""
+
+    @pytest.mark.parametrize(
+        "parametri", [None, 42, "", "temperature 1", "num_ctx", "num_ctx non-un-numero"]
+    )
+    def test_un_blocco_parametri_strano_non_inventa_una_finestra(self, parametri):
+        d = {**DERIVATO, "parameters": parametri}
+        assert _come_info("m", d).context is None
+
+    def test_raggruppare_non_richiede_di_interpretare_i_nomi(self):
+        """`parent_model` viene dal motore. Dedurre `gemma4-8k` -> `gemma4`
+        spezzando una stringa sarebbe una convenzione, e le convenzioni si
+        rompono il giorno in cui qualcuno chiama un modello diversamente."""
+        c = model_catalog(
+            "http://x/v1",
+            fetch=_elenco("gemma4:e2b", "taglia-corta"),
+            dettagli=_mostra({"gemma4:e2b": GEMMA, "taglia-corta": DERIVATO}),
+        )
+        sotto = {m.name for m in c if m.parent == "gemma4:e2b"}
+        assert sotto == {"taglia-corta"}

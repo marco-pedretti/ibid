@@ -582,6 +582,11 @@ class ModelView(BaseModel):
     #: La finestra piu' grande che regge. Non e' una per tutti: misurato,
     #: `gemma4:latest` 131.072 e `gemma4:12b` 262.144.
     context_max: int | None = None
+    #: La finestra con cui questa voce e' configurata; `None` = decide il motore.
+    context: int | None = None
+    #: Da quale modello deriva, se deriva. Permette a chi legge di raggruppare le
+    #: taglie sotto il loro modello **senza interpretare i nomi** (U-16).
+    parent: str = ""
     quantization: str = ""
     parameter_size: str = ""
 

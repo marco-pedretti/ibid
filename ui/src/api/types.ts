@@ -152,6 +152,8 @@ export interface ModelView {
   name: string;
   family: string;
   context_max: number | null;
+  context: number | null;
+  parent: string;
   quantization: string;
   parameter_size: string;
 }
