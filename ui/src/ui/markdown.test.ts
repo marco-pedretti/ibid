@@ -123,7 +123,13 @@ describe("tabelle", () => {
 
 describe("comporre con chi disegna", () => {
   it("gli intervalli nascosti si uniscono e si ordinano", () => {
-    expect(unisci([{ da: 5, a: 7 }, { da: 0, a: 2 }, { da: 6, a: 9 }])).toEqual([
+    expect(
+      unisci([
+        { da: 5, a: 7 },
+        { da: 0, a: 2 },
+        { da: 6, a: 9 },
+      ]),
+    ).toEqual([
       { da: 0, a: 2 },
       { da: 5, a: 9 },
     ]);

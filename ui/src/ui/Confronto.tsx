@@ -43,7 +43,7 @@ export function Confronto({ confronto }: { confronto: DueColonne }) {
 
   return (
     <div className="flex h-full min-h-0 flex-col bg-paper">
-      <div className="flex items-start gap-3 border-b border-line px-[22px] py-3">
+      <div className="flex shrink-0 items-start gap-3 border-b border-line px-[22px] py-3">
         <div className="min-w-0 flex-1">
           <Etichetta>{t("compare.title")}</Etichetta>
           <p className="mt-1 text-[13px] text-ink">{confronto.domanda}</p>
@@ -61,7 +61,15 @@ export function Confronto({ confronto }: { confronto: DueColonne }) {
         </button>
       </div>
 
-      <div className="grid min-h-0 flex-1 grid-cols-2 divide-x divide-line overflow-hidden">
+      {/* `grid-rows-[minmax(0,1fr)]` non e' decorazione: senza una riga
+          dichiarata la riga implicita e' `auto`, cioe' **alta quanto il
+          contenuto**. Le due colonne prendevano quell'altezza invece di quella
+          dello schermo, quindi il loro `overflow-y-auto` non aveva mai niente
+          da far scorrere e a crescere era la pagina intera — con la barra di
+          scorrimento del documento che portava via anche la corsia. Con la riga
+          fissata all'altezza disponibile, ogni colonna scorre per conto suo e
+          il telaio resta fermo. */}
+      <div className="grid min-h-0 flex-1 grid-cols-2 grid-rows-[minmax(0,1fr)] divide-x divide-line overflow-hidden">
         <Colonna titolo={t("compare.withSources")} risposta={conFonti} fonti />
         <Colonna titolo={t("compare.withoutSources")} risposta={senzaFonti} fonti={false} />
       </div>
@@ -129,7 +137,10 @@ function Colonna({
       {risposta.testo === "" && inCorso(risposta) ? (
         <p className="font-mono text-[11px] text-muted">
           <span className="mr-2 inline-block h-1.5 w-1.5 animate-pulse rounded-full bg-accent align-middle" />
-          {t("stato.attesa")}
+          {/* Nella colonna nuda non si sta cercando niente: `fonti` e' proprio
+              il RAG di questo braccio, quindi la riga d'attesa dice cosa sta
+              davvero succedendo -- il modello che pensa da solo. */}
+          {t(fonti ? "stato.attesa" : "stato.attesa.modello")}
         </p>
       ) : (
         <Testo risposta={risposta} />

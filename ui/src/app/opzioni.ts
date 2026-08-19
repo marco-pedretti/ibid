@@ -150,7 +150,36 @@ export function avanzateToccate(o: Opzioni, c: ConfigView): boolean {
  * controlli mostrano i valori veri, che sullo schermo c'e' scritto **quale**.
  */
 export function campiRichiesta(o: Opzioni, predefiniti: ConfigView): Partial<QueryRequest> {
+  const k = configChiesta(o, predefiniti);
   return {
+    rag: k.rag,
+    reasoning_effort: k.reasoning_effort,
+    model: k.model,
+    retrieval_mode: k.retrieval_mode,
+    rerank: k.rerank,
+    top_k: k.top_k,
+    hnsw_ef: k.hnsw_ef,
+  };
+}
+
+/**
+ * La configurazione **che questa domanda chiede**, intera.
+ *
+ * I sette campi della barra sopra i predefiniti del servizio: gli altri sette
+ * non li tocca nessuno da qui, quindi restano quelli in vigore. Serve a U-15,
+ * che vuole mostrare cosa e' cambiato **premendo invio** e non a generazione
+ * finita — `ConfigView` arriva con `done`, cioe' dopo ~11 s.
+ *
+ * `campiRichiesta` ne e' derivata e non parallela, ed e' il punto: cio' che si
+ * mostra come chiesto e cio' che parte sul filo sono lo stesso oggetto letto due
+ * volte. Due funzioni separate si sarebbero allontanate al primo campo aggiunto
+ * alla barra, e la riga avrebbe dichiarato una configurazione che non e' quella
+ * mandata — un errore che nessuno vedrebbe, perche' il numero sbagliato sarebbe
+ * *plausibile*.
+ */
+export function configChiesta(o: Opzioni, predefiniti: ConfigView): ConfigView {
+  return {
+    ...predefiniti,
     rag: o.rag,
     reasoning_effort: o.ragionamento ? sforzoAcceso(predefiniti) : SFORZO.spento,
     model: o.modello,

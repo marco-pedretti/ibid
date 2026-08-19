@@ -13,12 +13,14 @@
 import { useEffect, useRef, useState } from "react";
 import type { ReactNode } from "react";
 
+import { usaBarra } from "../app/barra";
 import { usaChat } from "../app/chat";
 import { chiSiEAstenuto, inCorso } from "../app/conversazione";
 import type { Risposta, Scambio } from "../app/conversazione";
 import { usaDataset } from "../app/dataset";
 import { esempiDi } from "../app/esempi";
 import { usaLingua } from "../app/i18n";
+import { configDi, configPrecedente } from "../app/parametri";
 import { riepilogo } from "../app/verdetti";
 import type { Riepilogo } from "../app/verdetti";
 import { Barra } from "./Barra";
@@ -33,11 +35,13 @@ import {
   NonVerificata,
   Troncato,
 } from "./Icona";
+import { Parametri } from "./Parametri";
 import { Suggerimento } from "./Suggerimento";
 import { Testo } from "./Testo";
 
 export function Chat() {
   const { scambi } = usaChat();
+  const { predefiniti } = usaBarra();
   const fondo = useRef<HTMLDivElement>(null);
 
   // Segue il testo mentre arriva. Senza, i token scorrono sotto il bordo e chi
@@ -49,7 +53,23 @@ export function Chat() {
   return (
     <div className="flex h-full min-h-0 flex-col bg-paper">
       <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto px-[22px] py-5">
-        {scambi.length === 0 ? <Vuoto /> : scambi.map((s) => <Turno key={s.id} scambio={s} />)}
+        {scambi.length === 0 ? (
+          <Vuoto />
+        ) : (
+          scambi.map((s, i) => (
+            <div key={s.id} className="flex flex-col gap-4">
+              {/* Sopra la domanda e non sotto la risposta: dice con cosa quella
+                  domanda e' stata eseguita, e leggerlo dopo averne letto
+                  l'esito sarebbe scoprire le regole a partita finita. */}
+              <Parametri
+                config={configDi(s)}
+                precedente={configPrecedente(scambi, i)}
+                predefiniti={predefiniti}
+              />
+              <Turno scambio={s} />
+            </div>
+          ))
+        )}
         <div ref={fondo} />
       </div>
       <Campo />
@@ -120,14 +140,24 @@ function Turno({ scambio }: { scambio: Scambio }) {
       </div>
 
       <div className="flex max-w-[92%] flex-col gap-[9px]">
-        <RigaStato risposta={risposta} />
+        <RigaStato risposta={risposta} conFonti={configDi(scambio)?.rag ?? true} />
         <Corpo scambio={scambio} />
       </div>
     </div>
   );
 }
 
-function RigaStato({ risposta }: { risposta: Risposta }) {
+/**
+ * `conFonti` non e' un dettaglio di presentazione.
+ *
+ * Le prime due fasi del §3.5 descrivono **il retrieval**: «cerco nel corpus» e
+ * «N fonti trovate». Col RAG spento quel retrieval non gira, quindi annunciarlo
+ * e' raccontare un passo che non sta avvenendo — e per giunta nella colonna che
+ * il confronto esiste per mettere in dubbio, dove far credere che si sia cercato
+ * qualcosa e' esattamente l'equivoco da non creare. Li' l'unica attesa e' il
+ * modello che pensa da solo.
+ */
+function RigaStato({ risposta, conFonti }: { risposta: Risposta; conFonti: boolean }) {
   const { t, lingua } = usaLingua();
   const r = risposta;
 
@@ -144,9 +174,13 @@ function RigaStato({ risposta }: { risposta: Risposta }) {
 
   const testo =
     r.fase === "attesa"
-      ? t("stato.attesa")
+      ? conFonti
+        ? t("stato.attesa")
+        : t("stato.attesa.modello")
       : r.fase === "fonti"
-        ? `${r.chunks.length} ${t("sources.title").toLowerCase()} · ${t("stato.fonti")}`
+        ? conFonti
+          ? `${r.chunks.length} ${t("sources.title").toLowerCase()} · ${t("stato.fonti")}`
+          : t("stato.fonti")
         : r.fase === "scrittura"
           ? t("stato.scrittura")
           : r.fase === "risposta"

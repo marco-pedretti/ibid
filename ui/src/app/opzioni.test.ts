@@ -5,6 +5,7 @@ import {
   SFORZO,
   avanzateToccate,
   campiRichiesta,
+  configChiesta,
   modelloInstallato,
   opzioniDa,
   ragionamentoDisponibile,
@@ -105,6 +106,29 @@ describe("cosa parte nella richiesta", () => {
     expect(ragionamentoDisponibile(SFORZI)).toBe(true);
     expect(ragionamentoDisponibile(["none", "low"])).toBe(false);
     expect(ragionamentoDisponibile([])).toBe(false);
+  });
+});
+
+describe("cio' che si mostra come chiesto e cio' che parte sono lo stesso", () => {
+  it("`campiRichiesta` e' derivata da `configChiesta`, non parallela", () => {
+    // Due funzioni separate si sarebbero allontanate al primo campo aggiunto
+    // alla barra, e la riga di U-15 avrebbe dichiarato una configurazione
+    // diversa da quella mandata -- un errore che nessuno vedrebbe, perche' il
+    // valore sbagliato sarebbe *plausibile*.
+    const o = { ...opzioniDa(CONFIG), rag: false, top_k: 12, ragionamento: true };
+    const chiesta = configChiesta(o, CONFIG);
+    const campi = campiRichiesta(o, CONFIG) as Record<string, unknown>;
+    for (const k of Object.keys(campi)) {
+      expect(campi[k]).toEqual((chiesta as unknown as Record<string, unknown>)[k]);
+    }
+  });
+
+  it("i campi che la barra non tocca restano quelli in vigore", () => {
+    const chiesta = configChiesta({ ...opzioniDa(CONFIG), rag: false }, CONFIG);
+    expect(chiesta.temperature).toBe(CONFIG.temperature);
+    expect(chiesta.verify).toBe(CONFIG.verify);
+    expect(chiesta.baseline_prompt).toBe(CONFIG.baseline_prompt);
+    expect(chiesta.rag).toBe(false);
   });
 });
 

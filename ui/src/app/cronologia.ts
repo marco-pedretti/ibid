@@ -42,6 +42,7 @@
  * `VERSIONE` resta per una rottura vera — un campo che cambia significato — e
  * allora scartare e' giusto.
  */
+import type { ConfigView } from "../api/types";
 import { inizio, interrompi } from "./conversazione";
 import type { Risposta, Scambio } from "./conversazione";
 
@@ -172,7 +173,14 @@ function comeScambio(x: unknown): Scambio | null {
   if (typeof x !== "object" || x === null) return null;
   const s = x as Record<string, unknown>;
   if (typeof s.id !== "string" || typeof s.domanda !== "string") return null;
-  return { id: s.id, domanda: s.domanda, risposta: comeRisposta(s.risposta) };
+  return {
+    id: s.id,
+    domanda: s.domanda,
+    risposta: comeRisposta(s.risposta),
+    // Un deposito scritto prima di U-15 non ce l'ha: `null` e' il valore giusto
+    // per «non si sa cosa era stato chiesto», e la riga tace invece di inventare.
+    chiesto: typeof s.chiesto === "object" && s.chiesto !== null ? (s.chiesto as ConfigView) : null,
+  };
 }
 
 /**

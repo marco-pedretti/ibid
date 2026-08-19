@@ -75,6 +75,19 @@ export interface Scambio {
   id: string;
   domanda: string;
   risposta: Risposta;
+  /**
+   * La configurazione con cui la domanda e' **partita**, nota subito.
+   *
+   * `Risposta.config` dice cosa ha girato, e arriva con `done` — cioe' dopo
+   * ~11 s. Ma cosa e' stato chiesto si sa nell'istante in cui si preme invio, e
+   * U-15 vuole che il cambiamento si legga li', non a generazione finita.
+   *
+   * Sono **due dati diversi e restano due campi**: quasi sempre coincidono, e
+   * quando non coincidono e' il server ad aver deciso altrimenti — un fatto che
+   * si vuole poter vedere, non appianare. Chi disegna mostra `config` appena
+   * c'e' e questo nel frattempo.
+   */
+  chiesto: ConfigView | null;
 }
 
 export function inizio(): Risposta {

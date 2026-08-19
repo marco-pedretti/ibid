@@ -45,7 +45,7 @@ import {
 } from "./cronologia";
 import type { Conversazione } from "./cronologia";
 import { usaBarra } from "./barra";
-import { campiRichiesta, modelloInstallato, stessaConfigurazione } from "./opzioni";
+import { campiRichiesta, configChiesta, modelloInstallato, stessaConfigurazione } from "./opzioni";
 
 /**
  * Quanto si aspetta prima di scrivere nel deposito.
@@ -206,6 +206,11 @@ export function ProvvedeChat({ children }: { children: ReactNode }) {
 
       const conversazione = stato.corrente;
       const id = nuovoId();
+      // Cosa questa domanda **chiede**, completo: i campi della barra sopra i
+      // predefiniti del servizio. Si sa adesso, mentre `config` -- cosa ha
+      // girato davvero -- arriva con `done`, dopo ~11 s. U-15 vuole che il
+      // cambiamento si legga premendo invio, non a generazione finita.
+      const chiesto = configChiesta(opzioni, predefiniti);
       setStato((s) => ({
         ...s,
         conversazioni: conConversazione(s.conversazioni, conversazione, (c) => ({
@@ -214,7 +219,7 @@ export function ProvvedeChat({ children }: { children: ReactNode }) {
           // riaprendo la conversazione ci si torna sopra, e riscriverlo direbbe
           // che risposte gia' date vengono da un corpus che non le ha prodotte.
           dataset_id: c.dataset_id ?? scelto.dataset_id,
-          scambi: [...c.scambi, { id, domanda: testo, risposta: inizio() }],
+          scambi: [...c.scambi, { id, domanda: testo, risposta: inizio(), chiesto }],
         })),
       }));
 

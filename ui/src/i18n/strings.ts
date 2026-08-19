@@ -99,6 +99,13 @@ export const it = {
   "chat.noModel": "Il modello configurato non è installato: scegline uno dalla barra qui sotto.",
   "chat.hint.invio": "Invio per mandare, Maiusc+Invio per andare a capo.",
 
+  // La nota a margine di U-15: si legge a malapena, come quella sopra il campo.
+  // Non e' un messaggio della conversazione -- non l'ha detto nessuno.
+  "params.start": "partita con",
+  "params.default": "coi parametri predefiniti del servizio",
+  "params.none": "nessuno",
+  "params.all": "La configurazione che ha girato:",
+
   "bar.rag": "RAG",
   "bar.rag.hint":
     "Acceso, la risposta viene dal corpus e porta le fonti. Spento, il modello risponde da solo: è l'altra metà del confronto, non un guasto.",
@@ -160,6 +167,10 @@ export const it = {
     "Gli esempi sono tradotti, ma partono come li vedi nella seconda riga: la risposta segue la lingua della domanda.",
 
   "stato.attesa": "cerco nel corpus…",
+  // Col RAG spento non c'è nessun retrieval: annunciarlo racconterebbe un passo
+  // che non sta avvenendo, e nella colonna nuda far credere che si sia cercato
+  // qualcosa è proprio l'equivoco da non creare.
+  "stato.attesa.modello": "chiedo al modello…",
   "stato.fonti": "il modello sta scrivendo…",
   "stato.scrittura": "scrivo… · marcatori non ancora attivi",
   "stato.risposta": "testo definitivo · controllo le citazioni…",
@@ -331,6 +342,11 @@ export const en: Record<Chiave, string> = {
   "chat.noModel": "The configured model is not installed: pick one from the bar below.",
   "chat.hint.invio": "Enter to send, Shift+Enter for a new line.",
 
+  "params.start": "started with",
+  "params.default": "with the service defaults",
+  "params.none": "none",
+  "params.all": "The configuration that ran:",
+
   "bar.rag": "RAG",
   "bar.rag.hint":
     "On, the answer comes from the corpus and carries its sources. Off, the model answers on its own: that is the other half of the comparison, not a failure.",
@@ -380,6 +396,7 @@ export const en: Record<Chiave, string> = {
     "The examples are translated, but they are sent as the second line reads: the answer follows the language of the question.",
 
   "stato.attesa": "searching the corpus…",
+  "stato.attesa.modello": "asking the model…",
   "stato.fonti": "the model is writing…",
   "stato.scrittura": "writing… · markers not reliable yet",
   "stato.risposta": "final text · checking the citations…",

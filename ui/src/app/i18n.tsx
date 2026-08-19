@@ -27,6 +27,11 @@ function leggiLingua(): Lingua {
 /** I valori da mettere al posto dei `{nome}` di una frase. */
 export type Valori = Record<string, string | number>;
 
+/** La funzione di traduzione da sola, per chi la riceve invece di prenderla dal
+ *  contesto: una funzione pura che compone testo non deve essere un componente
+ *  solo per poter chiamare `usaLingua`. */
+export type Traduci = (chiave: Chiave, valori?: Valori) => string;
+
 interface Traduzione {
   lingua: Lingua;
   /**
@@ -38,7 +43,7 @@ interface Traduzione {
    * il numero puo' andare altrove. Tenendo il segnaposto **dentro** la stringa,
    * chi traduce vede la frase intera e la puo' rigirare.
    */
-  t: (chiave: Chiave, valori?: Valori) => string;
+  t: Traduci;
   imposta: (l: Lingua) => void;
 }
 

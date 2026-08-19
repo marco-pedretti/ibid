@@ -186,7 +186,8 @@ function celle(riga: { testo: string; da: number }): { da: number; a: number }[]
       // agli estremi — una cella vuota **in mezzo** e' un dato mancante, ed e'
       // un'informazione.
       const dentro = testo.slice(cella.da - riga.da, cella.a - riga.da);
-      const bordo = (cella.da === riga.da || cella.a === riga.da + testo.length) && dentro.trim() === "";
+      const bordo =
+        (cella.da === riga.da || cella.a === riga.da + testo.length) && dentro.trim() === "";
       if (!bordo) fuori.push(ritaglia(testo, riga.da, cella));
       inizio = riga.da + k + 1;
     }
