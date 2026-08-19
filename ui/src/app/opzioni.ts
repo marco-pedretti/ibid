@@ -32,19 +32,60 @@ export interface Opzioni {
   ragionamento: boolean;
   /** Il modello che risponde, o `COME_CONFIGURATO` per non scegliere. */
   modello: string;
+  /** I parametri di ricerca, chiusi sotto «Avanzate». */
+  avanzate: Avanzate;
 }
 
 /**
- * «Non scelgo io»: il campo non parte e risponde il modello del servizio.
+ * «Non scelgo io»: il campo non parte, e decide il servizio.
  *
- * Serve perche' il frontend **non sa** quale sia. `Capabilities` elenca i
- * modelli disponibili, non quello configurato, e preselezionare il primo
- * dell'elenco scriverebbe una scelta che nessuno ha fatto sopra quella del
- * deployment — con l'aggravante che l'ordine e' alfabetico, quindi il primo non
- * ha alcun rapporto con niente. Qui tacere e' l'unico modo di dire il vero, ed
- * e' l'eccezione alla regola di `campiRichiesta`.
+ * Serve perche' il frontend **non sa** cosa il servizio userebbe. `Capabilities`
+ * elenca i modelli disponibili e le modalita' ammesse, non quelli configurati, e
+ * preselezionare il primo dell'elenco scriverebbe una scelta che nessuno ha
+ * fatto sopra quella del deployment — con l'aggravante che l'ordine e'
+ * alfabetico, quindi il primo non ha alcun rapporto con niente. Qui tacere e'
+ * l'unico modo di dire il vero, ed e' l'eccezione alla regola di
+ * `campiRichiesta`.
  */
 export const COME_CONFIGURATO = "";
+
+/**
+ * Le manopole del retrieval.
+ *
+ * Stanno chiuse, e il §12 dice perche': un muro di manopole mostra l'ablation,
+ * che e' il lavoro della dashboard. Restano pero' **raggiungibili**, perche' la
+ * demo le accetta gia' e nasconderle del tutto significherebbe avere un'API piu'
+ * espressiva dell'interfaccia che la presenta.
+ *
+ * Ogni voce parte da «non scelto» — `""` o `null` — per lo stesso motivo del
+ * modello: il frontend non conosce i default del servizio, e riempire i campi
+ * con dei numeri scriverebbe sopra la configurazione del deployment dei valori
+ * che nessuno ha deciso. Si manda solo cio' che si tocca.
+ */
+export interface Avanzate {
+  retrieval_mode: string;
+  rerank: boolean | null;
+  top_k: number | null;
+  hnsw_ef: number | null;
+}
+
+export const AVANZATE_INTATTE: Avanzate = {
+  retrieval_mode: COME_CONFIGURATO,
+  rerank: null,
+  top_k: null,
+  hnsw_ef: null,
+};
+
+/** Qualcuno ha toccato qualcosa: la pastiglia lo dice, altrimenti «Avanzate»
+ *  chiuso nasconderebbe una configurazione diversa da quella che sembra. */
+export function avanzateToccate(a: Avanzate): boolean {
+  return (
+    a.retrieval_mode !== COME_CONFIGURATO ||
+    a.rerank !== null ||
+    a.top_k !== null ||
+    a.hnsw_ef !== null
+  );
+}
 
 /**
  * I due capi dell'asse che C-07 ha misurato.
@@ -86,6 +127,7 @@ export const PREDEFINITE: Opzioni = {
   rag: true,
   ragionamento: false,
   modello: COME_CONFIGURATO,
+  avanzate: AVANZATE_INTATTE,
 };
 
 /**
@@ -95,15 +137,20 @@ export const PREDEFINITE: Opzioni = {
  * torna in `ConfigView`, e una richiesta che tace lascia decidere al server una
  * cosa che sullo schermo appare gia' decisa.
  *
- * L'unica eccezione e' il modello, e per il motivo opposto: la' sullo schermo
- * c'e' scritto «come configurato», cioe' *non l'ho deciso io*, e mandare un
- * valore lo smentirebbe. Vedi `COME_CONFIGURATO`.
+ * Le eccezioni sono il modello e le avanzate, e per il motivo opposto: la'
+ * sullo schermo c'e' scritto «come configurato», cioe' *non l'ho deciso io*, e
+ * mandare un valore lo smentirebbe. Vedi `COME_CONFIGURATO`.
  */
 export function campiRichiesta(o: Opzioni): Partial<QueryRequest> {
+  const a = o.avanzate;
   return {
     rag: o.rag,
     reasoning_effort: o.ragionamento ? SFORZO.acceso : SFORZO.spento,
     ...(o.modello !== COME_CONFIGURATO && { model: o.modello }),
+    ...(a.retrieval_mode !== COME_CONFIGURATO && { retrieval_mode: a.retrieval_mode }),
+    ...(a.rerank !== null && { rerank: a.rerank }),
+    ...(a.top_k !== null && { top_k: a.top_k }),
+    ...(a.hnsw_ef !== null && { hnsw_ef: a.hnsw_ef }),
   };
 }
 

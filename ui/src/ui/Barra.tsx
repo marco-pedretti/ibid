@@ -16,11 +16,15 @@
  * e non vale una riga di altezza tolta alla risposta. Qui occupa lo spazio che
  * la fila lascia libero comunque.
  */
+import { useState } from "react";
+import type { ReactNode } from "react";
+
 import { usaBackend } from "../app/backend";
 import { usaBarra } from "../app/barra";
 import { usaLingua } from "../app/i18n";
-import { COME_CONFIGURATO, ragionamentoDisponibile } from "../app/opzioni";
-import type { Opzioni } from "../app/opzioni";
+import { COME_CONFIGURATO, avanzateToccate, ragionamentoDisponibile } from "../app/opzioni";
+import type { Avanzate, Opzioni } from "../app/opzioni";
+import { Caret } from "./Icona";
 import { Selettore } from "./Selettore";
 import { Suggerimento } from "./Suggerimento";
 
@@ -39,11 +43,21 @@ const SPENTA = "border-line-2 bg-surface text-ink-2 hover:border-accent-2 hover:
 export function Barra() {
   const { t } = usaLingua();
   const { backend } = usaBackend();
+  const { opzioni } = usaBarra();
+  const [aperte, setAperte] = useState(false);
   const capacita = backend.stato === "pronto" ? backend.capabilities : null;
   const sforzi = capacita?.reasoning_efforts ?? [];
 
   return (
-    <div className="mt-[9px] flex flex-wrap items-center gap-1.5">
+    <>
+      {/* Il pannello si apre **sopra** la barra e non sopra la conversazione:
+          un riquadro flottante coprirebbe proprio la risposta di cui si sta
+          cambiando la ricerca, e resterebbe da posizionare rispetto a un bordo
+          che non c'e'. Qui spinge il filo in su di una striscia e resta visibile
+          mentre si scrive la domanda seguente. */}
+      {aperte && <PannelloAvanzate modalita={capacita?.retrieval_modes ?? []} />}
+
+      <div className="mt-[9px] flex flex-wrap items-center gap-1.5">
       <Interruttore chiave="rag" etichetta={t("bar.rag")} suggerimento={t("bar.rag.hint")} />
 
       {/* Sparisce se il server non offre piu' i due capi dell'asse. Mostrarlo
@@ -57,10 +71,143 @@ export function Barra() {
         />
       )}
 
-      <MenuModelli modelli={capacita?.models ?? []} />
+        <MenuModelli modelli={capacita?.models ?? []} />
 
-      <p className="ml-auto font-mono text-[10px] text-muted">{t("chat.hint.invio")}</p>
+        <Suggerimento testo={t("bar.advanced.hint")} fuoco={false}>
+          <button
+            type="button"
+            aria-expanded={aperte}
+            onClick={() => setAperte((x) => !x)}
+            className={`${PASTIGLIA} ${
+              // Toccato e chiuso, la pastiglia lo dice: «Avanzate» che tornasse
+              // neutro nasconderebbe una configurazione diversa da quella che
+              // sembra, ed e' l'unico controllo che puo' farlo.
+              avanzateToccate(opzioni.avanzate)
+                ? "border-accent bg-accent-soft text-accent hover:border-accent-2"
+                : SPENTA
+            }`}
+          >
+            {t("bar.advanced")}
+            <Caret className={`transition-transform ${aperte ? "rotate-180" : ""}`} size={9} />
+          </button>
+        </Suggerimento>
+
+        <p className="ml-auto font-mono text-[10px] text-muted">{t("chat.hint.invio")}</p>
+      </div>
+    </>
+  );
+}
+
+/**
+ * `retrieval_mode`, `rerank`, `top_k`, `hnsw_ef`: i quattro che l'API accetta e
+ * che il §12 tiene chiusi.
+ *
+ * Ognuno parte da «come configurato» e resta muto finche' non lo si tocca —
+ * stessa ragione del menu dei modelli: i default del servizio non li conosciamo,
+ * e riempire i campi con dei numeri scriverebbe sopra la configurazione del
+ * deployment dei valori che nessuno ha deciso.
+ */
+function PannelloAvanzate({ modalita }: { modalita: readonly string[] }) {
+  const { t } = usaLingua();
+  const { opzioni, cambia } = usaBarra();
+  const a = opzioni.avanzate;
+  const scrivi = (p: Partial<Avanzate>) => cambia("avanzate", { ...a, ...p });
+
+  return (
+    <div className="mt-[9px] flex flex-wrap items-end gap-x-4 gap-y-2.5 rounded-[7px] border border-line-2 bg-paper px-3 py-2.5">
+      <Campo etichetta={t("bar.advanced.mode")}>
+        <Selettore
+          etichetta={t("bar.advanced.mode")}
+          valore={a.retrieval_mode}
+          voci={[
+            { valore: COME_CONFIGURATO, testo: t("bar.model.default") },
+            ...modalita.map((m) => ({ valore: m, testo: m })),
+          ]}
+          onCambia={(m) => scrivi({ retrieval_mode: m })}
+          verso="su"
+          className={`${PASTIGLIA} ${SPENTA}`}
+        >
+          {a.retrieval_mode === COME_CONFIGURATO ? (
+            t("bar.model.default")
+          ) : (
+            <span className="font-mono">{a.retrieval_mode}</span>
+          )}
+        </Selettore>
+      </Campo>
+
+      <Campo etichetta={t("bar.advanced.rerank")}>
+        <Selettore
+          etichetta={t("bar.advanced.rerank")}
+          valore={a.rerank === null ? "" : a.rerank ? "si" : "no"}
+          voci={[
+            { valore: "", testo: t("bar.model.default") },
+            { valore: "si", testo: t("bar.advanced.on") },
+            { valore: "no", testo: t("bar.advanced.off") },
+          ]}
+          onCambia={(v) => scrivi({ rerank: v === "" ? null : v === "si" })}
+          verso="su"
+          className={`${PASTIGLIA} ${SPENTA}`}
+        >
+          {a.rerank === null ?
+            t("bar.model.default")
+          : a.rerank ? t("bar.advanced.on")
+          : t("bar.advanced.off")}
+        </Selettore>
+      </Campo>
+
+      <Campo etichetta="top_k">
+        <Numero valore={a.top_k} onCambia={(n) => scrivi({ top_k: n })} />
+      </Campo>
+
+      <Campo etichetta="hnsw_ef">
+        <Numero valore={a.hnsw_ef} onCambia={(n) => scrivi({ hnsw_ef: n })} />
+      </Campo>
+
+      <p className="w-full text-[10.5px] leading-[1.5] text-muted">{t("bar.advanced.note")}</p>
     </div>
+  );
+}
+
+function Campo({ etichetta, children }: { etichetta: string; children: ReactNode }) {
+  return (
+    <label className="flex flex-col gap-1">
+      <span className="font-mono text-[9.5px] tracking-[0.04em] text-muted uppercase">
+        {etichetta}
+      </span>
+      {children}
+    </label>
+  );
+}
+
+/**
+ * Un numero, o niente.
+ *
+ * Vuoto significa «come configurato», quindi non e' uno stato da correggere: il
+ * segnaposto lo dice invece di lasciarlo indovinare. Un valore non intero o
+ * minore di uno torna a vuoto, che e' l'unico modo di rifiutarlo senza inventare
+ * un numero al posto di chi scrive.
+ */
+function Numero({
+  valore,
+  onCambia,
+}: {
+  valore: number | null;
+  onCambia: (n: number | null) => void;
+}) {
+  const { t } = usaLingua();
+  return (
+    <input
+      type="number"
+      min={1}
+      inputMode="numeric"
+      value={valore ?? ""}
+      placeholder={t("bar.model.default")}
+      onChange={(e) => {
+        const n = Number.parseInt(e.target.value, 10);
+        onCambia(Number.isFinite(n) && n >= 1 ? n : null);
+      }}
+      className="w-[86px] rounded-full border border-line-2 bg-surface px-2.5 py-1 font-mono text-[11px] text-ink transition-colors placeholder:font-sans placeholder:text-muted hover:border-accent-2 focus:outline-2 focus:outline-offset-2 focus:outline-accent"
+    />
   );
 }
 

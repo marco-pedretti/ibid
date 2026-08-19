@@ -2,8 +2,10 @@ import { describe, expect, it } from "vitest";
 
 import type { ConfigView } from "../api/types";
 import {
+  AVANZATE_INTATTE,
   COME_CONFIGURATO,
   PREDEFINITE,
+  avanzateToccate,
   SFORZO,
   campiRichiesta,
   ragionamentoDisponibile,
@@ -30,10 +32,31 @@ const CONFIG: ConfigView = {
 };
 
 describe("le opzioni della barra", () => {
-  it("si parte col RAG acceso, il ragionamento spento e nessun modello scelto", () => {
+  it("si parte col RAG acceso, il ragionamento spento e niente scelto a mano", () => {
     // Il secondo non e' pessimismo: C-07 ha misurato che acceso non conviene, e
     // un predefinito diverso consegnerebbe quella misura al contrario.
-    expect(PREDEFINITE).toEqual({ rag: true, ragionamento: false, modello: COME_CONFIGURATO });
+    expect(PREDEFINITE).toEqual({
+      rag: true,
+      ragionamento: false,
+      modello: COME_CONFIGURATO,
+      avanzate: AVANZATE_INTATTE,
+    });
+    expect(avanzateToccate(AVANZATE_INTATTE)).toBe(false);
+  });
+
+  it("le avanzate mandano solo cio' che si tocca", () => {
+    // Riempirle coi default del servizio e' impossibile — non li conosciamo — e
+    // riempirle con dei numeri qualsiasi scriverebbe sopra la configurazione del
+    // deployment dei valori che nessuno ha deciso.
+    expect(campiRichiesta(PREDEFINITE)).not.toHaveProperty("top_k");
+    expect(campiRichiesta(PREDEFINITE)).not.toHaveProperty("rerank");
+
+    const toccate = { ...AVANZATE_INTATTE, top_k: 12, rerank: false };
+    expect(avanzateToccate(toccate)).toBe(true);
+    const campi = campiRichiesta({ ...PREDEFINITE, avanzate: toccate });
+    expect(campi.top_k).toBe(12);
+    expect(campi.rerank).toBe(false);
+    expect(campi).not.toHaveProperty("hnsw_ef");
   });
 
   it("ogni campo parte sempre, anche quando coincide col default", () => {

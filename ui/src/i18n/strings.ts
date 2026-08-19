@@ -112,6 +112,15 @@ export const it = {
   // modelli, e mostrare quello configurato affermerebbe che esiste.
   "bar.model.none":
     "L'elenco dei modelli non è arrivato: risponde quello configurato nel servizio. Resta vuoto invece di mostrarne uno che non abbiamo potuto verificare.",
+  "bar.advanced": "Avanzate",
+  "bar.advanced.hint":
+    "Come si cerca nel corpus, prima che il modello scriva. Stanno chiuse di proposito: confrontare configurazioni è il lavoro del cruscotto, non di qui.",
+  "bar.advanced.mode": "Ricerca",
+  "bar.advanced.rerank": "Riordino",
+  "bar.advanced.on": "acceso",
+  "bar.advanced.off": "spento",
+  "bar.advanced.note":
+    "Quello che non tocchi resta come l'ha configurato il servizio: si manda solo ciò che scegli.",
 
   // Il confronto. È un'azione su una risposta già data, non un secondo
   // messaggio: le parole dicono «la stessa domanda», mai «chiedi di nuovo».
@@ -262,10 +271,6 @@ export const it = {
   "index.sparse": "vettori sparsi",
   "index.missing": "Il server non elenca nessuna collection con questo nome.",
 
-  // i parametri avanzati, sotto «Avanzate»
-  "models.title": "Modelli",
-  "models.none":
-    "Nessun modello: il server che scrive le risposte non risponde. Cercare nel corpus funziona ancora.",
 } as const;
 
 export type Chiave = keyof typeof it;
@@ -324,6 +329,15 @@ export const en: Record<Chiave, string> = {
     "Who answers. With good retrieval, model size matters less than expected: it is one of the things this project measures.",
   "bar.model.none":
     "The model list did not arrive: the one configured in the service answers. It stays empty rather than showing one we could not verify.",
+  "bar.advanced": "Advanced",
+  "bar.advanced.hint":
+    "How the corpus is searched, before the model writes. Closed on purpose: comparing configurations is the dashboard's job, not this one's.",
+  "bar.advanced.mode": "Search",
+  "bar.advanced.rerank": "Reranking",
+  "bar.advanced.on": "on",
+  "bar.advanced.off": "off",
+  "bar.advanced.note":
+    "Whatever you leave alone stays as the service configured it: only what you choose is sent.",
 
   "compare.action.bare": "Compare without the sources",
   "compare.action.sourced": "Compare with the sources",
@@ -447,10 +461,6 @@ export const en: Record<Chiave, string> = {
   "index.sparse": "sparse vectors",
   "index.missing": "The server lists no collection with this name.",
 
-  // i parametri avanzati, sotto «Avanzate»
-  "models.title": "Models",
-  "models.none":
-    "No models: the server that writes the answers is not responding. Searching the corpus still works.",
 };
 
 export const LINGUE = ["it", "en"] as const;
