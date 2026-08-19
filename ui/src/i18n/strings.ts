@@ -99,6 +99,13 @@ export const it = {
   "chat.noModel": "Il modello configurato non è installato: scegline uno dalla barra qui sotto.",
   "chat.hint.invio": "Invio per mandare, Maiusc+Invio per andare a capo.",
 
+  // La nota a margine di U-15: si legge a malapena, come quella sopra il campo.
+  // Non e' un messaggio della conversazione -- non l'ha detto nessuno.
+  "params.start": "partita con",
+  "params.default": "coi parametri predefiniti del servizio",
+  "params.none": "nessuno",
+  "params.all": "La configurazione che ha girato:",
+
   "bar.rag": "RAG",
   "bar.rag.hint":
     "Acceso, la risposta viene dal corpus e porta le fonti. Spento, il modello risponde da solo: è l'altra metà del confronto, non un guasto.",
@@ -330,6 +337,11 @@ export const en: Record<Chiave, string> = {
   "chat.noDataset": "Pick a dataset before asking.",
   "chat.noModel": "The configured model is not installed: pick one from the bar below.",
   "chat.hint.invio": "Enter to send, Shift+Enter for a new line.",
+
+  "params.start": "started with",
+  "params.default": "with the service defaults",
+  "params.none": "none",
+  "params.all": "The configuration that ran:",
 
   "bar.rag": "RAG",
   "bar.rag.hint":

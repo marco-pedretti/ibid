@@ -55,6 +55,22 @@ function conclusa(testo = "Il valore è 0.0226 [1]."): Risposta {
       },
     ],
     tempi: { retrieval_s: 0.27, generation_s: 3.01 },
+    config: {
+      top_k: 5,
+      retrieval_mode: "dense",
+      rerank: false,
+      query_rewrite: false,
+      filter_content_type: "",
+      search_exact: false,
+      hnsw_ef: null,
+      model: "gemma4:latest",
+      temperature: 0,
+      max_new_tokens: 1024,
+      reasoning_effort: "none",
+      rag: true,
+      baseline_prompt: "strict",
+      verify: true,
+    },
   };
 }
 
@@ -124,13 +140,18 @@ describe("rileggere il deposito", () => {
     ).toEqual([]);
   });
 
-  it("un giro completo conserva fonti e verdetti", () => {
+  it("un giro completo conserva fonti, verdetti e la configurazione che ha girato", () => {
     const dopo = deserializza(serializza([conv("a", ["Qual è l'RMSE?"])]));
     const r = dopo[0].scambi[0].risposta;
     expect(r.fase).toBe("conclusa");
     expect(r.chunks[0].text).toBe(CHUNK.text);
     expect(r.citazioni[0].supported).toBe(true);
     expect(r.tempi.generation_s).toBe(3.01);
+    // U-15 poggia su questo: la configurazione era gia' nel deposito da U-13,
+    // senza che nessuno l'avesse messa li' per farla rileggere. Ora si vede
+    // sullo schermo, quindi ha un test invece di essere vera per caso.
+    expect(r.config?.model).toBe("gemma4:latest");
+    expect(r.config?.rag).toBe(true);
   });
 
   it("non ricorda quale conversazione era aperta: si riparte da una nuova", () => {
