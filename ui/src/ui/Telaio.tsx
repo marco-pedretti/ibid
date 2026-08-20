@@ -157,13 +157,26 @@ function CorsiaAperta({ chiudi }: { chiudi: () => void }) {
  * chiude ha appena visto l'altra, e trovare le stesse cose nelle stesse
  * posizioni e' cio' che rende il gesto reversibile invece di disorientante.
  *
- * Il marchio resta, in piccolo. Non e' decorazione: e' l'unica cosa che dice che
- * questa striscia di glifi appartiene ancora al programma di prima.
+ * Il marchio resta, **e resta della sua misura**. Non e' decorazione: e' l'unica
+ * cosa che dice che questa striscia di glifi appartiene ancora al programma di
+ * prima, e un marchio che rimpicciolisce insieme alla colonna che lo contiene lo
+ * direbbe piu' piano proprio dove ce n'e' piu' bisogno. E' anche la regola che
+ * questo componente ha gia': una corsia che cambia di larghezza fra due
+ * schermate e' il difetto piu' visibile che un'interfaccia possa avere, e un
+ * marchio che cambia di corpo fra due stati e' lo stesso difetto in piccolo.
  */
 function Striscia({ apri }: { apri: () => void }) {
   return (
     <aside className="flex flex-col gap-2 border-r border-line bg-surface px-[7px] py-3.5">
-      <Marchio className="text-center text-[14px]" />
+      {/* Il marchio non rimpicciolisce con la corsia: e' l'unica cosa che dice
+          che questa striscia di glifi appartiene ancora al programma di prima, e
+          scritta piu' piccola lo direbbe piu' piano proprio dove serve di piu'.
+          I 19 px pero' non stanno nei 34 px che restano fra i due margini —
+          «ibid» in Georgia ne misura ~32 — quindi qui il margine si annulla e la
+          riga si prende tutti e 48. `whitespace-nowrap` e' la rete per un serif
+          piu' largo di quelli previsti: meglio che sporga di un pelo, che
+          spezzarsi in due righe. */}
+      <Marchio className="-mx-[7px] block text-center text-[19px] whitespace-nowrap" />
       <BottoneCorsia chiusa cambia={apri} className="h-[30px] w-full" />
 
       <SelettoreDataset compatta />
