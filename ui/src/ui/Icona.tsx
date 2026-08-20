@@ -75,6 +75,45 @@ export function Caret(p: PropsIcona) {
   );
 }
 
+/** Cercare fra i documenti del corpus (U-06). */
+export function Lente(p: PropsIcona) {
+  return (
+    <Base {...p}>
+      <circle cx="7" cy="7" r="4" />
+      <path d="M10 10 L13.5 13.5" />
+    </Base>
+  );
+}
+
+/**
+ * Il corpus e come e' stato spezzato: tre bande di larghezza diversa.
+ *
+ * Non una lente ne' una cartella. Cio' che quella schermata mostra e' **la
+ * mappa** — le tessere di un documento, larghe in modo diverso a seconda di cosa
+ * contengono — e l'icona e' quella mappa in piccolo: un documento tagliato in
+ * pezzi disuguali, che e' l'unica cosa che una cartella non direbbe.
+ */
+export function Corpus(p: PropsIcona) {
+  return (
+    <Base {...p}>
+      <path d="M2.5 4 H13.5" />
+      <path d="M2.5 8 H8.5" />
+      <path d="M2.5 12 H11" />
+    </Base>
+  );
+}
+
+/** Si apre fuori da qui: una freccia che esce dal riquadro (U-06). */
+export function Esterno(p: PropsIcona) {
+  return (
+    <Base {...p}>
+      <path d="M12.5 9.5 V13 a.5.5 0 0 1-.5.5 H3.5 a.5.5 0 0 1-.5-.5 V4.5 a.5.5 0 0 1 .5-.5 H7" />
+      <path d="M10 2.5 H13.5 V6" />
+      <path d="M13.5 2.5 L7.5 8.5" />
+    </Base>
+  );
+}
+
 /** Un passo in giu' su una manopola numerica. */
 export function Meno(p: PropsIcona) {
   return (

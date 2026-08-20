@@ -41,7 +41,7 @@ import type { ReactNode } from "react";
 import { marcatoriDelTesto, spanSenzaCitazione } from "../app/verdetti";
 import type { Marcato, Span } from "../app/verdetti";
 import type { Risposta } from "../app/conversazione";
-import { analizza, stiliIn } from "./markdown";
+import { analizza, stiliIn, visibili } from "./markdown";
 import type { Blocco as BloccoMd, Nascosto, Stile } from "./markdown";
 import { perAnteprima, segmenta } from "./matematica";
 import { Marcatore } from "./Verdetto";
@@ -92,6 +92,36 @@ export function Testo({ risposta }: { risposta: Risposta }) {
   // voce -- che i lettori di schermo annunciano uno per uno.
   return (
     <div className="flex flex-col gap-2 text-[13.5px] leading-[1.66] text-ink">
+      {raggruppa(blocchi).map((g, i) =>
+        g.tipo === "elenco" ? (
+          <Elenco key={i} voci={g.blocchi} contesto={contesto} />
+        ) : (
+          <Blocco key={i} blocco={g.blocchi[0]} contesto={contesto} />
+        ),
+      )}
+    </div>
+  );
+}
+
+/**
+ * Del testo qualunque, disegnato come la risposta ma **senza niente sopra**.
+ *
+ * Serve all'esploratore di U-06: un chunk del corpus ha titoli, elenchi, enfasi
+ * e formule esattamente come una risposta, e non ha ne' marcatori di citazione
+ * ne' verdetti — perche' nessuno lo ha ancora citato ne' controllato.
+ *
+ * **Riusa `Testo` invece di rifarlo** passando `annotazioni: []`. Le annotazioni
+ * sono l'unica cosa che lega quella macchina alle risposte; tutto il resto —
+ * blocchi, tabelle Markdown, matematica, sintassi nascosta — vale per qualunque
+ * testo. Una seconda composizione scritta accanto sarebbe divergente al primo
+ * caso di bordo, e i casi di bordo qui sono la ragione per cui il modulo esiste.
+ */
+export function Prosa({ testo }: { testo: string }) {
+  const { blocchi, stili, nascosti } = useMemo(() => analizza(testo), [testo]);
+  const contesto: Contesto = { testo, annotazioni: [], stili, nascosti };
+
+  return (
+    <div className="flex flex-col gap-2">
       {raggruppa(blocchi).map((g, i) =>
         g.tipo === "elenco" ? (
           <Elenco key={i} voci={g.blocchi} contesto={contesto} />
@@ -282,22 +312,6 @@ function conStile(prosa: string, da: number, contesto: Contesto): ReactNode[] {
     );
   }
   return pezzi;
-}
-
-/** I tratti di `[da, a)` che **non** sono sintassi da nascondere. E' l'unico
- *  posto in cui i caratteri spariscono, ed e' dopo che ogni intervallo e' stato
- *  calcolato: prima sposterebbe gli offset di tutti gli altri. */
-function visibili(da: number, a: number, nascosti: readonly Nascosto[]): Nascosto[] {
-  const fuori: Nascosto[] = [];
-  let i = da;
-  for (const n of nascosti) {
-    if (n.a <= i || n.da >= a) continue;
-    if (n.da > i) fuori.push({ da: i, a: Math.min(n.da, a) });
-    i = Math.max(i, n.a);
-    if (i >= a) break;
-  }
-  if (i < a) fuori.push({ da: i, a });
-  return fuori;
 }
 
 const VESTE_STILE: Record<Stile["tipo"], string> = {

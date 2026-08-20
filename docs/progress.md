@@ -1600,6 +1600,7 @@ Per la stessa ragione `/document/{doc_id}/chunks` restituisce i chunk **in ordin
 | U-00 | âœ… fatto (2026-08-14) | Scheletro `ui/`: Vite 8 + React 19 + TypeScript 7 + Tailwind 4, client SSE scritto a mano, temi, i18n IT/EN, `/datasets` all'avvio. **19 test Vitest** + 15 test Python sul contratto generato. `npm run typecheck && npm test && npm run build` verdi; catena provata contro l'API viva. Dettaglio sotto. |
 | U-01 | ✅ fatto (2026-08-14) | Selettore dataset nella corsia laterale del mockup, scelta ricordata in `localStorage` e **validata** contro `/datasets`. La regola di selezione è in funzioni pure: **9 test Vitest** in più (28 in tutto), senza jsdom. Provato contro l'API viva: `open_ragbench` 18.840 e `ledger` 47.110 chunk. Dettaglio sotto. |
 | U-02 | ✅ fatto (2026-08-14) | Schermata di chat con **pannello fonti sempre visibile** (nel telaio, non nella chat): otto stati, uno per evento del §3.5, macchina a stati in un reducer puro con **16 test** (44 lato Vitest). Marcatori inerti finché non arriva `answer`. I valori di `abstention` ora sono generati come i tipi. Esempi dello stato vuoto presi da `eval/golden`. Provato contro l'API viva su una query d'oro reale. **Rendering LaTeX** con KaTeX, regola dei delimitatori misurata: 49 falsi positivi tolti su 49, zero formule vere perse. Dettaglio sotto. |
+| U-06 | ✅ fatto (2026-08-20) | **L'esploratore del corpus**: i documenti, com'è stato spezzato quello aperto — una tessera per chunk, larga il doppio dove c'è una tabella — e il chunk scelto **per intero**, che è la ragione del task: la scheda ne mostra due righe e il chunk può essere lungo 6.302 caratteri. Nessun campo nuovo: `/documents` e `/document/{id}/chunks` esistevano dal A-04 e non li aveva mai chiamati nessuno. Il PDF non c'è su nessuno dei due corpus, e si dichiara. **11 test Vitest** in più (236). Dettaglio sotto. |
 | U-05 | ✅ fatto (2026-08-20) | **Come il documento è stato riconosciuto e come è stato tagliato**, sulla scheda della fonte: `tabelle → taglio generico`, con l'accento solo quando una pipeline è stata scelta per il genere. Prima però il campo andava reso vero: i loader generici scrivevano il nome di una pipeline che **non aveva girato** — terza volta di quella famiglia dopo `reasoning_enabled` e `context_window`. Migrazione di payload su 65.950 punti, senza re-ingestione. **6 test Vitest** in più (225) e 2 Python (1711). Dettaglio sotto. |
 | U-04 | ✅ fatto (2026-08-20) | **Il prompt del modello senza fonti si sceglie dentro quella colonna**: due pastiglie — «risponde comunque» e «si astiene» — che rifanno **quella colonna sola**, con l'altra ferma a fare da paragone. È il 45%→17% di E-04/E-05 su una domanda singola invece che in una tabella. Il braccio nudo diventa un campo dello stato: ricavarlo da `config` faceva scambiare di posto le due colonne mentre una si rifà. **10 test Vitest** in più (214 in tutto). Dettaglio sotto. |
 | U-16 | ✅ fatto (2026-08-19) | **Modello e contesto, due selettori**: il primo elenca i modelli, il secondo le finestre che quel modello regge — e compare solo quando ce n'è più di una. Nessuna convenzione sui nomi: il raggruppamento passa da `parent_model`. Con `scripts/model_sizes.py` che crea le taglie. **15 test Vitest** in più (198 in tutto). Dettaglio sotto. |
@@ -2480,6 +2481,74 @@ Servono tutti e due: la cache da sola avrebbe nascosto il costo alla seconda
 volta invece di toglierlo. Un fallimento **non** si memorizza — un motore muto
 adesso può rispondere fra un minuto — e un test fissa anche l'ordine, perché un
 menu che si riordina da solo fa saltare la selezione a chi ha appena scelto.
+
+### U-06 — la fonte è il chunk intero, e il PDF non c'è affatto
+
+Il criterio dice «da una citazione si raggiunge la pagina della fonte», e la
+parola *pagina* non si poteva prendere alla lettera. Guardato prima di
+cominciare:
+
+| | `open_ragbench` | `ledger` |
+|---|---|---|
+| PDF su disco | **nessuno** — solo il JSON degli articoli | nessuno — solo il Markdown di Mathpix |
+| `page` | sempre `0` | reale (0…N) |
+| `bbox` | `null` | `null` |
+| `source_uri` | `https://arxiv.org/abs/…` | `ledger:NYSE:SHW:2017` |
+
+L'overlay non è scoperto solo perché I-06 è rinviato: **un PDF non c'è proprio**.
+La seconda riga del criterio lo prevede — *«dichiararlo, non simularlo»* — e la
+colonna di destra lo scrive invece di disegnare un riquadro grigio che promette
+qualcosa.
+
+Quello che si può raggiungere è **il chunk intero**, ed è la metà che conta. La
+scheda del pannello ne mostra due righe; il chunk che risponde alla domanda sui
+crediti di Sherwin-Williams è lungo **6.302 caratteri**. Controllare una
+citazione vuol dire leggerli tutti.
+
+#### Terza volta che il dato c'era già
+
+`/documents`, `/document/{id}/chunks` e `/chunk/{id}` esistono dal A-04; A-07 ha
+creato gli indici payload apposta (2,07 s → 0,025 s); `client.ts` li avvolge da
+U-00 con un commento che dice «(U-06)». **Non li aveva mai chiamati nessuno** —
+come `/config` prima di U-03 e `Risposta.config` prima di U-15. Il costo
+misurato: l'elenco di `ledger` è 494 documenti, 21 KB, 0,35 s; il documento più
+grande è 261 chunk, 523 KB, 0,46 s. Si chiedono solo aprendo l'esploratore, non
+all'avvio.
+
+#### La mappa
+
+Una tessera per chunk, larga il doppio dove c'è una tabella. **La larghezza porta
+l'informazione insieme al colore**, non il colore da solo: è la regola dei
+verdetti di U-07. Due documenti dello stesso corpus danno due mappe diverse, e
+quella è l'affermazione 2 del §0 senza una tabella di numeri.
+
+Non si poteva disegnare prima di U-05: fino a ieri il campo `pipeline` diceva il
+nome di una pipeline che non aveva girato.
+
+#### La legenda diceva una cosa vera dell'altro indice
+
+Scritta com'era nel mockup — «tabella · mai spezzata» — era **falsa
+sull'indice generico**: lì i chunk sono una pagina intera e la tabella dentro non
+è stata protetta da nessuno, ci è capitata. Sarebbe stata la stessa
+dichiarazione non verificata che U-05 aveva appena tolto dal campo, rimessa due
+giorni dopo in una legenda. Ora sono due etichette scelte da `taglioPerGenere`,
+la stessa funzione che decide l'accento sulla targhetta.
+
+#### Due modi di arrivarci, nessuno dei due un comando in più
+
+«Esplora il corpus» sotto il selettore del dataset, perché apre una vista su
+*quel* dataset — il docstring del telaio lo aspettava: *«arriverà con la
+schermata che apre»*. E il **nome del documento** sulla scheda della fonte, che
+era già ciò che si guarda per sapere da dove viene una risposta: su una colonna
+larga 272 px un bottone in più sarebbe stato il primo a essere tolto.
+
+#### Un rinominamento per un difetto vero
+
+`app/corpus.tsx` è diventato `app/esploratore.tsx`. Due file con lo stesso nome e
+due estensioni si risolvono per ordine di preferenza del bundler: l'import di
+`usaCorpus` prendeva `corpus.ts`, che non lo esporta, e il typecheck lo ha detto
+subito — ma in un caso meno fortunato avrebbe preso il modulo sbagliato in
+silenzio. Il repo non lo faceva mai: `chat.tsx` sta accanto a `conversazione.ts`.
 
 ### U-05 — la targhetta non si poteva disegnare finché il campo mentiva
 

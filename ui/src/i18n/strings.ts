@@ -205,6 +205,54 @@ export const it = {
   "source.pipeline.generic":
     "Tutti i documenti di questo indice sono stati tagliati allo stesso modo, qualunque fosse il genere.",
 
+  // U-06, l'esploratore. La didascalia del mockup: qui non si confrontano
+  // configurazioni, si guarda il corpus e come e' stato spezzato.
+  "corpus.title": "Il corpus",
+  "corpus.subtitle":
+    "Come i documenti di {dataset} sono stati spezzati prima di finire nell'indice.",
+  "corpus.open.action": "Esplora il corpus",
+  "corpus.back": "Torna alla conversazione",
+  "corpus.documents": "Documenti",
+  // Sui due manici: e' l'`aria-label` di un `separator`, quindi dice **cosa si
+  // sta ridimensionando**, non «trascina qui».
+  "corpus.resize.documents": "Larghezza dell'elenco dei documenti",
+  "corpus.resize.detail": "Larghezza del chunk selezionato",
+  "corpus.search": "Cerca un documento…",
+  "corpus.loading": "carico…",
+  "corpus.count": "{visti} su {tutti}",
+  "corpus.chunks": "{n} chunk",
+  "corpus.pickDocument": "Scegli un documento per vedere com'è stato spezzato.",
+  "corpus.howSplit": "Com'è stato spezzato",
+  "corpus.legend.text": "testo",
+  // Due etichette per la stessa tessera, e non e' un vezzo: «mai spezzata» e' una
+  // proprieta' della pipeline `table_heavy`, che nell'indice generico **non ha
+  // girato**. Scriverlo comunque sarebbe la stessa dichiarazione non verificata
+  // che U-05 ha appena tolto dal campo `pipeline`.
+  "corpus.legend.table": "contiene una tabella",
+  "corpus.legend.table.routed": "tabella · mai spezzata",
+  // Terza voce, ed e' quella che mancava: l'accento vuol dire «scelto» in tutta
+  // l'interfaccia, e la legenda deve dirlo invece di lasciarlo indovinare.
+  "corpus.legend.selected": "il chunk scelto",
+  "corpus.chunkHint": "{id} · {tipo} · {caratteri} caratteri",
+  "corpus.selected": "Chunk selezionato",
+  // Due modi, e il secondo non e' un ripiego: «grezzo» e' la stringa che sta
+  // nell'indice, cioe' quella che il modello ha ricevuto e che il controllo ha
+  // giudicato. In un progetto che verifica, il dato e' quello.
+  "corpus.readable": "leggibile",
+  "corpus.raw": "grezzo",
+  "corpus.page": "p. {n}",
+  "corpus.open": "Apri la fonte",
+  "corpus.split.title": "Riconosciuto come {genere}, tagliato {taglio}.",
+  "corpus.split.routed":
+    "Il taglio è stato scelto guardando il documento: generi diversi vengono spezzati in modo diverso, e le tabelle restano intere perché una riga senza intestazione è illeggibile.",
+  "corpus.split.generic":
+    "Ogni documento di questo indice è stato spezzato allo stesso modo, prendendo l'unità che il documento offriva già.",
+  // Il criterio di U-06 chiede di dichiararla, non di simularla. E il motivo è
+  // più largo del solo `bbox`: un PDF non c'è proprio, su nessuno dei due corpus.
+  "corpus.noPdf":
+    "Nessuna pagina da mostrare: di questo corpus non abbiamo i PDF, solo il testo estratto. L'evidenziazione sulla pagina non è disponibile — dichiarata, non simulata.",
+  "corpus.fromCitation": "Apri questa fonte nel corpus",
+
   "example.note.numbers": "Un numero preciso: la citazione deve reggerlo.",
   "example.note.paper": "Sta dentro un paper: guarda da quale sezione arriva.",
   "example.note.table": "La risposta sta in una tabella.",
@@ -457,6 +505,38 @@ export const en: Record<Chiave, string> = {
   "source.pipeline.routed": "The split was chosen from the document kind.",
   "source.pipeline.generic":
     "Every document in this index was split the same way, whatever its kind.",
+
+  "corpus.title": "The corpus",
+  "corpus.subtitle": "How the documents in {dataset} were split before they entered the index.",
+  "corpus.open.action": "Explore the corpus",
+  "corpus.back": "Back to the conversation",
+  "corpus.documents": "Documents",
+  "corpus.resize.documents": "Width of the document list",
+  "corpus.resize.detail": "Width of the selected chunk",
+  "corpus.search": "Find a document…",
+  "corpus.loading": "loading…",
+  "corpus.count": "{visti} of {tutti}",
+  "corpus.chunks": "{n} chunks",
+  "corpus.pickDocument": "Pick a document to see how it was split.",
+  "corpus.howSplit": "How it was split",
+  "corpus.legend.text": "text",
+  "corpus.legend.table": "contains a table",
+  "corpus.legend.table.routed": "table · never split",
+  "corpus.legend.selected": "the selected chunk",
+  "corpus.chunkHint": "{id} · {tipo} · {caratteri} characters",
+  "corpus.selected": "Selected chunk",
+  "corpus.readable": "readable",
+  "corpus.raw": "raw",
+  "corpus.page": "p. {n}",
+  "corpus.open": "Open the source",
+  "corpus.split.title": "Recognised as {genere}, cut {taglio}.",
+  "corpus.split.routed":
+    "The split was chosen by looking at the document: different kinds are split differently, and tables stay whole because a row without its header is unreadable.",
+  "corpus.split.generic":
+    "Every document in this index was split the same way, taking the unit the document already offered.",
+  "corpus.noPdf":
+    "No page to show: we do not have the PDFs for this corpus, only the extracted text. Highlighting on the page is unavailable — declared, not simulated.",
+  "corpus.fromCitation": "Open this source in the corpus",
 
   "example.note.numbers": "A precise number: the citation has to hold it up.",
   "example.note.paper": "It sits inside a paper: look at which section it comes from.",

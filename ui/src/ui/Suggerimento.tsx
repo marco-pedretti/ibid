@@ -33,7 +33,7 @@
  */
 import { useEffect, useId, useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import type { ReactNode } from "react";
+import type { CSSProperties, ReactNode } from "react";
 
 import { colloca } from "./collocazione";
 import type { Posa } from "./collocazione";
@@ -71,6 +71,7 @@ export function Suggerimento({
   testo,
   children,
   className = "",
+  stile,
   fuoco = true,
   dato = false,
 }: {
@@ -78,6 +79,16 @@ export function Suggerimento({
   children: ReactNode;
   /** Classi del bersaglio, non della bolla: il bersaglio resta cio' che era. */
   className?: string;
+  /**
+   * Stile in linea del bersaglio, per cio' che non e' esprimibile in classi.
+   *
+   * Serve alla mappa dell'esploratore, dove la larghezza di ogni tratto e' un
+   * numero calcolato. E serve **qui** e non sul figlio: il bersaglio e' lo
+   * `span` che avvolge, quindi e' lui la voce del contenitore flex, e uno stile
+   * messo sul bottone dentro non lo raggiunge. E' un difetto gia' pagato una
+   * volta — i tratti venivano fuori tutti larghi due pixel.
+   */
+  stile?: CSSProperties;
   /**
    * `true` quando sotto c'e' **un dato da spiegare** — un punteggio, un
    * marcatore, un verdetto, un nome troncato — e non un comando o il nome di una
@@ -189,6 +200,7 @@ export function Suggerimento({
     <>
       <span
         ref={bersaglio}
+        style={stile}
         // Raggiungibile da tastiera, altrimenti la spiegazione esiste solo per chi
         // ha un puntatore. Nel pannello fonti non c'erano tappe di tabulazione:
         // queste sono le prime, e non rubano il posto a nessuna.

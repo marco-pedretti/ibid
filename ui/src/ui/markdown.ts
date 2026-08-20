@@ -250,6 +250,31 @@ function enfasi(testo: string, nascosti: Nascosto[]): Stile[] {
   return stili.sort((x, y) => x.da - y.da);
 }
 
+/**
+ * I tratti di `[da, a)` che **non** sono sintassi da nascondere.
+ *
+ * E' l'unico posto in cui i caratteri spariscono, ed e' **dopo** che ogni
+ * intervallo e' stato calcolato: toglierli prima sposterebbe gli offset di
+ * tutti gli altri, che e' la ragione d'essere di questo modulo.
+ *
+ * Sta qui e non accanto a chi disegna perche' da U-06 chi disegna sono due:
+ * la risposta, con marcatori e verdetti sopra, e il chunk nell'esploratore, che
+ * non ha ne' gli uni ne' gli altri. La regola e' la stessa, e una regola sola
+ * scritta in due posti diverge al primo caso di bordo.
+ */
+export function visibili(da: number, a: number, nascosti: readonly Nascosto[]): Nascosto[] {
+  const fuori: Nascosto[] = [];
+  let i = da;
+  for (const n of nascosti) {
+    if (n.a <= i || n.da >= a) continue;
+    if (n.da > i) fuori.push({ da: i, a: Math.min(n.da, a) });
+    i = Math.max(i, n.a);
+    if (i >= a) break;
+  }
+  if (i < a) fuori.push({ da: i, a });
+  return fuori;
+}
+
 /** Gli intervalli nascosti, uniti e ordinati: chi disegna li salta e basta. */
 export function unisci(n: readonly Nascosto[]): Nascosto[] {
   const ordinati = [...n].sort((x, y) => x.da - y.da);
