@@ -699,7 +699,6 @@ Ogni voce dice **cosa fare**, non solo cosa manca. Un debito senza il comando ch
 | # | Cosa | Dove nasce |
 |---|---|---|
 | D-5 | **«Dettagli della run» non esiste.** I quattro dati dell'indice — collection, punti, dimensione densa, vettori sparsi — che U-01 mostrava nella colonna centrale sono usciti di scena quando la chat ha preso quel posto. Il §12 li vuole sempre leggibili, e lì devono tornare insieme ai parametri di «Avanzate» | U-02, dichiarato alla consegna |
-| D-6 | **U-04**: il selettore permissivo/severo dentro la colonna senza fonti, l'unico posto dove `baseline_prompt` ha effetto | task del §12, non ancora fatto |
 | D-7 | **La soglia dei verdetti non arriva al frontend.** `CitationView` porta `score` e `supported` ma non la soglia, quindi la pastiglia mostra `0,717` senza una scala. Il precedente è già in casa: `GateView` spedisce `threshold` accanto al proprio `score`. Va esposta **in lettura, in `ConfigView`/`CitationView`, mai accettata in `QueryRequest`** — una soglia scelta da chi chiama si potrebbe tarare sulla stessa risposta che deve giudicare, ed è un'assenza protetta da un test | U-07 |
 | D-8 | **La composizione di U-14 non ha un test.** `markdown.ts` ne ha 15 suoi, ma l'incrocio fra markdown, marcatori e verdetti si verifica solo a schermo: `ui/` non ha jsdom, per scelta di U-00. Se un giorno serve, il modo che rispetta quella scelta è estrarre la composizione in una funzione pura che restituisce intervalli invece di nodi | U-14 |
 

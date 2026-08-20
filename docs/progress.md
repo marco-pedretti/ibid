@@ -1600,6 +1600,7 @@ Per la stessa ragione `/document/{doc_id}/chunks` restituisce i chunk **in ordin
 | U-00 | âœ… fatto (2026-08-14) | Scheletro `ui/`: Vite 8 + React 19 + TypeScript 7 + Tailwind 4, client SSE scritto a mano, temi, i18n IT/EN, `/datasets` all'avvio. **19 test Vitest** + 15 test Python sul contratto generato. `npm run typecheck && npm test && npm run build` verdi; catena provata contro l'API viva. Dettaglio sotto. |
 | U-01 | ✅ fatto (2026-08-14) | Selettore dataset nella corsia laterale del mockup, scelta ricordata in `localStorage` e **validata** contro `/datasets`. La regola di selezione è in funzioni pure: **9 test Vitest** in più (28 in tutto), senza jsdom. Provato contro l'API viva: `open_ragbench` 18.840 e `ledger` 47.110 chunk. Dettaglio sotto. |
 | U-02 | ✅ fatto (2026-08-14) | Schermata di chat con **pannello fonti sempre visibile** (nel telaio, non nella chat): otto stati, uno per evento del §3.5, macchina a stati in un reducer puro con **16 test** (44 lato Vitest). Marcatori inerti finché non arriva `answer`. I valori di `abstention` ora sono generati come i tipi. Esempi dello stato vuoto presi da `eval/golden`. Provato contro l'API viva su una query d'oro reale. **Rendering LaTeX** con KaTeX, regola dei delimitatori misurata: 49 falsi positivi tolti su 49, zero formule vere perse. Dettaglio sotto. |
+| U-04 | ✅ fatto (2026-08-20) | **Il prompt del modello senza fonti si sceglie dentro quella colonna**: due pastiglie — «risponde comunque» e «si astiene» — che rifanno **quella colonna sola**, con l'altra ferma a fare da paragone. È il 45%→17% di E-04/E-05 su una domanda singola invece che in una tabella. Il braccio nudo diventa un campo dello stato: ricavarlo da `config` faceva scambiare di posto le due colonne mentre una si rifà. **10 test Vitest** in più (214 in tutto). Dettaglio sotto. |
 | U-16 | ✅ fatto (2026-08-19) | **Modello e contesto, due selettori**: il primo elenca i modelli, il secondo le finestre che quel modello regge — e compare solo quando ce n'è più di una. Nessuna convenzione sui nomi: il raggruppamento passa da `parent_model`. Con `scripts/model_sizes.py` che crea le taglie. **15 test Vitest** in più (198 in tutto). Dettaglio sotto. |
 | A-08 | ✅ fatto (2026-08-19) | **Il catalogo dei modelli**: `Capabilities` porta famiglia, finestra massima e quantizzazione di ciascuno. La finestra si legge **per pattern** (`*.context_length`), quindi vale per qualunque famiglia — e il massimo non è uno solo: 131.072 per `gemma4:latest`, 262.144 per `gemma4:12b`. **12 test** in più (1690 in tutto). Additivo: `models` invariato. Dettaglio sotto. |
 | U-15 | ✅ fatto (2026-08-19) | **Con quali parametri e' stata data ogni risposta**: la configurazione che ha girato si rilegge nella conversazione, e fra una domanda e l'altra si vede cosa è cambiato. **Nessun campo nuovo**: `ConfigView` era già dentro ogni risposta e già nel deposito da U-13. **11 test Vitest** in più (183 in tutto). Dettaglio sotto. |
@@ -2478,3 +2479,87 @@ Servono tutti e due: la cache da sola avrebbe nascosto il costo alla seconda
 volta invece di toglierlo. Un fallimento **non** si memorizza — un motore muto
 adesso può rispondere fra un minuto — e un test fissa anche l'ordine, perché un
 menu che si riordina da solo fa saltare la selezione a chi ha appena scelto.
+
+### U-04 — la seconda variabile è nella colonna, non nella barra
+
+`baseline_prompt` esisteva nell'API da A-03 — il commit si intitola «il servizio
+risponde anche senza contesto (U-03, U-04)» — validato, pubblicato in
+`Capabilities`, applicato in `answer.py`, e non raggiungibile da nessuna parte
+dell'interfaccia. È il caso opposto a quello di U-16, dove mancava il dato:
+qui il dato c'era, mancava il posto dove chiederlo.
+
+Il posto è uno solo, e il §12 lo diceva già: **dentro la colonna senza fonti**.
+Col recupero acceso il prompt non è una scelta di nessuno — è quello che impone
+il formato delle citazioni, ed è ciò che C-01 misura. Spento, i due prompt sono i
+bracci di E-04 ed E-05. Metterlo nella barra sotto il campo avrebbe dato una
+manopola che nel caso normale non fa niente.
+
+#### Cosa fanno, non come si chiamano
+
+Le pastiglie dicono «risponde comunque» e «si astiene». «Permissivo» e «severo»
+sono i nomi delle due run, e stanno nel suggerimento insieme al numero che le ha
+misurate: invenzione dal **45% al 17%**, corrette invariate (p=0,80), su 100
+domande di `open_ragbench`.
+
+Due pastiglie e non un interruttore. «Severo» acceso farebbe di «permissivo» la
+sua assenza, e permissivo non è l'assenza di niente: è un prompt che dice
+*rispondi comunque*. Su un asse i due capi si vedono insieme — è la stessa
+ragione per cui `top_k` non è un interruttore.
+
+#### Il §15, un giro più stretto
+
+Il confronto di U-03 cambia il RAG e tiene fermo tutto il resto. Questo cambia
+**come è stata posta la domanda** e tiene fermo anche il RAG: parte da
+`stessaConfigurazione` della risposta nuda e sovrascrive un campo solo. E rifà
+**una colonna sola** — quella con le fonti resta dov'è, a fare da paragone
+mentre l'altra si rigenera.
+
+#### Il difetto che il rilancio ha scoperto
+
+Da che parte andasse ciascuna colonna si ricavava da `data.config.rag`: la
+risposta di partenza sta dalla parte che il suo `rag` dice, l'altra è quella
+lanciata dal confronto. Funziona finché nessuno rifà una delle due.
+
+Rilanciando la colonna nuda il suo `config` torna `null` fino a `done` — cioè
+sparisce **proprio il dato da cui si leggeva la posizione**. Per gli ~11 s della
+generazione le due colonne si sarebbero scambiate di posto, in una schermata il
+cui unico scopo è dire quale delle due ha visto le fonti. Non è un caso di bordo:
+è il caso normale di U-04.
+
+La correzione è che il braccio nudo si decide **all'apertura** e diventa un campo
+dello stato, e che `conBraccio` riceve quale braccio riscrivere invece di
+rileggerlo da uno stato che lo stream sta cambiando. Due test lo fissano; sono
+quelli che avrebbero fallito prima.
+
+#### Chiesto e girato, di nuovo
+
+Quale prompt sta girando nella colonna nuda si legge con la regola di U-15: ciò
+che ha girato quando si sa (`config.baseline_prompt`), ciò che è stato chiesto
+mentre non si sa ancora. Senza, il selettore tornerebbe indietro da solo appena
+premuto e salterebbe al valore giusto undici secondi dopo. Il verso conta —
+`config` per primo — perché è l'unico dei due che può smentire il controllo, ed è
+esattamente quando deve farlo.
+
+#### Non riscrive il filo
+
+Chiedendo col RAG già spento, la colonna nuda **è** la risposta già data. Lì si
+rifà la copia del confronto, e la conversazione tiene quella che era stata data
+davvero: una risposta già letta non cambia sotto gli occhi di nessuno. Il
+confronto è un banco — vive accanto al filo, e chiudendolo sparisce.
+
+#### Due cose emerse di lato
+
+**La pastiglia esce dalla barra.** Quattro costanti di stile in `ui/pastiglia.ts`:
+questo controllo è un comando dello stesso vocabolario, e ridisegnarselo era il
+difetto già visto col caret in U-16 — stessa forma presa da un'altra misura, che
+diverge alla prima correzione. Commit separato, 204 test prima e 204 dopo.
+
+**`npm run format:check` era rosso, e non per lo stile.** `core.autocrlf=true`
+riscrive i fine riga in CRLF al checkout, e prettier col suo default (`"lf"`) li
+segnalava tutti: quattro file, nessuno dei quali aveva un problema visibile nel
+diff. `endOfLine: "auto"` prende come giusto il fine riga che il file già ha, ed
+è l'unica regola che regge in un repo condiviso fra Windows e Linux senza
+`.gitattributes`. Piccola correzione a U-03, che il formattatore l'ha introdotto.
+
+**214 test Vitest** (10 nuovi), 1709 Python invariati, typecheck, build e
+`format:check` verdi.
