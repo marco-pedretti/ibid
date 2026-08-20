@@ -42,22 +42,10 @@ import {
 import { avanzateToccate, modelloInstallato, ragionamentoDisponibile } from "../app/opzioni";
 import type { Opzioni } from "../app/opzioni";
 import { Meno, Piu, Ritorno } from "./Icona";
+import { FORMA, MOSSA, PASTIGLIA, RIPOSO } from "./pastiglia";
 import { CaretTendina, Selettore } from "./Selettore";
 import type { Voce } from "./Selettore";
 import { Suggerimento } from "./Suggerimento";
-
-/**
- * La pastiglia del mockup (`.tg`): pillola, bordo sottile, 11 px.
- *
- * Il passaggio del mouse porta l'accento in **tutti** gli stati: un comando che
- * si illumina solo quando e' gia' acceso non dice a chi non l'ha mai toccato che
- * si puo' toccare. E' la correzione che U-13 ha imposto sul pulsante della
- * cronologia, applicata qui prima di riceverla.
- */
-const FORMA = "inline-flex items-center rounded-full border text-[11px] transition-colors";
-const PASTIGLIA = `${FORMA} gap-1.5 py-1 pr-2.5 pl-[7px]`;
-const RIPOSO = "border-line-2 bg-surface text-ink-2 hover:border-accent-2 hover:text-ink";
-const MOSSA = "border-accent bg-accent-soft text-accent hover:border-accent-2";
 
 export function Barra() {
   const { t } = usaLingua();
