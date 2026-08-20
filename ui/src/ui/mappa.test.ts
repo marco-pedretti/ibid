@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { haContenuto, quanteRighe, righeMappa } from "./mappa";
+import { haContenuto, larghezzePixel, quanteRighe, righeMappa } from "./mappa";
 
 /** Le frazioni di una riga, arrotondate: le somme in virgola mobile non tornano
  *  a 1 esatto e non e' quello che si sta verificando. */
@@ -148,5 +148,44 @@ describe("i casi che fanno dividere per zero", () => {
       .flat()
       .map((p) => p.indice);
     expect(indici).toEqual([0, 1, 2]);
+  });
+});
+
+describe("le larghezze in pixel interi", () => {
+  it("sono intere, ed e' tutto il punto", () => {
+    // Con larghezze frazionarie ogni confine cade su un mezzo pixel e il browser
+    // lo arrotonda: lo stesso stacco da due pixel veniva fuori ora due ora tre.
+    const px = larghezzePixel([0.5, 0.3, 0.2], 302, 2, 3);
+    expect(px.every(Number.isInteger)).toBe(true);
+  });
+
+  it("stanno in proporzione, tolti gli stacchi", () => {
+    // 302 px meno due stacchi da 2 = 298 utili.
+    expect(larghezzePixel([0.5, 0.3, 0.2], 302, 2, 3)).toEqual([149, 89, 60]);
+  });
+
+  it("una riga corta resta corta", () => {
+    // Le frazioni non sommano a uno: un pezzo che non entrava e' gia' andato a
+    // capo, e la riga deve restare frastagliata.
+    const px = larghezzePixel([0.5, 0.2], 302, 2, 3);
+    expect(px.reduce((a, b) => a + b, 0) + 2).toBeLessThan(302);
+  });
+
+  it("un pezzo minuscolo prende il minimo invece di sparire", () => {
+    const px = larghezzePixel([0.999, 0.001], 302, 2, 3);
+    expect(px[1]).toBe(3);
+  });
+
+  it("se i minimi sforano la riga, si toglie dai piu' larghi", () => {
+    // Venti pezzi minuscoli in una riga da 50 px: il minimo li gonfia oltre la
+    // larghezza, e a cedere un pixel devono essere quelli che possono.
+    const frazioni = Array.from({ length: 20 }, (_, i) => (i === 0 ? 0.9 : 0.005));
+    const px = larghezzePixel(frazioni, 100, 2, 3);
+    expect(px.every((v) => v >= 3)).toBe(true);
+    expect(Math.min(...px)).toBe(3);
+  });
+
+  it("nessun pezzo, nessuna larghezza", () => {
+    expect(larghezzePixel([], 300, 2, 3)).toEqual([]);
   });
 });

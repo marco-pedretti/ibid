@@ -151,3 +151,44 @@ export function righeMappa(lunghezze: readonly number[], righe: number): Pezzo[]
   if (riga.length > 0) fuori.push(riga);
   return fuori;
 }
+
+/**
+ * Le larghezze in **pixel interi**, e per questo tutti gli stacchi sono uguali.
+ *
+ * **Il difetto che risolve.** Con larghezze frazionarie — `flex-grow` su una
+ * proporzione — ogni confine fra due tratti cade su un mezzo pixel, e il browser
+ * lo arrotonda al pixel del dispositivo: lo stesso stacco da due pixel veniva
+ * fuori ora due ora tre, e la fila sembrava spaziata a caso. Con larghezze
+ * intere ogni confine e' intero e lo stacco e' quello che si e' scritto.
+ *
+ * `larghezza` e' la misura vera della riga, che si sa solo dal DOM: la colonna
+ * di mezzo e' ridimensionabile, quindi va osservata e non calcolata una volta.
+ *
+ * **Il minimo vince sulla proporzione**, ed e' l'unico punto in cui si tradisce
+ * (vedi `Tratto`): un pezzo del documento che non si puo' cliccare e' un pezzo
+ * che non esiste. Le righe restano corte per costruzione — un pezzo che non
+ * entra e' gia' andato a capo — quindi qui non serve nessun pareggio: si taglia
+ * solo se il minimo ha gonfiato la riga oltre la sua larghezza.
+ */
+export function larghezzePixel(
+  frazioni: readonly number[],
+  larghezza: number,
+  stacco: number,
+  minimo: number,
+): number[] {
+  const n = frazioni.length;
+  if (n === 0) return [];
+  const utile = Math.max(larghezza - stacco * (n - 1), 0);
+  const px = frazioni.map((f) => Math.max(minimo, Math.round(f * utile)));
+
+  // Il minimo puo' aver fatto sforare la riga: si toglie dai piu' larghi, che
+  // sono gli unici che possono cedere un pixel senza sparire.
+  let eccesso = px.reduce((a, b) => a + b, 0) - utile;
+  while (eccesso > 0) {
+    const i = px.indexOf(Math.max(...px));
+    if (px[i] <= minimo) break;
+    px[i] -= 1;
+    eccesso -= 1;
+  }
+  return px;
+}

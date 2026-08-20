@@ -35,7 +35,7 @@ import { usaLingua } from "../app/i18n";
 import { griglia, leggi, ridimensiona } from "./colonne";
 import type { Larghezze } from "./colonne";
 import { Etichetta } from "./Etichetta";
-import { quanteRighe, righeMappa } from "./mappa";
+import { larghezzePixel, quanteRighe, righeMappa } from "./mappa";
 import { Esterno, Indietro, Lente } from "./Icona";
 import { Separatore } from "./Separatore";
 import { Suggerimento } from "./Suggerimento";
@@ -257,9 +257,28 @@ function Documenti() {
  * spente tutte le altre. Ora l'accento e' l'unica cosa colorata della mappa, ed
  * e' il tratto scelto — che la legenda dichiara invece di lasciarlo indovinare.
  */
+/** Lo stacco fra due tratti, e la larghezza sotto cui un tratto non si puo'
+ *  cliccare. Interi, e sono l'unica misura del disegno che il conto deve sapere. */
+const STACCO = 2;
+const MINIMO_TRATTO = 3;
+
 function Mappa() {
   const { t } = usaLingua();
   const { documento, scelto, scegliChunk } = usaEsploratore();
+  const misura = useRef<HTMLDivElement>(null);
+  const [larghezza, setLarghezza] = useState(0);
+
+  // `ResizeObserver` e non una lettura sola: la colonna di mezzo si ridimensiona
+  // col manico di U-06, e una larghezza presa all'apertura resterebbe quella.
+  useEffect(() => {
+    const nodo = misura.current;
+    if (nodo === null) return;
+    const osserva = new ResizeObserver(([voce]) =>
+      setLarghezza(Math.floor(voce.contentRect.width)),
+    );
+    osserva.observe(nodo);
+    return () => osserva.disconnect();
+  }, [documento.stato]);
 
   if (documento.stato === "nessuno") {
     return (
@@ -301,31 +320,38 @@ function Mappa() {
         </p>
       </div>
 
-      <div className="flex flex-col gap-[3px]">
-        {righeMappa(
-          chunks.map((c) => c.text.length),
-          // La scala viene dal pezzo piu' piccolo **con del testo** di questo
-          // documento: il numero di righe segue da li'. Vedi `mappa.ts`.
-          quanteRighe(chunks.map((c) => c.text)),
-        ).map((riga, n) => (
-          <div key={n} className="flex h-[18px] gap-[2px]">
-            {riga.map((p, k) => (
-              <Tratto
-                key={`${p.indice}-${k}`}
-                chunk={chunks[p.indice]}
-                frazione={p.frazione}
-                scelta={chunks[p.indice].chunk_id === scelto}
-                onClick={() => scegliChunk(chunks[p.indice].chunk_id)}
-              />
-            ))}
-            {/* **Ogni** riga puo' restare corta, non solo l'ultima: un pezzo
-                che non entra passa intero a quella dopo. Senza questo spazio il
-                flex distribuirebbe fra i tratti tutto cio' che avanza, e il
-                bordo frastagliato — che e' dove i pezzi sono finiti — sparirebbe
-                allargando i pezzi di una quantita' che non vuol dire niente. */}
-            <Riempimento frazione={1 - riga.reduce((a, p) => a + p.frazione, 0)} />
-          </div>
-        ))}
+      {/* La larghezza vera serve al conto: le larghezze dei tratti sono in
+          **pixel interi** perche' cosi' ogni stacco e' uguale, e per farli interi
+          bisogna sapere quanti pixel ci sono. Si osserva invece di calcolarla:
+          questa colonna e' ridimensionabile. */}
+      <div ref={misura} className="flex flex-col gap-[3px]">
+        {larghezza > 0 &&
+          righeMappa(
+            chunks.map((c) => c.text.length),
+            // La scala viene dal pezzo piu' piccolo **con del testo** di questo
+            // documento: il numero di righe segue da li'. Vedi `mappa.ts`.
+            quanteRighe(chunks.map((c) => c.text)),
+          ).map((riga, n) => {
+            const px = larghezzePixel(
+              riga.map((p) => p.frazione),
+              larghezza,
+              STACCO,
+              MINIMO_TRATTO,
+            );
+            return (
+              <div key={n} className="flex h-[18px]" style={{ gap: STACCO }}>
+                {riga.map((p, k) => (
+                  <Tratto
+                    key={`${p.indice}-${k}`}
+                    chunk={chunks[p.indice]}
+                    larghezza={px[k]}
+                    scelta={chunks[p.indice].chunk_id === scelto}
+                    onClick={() => scegliChunk(chunks[p.indice].chunk_id)}
+                  />
+                ))}
+              </div>
+            );
+          })}
       </div>
 
       <div className="flex flex-wrap gap-3 font-mono text-[10px] text-muted">
@@ -349,11 +375,14 @@ function Mappa() {
  * stacco: con le percentuali la riga sborderebbe della somma degli stacchi,
  * mentre `flex` distribuisce cio' che resta **dopo** averli tolti.
  *
- * `min-w-[3px]` e' l'unico punto in cui la proporzione viene tradita, e sta qui
- * e non nel conto: un chunk da 19 caratteri su 348.942 e' largo niente, ed e'
- * vero — ma un pezzo del documento che non si puo' cliccare e' un pezzo che non
- * esiste. Il conto resta esatto (`mappa.ts`), la bugia sta nel disegno e si
- * ferma a tre pixel.
+ * **La larghezza arriva in pixel interi**, e non e' un dettaglio: con misure
+ * frazionarie ogni confine fra due tratti cadeva su un mezzo pixel e il browser
+ * lo arrotondava, quindi lo stesso stacco da due pixel usciva ora due ora tre e
+ * la fila sembrava spaziata a caso. Il conto sta in `larghezzePixel`.
+ *
+ * Il minimo di tre pixel e' l'unico punto in cui la proporzione viene tradita —
+ * un chunk da 19 caratteri su 348.942 e' largo niente, ed e' vero, ma un pezzo
+ * del documento che non si puo' cliccare e' un pezzo che non esiste.
  *
  * **Arrotondato come tutto il resto.** Tre pixel di raggio, gli stessi delle
  * pastiglie e delle schede: una fila di rettangoli vivi era l'unica cosa
@@ -368,12 +397,13 @@ function Mappa() {
  */
 function Tratto({
   chunk,
-  frazione,
+  larghezza,
   scelta,
   onClick,
 }: {
   chunk: ChunkView;
-  frazione: number;
+  /** In pixel **interi**: vedi `larghezzePixel`. */
+  larghezza: number;
   scelta: boolean;
   onClick: () => void;
 }) {
@@ -390,8 +420,8 @@ function Tratto({
       // crescita e' minore di uno il CSS distribuisce solo quella frazione dello
       // spazio libero: le frazioni di una riga sommano esattamente a uno, cioe'
       // proprio sul bordo, e un arrotondamento in meno lascerebbe la riga corta.
-      stile={{ flexGrow: frazione * 1000, flexBasis: 0 }}
-      className="h-full min-w-[3px]"
+      stile={{ width: larghezza, flex: "none" }}
+      className="h-full"
       testo={t("corpus.chunkHint", {
         id: chunk.chunk_id,
         tipo: chunk.content_type,
@@ -413,13 +443,6 @@ function Tratto({
       />
     </Suggerimento>
   );
-}
-
-/** Lo spazio che manca a una riga corta. Niente colore: non e' un pezzo, e' il
- *  posto dove il pezzo seguente non entrava. */
-function Riempimento({ frazione }: { frazione: number }) {
-  if (frazione <= 0.0005) return null;
-  return <span aria-hidden="true" style={{ flexGrow: frazione * 1000, flexBasis: 0 }} />;
 }
 
 function Voce({ quadro, children }: { quadro: string; children: ReactNode }) {
