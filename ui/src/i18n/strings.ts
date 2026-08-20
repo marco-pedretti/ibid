@@ -170,6 +170,14 @@ export const it = {
   "compare.bare.title": "Niente di questo è verificabile.",
   "compare.bare.body":
     "Non c'è una fonte da aprire: nessuna frase di questa risposta si può controllare. È esattamente ciò che il progetto misura.",
+  // U-04: le due pastiglie nella colonna nuda. Si leggono per **cosa fanno** —
+  // «permissivo» e «severo» sono i nomi delle due run, e stanno nel
+  // suggerimento insieme ai numeri che le hanno misurate.
+  "compare.prompt": "Come è stata posta la domanda",
+  "compare.prompt.permissive": "Risponde comunque",
+  "compare.prompt.strict": "Si astiene",
+  "compare.prompt.hint":
+    "Cambia come è stata posta la domanda al modello senza fonti, e rifà questa colonna sola: l'altra resta ferma a fare da paragone. Chiedendogli di astenersi quando non sa, le risposte inventate scendono dal 45% al 17% e quelle corrette non calano (prompt severo, misurato su 100 domande sui paper).",
 
   "example.note.numbers": "Un numero preciso: la citazione deve reggerlo.",
   "example.note.paper": "Sta dentro un paper: guarda da quale sezione arriva.",
@@ -405,6 +413,11 @@ export const en: Record<Chiave, string> = {
   "compare.bare.title": "None of this can be checked.",
   "compare.bare.body":
     "There is no source to open: not one sentence of this answer can be verified. That is exactly what this project measures.",
+  "compare.prompt": "How the question was put",
+  "compare.prompt.permissive": "Answers anyway",
+  "compare.prompt.strict": "Abstains",
+  "compare.prompt.hint":
+    "Changes how the question was put to the model without sources, and re-runs this column only: the other one stays put as the comparison. Asking it to abstain when it does not know takes invented answers from 45% down to 17%, and correct ones do not drop (strict prompt, measured on 100 paper questions).",
 
   "example.note.numbers": "A precise number: the citation has to hold it up.",
   "example.note.paper": "It sits inside a paper: look at which section it comes from.",

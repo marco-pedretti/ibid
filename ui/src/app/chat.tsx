@@ -30,6 +30,8 @@ import type { ReactNode } from "react";
 import { streamQuery } from "../api/sse";
 import type { QueryRequest } from "../api/types";
 import { usaBackend } from "./backend";
+import { braccioNudo, bracci, conBraccio, promptNudo } from "./confronto";
+import type { Confronto } from "./confronto";
 import { usaDataset } from "./dataset";
 import { applica, guasto, inizio, interrompi } from "./conversazione";
 import type { Risposta, Scambio } from "./conversazione";
@@ -62,26 +64,6 @@ import { campiRichiesta, configChiesta, modelloInstallato, stessaConfigurazione 
  */
 const RITARDO_SALVATAGGIO_MS = 400;
 
-/**
- * Le due risposte alla stessa domanda, e null quando non se ne sta guardando
- * nessuna.
- *
- * **Non e' uno scambio della conversazione.** Il §12 dice che «affiancate, dalla
- * stessa query, nella stessa sessione» non si ottiene con due messaggi
- * consecutivi: il braccio nudo dentro il filo sarebbe una seconda risposta alla
- * stessa domanda, e nella cronologia diventerebbe una conversazione che si
- * contraddice da sola. Vive qui accanto, e chiudendolo sparisce.
- */
-export interface Confronto {
-  domanda: string;
-  /** Quella gia' data, da cui si e' partiti. Il suo `config` dice **quale** dei
-   *  due bracci e', quindi da che parte va messa: non serve ricordarlo, e cosi'
-   *  la colonna la decide cio' che ha girato davvero. */
-  data: Risposta;
-  /** La stessa domanda col solo RAG invertito, mentre arriva. */
-  nuova: Risposta;
-}
-
 interface Chat {
   /**
    * Perche' non si puo' chiedere, o `null` se si puo'.
@@ -109,6 +91,8 @@ interface Chat {
   confronto: Confronto | null;
   /** Rilancia lo scambio col RAG invertito e apre le due colonne. */
   confronta: (idScambio: string) => void;
+  /** Rifa' la sola colonna senza fonti con l'altro prompt (U-04). */
+  cambiaPrompt: (prompt: string) => void;
   chiudiConfronto: () => void;
 }
 
@@ -274,7 +258,16 @@ export function ProvvedeChat({ children }: { children: ReactNode }) {
       const config = s?.risposta.config ?? null;
       if (s === null || config === null) return;
 
-      setConfronto({ domanda: s.domanda, data: s.risposta, nuova: inizio() });
+      setConfronto({
+        domanda: s.domanda,
+        data: s.risposta,
+        nuova: inizio(),
+        // Da che parte va ciascuna colonna si decide **qui**, una volta. Il
+        // motivo sta in `confronto.ts`: ricavarlo dal `config` a ogni render le
+        // farebbe scambiare di posto mentre una delle due si rifa'.
+        nudo: braccioNudo(config),
+        promptChiesto: config.baseline_prompt,
+      });
 
       const ctrl = new AbortController();
       controller.current = ctrl;
@@ -299,6 +292,64 @@ export function ProvvedeChat({ children }: { children: ReactNode }) {
       });
     },
     [stato.conversazioni, stato.corrente],
+  );
+
+  /**
+   * La colonna nuda, rifatta con l'altro prompt.
+   *
+   * E' il §15 di nuovo, un giro piu' stretto: il confronto cambia **il RAG** e
+   * tiene fermo il resto, questo cambia **come e' stata posta la domanda** e
+   * tiene fermo anche il RAG. La colonna con le fonti non si tocca affatto —
+   * resta li' come termine di paragone mentre l'altra si rifa'.
+   *
+   * Quello che si vede e' il 45%→17% di E-04/E-05 su una domanda sola: il
+   * prompt permissivo risponde comunque, il severo si astiene quando non sa. Un
+   * numero in un README diventa una cosa che succede premendo una pastiglia.
+   *
+   * **Non riscrive il filo.** Quando la colonna nuda e' la risposta gia' data —
+   * cioe' quando si era chiesto col RAG spento — qui si rifa' la copia del
+   * confronto, e la conversazione tiene quella che era stata data davvero. Una
+   * risposta gia' letta non cambia sotto gli occhi di nessuno; il confronto e'
+   * un banco, e chiudendolo sparisce.
+   */
+  const cambiaPrompt = useCallback(
+    (prompt: string) => {
+      if (controller.current !== null || confronto === null) return;
+      const config = bracci(confronto).senzaFonti.config;
+      // Senza `config` non si sa con cosa rilanciare, e premere il capo su cui
+      // si e' gia' non e' un cambiamento: sarebbero undici secondi per la stessa
+      // risposta.
+      if (config === null || prompt === promptNudo(confronto)) return;
+
+      const quale = confronto.nudo;
+      const c = trova(stato.conversazioni, stato.corrente);
+      setConfronto((x) =>
+        x === null ? x : { ...conBraccio(x, quale, inizio), promptChiesto: prompt },
+      );
+
+      const ctrl = new AbortController();
+      controller.current = ctrl;
+      setOccupato(true);
+
+      void guida(
+        {
+          query: confronto.domanda,
+          ...(c?.dataset_id ? { dataset_id: c.dataset_id } : {}),
+          // Tutto com'era, **compreso `rag`**, che in questo braccio e' gia'
+          // spento: l'unico campo che si sovrascrive e' quello sotto il dito.
+          ...stessaConfigurazione(config),
+          baseline_prompt: prompt,
+        },
+        ctrl,
+        (f) => setConfronto((x) => (x === null ? x : conBraccio(x, quale, f))),
+      ).finally(() => {
+        if (controller.current === ctrl) {
+          controller.current = null;
+          setOccupato(false);
+        }
+      });
+    },
+    [confronto, stato.conversazioni, stato.corrente],
   );
 
   /** Si torna al filo. Non mentre il modello parla: la via d'uscita e' «Ferma»,
@@ -394,6 +445,7 @@ export function ProvvedeChat({ children }: { children: ReactNode }) {
         svuota,
         confronto,
         confronta,
+        cambiaPrompt,
         chiudiConfronto,
       }}
     >

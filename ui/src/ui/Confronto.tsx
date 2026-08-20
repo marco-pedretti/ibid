@@ -20,26 +20,37 @@
  * «Plausibile, e sbagliato», che e' vero dell'esempio disegnato e non di ogni
  * risposta: senza fonti non si puo' sapere se e' giusta — e' proprio quello il
  * punto. L'avviso dice cio' che si sa, cioe' che non c'e' niente da aprire.
+ *
+ * **Il prompt si sceglie qui dentro, e solo qui** (U-04). Col recupero acceso
+ * non e' una scelta di nessuno — il prompt e' quello che impone il formato delle
+ * citazioni, ed e' cio' che C-01 misura. Spento, i due prompt sono i bracci di
+ * E-04 ed E-05, e la differenza fra loro e' il 45%→17% di risposte inventate:
+ * qui diventa una pastiglia che rifa' **quella colonna sola**, con la risposta
+ * documentata ferma accanto a fare da paragone.
  */
+import { usaBackend } from "../app/backend";
 import { usaChat } from "../app/chat";
-import type { Confronto as DueColonne } from "../app/chat";
+import { PERMISSIVO, bracci, promptNudo, scelteDiPrompt } from "../app/confronto";
+import type { Confronto as DueColonne } from "../app/confronto";
 import { inCorso } from "../app/conversazione";
 import type { Risposta } from "../app/conversazione";
 import { usaLingua } from "../app/i18n";
 import { Etichetta } from "./Etichetta";
 import { Avvertimento, Indietro } from "./Icona";
+import { FORMA, MOSSA, RIPOSO } from "./pastiglia";
 import { Schede } from "./PannelloFonti";
+import { Suggerimento } from "./Suggerimento";
 import { Testo } from "./Testo";
 
 export function Confronto({ confronto }: { confronto: DueColonne }) {
   const { t } = usaLingua();
   const { chiudiConfronto, occupato } = usaChat();
 
-  // Da che parte va ciascuna lo dice `config`, cioe' cio' che ha girato davvero,
-  // e non un dato tenuto a parte che potrebbe smentirlo.
-  const dataConFonti = confronto.data.config?.rag ?? true;
-  const conFonti = dataConFonti ? confronto.data : confronto.nuova;
-  const senzaFonti = dataConFonti ? confronto.nuova : confronto.data;
+  // Da che parte va ciascuna e' deciso all'apertura e non si ricalcola: mentre
+  // la colonna nuda si rifa' con l'altro prompt il suo `config` torna `null`, e
+  // leggerlo qui le farebbe scambiare di posto a meta' generazione. Vedi
+  // `confronto.ts`.
+  const { conFonti, senzaFonti } = bracci(confronto);
 
   return (
     <div className="flex h-full min-h-0 flex-col bg-paper">
@@ -85,6 +96,58 @@ function secondi(r: Risposta, lingua: string): string {
   return `${totale.toLocaleString(lingua === "it" ? "it-IT" : "en-US", { maximumFractionDigits: 1 })} s`;
 }
 
+/**
+ * Come e' stata posta la domanda al modello che non ha fonti.
+ *
+ * **Due pastiglie e non un interruttore.** «Severo» acceso farebbe di
+ * «permissivo» la sua assenza, e permissivo non e' l'assenza di niente: e' un
+ * prompt che dice *rispondi comunque*, cioe' un capo dell'asse quanto l'altro.
+ * Sono i due bracci di E-04 ed E-05, e su un asse i due capi si vedono insieme.
+ *
+ * **Si leggono per cosa fanno, non per come si chiamano.** «Permissivo» e
+ * «severo» sono i nomi delle due run e stanno nel suggerimento; sulle pastiglie
+ * c'e' cio' che cambia per chi legge — risponde comunque, oppure si astiene. E'
+ * anche il modo piu' corto di dire l'affermazione 1 del §0.
+ *
+ * Sparisce se il servizio non offre entrambi i capi: un comando che gira a
+ * vuoto e' lo stesso difetto dell'interruttore del ragionamento.
+ */
+function PromptDelModello() {
+  const { t } = usaLingua();
+  const { backend } = usaBackend();
+  const { confronto, cambiaPrompt, occupato } = usaChat();
+  if (confronto === null) return null;
+
+  const scelte = scelteDiPrompt(
+    backend.stato === "pronto" ? backend.capabilities.baseline_prompts : [],
+  );
+  if (scelte.length < 2) return null;
+
+  const attuale = promptNudo(confronto);
+
+  return (
+    <Suggerimento testo={occupato ? t("compare.busy") : t("compare.prompt.hint")} fuoco={false}>
+      <div role="group" aria-label={t("compare.prompt")} className="flex items-center gap-1">
+        {scelte.map((p) => (
+          <button
+            key={p}
+            type="button"
+            aria-pressed={p === attuale}
+            // Non `disabled`: mentre una risposta arriva la bolla che spiega
+            // perche' non risponde ha bisogno del puntatore, e senza eventi il
+            // gruppo li lascia passare al suggerimento che lo avvolge.
+            aria-disabled={occupato}
+            onClick={() => cambiaPrompt(p)}
+            className={`${FORMA} px-2.5 py-1 ${p === attuale ? MOSSA : RIPOSO} aria-disabled:pointer-events-none aria-disabled:opacity-45`}
+          >
+            {t(p === PERMISSIVO ? "compare.prompt.permissive" : "compare.prompt.strict")}
+          </button>
+        ))}
+      </div>
+    </Suggerimento>
+  );
+}
+
 function Colonna({
   titolo,
   risposta,
@@ -104,15 +167,24 @@ function Colonna({
 
   return (
     <section className="flex min-h-0 flex-col gap-[11px] overflow-y-auto px-[18px] py-4">
-      <div className="flex items-baseline justify-between gap-2">
+      {/* A destra del titolo: di qua quanti verdetti reggono, di la' con quale
+          prompt e' stata posta la domanda. Non e' una simmetria cercata — sono
+          le due cose che si guardano per prime nelle rispettive colonne, e
+          nessuna delle due esiste nell'altra. */}
+      <div className="flex min-h-[26px] items-center justify-between gap-2">
         <Etichetta>{titolo}</Etichetta>
-        {risposta.verificate && risposta.citazioni.length > 0 && (
-          <span className="font-mono text-[10px] text-muted tabular-nums">
-            {t("compare.verdicts", {
-              sostenute,
-              citazioni: risposta.citazioni.length,
-            })}
-          </span>
+        {fonti ? (
+          risposta.verificate &&
+          risposta.citazioni.length > 0 && (
+            <span className="font-mono text-[10px] text-muted tabular-nums">
+              {t("compare.verdicts", {
+                sostenute,
+                citazioni: risposta.citazioni.length,
+              })}
+            </span>
+          )
+        ) : (
+          <PromptDelModello />
         )}
       </div>
 
