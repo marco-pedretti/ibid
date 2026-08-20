@@ -2604,10 +2604,24 @@ la `$` non appartiene a nessun segmento e nessuno la disegna — lo stesso effet
 dei `nascosti` del markdown, ottenuto dove i caratteri di sintassi sono già in
 mano a chi taglia.
 
-Resta aperto il verso opposto, che è del prompt e non del renderer: «Keep
-formulas in LaTeX between `$...$`» non dice *formule, non numeri*, ed è ciò che
-ha invitato il modello a incorniciare una cifra. Una riga lì cambia
-`prompt_hash`, quindi va insieme alla rimisura già dovuta da U-14 — non prima.
+**E il prompt non c'entra**, che era l'ipotesi comoda. Cercata nei dump di
+generazione già su disco: la frase identica — `were $(222.8)$ million dollars
+[5]` — è nel dump del **12 agosto**, e il prompt archiviato accanto non ha
+nessuna sezione OUTPUT FORMAT, né la riga sul LaTeX che U-14 ha aggiunto il 19.
+Il comportamento precede di una settimana la regola a cui verrebbe naturale
+darne la colpa.
+
+Tirando quel filo è uscita una cosa più grande delle parentesi in carattere
+sbagliato, ed è diventata **OQ-07**: nei bilanci il segno di un numero appartiene
+al prospetto e non alla grandezza — `222.8` nella tabella riassuntiva, `(222.8)`
+nel rendiconto, stesso documento — quindi una cella copiata in prosa può
+invertire ciò che afferma **mentre la citazione resta corretta**. Il 17,9% delle
+celle numeriche di LEDGER è fra parentesi, e nel 43% dei documenti la stessa
+grandezza compare in tutte e due le forme. Nessuna delle due metriche di
+citazione vede questa classe di errore: quella numerica conferma perché il valore
+c'è, e il «no» dell'NLI non è un segnale perché su tabelle nega anche i claim
+corretti (OQ-05). Misura riproducibile con `scripts/probe_sign_convention.py`,
+protocollo e trappole nella voce.
 
 #### Due cose emerse di lato
 
