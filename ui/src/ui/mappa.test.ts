@@ -54,11 +54,23 @@ describe("un pezzo che non entra va a capo", () => {
     expect(frazioni(r[1])).toEqual([1]);
   });
 
-  it("e dice di essere spezzato, cosi' chi disegna non lo chiude a destra", () => {
+  it("dice da che parte finisce davvero, cosi' non sembra due pezzi", () => {
     const r = righeMappa([30, 70], 2);
-    expect(r[0][1].spezzato).toBe(true);
-    expect(r[1][0].spezzato).toBe(false);
-    expect(r[0][0].spezzato).toBe(false);
+    expect(r[0][1]).toMatchObject({ spezzato: true, continuazione: false });
+    expect(r[1][0]).toMatchObject({ spezzato: false, continuazione: true });
+    expect(r[0][0]).toMatchObject({ spezzato: false, continuazione: false });
+  });
+
+  it("un resto da un milionesimo di riga **non** va a capo", () => {
+    // Il difetto che si vedeva: `capacita = totale / righe` non torna esatta in
+    // virgola mobile, l'ultimo chunk avanzava di un nulla, e quel nulla apriva
+    // una riga in piu' con dentro un filo largo due pixel. Un errore di
+    // arrotondamento travestito da dato.
+    const lunghezze = [4821, 6302, 1775, 5119, 19, 3333, 2222, 1111];
+    const r = righeMappa(lunghezze, 3);
+    expect(r).toHaveLength(3);
+    // E l'ultimo pezzo dell'ultima riga e' l'ultimo chunk, non un suo residuo.
+    expect(r[2][r[2].length - 1].indice).toBe(lunghezze.length - 1);
   });
 
   it("un pezzo piu' lungo di una riga ne attraversa piu' di una", () => {

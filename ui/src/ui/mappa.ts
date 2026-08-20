@@ -33,6 +33,10 @@ export interface Pezzo {
   frazione: number;
   /** Il pezzo continua nella riga seguente: e' un chunk andato a capo. */
   spezzato: boolean;
+  /** Il pezzo **viene** dalla riga precedente. Serve a chi disegna: un chunk
+   *  spezzato va arrotondato solo dalla parte in cui finisce davvero, altrimenti
+   *  un pezzo solo sembra due. */
+  continuazione: boolean;
 }
 
 /**
@@ -76,8 +80,16 @@ export function righeMappa(lunghezze: readonly number[], righe: number): Pezzo[]
     riempita = 0;
   };
 
+  // **Una tolleranza, e non zero.** Con `capacita = totale / righe` la somma dei
+  // pezzi di una riga non torna mai esatta in virgola mobile: l'ultimo chunk
+  // avanzava di un milionesimo di riga e quel milionesimo andava a capo,
+  // aprendo una riga in piu' con dentro un filo largo due pixel. Si vedeva, ed
+  // era un errore di arrotondamento travestito da dato.
+  const tolleranza = capacita * 1e-6;
+
   for (let i = 0; i < lunghezze.length; i += 1) {
     let resto = totale > 0 ? Math.max(lunghezze[i], 0) : 1;
+    let continuazione = false;
     // `do` e non `while`: un chunk lungo zero deve comparire una volta, e con
     // `while` non entrerebbe mai nel corpo.
     do {
@@ -85,10 +97,16 @@ export function righeMappa(lunghezze: readonly number[], righe: number): Pezzo[]
       const parte = Math.min(resto, spazio);
       resto -= parte;
       riempita += parte;
-      const pieno = riempita >= capacita - 1e-9;
-      riga.push({ indice: i, frazione: parte / capacita, spezzato: resto > 0 });
+      const pieno = riempita >= capacita - tolleranza;
+      riga.push({
+        indice: i,
+        frazione: parte / capacita,
+        spezzato: resto > tolleranza,
+        continuazione,
+      });
+      continuazione = true;
       if (pieno) aCapo();
-    } while (resto > 0);
+    } while (resto > tolleranza);
   }
 
   if (riga.length > 0) fuori.push(riga);

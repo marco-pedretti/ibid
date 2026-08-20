@@ -301,18 +301,19 @@ function Mappa() {
         </p>
       </div>
 
-      <div className="flex flex-col gap-px">
+      <div className="flex flex-col gap-[3px]">
         {righeMappa(
           chunks.map((c) => c.text.length),
           quanteRighe(chunks.length),
         ).map((riga, n) => (
-          <div key={n} className="flex h-[22px] gap-px">
+          <div key={n} className="flex h-[18px] gap-[2px]">
             {riga.map((p, k) => (
               <Tratto
                 key={`${p.indice}-${k}`}
                 chunk={chunks[p.indice]}
                 frazione={p.frazione}
                 scelta={chunks[p.indice].chunk_id === scelto}
+                estremi={{ apre: !p.continuazione, chiude: !p.spezzato }}
                 onClick={() => scegliChunk(chunks[p.indice].chunk_id)}
               />
             ))}
@@ -346,11 +347,17 @@ function Mappa() {
  * stacco: con le percentuali la riga sborderebbe della somma degli stacchi,
  * mentre `flex` distribuisce cio' che resta **dopo** averli tolti.
  *
- * `min-w-[2px]` e' l'unico punto in cui la proporzione viene tradita, e sta qui
+ * `min-w-[3px]` e' l'unico punto in cui la proporzione viene tradita, e sta qui
  * e non nel conto: un chunk da 19 caratteri su 348.942 e' largo niente, ed e'
  * vero — ma un pezzo del documento che non si puo' cliccare e' un pezzo che non
  * esiste. Il conto resta esatto (`mappa.ts`), la bugia sta nel disegno e si
- * ferma a due pixel.
+ * ferma a tre pixel.
+ *
+ * **Arrotondato come tutto il resto.** Tre pixel di raggio, gli stessi delle
+ * pastiglie e delle schede: una fila di rettangoli vivi era l'unica cosa
+ * dell'interfaccia con gli angoli a spigolo. E un pezzo andato a capo si
+ * arrotonda **solo** dal lato in cui il chunk comincia o finisce davvero, cosi'
+ * si legge come una cosa sola che continua invece che come due.
  *
  * **Il colore non usa l'accento per il tipo.** Nel §12 l'accento vuol dire
  * «questo e' scelto», e usarlo per «questa e' una tabella» faceva sembrare
@@ -362,11 +369,16 @@ function Tratto({
   chunk,
   frazione,
   scelta,
+  estremi,
   onClick,
 }: {
   chunk: ChunkView;
   frazione: number;
   scelta: boolean;
+  /** Da che parte il chunk **finisce davvero**: un pezzo andato a capo si
+   *  arrotonda solo dal lato in cui comincia o in cui finisce, altrimenti due
+   *  meta' dello stesso chunk sembrano due chunk. */
+  estremi: { apre: boolean; chiude: boolean };
   onClick: () => void;
 }) {
   const { t, lingua } = usaLingua();
@@ -383,7 +395,7 @@ function Tratto({
       // spazio libero: le frazioni di una riga sommano esattamente a uno, cioe'
       // proprio sul bordo, e un arrotondamento in meno lascerebbe la riga corta.
       stile={{ flexGrow: frazione * 1000, flexBasis: 0 }}
-      className="h-full min-w-[2px]"
+      className="h-full min-w-[3px]"
       testo={t("corpus.chunkHint", {
         id: chunk.chunk_id,
         tipo: chunk.content_type,
@@ -396,6 +408,8 @@ function Tratto({
         aria-label={chunk.chunk_id}
         aria-current={scelta}
         className={`block h-full w-full transition-colors ${
+          estremi.apre ? "rounded-l-[3px]" : ""
+        } ${estremi.chiude ? "rounded-r-[3px]" : ""} ${
           scelta
             ? "bg-accent"
             : tabella
