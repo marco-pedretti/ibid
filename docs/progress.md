@@ -2623,6 +2623,31 @@ c'è, e il «no» dell'NLI non è un segnale perché su tabelle nega anche i cla
 corretti (OQ-05). Misura riproducibile con `scripts/probe_sign_convention.py`,
 protocollo e trappole nella voce.
 
+#### Un esempio dello stato vuoto non funziona
+
+Terza cosa vista alla revisione, e non è di U-04: la seconda domanda proposta per
+`ledger` — *«What is the accounts receivable for Company The Sherwin-Williams in
+2017?»* — si astiene. Il numero c'è (`NYSE_SHW_2017`, `Accounts receivable, less
+allowance | 2,104,555`), i chunk d'oro sono dichiarati nel golden set, e in
+contesto al modello arrivano le relazioni di certificazione e le lettere agli
+azionisti. **«Insufficient information» è la risposta corretta**: il guasto è nel
+recupero, ed è OQ-06 alla lettera — documento giusto, chunk sbagliato,
+modulistica promossa.
+
+Il difetto non è quella domanda, è come sono stati scelti gli esempi. `esempi.ts`
+li prende da `eval/golden` perché «il primo clic non deve finire in
+un'astensione»: la premessa è vera, la conclusione no. Su `ledger`, col default,
+il chunk giusto è nei primi 5 nel **20,7%** dei casi mentre il documento giusto
+c'è nell'**89,2%** — quindi una query d'oro presa a caso ha circa una
+probabilità su quattro di funzionare. Dei quattro esempi rispondibili, `dense` ne
+prende due in posizione 1, uno in posizione 5 e uno per niente: sono esattamente
+le probabilità.
+
+Registrato come **D-17** invece di correggerlo qui: sostituire un esempio è una
+decisione su cosa la demo racconta, e va fatta misurando i candidati. Con una
+trappola scritta accanto — `hybrid+rerank` prenderebbe tutti e due gli esempi di
+`ledger`, ed è la configurazione che vince sui due dati su cui la si guarda.
+
 #### Due cose emerse di lato
 
 **La pastiglia esce dalla barra.** Quattro costanti di stile in `ui/pastiglia.ts`:
