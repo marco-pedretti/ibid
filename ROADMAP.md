@@ -452,6 +452,12 @@ Il criterio è ridurre il lavoro rifatto, non la difficoltà crescente. Q-03 e Q
 | U-15 | **Con quali parametri è stata data ogni risposta**: la configurazione che ha girato si rilegge nella conversazione, e fra una domanda e l'altra si vede **cosa è cambiato** | Riaprendo una conversazione si sa con quali parametri ogni risposta è stata prodotta, senza aprire niente. Nessun campo nuovo nel contratto né nel deposito: `ConfigView` è già dentro ogni risposta, e ciò che manca è mostrarlo |
 | U-16 | **Modello e finestra di contesto, due selettori**: si scelgono separatamente, e le finestre offerte sono solo quelle compatibili col modello scelto | Chi guarda sceglie due cose, non un nome di catalogo. Nessuna convenzione di nomi nel frontend: la coppia arriva da `Capabilities` (A-08). Una finestra che quel modello non regge **non compare**, invece di comparire e fallire |
 | U-17 | **Il testo indicizzato**: il documento in fila nella colonna di mezzo, accanto alla mappa, con le cuciture fra un chunk e l'altro visibili | Si legge il documento intero e si vede **dove sono caduti i tagli**, con la stessa selezione della mappa. Ciò che si mostra è il testo **come è stato indicizzato**, non il documento: nell'indice generico i chunk lo partizionano esattamente (misurato: zero sovrapposizioni), in uno instradato no — e in quel caso la vista lo deve dichiarare invece di ripetere il testo condiviso |
+| U-18 | **La corsia si comprime**: la colonna di sinistra si riduce a una striscia e torna, e la scelta si ricorda | A corsia chiusa **nessuna funzione sparisce** — nuova conversazione, cronologia, dataset ed esploratore restano raggiungibili — e la colonna di lavoro guadagna davvero lo spazio, invece di lasciare una traccia vuota nella griglia. La scelta sopravvive al ricaricamento, come le larghezze dell'esploratore (U-17) |
+| U-19 | **La pagina «Che cos'è»**: cosa fa il progetto, le tre affermazioni del §0 e i limiti | Raggiungibile dalla corsia, in IT/EN come tutto il resto. **Nessuna metrica scritta a mano nel frontend**: i numeri che mostra sono quelli del README e vengono da una fonte sola, oppure non ci sono. Dice anche cosa la demo *non* è — quale modello ha risposto e su quale corpus |
+| U-20 | **L'avvio guidato**: si salta, e chi l'ha già fatto non lo rivede | Si salta con **un comando solo**, non torna dopo un ricaricamento, e **non impedisce di fare la prima domanda** mentre è aperto. Dichiara di essere locale a questo browser, come la cronologia di U-13 |
+| U-21 | **Il telefono**: l'interfaccia regge una larghezza da telefono | A **390 px** si fa una domanda, si legge la risposta coi verdetti e si apre una fonte, **senza scorrimento orizzontale**. Il criterio di U-02 vale anche lì: la lista documenti resta raggiungibile in ogni stato — raggiungibile, non necessariamente affiancata |
+| U-22 | **La documentazione tecnica**: architettura, contratti, come si riproduce una misura | Chi arriva da GitHub **rifà una misura** seguendo solo ciò che è scritto lì, senza leggere il codice. Non è il README (U-11), che deve convincere in tre minuti: questa deve bastare a chi ha già deciso di provarci |
+| Q-07 | **Refactor dell'interfaccia** (il prefisso dice l'argomento, non la fase — vedi Fase 4) | **Lista chiusa di difetti scritta prima di toccare un file**, ognuno con la prova che esiste: è la regola con cui la Fase 6 si è tenuta finita. Gate: il numero di test Vitest **non cala** e nessuna schermata cambia comportamento |
 
 **U-03 è la feature che fa capire il progetto a chiunque**, ed è quasi gratis: i baseline li state già calcolando in Fase 2.
 
@@ -608,6 +614,46 @@ Ogni voce dice **cosa fare**, non solo cosa manca. Un debito senza il comando ch
 
 ---
 
+## Il piano di chiusura
+
+**Quattro decisioni prese il 2026-08-20**, e ognuna toglie lavoro invece che aggiungerlo:
+
+1. **Il repository è pubblico.** Ne segue che gli asset di Release sono scaricabili senza autenticazione, quindi U-08 può fare ciò per cui è stato scritto, e l'immagine può stare su un registro pubblico invece che dentro un file da 2 GB.
+2. **Niente demo ospitata**, e non per pigrizia — verificato il 2026-08-20. Non esiste GPU gratuita: il modello andrebbe preso in prestito da un endpoint OpenAI-compatibile (che l'architettura permetterebbe senza toccare `src/`, ed è il pregio di `LLM_BASE_URL`), ma **il limite che morde è 6.000 token al minuto**, e una query RAG con cinque chunk ne consuma quattro o cinque mila: circa **una domanda al minuto**. In più ogni piano gratuito dorme, e chi arriva per primo paga il caricamento di ~2,5 GB di modelli ONNX. Un link lento e a quota è peggio di nessun link. Si consegna `docker compose --profile demo up` (U-08) e il video di U-10; l'hosting è **X-06**, in Fase 9.
+3. **Niente RASD e Design Document formali.** Si consegnano il README (U-11) e la documentazione tecnica (U-22). Il README è in **inglese** perché il repo è pubblico; `ROADMAP.md`, `progress.md` e `open-questions.md` restano in italiano — sono il quaderno di lavoro, non la vetrina.
+4. **Nessuna scadenza.** Le tappe che seguono sono ordinate per **dipendenza e per rischio**, non compresse: nessuna di esse va tagliata a metà per far entrare la successiva.
+
+### Le tappe, in ordine
+
+| | tappa | cosa contiene | perché sta qui |
+|---|---|---|---|
+| **1** | **L'interfaccia finita** | U-18, U-19, U-20, U-21, e i debiti che sono lavoro d'interfaccia: **D-5**, **D-7**, **D-17**, **D-18** | Tutte le funzionalità **prima** del refactor: aggiungerne una dopo significa risporcare ciò che si è appena pulito. E due di quei debiti bloccano il resto — D-17 blocca U-08 (la demo si astiene su un esempio che propone lei), D-18 è l'unica cosa che rende l'affermazione 2 visibile invece che solo scritta |
+| **2** | **Le misure che mancano** — *in parallelo alla tappa 1* | **D-1**, **D-2**, **D-3**; i due passi a costo zero di **OQ-07** e **OQ-08**; la decisione sull'affermazione 3 (sotto) | È l'unica tappa vincolata dalla GPU, e l'interfaccia non lo è: `make dev` è costruito apposta per funzionare mentre la GPU è occupata («senza modello si sfoglia il corpus, cade solo la generazione»). Tenerle in serie costa giornate a mani ferme |
+| **3** | **Il refactor dell'interfaccia** | **Q-07** | Dopo le funzionalità e prima dei documenti: un refactor si giudica a comportamento fermo, e i documenti descrivono il codice che resta |
+| **4** | **I documenti** | **U-11**, **U-22**, **U-10** | Qui i numeri esistono già, arrivati dalla tappa 2. Scrivere il README prima significherebbe citare misure fatte con un prompt che non è più quello in vigore |
+| **5** | **La consegna** | **U-08**, **U-09**, **U-12** (e **D-10**: provare i provider Linux invece di elencarli), l'immagine pubblica su registro, le attribuzioni accanto agli artefatti | U-12 non è un extra: il container **è** Linux, e il criterio di U-09 dice «primo avvio pulito su macchina vergine» |
+| **6** | **Extra** | Fase 9, §13 | Solo se avanza voglia |
+
+### Le tre affermazioni, allo stato dei fatti
+
+Il criterio di U-11 chiede che **ognuna** compaia col proprio tavolo di misure. Due oggi non reggono, e vanno scritte per quello che sono invece che scoperte mentre si scrive il README:
+
+- **1 — la precisione di citazione è misurabile.** Regge, ma i numeri a disco valgono per un prompt che U-14 ha cambiato: sono **D-1**, **D-2**, **D-3**, e sono obbligatori a prescindere.
+- **2 — il routing batte la pipeline generica.** **Non sostenuta**: su `ledger` il routing *perde* 17 punti (OQ-01), e R-11 ha mostrato che una parte del guadagno attribuito al routing era il richiamo dell'indice. Va nel README **come risultato negativo** — il §7 dice che ci restano, ed è il pezzo più interessante del progetto: un testbed che smentisce la propria ipotesi vale più di uno che la conferma per costruzione.
+- **3 — la taglia conta meno del previsto.** **Non determinata**, due punti su tre. Il terzo costa **6,7 ore** e non 13,3, perché su `ledger` non va fatto: E4B è già a `1,0000` e il 12B non ha margine (C-06 lo aveva già scritto). Restano 100 query di `open_ragbench` a 240 s.
+
+> **E si può dimezzare.** Girando il 12B sulle **prime 50** di quelle 100 query, i punti E2B ed E4B si ricalcolano **sulle stesse 50** dai dump già a disco — costo zero, ed è precisamente ciò che Q-02 ha comprato (`rescore_citations.py` ricalcola dai dump; gli serve solo un filtro sulle query). Il confronto resta **appaiato sulle stesse domande**, con barre d'errore più larghe: **3,3 ore**, di giorno.
+>
+> **Da decidere, e le tre strade sono tutte legittime:** 3,3 h appaiate, 6,7 h identiche ai due punti esistenti, oppure zero e si scrive «non determinata» dicendo cosa sarebbe servito. Ciò che non è legittimo è leggere due punti come se fossero tre.
+
+### Cosa questa lista non contiene, di proposito
+
+- **Autenticazione, quote, limitazione per IP.** Servivano solo alla demo ospitata; senza hosting non hanno un destinatario, e il §14 le teneva fuori.
+- **Un secondo indice o un secondo corpus.** L'affermazione 2 si chiude misurando quello che c'è, non aggiungendo materiale.
+- **Il multi-turno.** Resta **X-02**: ogni domanda è indipendente, e riusare i messaggi precedenti per il recupero è un'altra cosa.
+
+---
+
 ## 13. Fase 9 — Extra, in ordine di priorità
 
 Solo se avanza tempo. Nessuno di questi è necessario perché il progetto sia completo.
@@ -619,6 +665,7 @@ Solo se avanza tempo. Nessuno di questi è necessario perché il progetto sia co
 | X-03 | Controllo di scala: qualche migliaio di documenti non annotati | Solo tempo di indicizzazione, latenza, dimensione indice, VRAM |
 | X-04 | Retrieval visivo in stile ColPali sul dataset table-heavy | Il più ambizioso. Timebox rigido, si taglia senza rimpianti |
 | X-05 | **La finestra di contesto decisa dall'hardware**: la preparazione guarda VRAM e memoria, sceglie la taglia di partenza e crea quelle che ha senso avere | Rinviato di proposito il 2026-08-19: U-16 dà la scelta con una partenza fissa a 32k — la finestra con cui il progetto misura — e questo la fa dipendere dalla macchina. Ci finisce anche la voce «non fissata», tolta dal menu perché era l'unica che non è una misura: qui tornerebbe come *una misura scelta guardando l'hardware*. Serve una sonda di sistema — Ollama non pubblica la VRAM totale, e `/api/ps` elenca solo i modelli **caricati** |
+| X-06 | **La demo ospitata**: un'istanza pubblica che risponde senza scaricare niente | Rinviato di proposito il 2026-08-20, con la ragione scritta nel piano di chiusura. Se un giorno si fa, tre cose sono obbligatorie e non facoltative: un tetto per chi interroga, un modo di dire «quota esaurita» che non sia un errore, e una riga che dichiara **quale modello ha risposto** — perché non sarà quello con cui il progetto ha misurato |
 
 ---
 
