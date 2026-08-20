@@ -316,6 +316,11 @@ function Mappa() {
                 onClick={() => scegliChunk(chunks[p.indice].chunk_id)}
               />
             ))}
+            {/* L'ultima riga e' quasi sempre incompleta, e deve **restare**
+                incompleta: con i soli tratti il flex distribuirebbe fra loro
+                tutto lo spazio, e mezzo documento in fondo sembrerebbe una riga
+                piena. Questo pezzo vuoto tiene il posto che manca. */}
+            <Riempimento frazione={1 - riga.reduce((a, p) => a + p.frazione, 0)} />
           </div>
         ))}
       </div>
@@ -371,6 +376,14 @@ function Tratto({
     <Suggerimento
       dato
       fuoco={false}
+      // Lo stile va sul **bersaglio**, che e' lo `span` di `Suggerimento`: e'
+      // lui la voce del flex, e un `flexGrow` messo sul bottone dentro non
+      // raggiunge nessuno. `× 1000` perche' quando la somma dei fattori di
+      // crescita e' minore di uno il CSS distribuisce solo quella frazione dello
+      // spazio libero: le frazioni di una riga sommano esattamente a uno, cioe'
+      // proprio sul bordo, e un arrotondamento in meno lascerebbe la riga corta.
+      stile={{ flexGrow: frazione * 1000, flexBasis: 0 }}
+      className="h-full min-w-[2px]"
       testo={t("corpus.chunkHint", {
         id: chunk.chunk_id,
         tipo: chunk.content_type,
@@ -382,8 +395,7 @@ function Tratto({
         onClick={onClick}
         aria-label={chunk.chunk_id}
         aria-current={scelta}
-        style={{ flexGrow: frazione, flexBasis: 0 }}
-        className={`h-full min-w-[2px] transition-colors ${
+        className={`block h-full w-full transition-colors ${
           scelta
             ? "bg-accent"
             : tabella
@@ -393,6 +405,13 @@ function Tratto({
       />
     </Suggerimento>
   );
+}
+
+/** Lo spazio che manca a una riga incompleta. Niente colore: e' documento che
+ *  non c'e', non un pezzo vuoto. */
+function Riempimento({ frazione }: { frazione: number }) {
+  if (frazione <= 0.0005) return null;
+  return <span aria-hidden="true" style={{ flexGrow: frazione * 1000, flexBasis: 0 }} />;
 }
 
 function Voce({ quadro, children }: { quadro: string; children: ReactNode }) {
