@@ -1,4 +1,4 @@
-﻿# Stato di avanzamento
+# Stato di avanzamento
 
 Tracciamento dei task di `ROADMAP.md` man mano che vengono completati. Non sostituisce `ROADMAP.md` (che resta la fonte di verità, immutabile in questo file) — qui si registra solo cosa è stato fatto, quando, e con quale verifica.
 
@@ -1593,11 +1593,11 @@ Per la stessa ragione `/document/{doc_id}/chunks` restituisce i chunk **in ordin
 
 ---
 
-## Fase 8 â€” Interfaccia
+## Fase 8 — Interfaccia
 
 | Task | Stato | Note |
 |---|---|---|
-| U-00 | âœ… fatto (2026-08-14) | Scheletro `ui/`: Vite 8 + React 19 + TypeScript 7 + Tailwind 4, client SSE scritto a mano, temi, i18n IT/EN, `/datasets` all'avvio. **19 test Vitest** + 15 test Python sul contratto generato. `npm run typecheck && npm test && npm run build` verdi; catena provata contro l'API viva. Dettaglio sotto. |
+| U-00 | ✅ fatto (2026-08-14) | Scheletro `ui/`: Vite 8 + React 19 + TypeScript 7 + Tailwind 4, client SSE scritto a mano, temi, i18n IT/EN, `/datasets` all'avvio. **19 test Vitest** + 15 test Python sul contratto generato. `npm run typecheck && npm test && npm run build` verdi; catena provata contro l'API viva. Dettaglio sotto. |
 | U-01 | ✅ fatto (2026-08-14) | Selettore dataset nella corsia laterale del mockup, scelta ricordata in `localStorage` e **validata** contro `/datasets`. La regola di selezione è in funzioni pure: **9 test Vitest** in più (28 in tutto), senza jsdom. Provato contro l'API viva: `open_ragbench` 18.840 e `ledger` 47.110 chunk. Dettaglio sotto. |
 | U-02 | ✅ fatto (2026-08-14) | Schermata di chat con **pannello fonti sempre visibile** (nel telaio, non nella chat): otto stati, uno per evento del §3.5, macchina a stati in un reducer puro con **16 test** (44 lato Vitest). Marcatori inerti finché non arriva `answer`. I valori di `abstention` ora sono generati come i tipi. Esempi dello stato vuoto presi da `eval/golden`. Provato contro l'API viva su una query d'oro reale. **Rendering LaTeX** con KaTeX, regola dei delimitatori misurata: 49 falsi positivi tolti su 49, zero formule vere perse. Dettaglio sotto. |
 | U-06 | ✅ fatto (2026-08-20) | **L'esploratore del corpus**: i documenti, com'è stato spezzato quello aperto — una tessera per chunk, larga il doppio dove c'è una tabella — e il chunk scelto **per intero**, che è la ragione del task: la scheda ne mostra due righe e il chunk può essere lungo 6.302 caratteri. Nessun campo nuovo: `/documents` e `/document/{id}/chunks` esistevano dal A-04 e non li aveva mai chiamati nessuno. Il PDF non c'è su nessuno dei due corpus, e si dichiara. **11 test Vitest** in più (236). Dettaglio sotto. |
@@ -1611,56 +1611,56 @@ Per la stessa ragione `/document/{doc_id}/chunks` restituisce i chunk **in ordin
 | U-13 | ✅ fatto (2026-08-17) | **Conversazione nuova e cronologia locale**: l'elenco nella corsia, persistenza in `localStorage`, e il ricaricamento riapre una conversazione *nuova*, con la cronologia accanto. Cosa si ricorda e come si rilegge è in funzioni pure: **17 test Vitest** in più (147 in tutto). Cancellare la cronologia c'è, a due tempi, ed è il primo posto in cui la palette ha un rosso — `danger`, solo per ciò che distrugge. Due giri di revisione. Dettaglio sotto. |
 | U-07 | ✅ fatto (2026-08-17) | Ogni citazione porta il **proprio verdetto**, sul marcatore in mezzo alla prosa e sulla scheda della fonte, e **nessuna è nascosta**. Cinque stati per il marcatore e sei per la scheda, distinti da glifo, colore e parola insieme (§12). Le frasi senza citazione sono sottolineate dove stanno. La corrispondenza frase↔marcatore è in funzioni pure: **38 test Vitest** in più (116 in tutto). Provato contro l'API viva su `open_ragbench` e `ledger`. Dettaglio sotto. |
 
-### U-00 â€” il contratto esiste in due linguaggi, e uno dei due si genera
+### U-00 — il contratto esiste in due linguaggi, e uno dei due si genera
 
-Â«Il frontend non importa niente da `src/`Â» Ã¨ la regola giusta: un frontend che importasse la pipeline non ne sarebbe un consumatore, sarebbe un **secondo posto in cui la pipeline vive**. Ma ne segue che il contratto del Â§3.5 va scritto due volte, e due elenchi scritti a mano divergono â€” la lezione di Q-06, in TypeScript. Peggio: la seconda copia diverge *in silenzio*, perchÃ© nessun test Python guarda dentro `ui/`.
+«Il frontend non importa niente da `src/`» è la regola giusta: un frontend che importasse la pipeline non ne sarebbe un consumatore, sarebbe un **secondo posto in cui la pipeline vive**. Ma ne segue che il contratto del §3.5 va scritto due volte, e due elenchi scritti a mano divergono — la lezione di Q-06, in TypeScript. Peggio: la seconda copia diverge *in silenzio*, perché nessun test Python guarda dentro `ui/`.
 
-Quindi `ui/src/api/types.ts` **non si scrive**: lo produce `scripts/gen_api_types.py`, e `tests/test_ui_types.py` fallisce se il file committato non Ã¨ ciÃ² che il generatore produce oggi. Un campo aggiunto ad `AnswerResponse` senza rigenerare rompe la suite **Python** â€” si scopre prima di arrivare al browser, e senza che serva Node per accorgersene. Provato togliendo a mano `truncated` dal file: due test falliscono.
+Quindi `ui/src/api/types.ts` **non si scrive**: lo produce `scripts/gen_api_types.py`, e `tests/test_ui_types.py` fallisce se il file committato non è ciò che il generatore produce oggi. Un campo aggiunto ad `AnswerResponse` senza rigenerare rompe la suite **Python** — si scopre prima di arrivare al browser, e senza che serva Node per accorgersene. Provato togliendo a mano `truncated` dal file: due test falliscono.
 
-**Gli eventi SSE non sono modelli pydantic**, ed Ã¨ il punto delicato: `to_wire()` costruisce i payload a mano, quindi Ã¨ l'unico pezzo di contratto in cui togliere un campo non romperebbe nessun tipo Python. Il generatore perciÃ² non lo legge, lo **esegue**: i nomi dei campi vengono dal dizionario che finisce davvero sul filo.
+**Gli eventi SSE non sono modelli pydantic**, ed è il punto delicato: `to_wire()` costruisce i payload a mano, quindi è l'unico pezzo di contratto in cui togliere un campo non romperebbe nessun tipo Python. Il generatore perciò non lo legge, lo **esegue**: i nomi dei campi vengono dal dizionario che finisce davvero sul filo.
 
-Due proprietÃ  che il tipo fa rispettare meglio di un test: in `QueryRequest` solo `query` Ã¨ obbligatorio â€” cioÃ¨ il criterio di A-07 verificato dal compilatore a ogni chiamata invece che una volta sola â€” e le liste di `Capabilities` restano `string[]` e non letterali, perchÃ© un valore nuovo lato server deve **arrivare** al frontend, non romperlo.
+Due proprietà che il tipo fa rispettare meglio di un test: in `QueryRequest` solo `query` è obbligatorio — cioè il criterio di A-07 verificato dal compilatore a ogni chiamata invece che una volta sola — e le liste di `Capabilities` restano `string[]` e non letterali, perché un valore nuovo lato server deve **arrivare** al frontend, non romperlo.
 
-#### `EventSource` non serviva, e non averlo Ã¨ una decisione
+#### `EventSource` non serviva, e non averlo è una decisione
 
-`/query/stream` Ã¨ una `POST` e l'`EventSource` del browser fa solo `GET`. Accettare anche `GET` per poterlo usare costringerebbe a serializzare quindici parametri in query string, e a dichiarare cacheabile una richiesta che accende una GPU.
+`/query/stream` è una `POST` e l'`EventSource` del browser fa solo `GET`. Accettare anche `GET` per poterlo usare costringerebbe a serializzare quindici parametri in query string, e a dichiarare cacheabile una richiesta che accende una GPU.
 
-La conseguenza vera perÃ² Ã¨ un'altra: **`EventSource` riconnette da solo**, ed Ã¨ esattamente ciÃ² che non deve accadere. Rilanciare una generazione da ~11 s produce una risposta *diversa*, e il testo cambierebbe sotto agli occhi di chi legge senza che nessuno l'abbia chiesto. Su caduta si mostra il parziale marcato incompleto, con un Â«RiprovaÂ» esplicito.
+La conseguenza vera però è un'altra: **`EventSource` riconnette da solo**, ed è esattamente ciò che non deve accadere. Rilanciare una generazione da ~11 s produce una risposta *diversa*, e il testo cambierebbe sotto agli occhi di chi legge senza che nessuno l'abbia chiesto. Su caduta si mostra il parziale marcato incompleto, con un «Riprova» esplicito.
 
-Il parser sta su due livelli, e la divisione non Ã¨ estetica: `frames()` Ã¨ trasporto puro (byte â†’ riquadri) e si prova senza rete, `events()` aggiunge il contratto (JSON, nomi noti). Chi legge un test fallito deve poter distinguere un bug di parsing da una divergenza dall'API.
+Il parser sta su due livelli, e la divisione non è estetica: `frames()` è trasporto puro (byte → riquadri) e si prova senza rete, `events()` aggiunge il contratto (JSON, nomi noti). Chi legge un test fallito deve poter distinguere un bug di parsing da una divergenza dall'API.
 
-**I 13 test non provano Â«legge un eventoÂ»**: provano i modi in cui la rete consegna i byte â€” riquadro spezzato a metÃ  riga, due nello stesso pacchetto, un carattere UTF-8 tagliato a cavallo di due pacchetti, `\r\n`, `data` multiplo, commenti. E il riquadro incompleto a stream caduto, che viene **scartato**: non Ã¨ un riquadro corto, Ã¨ un riquadro che non Ã¨ arrivato.
+**I 13 test non provano «legge un evento»**: provano i modi in cui la rete consegna i byte — riquadro spezzato a metà riga, due nello stesso pacchetto, un carattere UTF-8 tagliato a cavallo di due pacchetti, `\r\n`, `data` multiplo, commenti. E il riquadro incompleto a stream caduto, che viene **scartato**: non è un riquadro corto, è un riquadro che non è arrivato.
 
-Un nome di evento sconosciuto viene saltato e segnalato, non tradotto in `error`: il server non ha segnalato un guasto, e inventarne uno mostrerebbe all'utente un errore che nessuno ha commesso. Un `data` che non Ã¨ JSON invece solleva â€” lÃ¬ il contratto Ã¨ rotto davvero.
+Un nome di evento sconosciuto viene saltato e segnalato, non tradotto in `error`: il server non ha segnalato un guasto, e inventarne uno mostrerebbe all'utente un errore che nessuno ha commesso. Un `data` che non è JSON invece solleva — lì il contratto è rotto davvero.
 
-#### Il proxy non bufferizza, ed Ã¨ stato misurato, non supposto
+#### Il proxy non bufferizza, ed è stato misurato, non supposto
 
-Il backend non ha CORS e resta senza: in produzione API e UI stanno dietro la stessa origine, e aprirla per comoditÃ  di sviluppo sarebbe una decisione di sicurezza presa per sbaglio. In sviluppo ci pensa il proxy di Vite. Ma un proxy che bufferizza **non rompe niente**: consegna tutto insieme alla fine, e il client non ha modo di accorgersi che sarebbe dovuto arrivare a pezzi.
+Il backend non ha CORS e resta senza: in produzione API e UI stanno dietro la stessa origine, e aprirla per comodità di sviluppo sarebbe una decisione di sicurezza presa per sbaglio. In sviluppo ci pensa il proxy di Vite. Ma un proxy che bufferizza **non rompe niente**: consegna tutto insieme alla fine, e il client non ha modo di accorgersi che sarebbe dovuto arrivare a pezzi.
 
 | stessa query, `top_k 3` | `chunks` | primo token | `done` | token |
 |---|---|---|---|---|
 | attraverso il proxy | 0,27 s | 3,01 s | 6,82 s | 41 |
 | diretto su `:8000` | 0,22 s | 2,99 s | 6,80 s | 41 |
 
-> **La prima misura era sbagliata, e vale piÃ¹ della seconda.** Attraverso il proxy il primo tentativo dava primo token a **20,19 s** e 14 token addensati in 0,2 s â€” che si legge come Â«il proxy bufferizzaÂ». Era la richiesta a freddo: Ollama stava caricando i pesi. Rimisurata a caldo, la differenza sparisce. Ãˆ la trappola di A-05 un'altra volta, e la regola che la disinnesca Ã¨ sempre quella del Â§15: un confronto Ã¨ un confronto solo se i due lati differiscono in **esattamente** una cosa.
+> **La prima misura era sbagliata, e vale più della seconda.** Attraverso il proxy il primo tentativo dava primo token a **20,19 s** e 14 token addensati in 0,2 s — che si legge come «il proxy bufferizza». Era la richiesta a freddo: Ollama stava caricando i pesi. Rimisurata a caldo, la differenza sparisce. È la trappola di A-05 un'altra volta, e la regola che la disinnesca è sempre quella del §15: un confronto è un confronto solo se i due lati differiscono in **esattamente** una cosa.
 
-`chunks` a 0,27 s contro il primo token a 3,01 s Ã¨ anche la conferma numerica della decisione presa disegnando: il pannello fonti si apre su `chunks`, non a risposta finita. L'attesa si riempie invece di premiare.
+`chunks` a 0,27 s contro il primo token a 3,01 s è anche la conferma numerica della decisione presa disegnando: il pannello fonti si apre su `chunks`, non a risposta finita. L'attesa si riempie invece di premiare.
 
 #### Le decisioni piccole che non sono di stile
 
-**Il tema si stampa prima della prima pittura**, da tre righe in `index.html`, non da React: montare il componente e poi cambiare sfondo produce un lampo bianco su tema scuro. E con `data-theme` **sempre** presente su `<html>`, la variante CSS Ã¨ una condizione sola invece di tre stati, e il toggle vince sul sistema in entrambi i versi. Â«SistemaÂ» resta perÃ² una scelta viva: il listener sulla media query non si stacca, perchÃ© chi la lascia cosÃ¬ vuole che la pagina cambi a finestra aperta.
+**Il tema si stampa prima della prima pittura**, da tre righe in `index.html`, non da React: montare il componente e poi cambiare sfondo produce un lampo bianco su tema scuro. E con `data-theme` **sempre** presente su `<html>`, la variante CSS è una condizione sola invece di tre stati, e il toggle vince sul sistema in entrambi i versi. «Sistema» resta però una scelta viva: il listener sulla media query non si stacca, perché chi la lascia così vuole che la pagina cambi a finestra aperta.
 
-**Nessun webfont.** U-08 chiede `--profile demo` in meno di due minuti *senza rete*, e un font da CDN Ã¨ una richiesta di rete al primo caricamento.
+**Nessun webfont.** U-08 chiede `--profile demo` in meno di due minuti *senza rete*, e un font da CDN è una richiesta di rete al primo caricamento.
 
-**Nessuna libreria i18n.** Due lingue e un dizionario piatto sono trenta righe, e `Record<Chiave, string>` fa fallire **la compilazione** su una chiave mancante â€” prima e meglio di qualsiasi test. E che la lingua dell'interfaccia non arrivi mai all'API non Ã¨ una regola da ricordare: `QueryRequest` non ha un campo lingua, quindi non c'Ã¨ modo di mandarla.
+**Nessuna libreria i18n.** Due lingue e un dizionario piatto sono trenta righe, e `Record<Chiave, string>` fa fallire **la compilazione** su una chiave mancante — prima e meglio di qualsiasi test. E che la lingua dell'interfaccia non arrivi mai all'API non è una regola da ricordare: `QueryRequest` non ha un campo lingua, quindi non c'è modo di mandarla.
 
-**`/datasets` ha tre stati e non due.** Â«Sto contattandoÂ» non Ã¨ Â«Ã¨ rottoÂ»: mostrare subito l'errore per poi toglierlo fa lampeggiare un guasto che non c'era. E la lista modelli vuota resta un non-guasto, com'Ã¨ in A-07 â€” i dataset non dipendono dall'LLM.
+**`/datasets` ha tre stati e non due.** «Sto contattando» non è «è rotto»: mostrare subito l'errore per poi toglierlo fa lampeggiare un guasto che non c'era. E la lista modelli vuota resta un non-guasto, com'è in A-07 — i dataset non dipendono dall'LLM.
 
 #### Licenze, e l'unica copyleft dell'albero
 
 Lette dai `package.json` in `node_modules`, non dedotte: 56 pacchetti MIT, 4 Apache-2.0, 3 ISC, 1 BSD-3-Clause, **2 MPL-2.0**. Le due sono `lightningcss` e il suo binario per piattaforma, tirati dentro da Tailwind 4.
 
-MPL-2.0 Ã¨ copyleft **a livello di file**: obbliga a mantenere sotto MPL i file di quella libreria se modificati e ridistribuiti, e non si propaga al progetto che la usa. Non Ã¨ nella lista vietata (GPL / AGPL / LGPL-static), Ã¨ una dipendenza di build che non finisce nel bundle servito, e il CSS che produce Ã¨ un output, non un'opera derivata dei suoi sorgenti. Registrata in `STACK.md` perchÃ© la regola dice di **segnalare**, non di valutare in silenzio.
+MPL-2.0 è copyleft **a livello di file**: obbliga a mantenere sotto MPL i file di quella libreria se modificati e ridistribuiti, e non si propaga al progetto che la usa. Non è nella lista vietata (GPL / AGPL / LGPL-static), è una dipendenza di build che non finisce nel bundle servito, e il CSS che produce è un output, non un'opera derivata dei suoi sorgenti. Registrata in `STACK.md` perché la regola dice di **segnalare**, non di valutare in silenzio.
 
 #### Il gate
 
@@ -1671,7 +1671,7 @@ MPL-2.0 Ã¨ copyleft **a livello di file**: obbliga a mantenere sotto MPL i fil
 | catena viva | `/datasets` attraverso il proxy â†’ 4 modelli, `open_ragbench` 18.840, `ledger` 47.110, 7 collection |
 | stream vivo | 41 token in 5 eventi distinti, tempi indistinguibili da quelli diretti |
 
-> Node non era installato quando U-00 Ã¨ cominciato. La metÃ  che non ne aveva bisogno â€” generatore, tipi, test di deriva â€” Ã¨ stata fatta e committata prima, invece di scrivere lo scaffold alla cieca: qui un file che non si Ã¨ mai visto compilare sarebbe stata l'unica cosa consegnata senza la verifica che la accompagna.
+> Node non era installato quando U-00 è cominciato. La metà che non ne aveva bisogno — generatore, tipi, test di deriva — è stata fatta e committata prima, invece di scrivere lo scaffold alla cieca: qui un file che non si è mai visto compilare sarebbe stata l'unica cosa consegnata senza la verifica che la accompagna.
 
 ### U-01 — la scelta è derivata, e un indice vuoto si vede ma non si sceglie
 

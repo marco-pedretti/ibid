@@ -1,4 +1,4 @@
-﻿# ibid — Piano di implementazione
+# ibid — Piano di implementazione
 
 **Banco di prova per sistemi RAG con attribuzione verificabile**, su modelli piccoli eseguiti in locale, valutato quantitativamente su dataset di benchmark pubblici.
 
