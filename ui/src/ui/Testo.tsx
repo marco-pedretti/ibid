@@ -103,6 +103,36 @@ export function Testo({ risposta }: { risposta: Risposta }) {
   );
 }
 
+/**
+ * Del testo qualunque, disegnato come la risposta ma **senza niente sopra**.
+ *
+ * Serve all'esploratore di U-06: un chunk del corpus ha titoli, elenchi, enfasi
+ * e formule esattamente come una risposta, e non ha ne' marcatori di citazione
+ * ne' verdetti — perche' nessuno lo ha ancora citato ne' controllato.
+ *
+ * **Riusa `Testo` invece di rifarlo** passando `annotazioni: []`. Le annotazioni
+ * sono l'unica cosa che lega quella macchina alle risposte; tutto il resto —
+ * blocchi, tabelle Markdown, matematica, sintassi nascosta — vale per qualunque
+ * testo. Una seconda composizione scritta accanto sarebbe divergente al primo
+ * caso di bordo, e i casi di bordo qui sono la ragione per cui il modulo esiste.
+ */
+export function Prosa({ testo }: { testo: string }) {
+  const { blocchi, stili, nascosti } = useMemo(() => analizza(testo), [testo]);
+  const contesto: Contesto = { testo, annotazioni: [], stili, nascosti };
+
+  return (
+    <div className="flex flex-col gap-2">
+      {raggruppa(blocchi).map((g, i) =>
+        g.tipo === "elenco" ? (
+          <Elenco key={i} voci={g.blocchi} contesto={contesto} />
+        ) : (
+          <Blocco key={i} blocco={g.blocchi[0]} contesto={contesto} />
+        ),
+      )}
+    </div>
+  );
+}
+
 /** Cio' che serve a ogni pezzo per disegnarsi: il testo grezzo e i quattro
  *  elenchi di intervalli che ci stanno sopra. */
 interface Contesto {

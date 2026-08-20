@@ -227,6 +227,11 @@ export const it = {
   "corpus.legend.table": "contiene una tabella",
   "corpus.legend.table.routed": "tabella · mai spezzata",
   "corpus.selected": "Chunk selezionato",
+  // Due modi, e il secondo non e' un ripiego: «grezzo» e' la stringa che sta
+  // nell'indice, cioe' quella che il modello ha ricevuto e che il controllo ha
+  // giudicato. In un progetto che verifica, il dato e' quello.
+  "corpus.readable": "leggibile",
+  "corpus.raw": "grezzo",
   "corpus.page": "p. {n}",
   "corpus.open": "Apri la fonte",
   "corpus.split.title": "Riconosciuto come {genere}, tagliato {taglio}.",
@@ -508,6 +513,8 @@ export const en: Record<Chiave, string> = {
   "corpus.legend.table": "contains a table",
   "corpus.legend.table.routed": "table · never split",
   "corpus.selected": "Selected chunk",
+  "corpus.readable": "readable",
+  "corpus.raw": "raw",
   "corpus.page": "p. {n}",
   "corpus.open": "Open the source",
   "corpus.split.title": "Recognised as {genere}, cut {taglio}.",
