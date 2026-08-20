@@ -65,6 +65,19 @@ export const it = {
   "datasets.none": "Nessun indice pronto",
   "datasets.none.hint": "Costruisci un indice con «make ingest», poi ricarica.",
 
+  // U-18: la corsia si comprime. Il nome del comando dice **il verso**, perché
+  // l'icona è la stessa nei due stati — un pannello con la sua striscia — e una
+  // freccia che si specchia costringerebbe a ricordare quale significa cosa.
+  "rail.collapse": "Comprimi la corsia",
+  "rail.collapse.hint": "Resta una striscia di comandi, e la scelta vale anche al prossimo avvio.",
+  "rail.expand": "Apri la corsia",
+  "rail.expand.hint": "Torna larga, con i titoli delle conversazioni e il nome del dataset.",
+  // Sul bottone della cronologia nella striscia: dice **perché** questo comando
+  // riapre invece di aprire un elenco, che è l'unica cosa che chi clicca non si
+  // aspetta.
+  "rail.history.hint":
+    "Un titolo troncato a una striscia non è un titolo: il clic riapre la corsia.",
+
   // Il criterio di U-13 chiede che la cronologia **dichiari** di essere locale, e
   // la parola sta nel nome della sezione. Prima la frase intera stava sotto
   // l'elenco: vera, e scollegata da ciò di cui parlava. Qui «locale» ha un
@@ -423,6 +436,12 @@ export const en: Record<Chiave, string> = {
   "datasets.notQueryable": "empty index: not queryable",
   "datasets.none": "No index ready",
   "datasets.none.hint": "Build one with “make ingest”, then reload.",
+
+  "rail.collapse": "Collapse the sidebar",
+  "rail.collapse.hint": "A strip of commands stays, and the choice holds next time too.",
+  "rail.expand": "Open the sidebar",
+  "rail.expand.hint": "It comes back wide, with conversation titles and the dataset name.",
+  "rail.history.hint": "A title cut down to a strip is not a title: the click reopens the sidebar.",
 
   "history.title": "Local history",
   "history.hint":
