@@ -28,4 +28,12 @@
  */
 export default {
   printWidth: 100,
+  // **Non una preferenza: `core.autocrlf=true`.** Su Windows git riscrive i fine
+  // riga in CRLF al checkout, e prettier con il suo default (`"lf"`) segnala
+  // ogni file cosi' toccato — style issues che non sono di stile. Il controllo
+  // diventava rosso su quattro file per un motivo che il diff non mostra.
+  // `"auto"` prende come giusto il fine riga che il file gia' ha, che e' l'unica
+  // regola compatibile con un repo condiviso fra Windows e Linux senza
+  // `.gitattributes`.
+  endOfLine: "auto",
 };
