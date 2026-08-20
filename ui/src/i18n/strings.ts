@@ -220,13 +220,18 @@ export const it = {
   "corpus.pickDocument": "Scegli un documento per vedere com'è stato spezzato.",
   "corpus.howSplit": "Com'è stato spezzato",
   "corpus.legend.text": "testo",
-  "corpus.legend.table": "tabella · mai spezzata",
+  // Due etichette per la stessa tessera, e non e' un vezzo: «mai spezzata» e' una
+  // proprieta' della pipeline `table_heavy`, che nell'indice generico **non ha
+  // girato**. Scriverlo comunque sarebbe la stessa dichiarazione non verificata
+  // che U-05 ha appena tolto dal campo `pipeline`.
+  "corpus.legend.table": "contiene una tabella",
+  "corpus.legend.table.routed": "tabella · mai spezzata",
   "corpus.selected": "Chunk selezionato",
   "corpus.page": "p. {n}",
   "corpus.open": "Apri la fonte",
   "corpus.split.title": "Riconosciuto come {genere}, tagliato {taglio}.",
   "corpus.split.routed":
-    "Le tabelle restano intere anche quando sono lunghe: spezzarle renderebbe una riga illeggibile senza la sua intestazione.",
+    "Il taglio è stato scelto guardando il documento: generi diversi vengono spezzati in modo diverso, e le tabelle restano intere perché una riga senza intestazione è illeggibile.",
   "corpus.split.generic":
     "Ogni documento di questo indice è stato spezzato allo stesso modo, prendendo l'unità che il documento offriva già.",
   // Il criterio di U-06 chiede di dichiararla, non di simularla. E il motivo è
@@ -500,13 +505,14 @@ export const en: Record<Chiave, string> = {
   "corpus.pickDocument": "Pick a document to see how it was split.",
   "corpus.howSplit": "How it was split",
   "corpus.legend.text": "text",
-  "corpus.legend.table": "table · never split",
+  "corpus.legend.table": "contains a table",
+  "corpus.legend.table.routed": "table · never split",
   "corpus.selected": "Selected chunk",
   "corpus.page": "p. {n}",
   "corpus.open": "Open the source",
   "corpus.split.title": "Recognised as {genere}, cut {taglio}.",
   "corpus.split.routed":
-    "Tables stay whole even when they are long: splitting one would leave a row unreadable without its header.",
+    "The split was chosen by looking at the document: different kinds are split differently, and tables stay whole because a row without its header is unreadable.",
   "corpus.split.generic":
     "Every document in this index was split the same way, taking the unit the document already offered.",
   "corpus.noPdf":

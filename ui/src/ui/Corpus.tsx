@@ -24,6 +24,7 @@
  * criterio.
  */
 import { useMemo, useState } from "react";
+import type { ReactNode } from "react";
 
 import type { ChunkView } from "../api/types";
 import { filtra, indirizzo } from "../app/corpus";
@@ -176,7 +177,11 @@ function Mappa() {
   }
 
   const chunks = documento.chunks;
+  // Genere e pipeline sono proprieta' del **documento**: il primo chunk le porta
+  // come tutti gli altri, e leggerle da li' evita di ripetere la stessa domanda
+  // duecentosessantuno volte.
   const primo = chunks[0];
+  const perGenere = primo !== undefined && taglioPerGenere(primo.pipeline);
 
   return (
     <section className="flex min-h-0 flex-col gap-3.5 overflow-y-auto px-[18px] py-4">
@@ -200,7 +205,9 @@ function Mappa() {
 
       <div className="flex gap-3 font-mono text-[10px] text-muted">
         <Voce quadro="border-line-2 bg-surface-2">{t("corpus.legend.text")}</Voce>
-        <Voce quadro="border-accent-2 bg-accent-soft">{t("corpus.legend.table")}</Voce>
+        <Voce quadro="border-accent-2 bg-accent-soft">
+          {t(perGenere ? "corpus.legend.table.routed" : "corpus.legend.table")}
+        </Voce>
       </div>
 
       {primo !== undefined && <Spiegazione chunk={primo} />}
@@ -237,7 +244,7 @@ function Tessera({
   );
 }
 
-function Voce({ quadro, children }: { quadro: string; children: string }) {
+function Voce({ quadro, children }: { quadro: string; children: ReactNode }) {
   return (
     <span className="flex items-center gap-1.5">
       <i className={`inline-block h-[9px] w-[9px] rounded-[2px] border ${quadro}`} />
