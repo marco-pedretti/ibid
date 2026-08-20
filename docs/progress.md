@@ -1140,6 +1140,7 @@ Il backend diventa sostituibile dal frontend e viceversa, e può girare su un'al
 | A-04 | ✅ fatto (2026-08-14) | `/health`, `/datasets`, `/chunk/{chunk_id}`, `/query`, `/query/stream`, `/config`. Il confronto CLI ↔ API che ad A-01 aveva un braccio solo ora li ha entrambi. Query completa da `curl` verificata contro Qdrant e Ollama vivi. **1585 test**. |
 | A-05 | ✅ fatto (2026-08-14) | Backend in `docker compose`, `QDRANT_URL` e `LLM_BASE_URL` da ambiente. Immagine costruita e provata contro Qdrant e Ollama sull'host: stessa risposta e stesso verdetto della corsa fuori container. **1607 test**. |
 | A-06 | ✅ fatto (2026-08-14) | La dashboard smette di essere un secondo backend: le due copie della pipeline sparite, tutto passa da `dashboard/api_client.py`. Ha prodotto `POST /retrieve`, che dall'API mancava. **1620 test**. |
+| A-07 | ✅ fatto (2026-08-14) | **I tre buchi trovati disegnando la Fase 8**: `models` in `Capabilities`, `reasoning_effort` in `QueryRequest`, `GET /documents` e `GET /document/{doc_id}/chunks`. Tutti e tre **additivi**, e un test manda la richiesta minima `{"query": "..."}` per provarlo. Con loro un indice payload su `doc_id`: contare i chunk per documento passa da 2,07 s a 0,025 s. **1659 test**, `ruff check .` pulito, CLI verificata eseguendo la stessa query su `main` e sul branch. Dettaglio sotto. |
 | A-08 | ✅ fatto (2026-08-19) | **Il catalogo dei modelli**: `Capabilities` porta famiglia, finestra massima e quantizzazione di ciascuno. La finestra si legge **per pattern** (`*.context_length`), quindi vale per qualunque famiglia — e il massimo non è uno solo: 131.072 per `gemma4:latest`, 262.144 per `gemma4:12b`. **12 test** in più (1690 in tutto). Additivo: `models` invariato. Dettaglio sotto. |
 
 ### A-01 — cosa c'era davvero dentro il CLI
@@ -1664,6 +1665,7 @@ typecheck verde, tipi TypeScript rigenerati.
 | U-14 | ✅ fatto (2026-08-19) | **Markdown e LaTeX nella risposta**: il prompt li invita invece di vietarli, e l'interfaccia li disegna — come **intervalli sul testo grezzo**, così verdetti per frase e frasi scoperte restano allineati. **15 test Vitest** in più (172 in tutto). Debito dichiarato: `prompt_hash` cambia, C-01/C-02/C-07 da rimisurare. Dettaglio sotto. |
 | U-15 | ✅ fatto (2026-08-19) | **Con quali parametri e' stata data ogni risposta**: la configurazione che ha girato si rilegge nella conversazione, e fra una domanda e l'altra si vede cosa è cambiato. **Nessun campo nuovo**: `ConfigView` era già dentro ogni risposta e già nel deposito da U-13. **11 test Vitest** in più (183 in tutto). Dettaglio sotto. |
 | U-16 | ✅ fatto (2026-08-19) | **Modello e contesto, due selettori**: il primo elenca i modelli, il secondo le finestre che quel modello regge — e compare solo quando ce n'è più di una. Nessuna convenzione sui nomi: il raggruppamento passa da `parent_model`. Con `scripts/model_sizes.py` che crea le taglie. **15 test Vitest** in più (198 in tutto). Dettaglio sotto. |
+| U-17 | ✅ fatto (2026-08-20) | **Il testo indicizzato**: la colonna di mezzo dell'esploratore ha due viste dello stesso documento — la mappa dice quanto sono grandi i pezzi, il testo dice cosa c'era nel punto in cui uno è stato tagliato — con le cuciture visibili e la selezione condivisa. **51 test Vitest** in più (287). Dettaglio sotto. |
 
 ### U-00 — il contratto esiste in due linguaggi, e uno dei due si genera
 
@@ -2796,3 +2798,13 @@ due estensioni si risolvono per ordine di preferenza del bundler: l'import di
 `usaCorpus` prendeva `corpus.ts`, che non lo esporta, e il typecheck lo ha detto
 subito — ma in un caso meno fortunato avrebbe preso il modulo sbagliato in
 silenzio. Il repo non lo faceva mai: `chat.tsx` sta accanto a `conversazione.ts`.
+
+### U-17 — le cuciture sono il contenuto, e il nome dice cosa si sta guardando
+
+**Si chiama «il testo indicizzato» e non «il documento»**, ed è il punto del task: il PDF non ce l'abbiamo (U-06), e ciò che si può mettere in fila sono i chunk. Oggi le due cose coincidono, e non per fortuna: nell'indice generico **non c'è nessuna sovrapposizione** fra chunk adiacenti — misurato — quindi i pezzi partizionano il documento esattamente. In una collection instradata non sarebbe più vero: un quarto delle coppie condivide fino a **586 caratteri**, e una lettura continua li mostrerebbe due volte. Il nome regge anche quel giorno, la vista no, e sta scritto dove serve (D-18).
+
+**Le cuciture sono il contenuto, non un difetto.** Vedere dove un taglio è caduto — in mezzo a una frase, prima di una tabella, dopo un titolo — è la tesi del progetto applicata al corpus: la mappa dice che i pezzi sono disuguali, questa dice cosa c'era nel punto in cui uno è stato staccato. La cucitura sta **sopra** il chunk e non fra due, così porta il nome di quello che apre e il primo taglio si vede come gli altri.
+
+**Due misure hanno deciso due cose, e una ha tolto lavoro.** Comporre il documento più lungo di `ledger` — `NASDAQ_LOOP_2017`, 457.565 caratteri in 147 chunk — costa **29 ms**: si disegna tutto insieme, e la finestra sui pezzi visibili, l'unica cosa che avrebbe potuto far crescere il task, non serve. Alzare il minimo di un tratto della mappa da 3 a 10 px costa **l'1,1%** della mappa nel documento peggiore e niente negli altri: la proporzione si viola di proposito, perché a tre pixel era più fedele e alcuni pezzi restavano invisibili.
+
+`Leggibile` esce da `Contenuto` in un commit suo, senza cambiare cosa disegna: lo usano il chunk singolo e il documento intero, che sono la stessa cosa a due scale.
