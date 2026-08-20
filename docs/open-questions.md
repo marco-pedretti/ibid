@@ -523,3 +523,61 @@ Perché è materia dell'**affermazione 2 del §0** — *«il routing automatico 
 ### Trappola
 
 Attivare l'IDF per genere **senza** i passi 1–2 sarebbe scegliere la configurazione che vince sui dati su cui la si misura: la stessa trappola della soglia tarata sui propri dati che C-03 ha evitato. E sarebbe un secondo cambiamento infilato nella misura di R-08 (§15).
+
+---
+
+## OQ-07 — Il segno di un numero appartiene al prospetto, non alla grandezza
+
+**Nuova (2026-08-20).** Osservata durante la revisione di U-04, guardando una risposta su LEDGER nella demo. Riferimento: C-09, OQ-05. Riproducibile con `scripts/probe_sign_convention.py`, che non tocca la GPU.
+
+### Il fatto
+
+**1. Nel corpus.** Campione di 120 documenti su 494:
+
+| | |
+|---|---|
+| celle numeriche | 157.716 |
+| **fra parentesi** | **28.228 (17,9%)** |
+| documenti con almeno una cella fra parentesi | 118 (98%) |
+| documenti in cui la **stessa grandezza** compare in tutte e due le forme | **52 (43%)** — mediana 2 per documento, massimo 69 |
+
+Il caso da cui è nata, verificabile a mano: in `NYSE_SHW_2019` il valore `222.8` compare **tre volte** — `222.8` nella Selected Financial Data, `(222.8)` nello Statement of Cash Flows, `222.8` nella tabella per segmento. Il segno è una proprietà del prospetto, non della quantità: in un rendiconto una spesa in conto capitale è un *deflusso*, e la notazione contabile lo scrive fra parentesi.
+
+**2. Nelle risposte già generate.** Sui sei dump LEDGER in `eval/results/generations`, fra il **4% e il 7%** delle risposte non astenute porta un numero decimale fra parentesi dentro la prosa — **43 casi** in tutto. Testualmente:
+
+> The capital expenditures for The Sherwin-Williams in 2017 were `$(222.8)$` million dollars [5].
+> …a dividend of `"($319.0)"` in millions of dollars [1].
+> The basic earnings (loss) per share attributable to common shareholders for 2017 was `$\$(0.69)$` [4].
+> …the cash dividends recorded for December 31, 2018, were `$(322.9)$` million dollars [4].
+
+**3. I due verificatori si contraddicono proprio lì.** Nella demo la prima di quelle frasi riceve `does not support` 0,208 dall'NLI e *«la tabella lo conferma»* dal controllo numerico di C-09.
+
+### L'ipotesi
+
+Il modello copia la cella fedelmente e la trapianta in prosa, dove la convenzione contabile non vale più: `(222.8)` in un rendiconto significa «deflusso di 222,8», in una frase significa «meno 222,8». **La citazione resta corretta** — il numero è nel chunk citato, con l'etichetta di riga giusta e l'anno giusto — mentre l'affermazione no.
+
+Se è vero, è una classe di errore che **nessuna delle due metriche di citazione vede**. `numeric_citation_precision` conferma, perché cerca il valore con la sua etichetta e lo trova. L'NLI nega, ma su tabelle nega anche i claim corretti — OQ-05 ha misurato quel pavimento a 0,276 di mediana su claim i cui numeri sono dimostrabilmente presenti — quindi il suo «no» non è un segnale.
+
+È il caso limite che OQ-05 dichiarava e non copriva: lì il caveat era *«`1.234` può stare nella riga sbagliata o nell'anno sbagliato»*. Qui riga e anno sono **giusti**, e la frase è sbagliata lo stesso.
+
+**Non è misurata.** Le tre osservazioni sono compatibili, ma nessuno ha ancora classificato i 43 casi: quanti sono trapianti e quanti negativi legittimi. Una perdita, un decremento, una rettifica sono negativi veri, e lì le parentesi ci vogliono.
+
+### Protocollo
+
+1. **Classificare a mano i 43 casi** dai dump esistenti — nessuna GPU, sono già su disco — in *trapianto* (grandezza positiva, segno preso dal prospetto) contro *negativo vero*. Il criterio è la riga del chunk citato, che `probe_table_floor.py --rows` sa già risalire.
+2. Se i trapianti prevalgono, misurare l'accordo fra i due verificatori su quel sottoinsieme contro un campione di controllo. L'ipotesi prevede che il disaccordo *numerico conferma / NLI nega* sia lì più frequente che altrove. È un test appaiato, e il suo esito può falsificare l'ipotesi: se il disaccordo è distribuito uguale, questi 43 casi non sono una classe.
+3. Solo allora il rimedio, e le direzioni sono due: dirlo al modello — riportare la grandezza, non la notazione del prospetto — oppure insegnarlo al controllo numerico, per cui le parentesi in una cella sono un segno e riportarle in prosa afferma un negativo.
+
+### Trappole
+
+**Attribuirlo al prompt.** È la spiegazione più comoda, ed è **verificata falsa**: la frase su Sherwin-Williams è identica nel dump del 12 agosto, e il prompt archiviato accanto a quel dump non ha nessuna sezione OUTPUT FORMAT — né la riga sul LaTeX che U-14 ha aggiunto il 19, né altro. Il comportamento precede di una settimana la regola a cui verrebbe naturale darne la colpa.
+
+**Aggiustarlo nel renderer.** U-04 ha tolto il carattere matematico da `$(222.8)$`, ed è una correzione tipografica: le parentesi restano stampate, e devono — il modello le ha scritte. Il rendering non è il posto dove un'affermazione diventa vera o falsa.
+
+**Contare il bacino come se fosse l'errore.** I 43 casi sono quanti *potrebbero* esserlo, non quanti lo sono. Il passo 1 esiste per questo, e va fatto prima di citare un numero.
+
+### Perché conta
+
+Perché è il limite onesto di «citazione verificata», che è l'**affermazione 1 del §0**: una frase può citare perfettamente — chunk giusto, riga giusta, anno giusto — ed essere sbagliata lo stesso, e qui nessuna delle due metriche se ne accorge. Non è un difetto di uno dei due verificatori: è una cosa che nessuno dei due sta guardando.
+
+E la variabile che decide è ancora una volta il **genere del documento**. Su `open_ragbench` questa domanda non si pone: la notazione contabile è una convenzione dei bilanci, e la stessa cifra in un paper non cambia segno cambiando tabella.
