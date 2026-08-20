@@ -104,12 +104,12 @@ L'associazione fra `#1` e il run corrispondente e risolta col colore: la tabella
 | C-03 | ✅ fatto (2026-08-10) | `citation_precision` **0,657 su open_ragbench, 0,366 su ledger** — e i due non si leggono allo stesso modo. Sospeso e riaperto in giornata: il verificatore di STACK.md è stato misurato prima di costruirci sopra, non reggeva, ed è stato sostituito. Vedi sotto. |
 | C-04 | ✅ fatto (2026-08-11) | **Astensione corretta 100% su E-02 per entrambi i dataset**, e il gate non causa **nessuna** falsa astensione. Ma il criterio era già al 100% col solo modello: il gate è una garanzia, non una correzione. Vedi sotto. |
 | C-05 | ✅ fatto (2026-08-10) | **Criterio soddisfatto senza toccare il prompt.** L'istruzione c'era dal T-0x e non era mai stata verificata: 14/14 risposte nella lingua della domanda, 0 miste. `prompt_hash` invariato. |
+| C-06 | ✅ fatto **a due punti** (2026-08-13) | E2B ed E4B su entrambi i dataset. **12B scartato**: 240 s/query misurati, 13,3 ore. **L'affermazione 3 del §0 resta non determinata** — con due punti il divario c'è ed è grande, ma se la curva si appiattisca era proprio ciò che il terzo punto doveva dire. Vedi sotto. |
 | C-07 | ✅ fatto (2026-08-12) | **Risultato negativo, e resta in tabella.** Il ragionamento esteso guadagna +4,4 punti di conformità *grezza* su open_ragbench (p=0,0386) e **+0,6 dopo il parser di C-02** (p=1,0000), perché tutto il guadagno è nella variante `[1] [2]` che il parser ripara gratis. Su ledger nessun effetto. Costo: **9,5× i token**, e l'astensione su ledger da 0,280 a 0,450. Vedi sotto. |
-| I-10 | ✅ fatto (2026-08-12) | **Effetto reale, piccolo.** Il tetto a 512 token guadagna **+1,26 punti a doc@1** (p=0,0384) su 1.903 query, e regge a tutte e tre le profondità (p=0,038 / 0,040 / 0,034). Costo: **4,05× i chunk**. Vedi sotto. |
 | C-08 | ✅ fatto (2026-08-12) | **Risultato negativo: il markup non era la causa.** Rendere le tabelle OCR in righe leggibili porta `citation_precision` su LEDGER da 0,3656 a 0,3263 — 35 citazioni perse contro 22 guadagnate, **p = 0,1112**. Il verificatore è indifferente alla forma della tabella. Flag lasciato spento. La diagnosi che resta è in `open-questions.md`, OQ-05. |
 | C-09 | ✅ fatto (2026-08-12) | **`numeric_citation_precision` 0,7328 su LEDGER**, contro lo 0,2374 che l'NLI dà sulle stesse coppie. Copertura 39,6%; su open_ragbench 0,2% — lo strumento si rifiuta di giudicare la prosa invece di indovinare. Vedi sotto. |
 | I-08 | ✅ fatto (2026-08-12) | **Non stabilito.** I prefissi E5 sfiorano la soglia solo a doc@1 (p=0,0503), **cambiano segno** a doc@3 e spariscono a doc@5: è il profilo di un effetto nullo con rumore. La model card li richiede; su questo corpus non si vedono. |
-| C-06 | ✅ fatto **a due punti** (2026-08-13) | E2B ed E4B su entrambi i dataset. **12B scartato**: 240 s/query misurati, 13,3 ore. **L'affermazione 3 del §0 resta non determinata** — con due punti il divario c'è ed è grande, ma se la curva si appiattisca era proprio ciò che il terzo punto doveva dire. Vedi sotto. |
+| I-10 | ✅ fatto (2026-08-12) | **Effetto reale, piccolo.** Il tetto a 512 token guadagna **+1,26 punti a doc@1** (p=0,0384) su 1.903 query, e regge a tutte e tre le profondità (p=0,038 / 0,040 / 0,034). Costo: **4,05× i chunk**. Vedi sotto. |
 
 ### C-06 — la curva di scaling, a due punti su tre
 
@@ -279,7 +279,6 @@ Test appaiato per coppia (claim, chunk, marcatore): **35 citazioni perse contro 
 **Ma il guadagno è tutto in una violazione sola:**
 
 | violazione (open_ragbench) | spento | acceso |
-|---|---|---|
 | `spaced_markers` | **0,0426** | **0,0056** |
 | `no_citation` | 0,0160 | 0,0111 |
 | `out_of_range` | 0,0106 | 0,0111 |
@@ -416,7 +415,6 @@ mDeBERTa ha una finestra di **512 token**; i nostri chunk hanno mediana **714** 
 Misurato su un claim che **nessuno** dei chunk campionati supporta, quindi ogni punteggio alto è per costruzione un errore:
 
 | finestre del chunk | P(entail) max, mediana | sopra 0,5 |
-|---|---|---|
 | 1 | 0,002 | 0/6 |
 | 2–3 | 0,005 | 0/6 |
 | 4–8 | 0,006 | 1/9 |
@@ -462,7 +460,6 @@ Confronto appaiato — **le stesse identiche coppie punteggiate dai due modelli*
 **Il guadagno non è nel riconoscere meglio le attribuzioni vere, è nel non approvarne di false:**
 
 | chunk *estranei* sopra 0,5 | prima | dopo |
-|---|---|---|
 | open_ragbench | 23/60 | **2/60** |
 | ledger | 13/60 | **0/60** |
 
@@ -524,7 +521,6 @@ Confondente minore, misurato per escluderlo: le affermazioni che parlano *del co
 **La prova vera.** 20 query reali del golden, 10 per dataset, tradotte a mano in it/es/fr/de, poste contro **gli stessi chunk inglesi**. Il retrieval gira sulla query inglese originale e poi resta fisso: tradurre anche la query sposterebbe il recupero, e una risposta sbagliata sarebbe un fallimento di retrieval travestito da fallimento di lingua.
 
 | | ledger | open_ragbench |
-|---|---|---|
 | campioni | 10 (5 astensioni) | 10 (1 astensione) |
 | lingua della domanda | **5/5** | **9/9** |
 | **risposte miste** | **0/5** | **0/9** |
@@ -555,7 +551,6 @@ Su LEDGER le astensioni sono 5/10 con domanda tradotta contro il 26,5% storico c
 #### Il risultato
 
 | | open_ragbench | ledger |
-|---|---|---|
 | **astensione corretta su E-02** | **100%** (35/35) | **100%** (35/35) |
 | — di cui dal **gate** | 13 (37,1%) | **34 (97,1%)** |
 | — di cui dal modello | 22 | 1 |
@@ -591,7 +586,6 @@ La lettura ingenua sarebbe: metti un numero in `config.py` invece di lasciar dec
 Budget all'1% e non di più perché **non c'è niente da guadagnare**: il modello cattura già tutto, quindi un budget più alto comprerebbe solo domande legittime rifiutate. A titolo di documentazione, il compromesso misurato:
 
 | budget | ORB corretta / falsa | LEDGER corretta / falsa |
-|---|---|---|
 | **1%** | 37,1% / **0,0%** | 97,1% / 0,7% |
 | 2% | 54,3% / 2,0% | 100% / 2,7% |
 | 5% | 77,1% / 4,0% | 100% / 8,0% |
@@ -641,7 +635,6 @@ Il codice era pronto dal 5 agosto; **le run non erano mai state lanciate**, e il
 #### Il gate della Fase 4: baseline A contro sistema completo, sulle non rispondibili
 
 | sulle 35 non rispondibili di E-02 | baseline A (nessun retrieval) | sistema completo (C-04) |
-|---|---|---|
 | open_ragbench | **20,0%** inventate | **0%** |
 | ledger | **97,1%** inventate | **0%** |
 
@@ -702,7 +695,6 @@ I-10 aveva stabilito che il tetto a 512 token migliora il **retrieval** (+1,26 p
 **Sulla generazione, nessun impatto.** Stesse 150 query sui due indici:
 
 | | plain | capped |
-|---|---|---|
 | formato, appaiato **dopo il parser** | 0,9786 | 0,9786 — **+0,0000**, p=1,0000 |
 | formato, grezzo | 0,9500 | 0,9714 — +0,0214, p=0,5078 |
 | astensione | 6,0% | 4,0% |
@@ -787,7 +779,6 @@ Corretti i quattro percorsi query (`retrieve_sparse`, `retrieve_hybrid`, e i due
 #### Il risultato: niente
 
 | test appaiato | discordanti | p |
-|---|---|---|
 | ORB `sparse`@5 | **1** / 3.045 | 1,0000 |
 | ORB `sparse`@10 | 1 / 3.045 | 1,0000 |
 | ORB `hybrid`@5 | 2 / 3.045 | 1,0000 |
@@ -804,7 +795,6 @@ Il punteggio sparso è un **prodotto scalare** fra vettore query e vettore docum
 Misurato, non dedotto:
 
 | | open_ragbench | LEDGER |
-|---|---|---|
 | stesso insieme di token | **3.045 / 3.045 (100%)** | **10.000 / 10.000 (100%)** |
 | pesi uniformi → stesso ordinamento | 2.651 / 3.045 (**87,1%**) | 9.407 / 10.000 (**94,1%**) |
 | con un termine ripetuto | 394 (12,9%) | 593 (5,9%) |
@@ -844,7 +834,6 @@ Poi tre cose hanno cambiato il quadro.
 **Il fatto che rovescia la questione.** Cercando *dentro* il documento d'oro (filtro Qdrant su `doc_id`) si ottiene il punteggio del miglior chunk che avrebbe potuto rispondere:
 
 | | fallite | riuscite |
-|---|---|---|
 | punteggio del chunk vincente | 0,8619 | 0,8672 |
 | punteggio del miglior chunk d'oro | 0,8551 | 0,8664 |
 | **distacco** | **+0,0090** | +0,0000 |
@@ -863,7 +852,6 @@ Il protocollo pre-registrato dà **+17,33%** (49/150 contro 23/150; 27 query sol
 Ma il passo 1 aveva stabilito che siamo in regime di quasi-pareggio, dove *qualunque* perturbazione consistente ribalta una frazione di casi. Quindi è stato aggiunto un **braccio di controllo** che il protocollo non prevedeva: anteporre un `section_path` **sbagliato**, preso da un altro documento — stessa lunghezza, stesso stile, contenuto senza relazione.
 
 | | | |
-|---|---|---|
 | senza contesto | 23/150 | 15,33% |
 | con contesto **vero** | 49/150 | **+17,33%** |
 | con contesto **finto** | 49/150 | **+17,33%** |
@@ -968,6 +956,15 @@ Tre cose notate mentre si lavorava ad altro. Non sono task del ROADMAP: sono cor
 
 Lista chiusa di difetti già osservati, non un giro di pulizia. **Gate: nessuna metrica cambia** — `rescore_citations.py` deve restituire gli stessi valori già registrati.
 
+| Task | Stato | Note |
+|---|---|---|
+| Q-01 | ✅ fatto (2026-08-13) | `run_config.make_eval_run` è l'unico costruttore. Il difetto vero non era la duplicazione ma ciò che nascondeva: l'harness del retrieval dichiarava `model="retrieval_only"` e `reasoning_enabled=False` **anche con `--query-rewrite`**, cioè quando l'LLM girava davvero — e su disco c'è la run che lo prova. Vedi sotto. |
+| Q-02 | ✅ fatto (2026-08-13) | Entrambi gli harness salvano i risultati per query. La prova che serve: `compare_retrieved.py` riproduce **esattamente** i numeri di R-11 (0,9361 → 0,9398, 5 contro 42 discordanti) con uno strumento generico invece di un probe scritto apposta. Vedi sotto. |
+| Q-03 | ✅ fatto (2026-08-13) | `scripts/profile.py` → **`profile_docs.py`**. Il difetto era riproducibile in una riga (`import profile` da `scripts/` restituiva il nostro file) e ora `import transformers` da quella cartella funziona. Tolto anche il rimedio locale in `probe_entailment.py`, che curava il sintomo per un file solo lasciando la causa in piedi per gli altri 35. |
+| Q-04 | ✅ fatto (2026-08-13) | `ruff check .` **pulito su tutto il repo**. Le 53 segnalazioni erano 3 difetti veri e 50 volte lo stesso: gli script non sono installati, quindi il bootstrap di `sys.path` deve precedere gli import. Soppresso in configurazione — **e dichiarato come soppressione** — con la correzione vera rimandata alla Fase 7. Tolti 101 `# noqa: E402` diventati ridondanti. |
+| Q-05 | ✅ fatto (2026-08-13) | `src/providers.py`. Le 3 copie in `src/` e le 2 liste letterali nei probe sono sparite; aggiunti `ROCMExecutionProvider` e `CUDAExecutionProvider` all'ordine di preferenza, **dichiarati e non verificati** (è U-12). Il ripiego su CPU ora **avvisa** invece di degradare in silenzio. Extra opzionali in `pyproject.toml`. Trovato per strada un percorso assoluto cablato in un probe. Vedi sotto. |
+| Q-06 | ✅ fatto (2026-08-13) | `src/datasets/registry.py`. Le **14** liste `choices=[...]` scritte a mano sono sparite, e con loro la catena di `if` in `ingest.py` (21 righe → 4) e le due funzioni quasi identiche di `build_golden.py` (→ 1). Nel registro sono finite anche tre cose che erano sparse altrove: `prepare_golden`, `golden_ready_glob`, `build_unanswerable`. Vedi sotto. |
+
 ### Il gate, catturato prima di cominciare (2026-08-13)
 
 Un gate che si misura solo alla fine non è un gate: se un numero non torna, non si sa da quando. Quindi il riferimento è stato preso **prima** della prima riga di Fase 6.
@@ -983,10 +980,6 @@ Sono **8 astensioni in entrambi i casi** — non è il rilevatore di astensione.
 Non è un difetto: è `rescore_citations.py` che fa il suo mestiere, cioè dire che quel numero fu registrato con uno strumento diverso da quello di oggi. Quella run è comunque superata — i numeri di C-01 in tabella vengono da esecuzioni successive.
 
 > **Quindi il criterio della Fase 6 è: questi stessi valori, non tutti zeri.** 16 a `+0.0000` e quel dump a `+0.0052`. Se a fine fase comparisse un diciassettesimo scostamento, sarebbe il refactor.
-
-| Task | Stato | Note |
-|---|---|---|
-| Q-01 | ✅ fatto (2026-08-13) | `run_config.make_eval_run` è l'unico costruttore. Il difetto vero non era la duplicazione ma ciò che nascondeva: l'harness del retrieval dichiarava `model="retrieval_only"` e `reasoning_enabled=False` **anche con `--query-rewrite`**, cioè quando l'LLM girava davvero — e su disco c'è la run che lo prova. Vedi sotto. |
 
 ### Q-01 — il campo che dichiarava il falso, e il commento che mi ha fermato
 
@@ -1028,7 +1021,6 @@ Due difetti che i test di Q-03 e Q-06 non vedevano, trovati a occhio:
 > La lezione, per i tre test «guarda il resto del repo» scritti in questa fase: **cercare la *forma* di un difetto ne lascia fuori le varianti.** Meglio cercare la cosa che non deve esistere.
 
 **Gate superato**, output identico al riferimento. Verificata anche una eval vera: `config_hash 5c3c7fa2`, lo stesso di sempre. 1389 test.
-| Q-02 | ✅ fatto (2026-08-13) | Entrambi gli harness salvano i risultati per query. La prova che serve: `compare_retrieved.py` riproduce **esattamente** i numeri di R-11 (0,9361 → 0,9398, 5 contro 42 discordanti) con uno strumento generico invece di un probe scritto apposta. Vedi sotto. |
 
 ### Q-02 — i dump per query, e cosa rendono possibile
 
@@ -1101,9 +1093,6 @@ E-04 ed E-05 ri-eseguite su open_ragbench, 100 query per baseline. **I totali ri
 > **B**: «I cannot answer without more information.»
 
 Il prompt permissivo non esita: grassetti, LaTeX, e una relazione causale inventata di sana pianta su un contenuto che non ha mai visto. Sono le due risposte affiancate che U-03 deve mostrare, e adesso esistono su disco invece che come aneddoto.
-| Q-03 | ✅ fatto (2026-08-13) | `scripts/profile.py` → **`profile_docs.py`**. Il difetto era riproducibile in una riga (`import profile` da `scripts/` restituiva il nostro file) e ora `import transformers` da quella cartella funziona. Tolto anche il rimedio locale in `probe_entailment.py`, che curava il sintomo per un file solo lasciando la causa in piedi per gli altri 35. |
-| Q-04 | ✅ fatto (2026-08-13) | `ruff check .` **pulito su tutto il repo**. Le 53 segnalazioni erano 3 difetti veri e 50 volte lo stesso: gli script non sono installati, quindi il bootstrap di `sys.path` deve precedere gli import. Soppresso in configurazione — **e dichiarato come soppressione** — con la correzione vera rimandata alla Fase 7. Tolti 101 `# noqa: E402` diventati ridondanti. |
-| Q-05 | ✅ fatto (2026-08-13) | `src/providers.py`. Le 3 copie in `src/` e le 2 liste letterali nei probe sono sparite; aggiunti `ROCMExecutionProvider` e `CUDAExecutionProvider` all'ordine di preferenza, **dichiarati e non verificati** (è U-12). Il ripiego su CPU ora **avvisa** invece di degradare in silenzio. Extra opzionali in `pyproject.toml`. Trovato per strada un percorso assoluto cablato in un probe. Vedi sotto. |
 
 ### Q-05 — la cucitura della portabilità, e un probe che funzionava su una macchina sola
 
@@ -1124,7 +1113,6 @@ Non era solo duplicazione. **DirectML esiste solo su Windows**, quindi su Linux 
 Anche i file che leggeva erano relativi, tenuti in piedi proprio da quel `chdir`. Ancorati a `ROOT`. Verificato lanciandolo **da fuori dal repo**: gira, e riproduce esattamente i numeri di I-11 (79,2% di accettazione nel primo quartile).
 
 **Gate superato**, output identico al riferimento. 1368 test.
-| Q-06 | ✅ fatto (2026-08-13) | `src/datasets/registry.py`. Le **14** liste `choices=[...]` scritte a mano sono sparite, e con loro la catena di `if` in `ingest.py` (21 righe → 4) e le due funzioni quasi identiche di `build_golden.py` (→ 1). Nel registro sono finite anche tre cose che erano sparse altrove: `prepare_golden`, `golden_ready_glob`, `build_unanswerable`. Vedi sotto. |
 
 ### Q-06 — cosa ha cambiato, e il primo passaggio del gate
 
@@ -1147,6 +1135,12 @@ Il backend diventa sostituibile dal frontend e viceversa, e può girare su un'al
 | Task | Stato | Note |
 |---|---|---|
 | A-01 | ✅ fatto (2026-08-14) | `src/service/` — tre casi d'uso, tre funzioni: `answer()`, `datasets()`, `chunk()`. `scripts/query.py` è passato da *essere* la pipeline a stamparla. Un test verifica il confine invece di affermarlo. **1438 test** (1401 → 1438). |
+| A-02 | ✅ fatto (2026-08-14) | La configurazione di richiesta esce da `cfg` globale: `RequestConfig`, immutabile, uno per richiesta. Il criterio — due richieste concorrenti che non si contaminano — è un test con due thread e una barriera. **1475 test**. |
+| A-03 | ✅ fatto (2026-08-14) | Il contratto UI ↔ API del §3.5 esiste come tipi (`src/api/schema.py`) e come sequenza di eventi (`answer_stream`). Streaming vero, non finto. La decisione lasciata aperta nel ROADMAP è stata presa e scritta lì. **1556 test**. |
+| A-04 | ✅ fatto (2026-08-14) | `/health`, `/datasets`, `/chunk/{chunk_id}`, `/query`, `/query/stream`, `/config`. Il confronto CLI ↔ API che ad A-01 aveva un braccio solo ora li ha entrambi. Query completa da `curl` verificata contro Qdrant e Ollama vivi. **1585 test**. |
+| A-05 | ✅ fatto (2026-08-14) | Backend in `docker compose`, `QDRANT_URL` e `LLM_BASE_URL` da ambiente. Immagine costruita e provata contro Qdrant e Ollama sull'host: stessa risposta e stesso verdetto della corsa fuori container. **1607 test**. |
+| A-06 | ✅ fatto (2026-08-14) | La dashboard smette di essere un secondo backend: le due copie della pipeline sparite, tutto passa da `dashboard/api_client.py`. Ha prodotto `POST /retrieve`, che dall'API mancava. **1620 test**. |
+| A-08 | ✅ fatto (2026-08-19) | **Il catalogo dei modelli**: `Capabilities` porta famiglia, finestra massima e quantizzazione di ciascuno. La finestra si legge **per pattern** (`*.context_length`), quindi vale per qualunque famiglia — e il massimo non è uno solo: 131.072 per `gemma4:latest`, 262.144 per `gemma4:12b`. **12 test** in più (1690 in tutto). Additivo: `models` invariato. Dettaglio sotto. |
 
 ### A-01 — cosa c'era davvero dentro il CLI
 
@@ -1184,14 +1178,11 @@ Il test che l'ha trovata non cercava lei: cercava la separazione fra calibrazion
 
 > **Cosa A-01 non ha fatto, e va detto.** Il criterio parla di *«la stessa richiesta dalla CLI e dall'API»*: l'endpoint `/query` non esiste ancora (è A-04), quindi il confronto ha per ora un braccio solo. Il test che li confronta va scritto lì, sulla stessa funzione — non su una seconda pipeline. Restano fuori anche i parametri di retrieval per richiesta (rerank, riscrittura, filtri): sono A-02, che è il posto dove la configurazione smette di passare da `cfg` globale.
 
-| A-02 | ✅ fatto (2026-08-14) | La configurazione di richiesta esce da `cfg` globale: `RequestConfig`, immutabile, uno per richiesta. Il criterio — due richieste concorrenti che non si contaminano — è un test con due thread e una barriera. **1475 test**. |
-
 ### A-02 — quattro categorie, non una
 
 Il task sembra «sposta i parametri dentro un oggetto». Il lavoro vero è stato **decidere quali**, e la risposta è che le costanti di `config.py` non sono la stessa cosa:
 
 | categoria | esempi | può variare per richiesta? |
-|---|---|---|
 | **per richiesta** | `top_k`, modalità, reranker, modello, temperatura, tetto di token | sì — è `RequestConfig` |
 | **legata all'indice** | `EMBEDDING_MODEL`, `SPARSE_EMBEDDING_MODEL` | **no**: l'indice è stato costruito con lei |
 | **di deployment** | `QDRANT_URL`, `LLM_BASE_URL`, `FASTEMBED_CACHE` | **no**: una richiesta non sposta la macchina |
@@ -1237,8 +1228,6 @@ Poi la verifica per misura, stesso comando sui due rami:
 `src/eval/retrieval_backends.py` → `src/retrieval/backends.py`. La collocazione descriveva il primo chiamante, non la funzione: una richiesta HTTP che per recuperare dei chunk deve importare il pacchetto di valutazione ha le dipendenze rovesciate. 21 file aggiornati, **stesso numero di test prima e dopo** — che è il controllo che sia stato davvero solo uno spostamento.
 
 > Resta lo stesso problema per `verify_answer`, che vive in `src/eval/citation_metrics.py` ed è funzionalità, non misura. E `dashboard/failure_store.py` ha una **copia** della logica di retrieval invece di usare i backend: è il consumatore che A-06 farà passare dall'API, ed è lì che quella copia deve sparire.
-
-| A-03 | ✅ fatto (2026-08-14) | Il contratto UI ↔ API del §3.5 esiste come tipi (`src/api/schema.py`) e come sequenza di eventi (`answer_stream`). Streaming vero, non finto. La decisione lasciata aperta nel ROADMAP è stata presa e scritta lì. **1556 test**. |
 
 ### A-03 — il criterio è «rappresentabile», e non voleva dire «c'è un campo»
 
@@ -1300,8 +1289,6 @@ Senza contesto il parser non tocca il testo (nessun marcatore è valido, li togl
 
 > Perché due insiemi di tipi accanto a quelli del servizio: sono due cose diverse che oggi si somigliano. Quelli del servizio sono la forma in cui la pipeline pensa; questi sono la forma che qualcun altro leggerà fra sei mesi con un client che non abbiamo scritto noi. Se fossero lo stesso oggetto, rinominare un campo interno cambierebbe il contratto pubblico senza che nessuno debba deciderlo.
 
-| A-04 | ✅ fatto (2026-08-14) | `/health`, `/datasets`, `/chunk/{chunk_id}`, `/query`, `/query/stream`, `/config`. Il confronto CLI ↔ API che ad A-01 aveva un braccio solo ora li ha entrambi. Query completa da `curl` verificata contro Qdrant e Ollama vivi. **1585 test**. |
-
 ### A-04 — l'endpoint che non decide niente
 
 Il criterio di A-01 era *«nessun endpoint contiene logica di pipeline»*. Qui si vede se reggeva: gli endpoint sono cinque righe l'uno, perché la pipeline sta in `src/service/` e la forma in `src/api/schema.py`. Un test lo verifica invece di affermarlo — `src/api/main.py` non importa `src.index`, `src.retrieval`, `src.generation`, `src.eval`.
@@ -1352,8 +1339,6 @@ Contro Qdrant e Ollama vivi, senza frontend:
 
 `fastapi` e `uvicorn` erano dichiarati in `pyproject.toml` ma non installati in questo Python: installati.
 
-| A-05 | ✅ fatto (2026-08-14) | Backend in `docker compose`, `QDRANT_URL` e `LLM_BASE_URL` da ambiente. Immagine costruita e provata contro Qdrant e Ollama sull'host: stessa risposta e stesso verdetto della corsa fuori container. **1607 test**. |
-
 ### A-05 — il container *è* la seconda macchina
 
 Il criterio è *«backend su una macchina, Qdrant e LLM su un'altra, **senza modifiche al sorgente**»*. Non si verifica con due macchine: si verifica mostrando che nel sorgente **non c'è niente da modificare**.
@@ -1399,7 +1384,6 @@ E il percorso è dichiarato (`FASTEMBED_CACHE_PATH`, `HF_HOME`). Il default di f
 Nel container non c'è GPU: embedding, reranker e verificatore girano su CPU. La prima versione di questa sezione riportava così il costo:
 
 | stadio | fuori | dentro |
-|---|---|---|
 | retrieval | 2,5 s | 14,4 s |
 | verifica | 5,2 s | 21,8 s |
 
@@ -1444,8 +1428,6 @@ E uno che protegge una scelta di A-02: **`.env.example` non contiene configurazi
 **Nessun `uv.lock`.** Due build a distanza di mesi possono risolvere versioni diverse. Per un servizio che si vuole riproducibile il lock è il passo giusto, ed è un task suo.
 
 **L'immagine porta più dipendenze del necessario** — `streamlit`, `datasets`, `pandas` sono in `[project.dependencies]` e servono agli harness, non all'API. Separarle in extra è possibile e non è A-05.
-
-| A-06 | ✅ fatto (2026-08-14) | La dashboard smette di essere un secondo backend: le due copie della pipeline sparite, tutto passa da `dashboard/api_client.py`. Ha prodotto `POST /retrieve`, che dall'API mancava. **1620 test**. |
 
 ### A-06 — il consumatore esigente ha chiesto una cosa che non c'era
 
@@ -1532,7 +1514,6 @@ Quel che resta è ciò che la dashboard fa davvero — chiedere la cosa giusta, 
 A-06 ha esercitato **un** consumatore dell'API, non tutti. La bozza d'interfaccia della Fase 8 — quattro schermate disegnate prima di scrivere una riga di React — ne ha rivelati altri tre, ed è lo stesso meccanismo che il ROADMAP aveva previsto per A-06: *«se non le basta, si scopre ora invece che a React scritto.»*
 
 | serve a | mancava | conseguenza se restava |
-|---|---|---|
 | il menu dei modelli | `models` in `Capabilities` | una lista scritta a mano nel frontend, cioè la quindicesima copia di Q-06 |
 | il toggle «Ragionamento» | `reasoning_effort` in `QueryRequest` | un comando che non ha niente da mandare |
 | sfogliare il corpus | `GET /documents`, `GET /document/{doc_id}/chunks` | l'esploratore può solo cercare, mai **mostrare** |
@@ -1590,8 +1571,6 @@ Per la stessa ragione `/document/{doc_id}/chunks` restituisce i chunk **in ordin
 | CLI end-to-end | verificato eseguendo la **stessa query su `main` e su `A-07`**: output identico |
 
 > L'ultima riga merita la nota. La risposta non coincide con quella registrata in A-06 (`…0.0226 [1].`, `OK [1] p=0.606`): con `--top-k 3` il modello ne produce una più lunga, con due citazioni entrambe bocciate dal verificatore. Eseguire lo stesso comando su `main` dà **lo stesso output**, quindi la differenza viene dai flag e dallo stato del modello, non da A-07 — che è ciò che il gate deve accertare. Confrontare due comandi diversi e dichiarare una regressione sarebbe stato l'errore speculare a quello di A-05, dove un tempo a freddo era stato riportato come costo per richiesta.
-
-| A-08 | ✅ fatto (2026-08-19) | **Il catalogo dei modelli**: `Capabilities` porta famiglia, finestra massima e quantizzazione di ciascuno. La finestra si legge **per pattern** (`*.context_length`), quindi vale per qualunque famiglia — e il massimo non è uno solo: 131.072 per `gemma4:latest`, 262.144 per `gemma4:12b`. **12 test** in più (1690 in tutto). Additivo: `models` invariato. Dettaglio sotto. |
 
 ### A-08 — la finestra di contesto è una proprietà del modello, e si è dovuto misurarlo
 
@@ -1676,15 +1655,15 @@ typecheck verde, tipi TypeScript rigenerati.
 | U-00 | ✅ fatto (2026-08-14) | Scheletro `ui/`: Vite 8 + React 19 + TypeScript 7 + Tailwind 4, client SSE scritto a mano, temi, i18n IT/EN, `/datasets` all'avvio. **19 test Vitest** + 15 test Python sul contratto generato. `npm run typecheck && npm test && npm run build` verdi; catena provata contro l'API viva. Dettaglio sotto. |
 | U-01 | ✅ fatto (2026-08-14) | Selettore dataset nella corsia laterale del mockup, scelta ricordata in `localStorage` e **validata** contro `/datasets`. La regola di selezione è in funzioni pure: **9 test Vitest** in più (28 in tutto), senza jsdom. Provato contro l'API viva: `open_ragbench` 18.840 e `ledger` 47.110 chunk. Dettaglio sotto. |
 | U-02 | ✅ fatto (2026-08-14) | Schermata di chat con **pannello fonti sempre visibile** (nel telaio, non nella chat): otto stati, uno per evento del §3.5, macchina a stati in un reducer puro con **16 test** (44 lato Vitest). Marcatori inerti finché non arriva `answer`. I valori di `abstention` ora sono generati come i tipi. Esempi dello stato vuoto presi da `eval/golden`. Provato contro l'API viva su una query d'oro reale. **Rendering LaTeX** con KaTeX, regola dei delimitatori misurata: 49 falsi positivi tolti su 49, zero formule vere perse. Dettaglio sotto. |
-| U-06 | ✅ fatto (2026-08-20) | **L'esploratore del corpus**: i documenti, com'è stato spezzato quello aperto — una tessera per chunk, larga il doppio dove c'è una tabella — e il chunk scelto **per intero**, che è la ragione del task: la scheda ne mostra due righe e il chunk può essere lungo 6.302 caratteri. Nessun campo nuovo: `/documents` e `/document/{id}/chunks` esistevano dal A-04 e non li aveva mai chiamati nessuno. Il PDF non c'è su nessuno dei due corpus, e si dichiara. **11 test Vitest** in più (236). Dettaglio sotto. |
-| U-05 | ✅ fatto (2026-08-20) | **Come il documento è stato riconosciuto e come è stato tagliato**, sulla scheda della fonte: `tabelle → taglio generico`, con l'accento solo quando una pipeline è stata scelta per il genere. Prima però il campo andava reso vero: i loader generici scrivevano il nome di una pipeline che **non aveva girato** — terza volta di quella famiglia dopo `reasoning_enabled` e `context_window`. Migrazione di payload su 65.950 punti, senza re-ingestione. **6 test Vitest** in più (225) e 2 Python (1711). Dettaglio sotto. |
-| U-04 | ✅ fatto (2026-08-20) | **Il prompt del modello senza fonti si sceglie dentro quella colonna**: due pastiglie — «risponde comunque» e «si astiene» — che rifanno **quella colonna sola**, con l'altra ferma a fare da paragone. È il 45%→17% di E-04/E-05 su una domanda singola invece che in una tabella. Il braccio nudo diventa un campo dello stato: ricavarlo da `config` faceva scambiare di posto le due colonne mentre una si rifà. **10 test Vitest** in più (214 in tutto). Dettaglio sotto. |
-| U-16 | ✅ fatto (2026-08-19) | **Modello e contesto, due selettori**: il primo elenca i modelli, il secondo le finestre che quel modello regge — e compare solo quando ce n'è più di una. Nessuna convenzione sui nomi: il raggruppamento passa da `parent_model`. Con `scripts/model_sizes.py` che crea le taglie. **15 test Vitest** in più (198 in tutto). Dettaglio sotto. |
-| U-15 | ✅ fatto (2026-08-19) | **Con quali parametri e' stata data ogni risposta**: la configurazione che ha girato si rilegge nella conversazione, e fra una domanda e l'altra si vede cosa è cambiato. **Nessun campo nuovo**: `ConfigView` era già dentro ogni risposta e già nel deposito da U-13. **11 test Vitest** in più (183 in tutto). Dettaglio sotto. |
-| U-14 | ✅ fatto (2026-08-19) | **Markdown e LaTeX nella risposta**: il prompt li invita invece di vietarli, e l'interfaccia li disegna — come **intervalli sul testo grezzo**, così verdetti per frase e frasi scoperte restano allineati. **15 test Vitest** in più (172 in tutto). Debito dichiarato: `prompt_hash` cambia, C-01/C-02/C-07 da rimisurare. Dettaglio sotto. |
 | U-03 | ✅ fatto (2026-08-19) | **La barra di composizione e il confronto affiancato**: i quattro controlli del mockup (RAG, ragionamento, modello, «Avanzate») e la stessa domanda rilanciata a RAG invertito in due colonne. Il secondo braccio riparte dalla configurazione *che ha girato*, non dalla barra — §15 dentro l'interfaccia. **3 test Vitest** in più (155 in tutto), e ogni controllo si apre sul valore in vigore letto da `/config`. Dettaglio sotto. |
-| U-13 | ✅ fatto (2026-08-17) | **Conversazione nuova e cronologia locale**: l'elenco nella corsia, persistenza in `localStorage`, e il ricaricamento riapre una conversazione *nuova*, con la cronologia accanto. Cosa si ricorda e come si rilegge è in funzioni pure: **17 test Vitest** in più (147 in tutto). Cancellare la cronologia c'è, a due tempi, ed è il primo posto in cui la palette ha un rosso — `danger`, solo per ciò che distrugge. Due giri di revisione. Dettaglio sotto. |
+| U-04 | ✅ fatto (2026-08-20) | **Il prompt del modello senza fonti si sceglie dentro quella colonna**: due pastiglie — «risponde comunque» e «si astiene» — che rifanno **quella colonna sola**, con l'altra ferma a fare da paragone. È il 45%→17% di E-04/E-05 su una domanda singola invece che in una tabella. Il braccio nudo diventa un campo dello stato: ricavarlo da `config` faceva scambiare di posto le due colonne mentre una si rifà. **10 test Vitest** in più (214 in tutto). Dettaglio sotto. |
+| U-05 | ✅ fatto (2026-08-20) | **Come il documento è stato riconosciuto e come è stato tagliato**, sulla scheda della fonte: `tabelle → taglio generico`, con l'accento solo quando una pipeline è stata scelta per il genere. Prima però il campo andava reso vero: i loader generici scrivevano il nome di una pipeline che **non aveva girato** — terza volta di quella famiglia dopo `reasoning_enabled` e `context_window`. Migrazione di payload su 65.950 punti, senza re-ingestione. **6 test Vitest** in più (225) e 2 Python (1711). Dettaglio sotto. |
+| U-06 | ✅ fatto (2026-08-20) | **L'esploratore del corpus**: i documenti, com'è stato spezzato quello aperto — una tessera per chunk, larga il doppio dove c'è una tabella — e il chunk scelto **per intero**, che è la ragione del task: la scheda ne mostra due righe e il chunk può essere lungo 6.302 caratteri. Nessun campo nuovo: `/documents` e `/document/{id}/chunks` esistevano dal A-04 e non li aveva mai chiamati nessuno. Il PDF non c'è su nessuno dei due corpus, e si dichiara. **11 test Vitest** in più (236). Dettaglio sotto. |
 | U-07 | ✅ fatto (2026-08-17) | Ogni citazione porta il **proprio verdetto**, sul marcatore in mezzo alla prosa e sulla scheda della fonte, e **nessuna è nascosta**. Cinque stati per il marcatore e sei per la scheda, distinti da glifo, colore e parola insieme (§12). Le frasi senza citazione sono sottolineate dove stanno. La corrispondenza frase↔marcatore è in funzioni pure: **38 test Vitest** in più (116 in tutto). Provato contro l'API viva su `open_ragbench` e `ledger`. Dettaglio sotto. |
+| U-13 | ✅ fatto (2026-08-17) | **Conversazione nuova e cronologia locale**: l'elenco nella corsia, persistenza in `localStorage`, e il ricaricamento riapre una conversazione *nuova*, con la cronologia accanto. Cosa si ricorda e come si rilegge è in funzioni pure: **17 test Vitest** in più (147 in tutto). Cancellare la cronologia c'è, a due tempi, ed è il primo posto in cui la palette ha un rosso — `danger`, solo per ciò che distrugge. Due giri di revisione. Dettaglio sotto. |
+| U-14 | ✅ fatto (2026-08-19) | **Markdown e LaTeX nella risposta**: il prompt li invita invece di vietarli, e l'interfaccia li disegna — come **intervalli sul testo grezzo**, così verdetti per frase e frasi scoperte restano allineati. **15 test Vitest** in più (172 in tutto). Debito dichiarato: `prompt_hash` cambia, C-01/C-02/C-07 da rimisurare. Dettaglio sotto. |
+| U-15 | ✅ fatto (2026-08-19) | **Con quali parametri e' stata data ogni risposta**: la configurazione che ha girato si rilegge nella conversazione, e fra una domanda e l'altra si vede cosa è cambiato. **Nessun campo nuovo**: `ConfigView` era già dentro ogni risposta e già nel deposito da U-13. **11 test Vitest** in più (183 in tutto). Dettaglio sotto. |
+| U-16 | ✅ fatto (2026-08-19) | **Modello e contesto, due selettori**: il primo elenca i modelli, il secondo le finestre che quel modello regge — e compare solo quando ce n'è più di una. Nessuna convenzione sui nomi: il raggruppamento passa da `parent_model`. Con `scripts/model_sizes.py` che crea le taglie. **15 test Vitest** in più (198 in tutto). Dettaglio sotto. |
 
 ### U-00 — il contratto esiste in due linguaggi, e uno dei due si genera
 
@@ -1755,7 +1734,6 @@ Il criterio è «cambio dataset senza riavvio», e la parte difficile non è il 
 **Tre decisioni, e nessuna è di comodità.**
 
 | situazione | cosa fa il frontend | perché non l'alternativa |
-|---|---|---|
 | dataset elencato con `ready: true` ma zero chunk | compare nella lista, disabilitato, col motivo scritto | nasconderlo direbbe che non esiste; lasciarlo scegliere farebbe leggere come ignoranza del modello ciò che è assenza di dati — ogni domanda tornerebbe un'astensione |
 | id ricordato che `/datasets` non elenca più | si butta e si ripiega sul primo interrogabile | un id in `localStorage` **è** una costante del backend scritta mesi fa, ed è esattamente ciò che U-00 vieta al frontend di portarsi dietro |
 | nessun indice pronto | `null`, e il selettore lo dice | fingere una selezione manderebbe ogni query contro una collection vuota. È la condizione normale di chi ha appena clonato il repo |
@@ -1799,7 +1777,6 @@ Da questo discende anche l'assenza di un selettore di modalità: non c'è un «m
 Il §3.5 manda sei eventi in un ordine che **è** il contratto. L'interfaccia deve sapere cosa disegnare dopo ognuno, e la tabella è il task:
 
 | evento | riga di stato | corpo |
-|---|---|---|
 | *(richiesta partita)* | `cerco nel corpus…` | scheletro a tre righe |
 | `chunks` | `3 fonti · il modello sta scrivendo…` | scheletro a due righe, **pannello fonti pieno** |
 | `token` | `scrivo… · marcatori non ancora attivi` | testo che cresce, marcatori spenti |
@@ -1852,7 +1829,6 @@ Un debito invece è reale e va detto: i quattro dati dell'indice che U-01 mostra
 `open_ragbench` sono paper e `ledger` è Mathpix Markdown: la matematica non è un caso limite, è il contenuto. Misurato prima di scrivere il rendering:
 
 | | risposte di riferimento | chunk veri |
-|---|---|---|
 | `open_ragbench` | 452 formule `$…$` su 2000 | 83% con `$…$`, 50% con `$$`, 65% con comandi LaTeX, **100% comincia con un titolo Markdown** |
 | `ledger` | 0 | 48% con `$…$` (ma è **valuta**), 39% con tabelle in **HTML**, 77% con titoli |
 
@@ -1861,7 +1837,6 @@ Un debito invece è reale e va detto: i quattro dati dell'indice che U-01 mostra
 Si usa la regola stretta dei delimitatori (niente spazio dopo l'apertura né prima della chiusura, nessuna cifra subito dopo, nessun attraversamento di riga vuota), che però da sola non bastava sui chunk: nelle tabelle HTML di `ledger` `<td>` non ha spazi, e due importi in celle diverse si chiudevano a vicenda. **49 falsi positivi su 600 chunk.** Le due difese possibili, contate sugli stessi 1200 chunk:
 
 | guardia | falsi tolti (`ledger`) | formule vere perse (`open_ragbench`) |
-|---|---|---|
 | **contiene un tag HTML** | **49 / 49** | **0 / 22.150** |
 | tetto di 120 caratteri | 26 / 49 | 275 |
 
@@ -1889,7 +1864,6 @@ Il grassetto inline resta possibile in futuro — dieci righe, nessuna dipendenz
 
 > **Debito aperto, scritto qui perché non si perda.** `prompt_hash` entra nel `config_hash` di C-01, quindi il test d'ancora ora **salta** — come era stato scritto per fare — e il **98% di conformità vale per il prompt vecchio**. Per riaffermarlo al nuovo: `python scripts/eval_citations.py --dataset open_ragbench --limit 200`, ~65–70 minuti di GPU. Finché non gira, quel numero va citato insieme al prompt a cui si riferisce.
 
-
 #### Provato contro l'API viva
 
 Una query d'oro vera (`open_ragbench`, `top_k 3`), attraverso il proxy:
@@ -1904,7 +1878,6 @@ Una query d'oro vera (`open_ragbench`, `top_k 3`), attraverso il proxy:
 > **Quei tempi sono a freddo e non vanno confrontati con nessun altro numero.** Era la prima query dopo l'avvio: il retrieval include il caricamento del modello di embedding, la generazione il caricamento dei pesi. A caldo, in U-00, la stessa catena dava primo token a 3,01 s. È la trappola di A-05 per la quarta volta, e la regola che la disinnesca è sempre quella del §15 — un confronto è un confronto solo se i due lati differiscono in **esattamente** una cosa.
 
 Suite Python **1675 test verdi**; `npm run typecheck && npm test && npm run build` verdi.
-
 
 ### U-07 — l'unità del verdetto è la coppia, non il marcatore
 
@@ -1933,7 +1906,6 @@ Le tre righe sono una sola condizione in codice — «la prima frase che finisce
 È la lezione del §3.5 sui tre significati di una lista vuota, applicata al singolo marcatore.
 
 | stato | quando | veste |
-|---|---|---|
 | `inerte` | prima di `answer` | punteggiato, `muted`, nessun glifo |
 | `attesa` | testo definitivo, verifica in corso | **accento** + punto |
 | `sostenuta` | il chunk sostiene la frase | `ok` + spunta |
@@ -1981,7 +1953,6 @@ Questo non era nel piano: è uscito dalla prova dal vivo, ed è la ragione per c
 Alla domanda sul capex di Sherwin-Williams il verdetto era `non sostiene`, punteggio 0,208. Stampando anche il campo `numeric` — che c'è nel contratto dal §3.5 e che la pastiglia non guardava:
 
 | | NLI (C-03) | numerico (C-09) |
-|---|---|---|
 | `ledger`, capex Sherwin-Williams | **non sostiene** 0,208 | **sostiene** |
 | `open_ragbench`, RMSE `[1]` | non sostiene 0,467 | `not_applicable` |
 | `open_ragbench`, RMSE `[2]` | non sostiene 0,183 | `not_applicable` |
@@ -2003,7 +1974,6 @@ E cambia il **titolo** del riepilogo. Se tutte le non sostenute sono confermate 
 Non per vedere se disegna: per verificare che il presupposto del ritrovamento — *la frase che l'API manda è una sottostringa del testo, a marcatori tolti* — sia vero su ciò che Gemma scrive davvero e non solo nei casi che ho scritto io.
 
 | | `open_ragbench` | `ledger` |
-|---|---|---|
 | risposta | 2 frasi, 2 marcatori | 1 frase, 1 marcatore |
 | coppie verificate | 2 | 1 |
 | frasi ritrovate nel testo | **2 / 2** | **1 / 1** |
@@ -2316,7 +2286,6 @@ nome.
 #### Tre casi che a mano si sbagliano
 
 | caso | cosa fa | perché |
-|---|---|---|
 | `config` assente | non scrive niente | interrotta, caduta o in corso: `config` viene con `done`. «Non si sa cosa ha girato» non è «non è cambiato niente», e tacere è l'unico dei due che non afferma il falso |
 | una risposta interrotta **in mezzo** | il confronto la salta all'indietro | un «Ferma» non ha toccato nessun parametro: dire «tutto cambiato» dopo quel gesto sarebbe falso |
 | nessuna differenza | non c'è riga (tranne la prima) | una nota che c'è sempre smette di essere letta — la stessa regola del riepilogo dei verdetti |
@@ -2490,7 +2459,6 @@ parola *pagina* non si poteva prendere alla lettera. Guardato prima di
 cominciare:
 
 | | `open_ragbench` | `ledger` |
-|---|---|---|
 | PDF su disco | **nessuno** — solo il JSON degli articoli | nessuno — solo il Markdown di Mathpix |
 | `page` | sempre `0` | reale (0…N) |
 | `bbox` | `null` | `null` |
@@ -2600,7 +2568,6 @@ R-08. 65.950 punti, nessun vettore toccato, verificato col conto esatto e non a
 campione:
 
 | | punti | non-`generic` dopo |
-|---|---|---|
 | `open_ragbench` | 18.840 | 0 |
 | `ledger` | 47.110 | 0 |
 | `open_ragbench_routed` | 98.312 | intatti |
@@ -2751,7 +2718,6 @@ Misurato prima di toccare la regola, sulle risposte di riferimento e con lo
 stesso taglio del frontend:
 
 | | coppie `$…$` accettate | di cui soli numeri |
-|---|---|---|
 | `open_ragbench` | 717 | **11** |
 | `ledger` | 0 | 0 |
 
