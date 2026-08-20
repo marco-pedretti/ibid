@@ -10,7 +10,7 @@ from huggingface_hub import snapshot_download
 
 from src.profiling.genre import assign_genre
 from src.ingestion.router import route_sections
-from .schema import Chunk
+from .schema import PIPELINE_GENERIC, Chunk
 
 REPO_ID = "vectara/open_ragbench"
 DATASET_ID = "open_ragbench"
@@ -80,7 +80,6 @@ def iter_chunks(dataset_dir: Path) -> Iterator[Chunk]:
         td = n_table_sec / n if n > 0 else 0.0
         asl = n_chars / n if n > 0 else 0.0
         doc_genre = assign_genre(td, asl)
-        pipeline = "table_heavy" if doc_genre == "table_heavy" else "continuous_text"
 
         for section in sections:
             section_id: int = section["section_id"]
@@ -114,7 +113,12 @@ def iter_chunks(dataset_dir: Path) -> Iterator[Chunk]:
                 dataset_id=DATASET_ID,
                 doc_id=doc_id,
                 doc_genre=doc_genre,
-                pipeline=pipeline,
+                # Una sezione per chunk, cosi' come sta nel JSON: nessuna delle
+                # tre pipeline ha girato. Diceva `continuous_text`, che e' il
+                # nome di una pipeline vera -- paragrafi raggruppati a ~1000
+                # caratteri con 200 di sovrapposizione -- e non e' cio' che
+                # succede qui.
+                pipeline=PIPELINE_GENERIC,
                 section_path="",
                 page=0,
                 bbox=None,
