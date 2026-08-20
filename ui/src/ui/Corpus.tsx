@@ -561,7 +561,6 @@ function Dettaglio() {
 function Contenuto({ testo }: { testo: string }) {
   const { t } = usaLingua();
   const [grezzo, setGrezzo] = useState(false);
-  const parti = useMemo(() => pezzi(testo), [testo]);
 
   return (
     <div className="flex min-w-0 flex-col gap-1.5">
@@ -579,15 +578,34 @@ function Contenuto({ testo }: { testo: string }) {
           {testo}
         </p>
       ) : (
-        <div className="flex min-w-0 flex-col gap-2 rounded-[7px] border border-line-2 bg-surface px-2.5 py-2 text-[12px] leading-[1.55] text-ink-2">
-          {parti.map((p) =>
-            p.tipo === "tabella" ? (
-              <TabellaHtml key={p.da} righe={p.righe} />
-            ) : (
-              <Prosa key={p.da} testo={testo.slice(p.da, p.a)} />
-            ),
-          )}
+        <div className="min-w-0 rounded-[7px] border border-line-2 bg-surface px-2.5 py-2">
+          <Leggibile testo={testo} />
         </div>
+      )}
+    </div>
+  );
+}
+
+/**
+ * Del testo del corpus, disegnato: prosa e tabelle.
+ *
+ * Sta in un componente perche' lo usano in due — il chunk singolo nella colonna
+ * di destra e il documento intero in quella di mezzo (U-17) — e sono la stessa
+ * cosa a due scale. Il costo e' misurato: preparare i 261 chunk di
+ * `NASDAQ_LOOP_2017` (457.565 caratteri) costa **29 ms** fra `pezzi`, `analizza`
+ * e `segmenta`, quindi il documento intero non ha bisogno di una finestra sui
+ * pezzi visibili.
+ */
+function Leggibile({ testo }: { testo: string }) {
+  const parti = useMemo(() => pezzi(testo), [testo]);
+  return (
+    <div className="flex min-w-0 flex-col gap-2 text-[12px] leading-[1.55] text-ink-2">
+      {parti.map((p) =>
+        p.tipo === "tabella" ? (
+          <TabellaHtml key={p.da} righe={p.righe} />
+        ) : (
+          <Prosa key={p.da} testo={testo.slice(p.da, p.a)} />
+        ),
       )}
     </div>
   );
