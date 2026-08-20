@@ -168,8 +168,13 @@ export const it = {
   "compare.verdicts": "{sostenute} su {citazioni} sostenute",
   // Non «sbagliato»: senza fonti non si può sapere se è giusta, ed è il punto.
   "compare.bare.title": "Niente di questo è verificabile.",
+  // La seconda frase è una correzione della revisione di U-04: la colonna nuda
+  // viene **più bella** delle due, e un avviso che dice solo «non si può
+  // controllare» lascia quell'impressione a lavorare indisturbata. Dice il
+  // meccanismo, non un giudizio: niente la obbliga a fermarsi dove finiscono i
+  // documenti — né in lunghezza né in impaginazione.
   "compare.bare.body":
-    "Non c'è una fonte da aprire: nessuna frase di questa risposta si può controllare. È esattamente ciò che il progetto misura.",
+    "Non c'è una fonte da aprire: nessuna frase di questa risposta si può controllare. Spesso è anche la più lunga e la meglio scritta delle due, perché niente la obbliga a fermarsi dove finiscono i documenti.",
   // U-04: le due pastiglie nella colonna nuda. Si leggono per **cosa fanno** —
   // «permissivo» e «severo» sono i nomi delle due run, e stanno nel
   // suggerimento insieme ai numeri che le hanno misurate.
@@ -412,7 +417,7 @@ export const en: Record<Chiave, string> = {
   "compare.verdicts": "{sostenute} of {citazioni} supported",
   "compare.bare.title": "None of this can be checked.",
   "compare.bare.body":
-    "There is no source to open: not one sentence of this answer can be verified. That is exactly what this project measures.",
+    "There is no source to open: not one sentence of this answer can be verified. It is often the longer and better-written of the two, because nothing makes it stop where the documents stop.",
   "compare.prompt": "How the question was put",
   "compare.prompt.permissive": "Answers anyway",
   "compare.prompt.strict": "Abstains",

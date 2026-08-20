@@ -2547,6 +2547,32 @@ rifà la copia del confronto, e la conversazione tiene quella che era stata data
 davvero: una risposta già letta non cambia sotto gli occhi di nessuno. Il
 confronto è un banco — vive accanto al filo, e chiudendolo sparisce.
 
+#### La colonna nuda viene più bella, ed è metà fenomeno e metà artefatto
+
+Osservato alla revisione: «risponde comunque» produce la risposta **più lunga e
+meglio impaginata delle due** — titoli, righe orizzontali, una formula in
+display — mentre quella con le fonti sta in due paragrafi. Cioè la più
+convincente delle due è quella che non si può controllare.
+
+Metà è il fenomeno che la schermata esiste per mostrare, e metà no. Il braccio
+con le fonti porta «Use Markdown where it helps the reader… **Do not use it for
+decoration**» e l'obbligo di dire solo ciò che sta nei chunk; quello nudo gira su
+`baseline_prompts.py`, che è letteralmente *«Answer the question to the best of
+your ability»* — **nessuna** regola di formato. È lo scarto che il docstring di
+U-14 aveva già nominato («the second variable §15 forbids») e che il rovesciamento
+del formato ha ristretto senza chiudere.
+
+Chiuderlo del tutto significa toccare `baseline_prompts.py`, che rende E-04/E-05
+non più confrontabili: si perderebbe il 45%→17% che il suggerimento di questa
+stessa schermata cita. Non si scambia una misura per una colonna più sobria — è
+**D-16**, da decidere misurando insieme a D-3.
+
+Quello che si è cambiato è l'avviso, che diceva solo metà della cosa. «Non si può
+controllare» lascia l'impressione estetica a lavorare indisturbata; ora dice
+anche il meccanismo — *niente la obbliga a fermarsi dove finiscono i documenti* —
+che vale in lunghezza e in impaginazione insieme, ed è vero per costruzione
+invece che per una misura non ancora fatta.
+
 #### Due cose emerse di lato
 
 **La pastiglia esce dalla barra.** Quattro costanti di stile in `ui/pastiglia.ts`:
