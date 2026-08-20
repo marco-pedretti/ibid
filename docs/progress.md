@@ -762,7 +762,7 @@ Perché **non è un'ottimizzazione, è una correzione**: senza IDF quel ramo non
 
 Le run archiviate del 2026-08-07 sono a **200 query** e non salvano i risultati per query: contro di loro si confrontano due medie e nient'altro. **A 200 query l'effetto su open_ragbench è p=0,7266**, cioè invisibile — il campione era 15 volte troppo piccolo. Le stesse 200 query sono state comunque rimisurate, per avere un confronto legittimo con l'archivio (`b1a67360`, `322f1cbf`, `dc481d05`).
 
-Il test vero è `scripts/probe_idf_paired.py`, possibile perché lo stato pre-R-08 è **riproducibile in secondi**: l'IDF vive nella configurazione, si toglie e si rimette. Il probe riproduce esattamente i due numeri già su disco — 0,8750 senza, 0,8850 con — ed è questo che autorizza a credergli.
+Il test vero è `scripts/probe_sparse_paired.py` (allora `probe_idf_paired.py`, rinominato da R-09), possibile perché lo stato pre-R-08 è **riproducibile in secondi**: l'IDF vive nella configurazione, si toglie e si rimette. Il probe riproduce esattamente i due numeri già su disco — 0,8750 senza, 0,8850 con — ed è questo che autorizza a credergli.
 
 > **Il modo in cui questo probe è quasi passato senza misurare niente:** la prima versione spegneva l'IDF con `None`, che in `update_collection` significa *«non toccare questo campo»*, non *«azzera»*. Risultato: **zero query discordanti su 200**, e nessun errore da nessuna parte. Due bracci che erano lo stesso braccio. Serve `Modifier.NONE`, e serve rileggere dopo ogni scrittura — che è quello che il probe ora fa.
 
