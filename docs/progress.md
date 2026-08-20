@@ -164,45 +164,6 @@ python scripts/eval_citations.py --dataset open_ragbench --model gemma4:12b --li
 
 **6,7 ore.** Su LEDGER non ne vale la pena: E4B è già a 1,0000 e il 12B non ha margine per migliorare. Restano validi i vincoli della parte 1 — nessuna variabile d'ambiente, e niente modifiche a `src/` o agli indici rispetto ai numeri qui sopra.
 
-### I-11 — non adottata, e perché il numero che la sosteneva era falso
-
-I-10 aveva stabilito che il tetto a 512 token migliora il **retrieval** (+1,26 punti a doc@1, p=0,0384). Restava da sapere se la risposta si potesse ancora *scrivere*: a `top_k=5` il tetto porta il contesto da **5.243 a 2.030 token mediani, −61%**.
-
-**Sulla generazione, nessun impatto.** Stesse 150 query sui due indici:
-
-| | plain | capped |
-|---|---|---|
-| formato, appaiato **dopo il parser** | 0,9786 | 0,9786 — **+0,0000**, p=1,0000 |
-| formato, grezzo | 0,9500 | 0,9714 — +0,0214, p=0,5078 |
-| astensione | 6,0% | 4,0% |
-| troncate | 0 | 0 |
-
-L'astensione non sale: il contesto tagliato non fa perdere risposte. Era il controllo che il solo `format_compliance` non avrebbe mostrato, perché le astensioni escono dal suo denominatore.
-
-**E gli undici punti che sembravano il risultato.** `citation_precision` passava da 0,6634 a 0,7745. Dentro il **solo braccio `plain`**, a parità di generazione, l'accettazione cala in modo monotono con la lunghezza della premessa:
-
-```
-    65 -   343 token   79,2% accettate   P(entail) mediana 0,932
-   346 -   828 token   68,6%                              0,729
-   832 -  1721 token   59,8%                              0,554
-  1784 - 14632 token   57,8%                              0,529
-```
-
-Le premesse di `capped` stanno **tutte** sotto i 515 token, cioè nella fascia dove `plain` accetta il 68-79%. Il suo 77,5% è quello che si prevede applicando la curva di `plain` a premesse corte — **senza alcun miglioramento della qualità delle citazioni**.
-
-> `STACK.md` documentava già la sensibilità alla lunghezza di questo verificatore (correlazione 0,46-0,54 fra numero di finestre e P(entailment) massima). Era scritta, ed è stata dimenticata davanti a un numero che faceva comodo. Riproducibile con `scripts/probe_premise_length.py`.
-
-**La regola che sopravvive a I-11:** `citation_precision` non è confrontabile fra configurazioni che cambiano la lunghezza dei chunk. Vale per qualunque modifica al chunking, non solo per questa.
-
-**La decisione.** Nessun guadagno di qualità contro **618 minuti di re-ingestione e un indice quadruplo, per sempre**. Non adottata.
-
-**Due voci da riconsiderare alla prossima re-ingestione**, perché sono reali e non confuse da niente:
-
-1. **latenza −44% in mediana e −68% in p90** (9,8→5,5 s; 22,5→7,2 s), conseguenza diretta di un contesto più corto;
-2. **premesse spezzate 8,1% → 0%**, che *elimina* l'artefatto del massimo su più finestre invece di aggirarlo — un miglioramento dello strumento di misura, non del sistema.
-
-Se una re-ingestione servirà per altro — il passaggio a BGE-M3 è già previsto in `STACK.md` — il tetto va adottato in quell'occasione, perché lì costa zero in più.
-
 ### I-10 e I-08 — il tetto di chunking regge, i prefissi no
 
 Misurati insieme su un **indice ridotto** (450 documenti su 997, 9.312 chunk), che è ciò che rende la decisione economica: ~80 minuti di GPU contro i 618 di una re-ingestione completa. Le due varianti condividono l'indice di controllo, quindi separarle sarebbe costato una seconda costruzione per niente.
@@ -733,6 +694,45 @@ Nata dall'audit del 2026-08-11: le librerie confrontate con la loro documentazio
 | R-11 | ✅ fatto (2026-08-13) | `SEARCH_EXACT` e `HNSW_EF` in `config.py`, **spenti di default**. Il guadagno non segue la taglia dell'indice ma il suo **richiamo**: da +0,0000 su open_ragbench a **+0,0846** su `ledger_routed`, dove l'ANN restituisce solo l'84,8% del vero top-5. **Conseguenza principale: il confronto sul routing di R-07 era contaminato** — 8 dei 21,7 punti di regresso su LEDGER erano l'indice, non la pipeline. Vedi sotto. |
 
 **Cosa questa fase non tocca**, verificato: E-04/E-05 non usano retrieval affatto, e la soglia di astensione di C-04 appartiene alla sola modalità `dense` (`threshold_for` restituisce `None` per le altre) — quindi R-08/R-09 non la sfiorano, per progetto e non per fortuna.
+
+### I-11 — non adottata, e perché il numero che la sosteneva era falso
+
+I-10 aveva stabilito che il tetto a 512 token migliora il **retrieval** (+1,26 punti a doc@1, p=0,0384). Restava da sapere se la risposta si potesse ancora *scrivere*: a `top_k=5` il tetto porta il contesto da **5.243 a 2.030 token mediani, −61%**.
+
+**Sulla generazione, nessun impatto.** Stesse 150 query sui due indici:
+
+| | plain | capped |
+|---|---|---|
+| formato, appaiato **dopo il parser** | 0,9786 | 0,9786 — **+0,0000**, p=1,0000 |
+| formato, grezzo | 0,9500 | 0,9714 — +0,0214, p=0,5078 |
+| astensione | 6,0% | 4,0% |
+| troncate | 0 | 0 |
+
+L'astensione non sale: il contesto tagliato non fa perdere risposte. Era il controllo che il solo `format_compliance` non avrebbe mostrato, perché le astensioni escono dal suo denominatore.
+
+**E gli undici punti che sembravano il risultato.** `citation_precision` passava da 0,6634 a 0,7745. Dentro il **solo braccio `plain`**, a parità di generazione, l'accettazione cala in modo monotono con la lunghezza della premessa:
+
+```
+    65 -   343 token   79,2% accettate   P(entail) mediana 0,932
+   346 -   828 token   68,6%                              0,729
+   832 -  1721 token   59,8%                              0,554
+  1784 - 14632 token   57,8%                              0,529
+```
+
+Le premesse di `capped` stanno **tutte** sotto i 515 token, cioè nella fascia dove `plain` accetta il 68-79%. Il suo 77,5% è quello che si prevede applicando la curva di `plain` a premesse corte — **senza alcun miglioramento della qualità delle citazioni**.
+
+> `STACK.md` documentava già la sensibilità alla lunghezza di questo verificatore (correlazione 0,46-0,54 fra numero di finestre e P(entailment) massima). Era scritta, ed è stata dimenticata davanti a un numero che faceva comodo. Riproducibile con `scripts/probe_premise_length.py`.
+
+**La regola che sopravvive a I-11:** `citation_precision` non è confrontabile fra configurazioni che cambiano la lunghezza dei chunk. Vale per qualunque modifica al chunking, non solo per questa.
+
+**La decisione.** Nessun guadagno di qualità contro **618 minuti di re-ingestione e un indice quadruplo, per sempre**. Non adottata.
+
+**Due voci da riconsiderare alla prossima re-ingestione**, perché sono reali e non confuse da niente:
+
+1. **latenza −44% in mediana e −68% in p90** (9,8→5,5 s; 22,5→7,2 s), conseguenza diretta di un contesto più corto;
+2. **premesse spezzate 8,1% → 0%**, che *elimina* l'artefatto del massimo su più finestre invece di aggirarlo — un miglioramento dello strumento di misura, non del sistema.
+
+Se una re-ingestione servirà per altro — il passaggio a BGE-M3 è già previsto in `STACK.md` — il tetto va adottato in quell'occasione, perché lì costa zero in più.
 
 ### R-08 — l'IDF aiuta un genere e ne danneggia un altro
 
@@ -1591,6 +1591,82 @@ Per la stessa ragione `/document/{doc_id}/chunks` restituisce i chunk **in ordin
 
 > L'ultima riga merita la nota. La risposta non coincide con quella registrata in A-06 (`…0.0226 [1].`, `OK [1] p=0.606`): con `--top-k 3` il modello ne produce una più lunga, con due citazioni entrambe bocciate dal verificatore. Eseguire lo stesso comando su `main` dà **lo stesso output**, quindi la differenza viene dai flag e dallo stato del modello, non da A-07 — che è ciò che il gate deve accertare. Confrontare due comandi diversi e dichiarare una regressione sarebbe stato l'errore speculare a quello di A-05, dove un tempo a freddo era stato riportato come costo per richiesta.
 
+| A-08 | ✅ fatto (2026-08-19) | **Il catalogo dei modelli**: `Capabilities` porta famiglia, finestra massima e quantizzazione di ciascuno. La finestra si legge **per pattern** (`*.context_length`), quindi vale per qualunque famiglia — e il massimo non è uno solo: 131.072 per `gemma4:latest`, 262.144 per `gemma4:12b`. **12 test** in più (1690 in tutto). Additivo: `models` invariato. Dettaglio sotto. |
+
+### A-08 — la finestra di contesto è una proprietà del modello, e si è dovuto misurarlo
+
+Nato da una richiesta di Marco (2026-08-19): far scegliere a chi usa la demo la
+dimensione del contesto, come fa lo slider della GUI di Ollama. Tre misure prima
+di decidere, perché nessuna delle tre era ovvia.
+
+| verifica | esito |
+|---|---|
+| `num_ctx` sul contratto OpenAI | **non è fra i campi supportati** — la documentazione elenca `model`, `messages`, `temperature`, `max_tokens`, `reasoning_effort`… e rimanda a un Modelfile |
+| mandarlo comunque su `/v1/chat/completions` | **200, e ignorato**: `num_ctx: 4096` e il modello resta caricato a 32768 |
+| `PARAMETER num_ctx` in un Modelfile | **ha effetto attraverso l'endpoint OpenAI**: modello derivato a 8192, e una chiamata a `/v1` lo carica a 8192 |
+| `/api/ps` come fonte di verità | **inutilizzabile**: elenca solo i modelli *caricati*, e a servizio inattivo risponde vuoto |
+
+La seconda riga è la più importante: un controllo costruito lì **sembrerebbe
+funzionare senza fare niente**, che è il difetto peggiore dei due possibili.
+
+Ne segue la forma del task: la finestra viaggia col **nome del modello**, e il
+menu dei modelli è già un campo pienamente supportato. Il selettore di contesto
+non è quindi una manopola nuova sull'API — è il catalogo.
+
+#### Perché deve leggersi per pattern
+
+Ollama pubblica la finestra sotto una chiave che **contiene il nome della
+famiglia**: `gemma4.context_length`, `qwen35.context_length`. Cercarla per nome
+avrebbe funzionato su gemma4 e su nient'altro — che è esattamente la domanda che
+Marco ha fatto («funzionerà con qualsiasi modello o solo per gemma4?»). Si cerca
+per suffisso, e un test lo fissa con due famiglie nella stessa chiamata.
+
+**E il massimo non è uno solo**, misurato sui quattro installati:
+
+| modello | famiglia | finestra max | quantizzazione |
+|---|---|---|---|
+| `gemma4:latest` | gemma4 | 131 072 | Q4_K_M |
+| `gemma4:e2b` | gemma4 | 131 072 | Q4_K_M |
+| `gemma4:12b` | gemma4 | **262 144** | Q4_K_M |
+| `qwen3.5:latest` | qwen35 | **262 144** | Q4_K_M |
+
+Quindi «solo le finestre compatibili col modello scelto» (U-16) smette di essere
+una precauzione e diventa un fatto.
+
+#### La terza volta che incontro lo stesso difetto
+
+Il catalogo porta anche la **quantizzazione**, e non per completezza.
+`LLM_QUANTIZATION = "Q4_K_M"` è una costante che finisce in ogni `EvalRun`, ed è
+vera oggi per tutti e quattro **per coincidenza**. È la stessa forma di
+`context_window` (D-14) e di `reasoning_enabled` prima di loro — che
+`run_config.py` documenta come «una dichiarazione che nessuno verificava, e per
+un periodo è stata falsa in ogni run». Tre campi della stessa famiglia,
+dichiarati e mai letti; il catalogo li rende leggibili tutti e tre.
+
+#### La chiamata nativa, e dove sta
+
+`/api/show` è l'API nativa di Ollama, e il vincolo di STACK.md dice che
+**l'inferenza** passa da un endpoint OpenAI-compatibile perché il repo giri anche
+su vLLM o llama.cpp. Questa non è inferenza: è **scoperta**, e degrada a «non lo
+so» ovunque non esista — allora il catalogo torna a essere la lista di nomi che
+era prima, con `context_max: None`, e chi legge non offre una scelta che non può
+sostenere. È lo stesso schema di `catalog.models()` che restituisce `[]` invece
+di inventare.
+
+Sta in `catalog.py` e non in `chat.py` di proposito: quel modulo è il contratto
+OpenAI, e mettergli dentro una chiamata nativa lo renderebbe il posto dove la
+regola si aggira invece di quello dove è scritta.
+
+#### Additivo, e verificato che lo sia
+
+`models` resta `list[str]` con gli stessi valori — ora derivati dal catalogo. Il
+test di A-07 è stato **esteso invece che adattato**: il suo criterio è proprio
+che quella forma non cambi, quindi continua a guardarla, e due test nuovi
+coprono il catalogo e il caso del motore muto.
+
+**1690 test Python** (10 nuovi sul catalogo, 2 sugli endpoint), 183 Vitest,
+typecheck verde, tipi TypeScript rigenerati.
+
 ---
 
 ## Fase 8 — Interfaccia
@@ -1604,7 +1680,6 @@ Per la stessa ragione `/document/{doc_id}/chunks` restituisce i chunk **in ordin
 | U-05 | ✅ fatto (2026-08-20) | **Come il documento è stato riconosciuto e come è stato tagliato**, sulla scheda della fonte: `tabelle → taglio generico`, con l'accento solo quando una pipeline è stata scelta per il genere. Prima però il campo andava reso vero: i loader generici scrivevano il nome di una pipeline che **non aveva girato** — terza volta di quella famiglia dopo `reasoning_enabled` e `context_window`. Migrazione di payload su 65.950 punti, senza re-ingestione. **6 test Vitest** in più (225) e 2 Python (1711). Dettaglio sotto. |
 | U-04 | ✅ fatto (2026-08-20) | **Il prompt del modello senza fonti si sceglie dentro quella colonna**: due pastiglie — «risponde comunque» e «si astiene» — che rifanno **quella colonna sola**, con l'altra ferma a fare da paragone. È il 45%→17% di E-04/E-05 su una domanda singola invece che in una tabella. Il braccio nudo diventa un campo dello stato: ricavarlo da `config` faceva scambiare di posto le due colonne mentre una si rifà. **10 test Vitest** in più (214 in tutto). Dettaglio sotto. |
 | U-16 | ✅ fatto (2026-08-19) | **Modello e contesto, due selettori**: il primo elenca i modelli, il secondo le finestre che quel modello regge — e compare solo quando ce n'è più di una. Nessuna convenzione sui nomi: il raggruppamento passa da `parent_model`. Con `scripts/model_sizes.py` che crea le taglie. **15 test Vitest** in più (198 in tutto). Dettaglio sotto. |
-| A-08 | ✅ fatto (2026-08-19) | **Il catalogo dei modelli**: `Capabilities` porta famiglia, finestra massima e quantizzazione di ciascuno. La finestra si legge **per pattern** (`*.context_length`), quindi vale per qualunque famiglia — e il massimo non è uno solo: 131.072 per `gemma4:latest`, 262.144 per `gemma4:12b`. **12 test** in più (1690 in tutto). Additivo: `models` invariato. Dettaglio sotto. |
 | U-15 | ✅ fatto (2026-08-19) | **Con quali parametri e' stata data ogni risposta**: la configurazione che ha girato si rilegge nella conversazione, e fra una domanda e l'altra si vede cosa è cambiato. **Nessun campo nuovo**: `ConfigView` era già dentro ogni risposta e già nel deposito da U-13. **11 test Vitest** in più (183 in tutto). Dettaglio sotto. |
 | U-14 | ✅ fatto (2026-08-19) | **Markdown e LaTeX nella risposta**: il prompt li invita invece di vietarli, e l'interfaccia li disegna — come **intervalli sul testo grezzo**, così verdetti per frase e frasi scoperte restano allineati. **15 test Vitest** in più (172 in tutto). Debito dichiarato: `prompt_hash` cambia, C-01/C-02/C-07 da rimisurare. Dettaglio sotto. |
 | U-03 | ✅ fatto (2026-08-19) | **La barra di composizione e il confronto affiancato**: i quattro controlli del mockup (RAG, ragionamento, modello, «Avanzate») e la stessa domanda rilanciata a RAG invertito in due colonne. Il secondo braccio riparte dalla configurazione *che ha girato*, non dalla barra — §15 dentro l'interfaccia. **3 test Vitest** in più (155 in tutto), e ogni controllo si apre sul valore in vigore letto da `/config`. Dettaglio sotto. |
@@ -2283,80 +2358,6 @@ partita finita. La configurazione **intera** sta nel suggerimento, che è il pos
 dove la si va a cercare — ed è un dato, quindi si apre subito (140 ms).
 
 `npm run typecheck && npm test && npm run build` verdi, **183 test Vitest**.
-
-### A-08 — la finestra di contesto è una proprietà del modello, e si è dovuto misurarlo
-
-Nato da una richiesta di Marco (2026-08-19): far scegliere a chi usa la demo la
-dimensione del contesto, come fa lo slider della GUI di Ollama. Tre misure prima
-di decidere, perché nessuna delle tre era ovvia.
-
-| verifica | esito |
-|---|---|
-| `num_ctx` sul contratto OpenAI | **non è fra i campi supportati** — la documentazione elenca `model`, `messages`, `temperature`, `max_tokens`, `reasoning_effort`… e rimanda a un Modelfile |
-| mandarlo comunque su `/v1/chat/completions` | **200, e ignorato**: `num_ctx: 4096` e il modello resta caricato a 32768 |
-| `PARAMETER num_ctx` in un Modelfile | **ha effetto attraverso l'endpoint OpenAI**: modello derivato a 8192, e una chiamata a `/v1` lo carica a 8192 |
-| `/api/ps` come fonte di verità | **inutilizzabile**: elenca solo i modelli *caricati*, e a servizio inattivo risponde vuoto |
-
-La seconda riga è la più importante: un controllo costruito lì **sembrerebbe
-funzionare senza fare niente**, che è il difetto peggiore dei due possibili.
-
-Ne segue la forma del task: la finestra viaggia col **nome del modello**, e il
-menu dei modelli è già un campo pienamente supportato. Il selettore di contesto
-non è quindi una manopola nuova sull'API — è il catalogo.
-
-#### Perché deve leggersi per pattern
-
-Ollama pubblica la finestra sotto una chiave che **contiene il nome della
-famiglia**: `gemma4.context_length`, `qwen35.context_length`. Cercarla per nome
-avrebbe funzionato su gemma4 e su nient'altro — che è esattamente la domanda che
-Marco ha fatto («funzionerà con qualsiasi modello o solo per gemma4?»). Si cerca
-per suffisso, e un test lo fissa con due famiglie nella stessa chiamata.
-
-**E il massimo non è uno solo**, misurato sui quattro installati:
-
-| modello | famiglia | finestra max | quantizzazione |
-|---|---|---|---|
-| `gemma4:latest` | gemma4 | 131 072 | Q4_K_M |
-| `gemma4:e2b` | gemma4 | 131 072 | Q4_K_M |
-| `gemma4:12b` | gemma4 | **262 144** | Q4_K_M |
-| `qwen3.5:latest` | qwen35 | **262 144** | Q4_K_M |
-
-Quindi «solo le finestre compatibili col modello scelto» (U-16) smette di essere
-una precauzione e diventa un fatto.
-
-#### La terza volta che incontro lo stesso difetto
-
-Il catalogo porta anche la **quantizzazione**, e non per completezza.
-`LLM_QUANTIZATION = "Q4_K_M"` è una costante che finisce in ogni `EvalRun`, ed è
-vera oggi per tutti e quattro **per coincidenza**. È la stessa forma di
-`context_window` (D-14) e di `reasoning_enabled` prima di loro — che
-`run_config.py` documenta come «una dichiarazione che nessuno verificava, e per
-un periodo è stata falsa in ogni run». Tre campi della stessa famiglia,
-dichiarati e mai letti; il catalogo li rende leggibili tutti e tre.
-
-#### La chiamata nativa, e dove sta
-
-`/api/show` è l'API nativa di Ollama, e il vincolo di STACK.md dice che
-**l'inferenza** passa da un endpoint OpenAI-compatibile perché il repo giri anche
-su vLLM o llama.cpp. Questa non è inferenza: è **scoperta**, e degrada a «non lo
-so» ovunque non esista — allora il catalogo torna a essere la lista di nomi che
-era prima, con `context_max: None`, e chi legge non offre una scelta che non può
-sostenere. È lo stesso schema di `catalog.models()` che restituisce `[]` invece
-di inventare.
-
-Sta in `catalog.py` e non in `chat.py` di proposito: quel modulo è il contratto
-OpenAI, e mettergli dentro una chiamata nativa lo renderebbe il posto dove la
-regola si aggira invece di quello dove è scritta.
-
-#### Additivo, e verificato che lo sia
-
-`models` resta `list[str]` con gli stessi valori — ora derivati dal catalogo. Il
-test di A-07 è stato **esteso invece che adattato**: il suo criterio è proprio
-che quella forma non cambi, quindi continua a guardarla, e due test nuovi
-coprono il catalogo e il caso del motore muto.
-
-**1690 test Python** (10 nuovi sul catalogo, 2 sugli endpoint), 183 Vitest,
-typecheck verde, tipi TypeScript rigenerati.
 
 ### U-16 — due manopole sopra un nome solo
 
