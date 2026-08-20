@@ -223,6 +223,14 @@ export const it = {
   "corpus.chunks": "{n} chunk",
   "corpus.pickDocument": "Scegli un documento per vedere com'è stato spezzato.",
   "corpus.howSplit": "Com'è stato spezzato",
+  // U-17. **Non «il documento»**: il PDF non ce l'abbiamo, e ciò che si mette in
+  // fila sono i chunk. Oggi coincidono — nell'indice generico non c'è nessuna
+  // sovrapposizione, misurata — ma il nome deve reggere anche quando non sarà
+  // più vero (D-18).
+  "corpus.indexedText": "Il testo indicizzato",
+  // Sulla cucitura: il numero del pezzo e quanto è lungo. In mono perché è un
+  // dato, e attenuato perché non è il testo — è dove il testo è stato staccato.
+  "corpus.seam": "{n} · {caratteri} car.",
   "corpus.legend.text": "testo",
   // Due etichette per la stessa tessera, e non e' un vezzo: «mai spezzata» e' una
   // proprieta' della pipeline `table_heavy`, che nell'indice generico **non ha
@@ -519,6 +527,8 @@ export const en: Record<Chiave, string> = {
   "corpus.chunks": "{n} chunks",
   "corpus.pickDocument": "Pick a document to see how it was split.",
   "corpus.howSplit": "How it was split",
+  "corpus.indexedText": "The indexed text",
+  "corpus.seam": "{n} · {caratteri} char.",
   "corpus.legend.text": "text",
   "corpus.legend.table": "contains a table",
   "corpus.legend.table.routed": "table · never split",

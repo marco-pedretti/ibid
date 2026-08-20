@@ -164,9 +164,10 @@ export function righeMappa(lunghezze: readonly number[], righe: number): Pezzo[]
  * `larghezza` e' la misura vera della riga, che si sa solo dal DOM: la colonna
  * di mezzo e' ridimensionabile, quindi va osservata e non calcolata una volta.
  *
- * **Il minimo vince sulla proporzione**, ed e' l'unico punto in cui si tradisce
- * (vedi `Tratto`): un pezzo del documento che non si puo' cliccare e' un pezzo
- * che non esiste. Le righe restano corte per costruzione — un pezzo che non
+ * **Il minimo vince sulla proporzione**, ed e' l'unico punto in cui si tradisce:
+ * un pezzo del documento che non si puo' vedere e' un pezzo che non esiste.
+ * Quanto valga e quanto costi lo decide chi disegna — sta su `MINIMO_TRATTO`,
+ * con la misura accanto — perche' e' una quantita' di pixel e non di documento. Le righe restano corte per costruzione — un pezzo che non
  * entra e' gia' andato a capo — quindi qui non serve nessun pareggio: si taglia
  * solo se il minimo ha gonfiato la riga oltre la sua larghezza.
  */
