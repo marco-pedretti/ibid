@@ -15,10 +15,12 @@ import { ProvvedeBackend, usaBackend } from "./app/backend";
 import { ProvvedeBarra } from "./app/barra";
 import { ProvvedeChat, usaChat } from "./app/chat";
 import { ProvvedeDataset } from "./app/dataset";
+import { ProvvedeEsploratore, usaEsploratore } from "./app/esploratore";
 import { ProvvedeLingua, usaLingua } from "./app/i18n";
 import { ProvvedeTema } from "./app/theme";
 import { Chat } from "./ui/Chat";
 import { Confronto } from "./ui/Confronto";
+import { Corpus } from "./ui/Corpus";
 import { PannelloFonti } from "./ui/PannelloFonti";
 import { Telaio } from "./ui/Telaio";
 
@@ -30,7 +32,9 @@ export function App() {
           <ProvvedeDataset>
             <ProvvedeBarra>
               <ProvvedeChat>
-                <Schermata />
+                <ProvvedeEsploratore>
+                  <Schermata />
+                </ProvvedeEsploratore>
               </ProvvedeChat>
             </ProvvedeBarra>
           </ProvvedeDataset>
@@ -55,6 +59,22 @@ export function App() {
  */
 function Schermata() {
   const { confronto } = usaChat();
+  const { aperto } = usaEsploratore();
+
+  // L'esploratore viene **prima** del confronto e non lo chiude: si apre da una
+  // citazione, che nel confronto sta dentro una colonna. Chiudendolo si torna
+  // dov'eravamo, perche' lo stato del confronto non e' stato toccato.
+  //
+  // Senza `fianco`: il pannello fonti risponde alla domanda «da dove viene
+  // questa risposta», e qui non c'e' una risposta. Le tre colonne
+  // dell'esploratore **sono** il posto delle fonti, viste dal lato del corpus.
+  if (aperto) {
+    return (
+      <Telaio>
+        <Corpus />
+      </Telaio>
+    );
+  }
 
   if (confronto !== null) {
     return (

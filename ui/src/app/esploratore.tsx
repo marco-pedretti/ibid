@@ -3,6 +3,9 @@
  *
  * Sta accanto a `corpus.ts` come `chat.tsx` sta accanto a `conversazione.ts` —
  * li' le regole, provate senza browser, qui lo stato di React e le due chiamate.
+ * E si chiama in un altro modo, non `corpus.tsx`: due file con lo stesso nome e
+ * due estensioni si risolvono per ordine di preferenza del bundler, cioe' un
+ * import prende quello sbagliato senza dirlo.
  *
  * **Due caricamenti separati e non uno.** L'elenco dei documenti dipende dal
  * dataset e si chiede una volta per dataset (494 documenti di `ledger`: 21 KB,
@@ -39,7 +42,7 @@ export type StatoDocumento =
   | { stato: "pronto"; doc_id: string; chunks: ChunkView[] }
   | { stato: "guasto"; doc_id: string; errore: string };
 
-interface Corpus {
+interface Esploratore {
   /** L'esploratore e' sullo schermo. */
   aperto: boolean;
   elenco: StatoElenco;
@@ -53,9 +56,9 @@ interface Corpus {
   scegliChunk: (chunk_id: string) => void;
 }
 
-const Contesto = createContext<Corpus | null>(null);
+const Contesto = createContext<Esploratore | null>(null);
 
-export function ProvvedeCorpus({ children }: { children: ReactNode }) {
+export function ProvvedeEsploratore({ children }: { children: ReactNode }) {
   const { scelto: dataset } = usaDataset();
   const dataset_id = dataset?.dataset_id ?? null;
 
@@ -157,8 +160,8 @@ export function ProvvedeCorpus({ children }: { children: ReactNode }) {
   return <Contesto.Provider value={valore}>{children}</Contesto.Provider>;
 }
 
-export function usaCorpus(): Corpus {
+export function usaEsploratore(): Esploratore {
   const c = useContext(Contesto);
-  if (!c) throw new Error("usaCorpus fuori da <ProvvedeCorpus>");
+  if (!c) throw new Error("usaEsploratore fuori da <ProvvedeEsploratore>");
   return c;
 }

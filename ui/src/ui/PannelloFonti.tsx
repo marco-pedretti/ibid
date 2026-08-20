@@ -28,6 +28,7 @@
  * genere** — cioe' quando c'e' un routing da vedere.
  */
 import { usaChat } from "../app/chat";
+import { usaEsploratore } from "../app/esploratore";
 import { nomeGenere, nomeTaglio, taglioPerGenere } from "../app/genere";
 import { usaLingua } from "../app/i18n";
 import { spiegaPunteggio } from "../app/recupero";
@@ -159,6 +160,7 @@ function Scheda({
   risposta: Risposta | null;
 }) {
   const { t } = usaLingua();
+  const { apri: apriNelCorpus } = usaEsploratore();
   const numerico = risposta === null ? null : esitoNumericoDellaScheda(risposta, chunk.marker);
 
   return (
@@ -177,15 +179,28 @@ function Scheda({
         >
           {chunk.marker}
         </Suggerimento>
-        {/* Il nome del documento e la sezione sono **troncati** in 272 px, ed e'
-            il posto dove un suggerimento serve piu' che altrove: qui non spiega,
-            mostra cio' che il taglio ha nascosto. */}
+        {/* Il nome del documento e' **troncato** in 272 px, ed e' il posto dove
+            un suggerimento serve piu' che altrove: qui non spiega, mostra cio'
+            che il taglio ha nascosto.
+
+            Da U-06 e' anche il modo di arrivare alla fonte intera: la scheda ne
+            mostra due righe, e il chunk citato puo' essere lungo seimila
+            caratteri. Il nome del documento e' il posto giusto perche' e' gia'
+            cio' che si guarda per sapere da dove viene — non serve un comando
+            in piu' su una colonna larga 272 px. */}
         <Suggerimento
           dato
-          testo={chunk.doc_id}
-          className="min-w-0 truncate text-[11px] font-medium text-ink"
+          fuoco={false}
+          testo={`${chunk.doc_id} — ${t("corpus.fromCitation")}`}
+          className="min-w-0"
         >
-          {chunk.doc_id}
+          <button
+            type="button"
+            onClick={() => apriNelCorpus(chunk.doc_id, chunk.chunk_id)}
+            className="block w-full truncate text-left text-[11px] font-medium text-ink transition-colors hover:text-accent"
+          >
+            {chunk.doc_id}
+          </button>
         </Suggerimento>
         {/* Cosa sia questo numero **dipende dalla configurazione che ha girato**:
             una somiglianza in `dense`, un punteggio di posizione in `hybrid`, il

@@ -205,6 +205,36 @@ export const it = {
   "source.pipeline.generic":
     "Tutti i documenti di questo indice sono stati tagliati allo stesso modo, qualunque fosse il genere.",
 
+  // U-06, l'esploratore. La didascalia del mockup: qui non si confrontano
+  // configurazioni, si guarda il corpus e come e' stato spezzato.
+  "corpus.title": "Il corpus",
+  "corpus.subtitle":
+    "Come i documenti di {dataset} sono stati spezzati prima di finire nell'indice.",
+  "corpus.open.action": "Esplora il corpus",
+  "corpus.back": "Torna alla conversazione",
+  "corpus.documents": "Documenti",
+  "corpus.search": "Cerca un documento…",
+  "corpus.loading": "carico…",
+  "corpus.count": "{visti} su {tutti}",
+  "corpus.chunks": "{n} chunk",
+  "corpus.pickDocument": "Scegli un documento per vedere com'è stato spezzato.",
+  "corpus.howSplit": "Com'è stato spezzato",
+  "corpus.legend.text": "testo",
+  "corpus.legend.table": "tabella · mai spezzata",
+  "corpus.selected": "Chunk selezionato",
+  "corpus.page": "p. {n}",
+  "corpus.open": "Apri la fonte",
+  "corpus.split.title": "Riconosciuto come {genere}, tagliato {taglio}.",
+  "corpus.split.routed":
+    "Le tabelle restano intere anche quando sono lunghe: spezzarle renderebbe una riga illeggibile senza la sua intestazione.",
+  "corpus.split.generic":
+    "Ogni documento di questo indice è stato spezzato allo stesso modo, prendendo l'unità che il documento offriva già.",
+  // Il criterio di U-06 chiede di dichiararla, non di simularla. E il motivo è
+  // più largo del solo `bbox`: un PDF non c'è proprio, su nessuno dei due corpus.
+  "corpus.noPdf":
+    "Nessuna pagina da mostrare: di questo corpus non abbiamo i PDF, solo il testo estratto. L'evidenziazione sulla pagina non è disponibile — dichiarata, non simulata.",
+  "corpus.fromCitation": "Apri questa fonte nel corpus",
+
   "example.note.numbers": "Un numero preciso: la citazione deve reggerlo.",
   "example.note.paper": "Sta dentro un paper: guarda da quale sezione arriva.",
   "example.note.table": "La risposta sta in una tabella.",
@@ -457,6 +487,31 @@ export const en: Record<Chiave, string> = {
   "source.pipeline.routed": "The split was chosen from the document kind.",
   "source.pipeline.generic":
     "Every document in this index was split the same way, whatever its kind.",
+
+  "corpus.title": "The corpus",
+  "corpus.subtitle": "How the documents in {dataset} were split before they entered the index.",
+  "corpus.open.action": "Explore the corpus",
+  "corpus.back": "Back to the conversation",
+  "corpus.documents": "Documents",
+  "corpus.search": "Find a document…",
+  "corpus.loading": "loading…",
+  "corpus.count": "{visti} of {tutti}",
+  "corpus.chunks": "{n} chunks",
+  "corpus.pickDocument": "Pick a document to see how it was split.",
+  "corpus.howSplit": "How it was split",
+  "corpus.legend.text": "text",
+  "corpus.legend.table": "table · never split",
+  "corpus.selected": "Selected chunk",
+  "corpus.page": "p. {n}",
+  "corpus.open": "Open the source",
+  "corpus.split.title": "Recognised as {genere}, cut {taglio}.",
+  "corpus.split.routed":
+    "Tables stay whole even when they are long: splitting one would leave a row unreadable without its header.",
+  "corpus.split.generic":
+    "Every document in this index was split the same way, taking the unit the document already offered.",
+  "corpus.noPdf":
+    "No page to show: we do not have the PDFs for this corpus, only the extracted text. Highlighting on the page is unavailable — declared, not simulated.",
+  "corpus.fromCitation": "Open this source in the corpus",
 
   "example.note.numbers": "A precise number: the citation has to hold it up.",
   "example.note.paper": "It sits inside a paper: look at which section it comes from.",

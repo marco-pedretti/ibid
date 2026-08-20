@@ -16,20 +16,22 @@
  * **La cronologia e' la parte che cresce**, quindi e' la sola che scorre: il
  * resto della corsia ha un'altezza che non dipende da quanto si e' lavorato.
  *
- * Il pulsante «Esplora il corpus» del mockup non c'e' ancora: arrivera' con la
- * schermata che apre. Un comando che non porta da nessuna parte e' lo stesso
- * difetto del toggle che gira a vuoto — la bozza lo dice della sua stessa
- * didascalia.
+ * **«Esplora il corpus» sta sotto il dataset**, e non in fondo accanto a lingua
+ * e tema: apre una vista *su quel dataset*, quindi appartiene a lui e non alle
+ * impostazioni dell'applicazione. Fino a U-06 non c'era affatto, ed era la
+ * regola giusta — un comando che non porta da nessuna parte e' lo stesso difetto
+ * del controllo che gira a vuoto.
  */
 import type { ReactNode } from "react";
 
+import { usaEsploratore } from "../app/esploratore";
 import { usaLingua } from "../app/i18n";
 import { usaTema } from "../app/theme";
 import type { SceltaTema } from "../app/theme";
 import { LINGUE } from "../i18n/strings";
 import { Cronologia } from "./Cronologia";
 import { Etichetta } from "./Etichetta";
-import { Chiaro, Scuro, Sistema } from "./Icona";
+import { Chiaro, Corpus, Scuro, Sistema } from "./Icona";
 import type { PropsIcona } from "./Icona";
 import { Marchio } from "./Marchio";
 import { SelettoreDataset } from "./SelettoreDataset";
@@ -65,6 +67,7 @@ export function Telaio({ children, fianco }: { children: ReactNode; fianco?: Rea
             <Etichetta>{t("datasets.title")}</Etichetta>
           </div>
           <SelettoreDataset />
+          <BottoneCorpus />
         </div>
 
         <Cronologia />
@@ -81,6 +84,29 @@ export function Telaio({ children, fianco }: { children: ReactNode; fianco?: Rea
       <main className="h-full min-h-0 min-w-0 overflow-hidden">{children}</main>
       {fianco}
     </div>
+  );
+}
+
+/**
+ * «Esplora il corpus»: la schermata che guarda l'indice invece della risposta.
+ *
+ * Non e' disabilitato quando manca un dataset — non capita, perche' senza indice
+ * pronto la corsia mostra gia' il proprio stato vuoto e questa colonna non
+ * arriva a disegnarsi con una scelta a `null` che si possa cliccare.
+ */
+function BottoneCorpus() {
+  const { t } = usaLingua();
+  const { apri } = usaEsploratore();
+
+  return (
+    <button
+      type="button"
+      onClick={() => apri()}
+      className="mt-1.5 flex w-full items-center gap-2 rounded-lg border border-line-2 px-2.5 py-[7px] text-[11.5px] text-ink-2 transition-colors hover:border-accent-2 hover:text-ink"
+    >
+      <Corpus size={13} />
+      {t("corpus.open.action")}
+    </button>
   );
 }
 
