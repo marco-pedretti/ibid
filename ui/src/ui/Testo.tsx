@@ -41,7 +41,7 @@ import type { ReactNode } from "react";
 import { marcatoriDelTesto, spanSenzaCitazione } from "../app/verdetti";
 import type { Marcato, Span } from "../app/verdetti";
 import type { Risposta } from "../app/conversazione";
-import { analizza, stiliIn } from "./markdown";
+import { analizza, stiliIn, visibili } from "./markdown";
 import type { Blocco as BloccoMd, Nascosto, Stile } from "./markdown";
 import { perAnteprima, segmenta } from "./matematica";
 import { Marcatore } from "./Verdetto";
@@ -282,22 +282,6 @@ function conStile(prosa: string, da: number, contesto: Contesto): ReactNode[] {
     );
   }
   return pezzi;
-}
-
-/** I tratti di `[da, a)` che **non** sono sintassi da nascondere. E' l'unico
- *  posto in cui i caratteri spariscono, ed e' dopo che ogni intervallo e' stato
- *  calcolato: prima sposterebbe gli offset di tutti gli altri. */
-function visibili(da: number, a: number, nascosti: readonly Nascosto[]): Nascosto[] {
-  const fuori: Nascosto[] = [];
-  let i = da;
-  for (const n of nascosti) {
-    if (n.a <= i || n.da >= a) continue;
-    if (n.da > i) fuori.push({ da: i, a: Math.min(n.da, a) });
-    i = Math.max(i, n.a);
-    if (i >= a) break;
-  }
-  if (i < a) fuori.push({ da: i, a });
-  return fuori;
 }
 
 const VESTE_STILE: Record<Stile["tipo"], string> = {
