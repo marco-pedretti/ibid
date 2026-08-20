@@ -20,7 +20,7 @@ dipendere dalla dashboard. Qui resta la metà Streamlit.
 
 **È l'unico import da `src.` rimasto in questo pacchetto insieme ai contratti
 dati**, ed è deliberato: leggere il markup di una tabella OCR non è eseguire la
-pipeline, è interpretare un formato. Vedi la nota su A-06 in ROADMAP §12.
+pipeline, è interpretare un formato. Vedi la nota su A-06 in ROADMAP §11.
 
 La suddivisione usa `split_segments` di `ocr_tables`, così ciò che la dashboard
 mostra come una tabella è esattamente ciò che l'ingestione ha trattato come un

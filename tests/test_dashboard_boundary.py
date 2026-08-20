@@ -3,7 +3,7 @@
 Il criterio del ROADMAP era scritto come un `grep`: *«`grep -r "^from src\\." dashboard/`
 non trova più niente»*. Applicandolo si è visto che quel `grep` è un **proxy** per
 la cosa che interessa, e che cattura anche due cose che non c'entrano. Il
-ROADMAP §12 porta ora la versione precisa; questo file la fa rispettare.
+ROADMAP §11 porta ora la versione precisa; questo file la fa rispettare.
 
 **Ciò che il confine vieta**: che la dashboard *esegua* la pipeline. Retrieval,
 generazione, verifica, accesso a Qdrant — tutto passa dall'API, o la dashboard

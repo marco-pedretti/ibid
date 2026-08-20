@@ -147,7 +147,7 @@ def doc_of(chunk_id: str) -> str:
 
     Perché non importare quella: sarebbe l'unica riga di pipeline rimasta in
     questo file, per una funzione che è **il contratto degli identificativi** e
-    non una decisione di recupero. Vedi la nota su A-06 in ROADMAP §12.
+    non una decisione di recupero. Vedi la nota su A-06 in ROADMAP §11.
     """
     parti = chunk_id.split(":", 2)
     return parti[1] if len(parti) >= 2 else chunk_id
