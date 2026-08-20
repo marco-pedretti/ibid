@@ -258,10 +258,26 @@ function Documenti() {
  * spente tutte le altre. Ora l'accento e' l'unica cosa colorata della mappa, ed
  * e' il tratto scelto — che la legenda dichiara invece di lasciarlo indovinare.
  */
-/** Lo stacco fra due tratti, e la larghezza sotto cui un tratto non si puo'
- *  cliccare. Interi, e sono l'unica misura del disegno che il conto deve sapere. */
+/**
+ * Lo stacco fra due tratti, e la larghezza sotto cui un tratto non si vede.
+ * Interi, e sono l'unica misura del disegno che il conto deve sapere.
+ *
+ * **Dieci pixel violano la proporzione, e costa poco.** Misurato sui documenti
+ * veri, contando quanti pezzi vengono gonfiati e quanti pixel bisogna togliere
+ * agli altri per fargli posto:
+ *
+ *     NASDAQ_LOOP_2017 (261 chunk)   33 su 261 gonfiati, 1,1% della mappa
+ *     NYSE_SHW_2017     (83 chunk)    2 su  83 gonfiati, 0,1% della mappa
+ *     2401.02564v2      (15 chunk)    nessuno
+ *     2401.03345v2      (29 chunk)    nessuno
+ *
+ * Cioe' il caso peggiore e' l'uno per cento su un documento di 261 pezzi, e sui
+ * documenti normali non si paga niente. A tre pixel la proporzione era piu'
+ * fedele e alcuni pezzi restavano invisibili — che e' il modo in cui una
+ * proporzione fedele smette di essere utile.
+ */
 const STACCO = 2;
-const MINIMO_TRATTO = 3;
+const MINIMO_TRATTO = 10;
 
 /**
  * La colonna di mezzo: due viste dello stesso documento.
@@ -474,9 +490,10 @@ function Mappa() {
  * lo arrotondava, quindi lo stesso stacco da due pixel usciva ora due ora tre e
  * la fila sembrava spaziata a caso. Il conto sta in `larghezzePixel`.
  *
- * Il minimo di tre pixel e' l'unico punto in cui la proporzione viene tradita —
- * un chunk da 19 caratteri su 348.942 e' largo niente, ed e' vero, ma un pezzo
- * del documento che non si puo' cliccare e' un pezzo che non esiste.
+ * Il minimo e' l'unico punto in cui la proporzione viene tradita — un chunk da
+ * 19 caratteri su 348.942 e' largo niente, ed e' vero, ma un pezzo del documento
+ * che non si puo' vedere e' un pezzo che non esiste. Quanto costa esattamente
+ * sta su `MINIMO_TRATTO`, misurato.
  *
  * **Arrotondato come tutto il resto.** Tre pixel di raggio, gli stessi delle
  * pastiglie e delle schede: una fila di rettangoli vivi era l'unica cosa
