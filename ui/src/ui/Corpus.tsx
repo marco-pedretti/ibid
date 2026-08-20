@@ -304,7 +304,9 @@ function Mappa() {
       <div className="flex flex-col gap-[3px]">
         {righeMappa(
           chunks.map((c) => c.text.length),
-          quanteRighe(chunks.length),
+          // La scala viene dal pezzo piu' piccolo **con del testo** di questo
+          // documento: il numero di righe segue da li'. Vedi `mappa.ts`.
+          quanteRighe(chunks.map((c) => c.text)),
         ).map((riga, n) => (
           <div key={n} className="flex h-[18px] gap-[2px]">
             {riga.map((p, k) => (

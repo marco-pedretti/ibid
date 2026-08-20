@@ -15,9 +15,11 @@
  * intero alla riga dopo: spostarlo lascerebbe un buco a fine riga, e un buco in
  * una mappa di proporzioni si legge come «qui non c'e' niente».
  *
- * **Il numero di righe viene dal numero di pezzi.** Un documento da dieci chunk
- * in dodici righe sarebbe una riga ogni pezzo; uno da 261 in tre righe darebbe
- * pezzi da mezzo pixel. Vedi `quanteRighe`.
+ * **La scala viene dal pezzo piu' piccolo di questo documento.** Gli si da' una
+ * misura minima e tutto il resto sta in proporzione a lui: e' il numero di righe
+ * a seguire, non il contrario. Due documenti diversi non sono percio'
+ * confrontabili fra loro, ed e' accettato — la mappa risponde a «com'e' fatto
+ * questo documento». Vedi `quanteRighe`.
  *
  * Le frazioni qui sono **esatte**: un pezzo da 19 caratteri su 348.942 esce
  * larghissimo quanto niente, ed e' vero. Che si veda comunque e' un problema di
@@ -40,17 +42,70 @@ export interface Pezzo {
 }
 
 /**
- * Quante righe per un documento di `n` pezzi.
+ * Un chunk che non ha niente da leggere.
  *
- * Un pezzo ogni venti per riga e' la densita' a cui, in una colonna da ~600 px,
- * il pezzo mediano resta largo una trentina di pixel: abbastanza da vederlo e da
- * prenderlo col puntatore. Il minimo di tre viene dal mockup, che ne disegna
- * tre; il massimo di dodici e' dove la mappa smette di essere un colpo d'occhio
- * e diventa una parete.
+ * Misurato sull'indice: l'1,13% dei chunk di `ledger` sta in 60 caratteri, e i
+ * piu' frequenti sono `Powered by TCPDF (www.tcpdf.org)` (una pagina di
+ * filigrana del generatore di PDF), `This page intentionally left blank` e
+ * `![](images/0_0.jpg)` — una copertina che e' solo un'immagine. Su
+ * `open_ragbench` sono lo 0,23% e sono veri: ringraziamenti, conflitti di
+ * interesse, sezioni corte davvero.
+ *
+ * Serve **solo a scegliere la scala**: questi chunk restano sulla mappa, perche'
+ * sono nell'indice e la mappa dice cosa c'e' nell'indice. Ma lasciare che una
+ * filigrana decida quanto e' grande un pezzo del documento vuol dire scalare
+ * tutto su un artefatto — e sono i due casi in cui il conto passava da 22 righe
+ * a 147.
+ *
+ * La soglia e' 40 caratteri **dopo** aver tolto i riferimenti alle immagini: la
+ * filigrana ne ha 32, «pagina lasciata bianca» 34, e il piu' corto con del testo
+ * vero nei documenti guardati ne ha 100.
  */
-export function quanteRighe(n: number): number {
-  if (n <= 0) return 0;
-  return Math.min(Math.max(Math.ceil(n / 20), 3), 12);
+const SENZA_TESTO = 40;
+const IMMAGINE = /!\[[^\]]*\]\([^)]*\)/g;
+
+export function haContenuto(testo: string): boolean {
+  return testo.replace(IMMAGINE, "").trim().length >= SENZA_TESTO;
+}
+
+/** Quanta parte di una riga deve occupare, come minimo, il pezzo piu' piccolo
+ *  con del testo. Su una colonna da ~500 px sono quattro pixel. */
+const MINIMA = 0.008;
+
+/** Meno di cosi' la mappa non ha presenza: e' una striscia sottile in cima a una
+ *  colonna vuota, e chi la guarda non capisce che e' il documento. */
+const RIGHE_MINIME = 6;
+
+/** Piu' di cosi' smette di essere un colpo d'occhio e diventa una parete da
+ *  scorrere. Quando il tetto morde, i pezzi piu' piccoli scendono sotto la
+ *  misura minima e si fermano al fondo che gli da' il disegno. */
+const RIGHE_MASSIME = 24;
+
+/**
+ * Quante righe, **scalando dal pezzo piu' piccolo di questo documento**.
+ *
+ * La regola e' quella e non un numero fisso: il pezzo piu' piccolo con del testo
+ * riceve una misura minima, e tutti gli altri stanno in proporzione a lui. Ne
+ * segue che due documenti non sono confrontabili fra loro — un chunk largo
+ * uguale su due mappe puo' essere lungo il doppio — ed e' accettato: la mappa
+ * risponde a «com'e' fatto **questo** documento», non a «quale dei due ha i
+ * pezzi piu' grandi».
+ *
+ * Quanto costa, misurato sui documenti veri: `2401.02564v2` (15 chunk, il piu'
+ * piccolo e' 1/18 del piu' grande) chiederebbe **una** riga, e prende le sei del
+ * minimo; `NYSE_SHW_2017` ne chiede 22 e le ottiene; `NASDAQ_LOOP_2017` ne
+ * chiederebbe 37 e si ferma a 24.
+ */
+export function quanteRighe(testi: readonly string[]): number {
+  if (testi.length === 0) return 0;
+
+  const totale = testi.reduce((a, t) => a + t.length, 0);
+  const conTesto = testi.filter(haContenuto).map((t) => t.length);
+  const base = Math.min(...(conTesto.length > 0 ? conTesto : testi.map((t) => t.length)));
+  if (totale <= 0 || base <= 0) return RIGHE_MINIME;
+
+  const servono = Math.ceil((totale / base) * MINIMA);
+  return Math.min(Math.max(servono, RIGHE_MINIME), RIGHE_MASSIME);
 }
 
 /**

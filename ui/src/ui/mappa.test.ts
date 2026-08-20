@@ -1,21 +1,68 @@
 import { describe, expect, it } from "vitest";
 
-import { quanteRighe, righeMappa } from "./mappa";
+import { haContenuto, quanteRighe, righeMappa } from "./mappa";
 
 /** Le frazioni di una riga, arrotondate: le somme in virgola mobile non tornano
  *  a 1 esatto e non e' quello che si sta verificando. */
 const frazioni = (riga: { frazione: number }[]) => riga.map((p) => Number(p.frazione.toFixed(6)));
 
-describe("quante righe", () => {
-  it("crescono col numero di pezzi, fra tre e dodici", () => {
-    expect(quanteRighe(10)).toBe(3);
-    expect(quanteRighe(83)).toBe(5);
-    expect(quanteRighe(261)).toBe(12);
-    expect(quanteRighe(9999)).toBe(12);
+/** `n` testi da `car` caratteri, pieni di roba da leggere. */
+const testi = (...car: number[]) => car.map((n) => "x".repeat(n));
+
+describe("quante righe: la scala viene dal pezzo piu' piccolo", () => {
+  it("piu' e' piccolo il minimo rispetto al totale, piu' righe servono", () => {
+    // `NYSE_SHW_2017`: il piu' piccolo con del testo e' 127 caratteri su
+    // 348.942, e la regola chiede 22 righe. Le ottiene.
+    expect(quanteRighe(testi(127, 348942 - 127))).toBe(22);
+  });
+
+  it("un documento di pezzi simili non ha bisogno di righe, e prende il minimo", () => {
+    // `2401.02564v2`: 15 chunk, il piu' piccolo e' 1/18 del piu' grande. La
+    // regola chiederebbe **una** riga: vera, e una striscia sottile in cima a
+    // una colonna vuota non si legge come un documento.
+    expect(quanteRighe(testi(257, 25862 - 257))).toBe(6);
+  });
+
+  it("oltre il tetto ci si ferma, e i pezzi piu' piccoli scendono sotto la misura", () => {
+    // `NASDAQ_LOOP_2017` ne chiederebbe 37: diventerebbe una parete da scorrere
+    // invece di un colpo d'occhio.
+    expect(quanteRighe(testi(100, 457565 - 100))).toBe(24);
   });
 
   it("nessun pezzo, nessuna riga", () => {
-    expect(quanteRighe(0)).toBe(0);
+    expect(quanteRighe([])).toBe(0);
+  });
+});
+
+describe("quale pezzo detta la scala", () => {
+  it("una filigrana non la detta", () => {
+    // Misurato: l'1,13% dei chunk di `ledger` sta in 60 caratteri, e i piu'
+    // frequenti sono `Powered by TCPDF (www.tcpdf.org)` e «pagina lasciata
+    // intenzionalmente bianca». Lasciando che sia una di quelle a fissare la
+    // misura minima, `NYSE_SHW_2017` passava da 22 righe a 147.
+    expect(haContenuto("Powered by TCPDF (www.tcpdf.org)")).toBe(false);
+    expect(haContenuto("This page intentionally left blank")).toBe(false);
+    expect(haContenuto("![](images/0_0.jpg)")).toBe(false);
+  });
+
+  it("un pezzo corto ma vero si', ed e' il caso che la soglia deve lasciar passare", () => {
+    // L'indirizzo in fondo al bilancio di Sherwin-Williams: 127 caratteri, ed e'
+    // lui che detta la scala di quel documento.
+    expect(haContenuto("The Sherwin-Williams Company, 101 W. Prospect Avenue, Cleveland")).toBe(
+      true,
+    );
+  });
+
+  it("un'immagine con una didascalia vera conta per la didascalia", () => {
+    expect(
+      haContenuto("![](images/3_1.jpg)\n\nFigura 3: la distribuzione delle cellule attive"),
+    ).toBe(true);
+  });
+
+  it("se **tutti** sono filigrane, la scala la detta comunque qualcuno", () => {
+    // Nessun pezzo con del testo: si ripiega su tutti invece di restare senza
+    // base e dividere per un minimo che non esiste.
+    expect(quanteRighe(["![](a.jpg)", "![](b.jpg)"])).toBe(6);
   });
 });
 
