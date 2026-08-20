@@ -315,14 +315,14 @@ function Mappa() {
                 chunk={chunks[p.indice]}
                 frazione={p.frazione}
                 scelta={chunks[p.indice].chunk_id === scelto}
-                estremi={{ apre: !p.continuazione, chiude: !p.spezzato }}
                 onClick={() => scegliChunk(chunks[p.indice].chunk_id)}
               />
             ))}
-            {/* L'ultima riga e' quasi sempre incompleta, e deve **restare**
-                incompleta: con i soli tratti il flex distribuirebbe fra loro
-                tutto lo spazio, e mezzo documento in fondo sembrerebbe una riga
-                piena. Questo pezzo vuoto tiene il posto che manca. */}
+            {/* **Ogni** riga puo' restare corta, non solo l'ultima: un pezzo
+                che non entra passa intero a quella dopo. Senza questo spazio il
+                flex distribuirebbe fra i tratti tutto cio' che avanza, e il
+                bordo frastagliato — che e' dove i pezzi sono finiti — sparirebbe
+                allargando i pezzi di una quantita' che non vuol dire niente. */}
             <Riempimento frazione={1 - riga.reduce((a, p) => a + p.frazione, 0)} />
           </div>
         ))}
@@ -357,9 +357,8 @@ function Mappa() {
  *
  * **Arrotondato come tutto il resto.** Tre pixel di raggio, gli stessi delle
  * pastiglie e delle schede: una fila di rettangoli vivi era l'unica cosa
- * dell'interfaccia con gli angoli a spigolo. E un pezzo andato a capo si
- * arrotonda **solo** dal lato in cui il chunk comincia o finisce davvero, cosi'
- * si legge come una cosa sola che continua invece che come due.
+ * dell'interfaccia con gli angoli a spigolo. Tutti e quattro gli angoli, ora che
+ * un pezzo non si spezza piu' a meta' riga: ogni tratto e' un chunk intero.
  *
  * **Il colore non usa l'accento per il tipo.** Nel §12 l'accento vuol dire
  * «questo e' scelto», e usarlo per «questa e' una tabella» faceva sembrare
@@ -371,16 +370,11 @@ function Tratto({
   chunk,
   frazione,
   scelta,
-  estremi,
   onClick,
 }: {
   chunk: ChunkView;
   frazione: number;
   scelta: boolean;
-  /** Da che parte il chunk **finisce davvero**: un pezzo andato a capo si
-   *  arrotonda solo dal lato in cui comincia o in cui finisce, altrimenti due
-   *  meta' dello stesso chunk sembrano due chunk. */
-  estremi: { apre: boolean; chiude: boolean };
   onClick: () => void;
 }) {
   const { t, lingua } = usaLingua();
@@ -409,9 +403,7 @@ function Tratto({
         onClick={onClick}
         aria-label={chunk.chunk_id}
         aria-current={scelta}
-        className={`block h-full w-full transition-colors ${
-          estremi.apre ? "rounded-l-[3px]" : ""
-        } ${estremi.chiude ? "rounded-r-[3px]" : ""} ${
+        className={`block h-full w-full rounded-[3px] transition-colors ${
           scelta
             ? "bg-accent"
             : tabella
@@ -423,8 +415,8 @@ function Tratto({
   );
 }
 
-/** Lo spazio che manca a una riga incompleta. Niente colore: e' documento che
- *  non c'e', non un pezzo vuoto. */
+/** Lo spazio che manca a una riga corta. Niente colore: non e' un pezzo, e' il
+ *  posto dove il pezzo seguente non entrava. */
 function Riempimento({ frazione }: { frazione: number }) {
   if (frazione <= 0.0005) return null;
   return <span aria-hidden="true" style={{ flexGrow: frazione * 1000, flexBasis: 0 }} />;

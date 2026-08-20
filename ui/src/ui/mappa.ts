@@ -9,11 +9,17 @@
  * il risultato e' un documento fatto di pezzi molto diversi, e la mappa deve
  * farlo vedere senza che nessuno lo scriva.
  *
- * **E' una striscia continua, mandata a capo.** Non una griglia di tessere: il
- * documento e' una cosa sola, e i pezzi si susseguono. Quando un pezzo non entra
- * nella riga, **passa a capo come una parola lunga** invece di essere spostato
- * intero alla riga dopo: spostarlo lascerebbe un buco a fine riga, e un buco in
- * una mappa di proporzioni si legge come «qui non c'e' niente».
+ * **Un pezzo non si spezza mai.** Quando non entra nella riga passa intero a
+ * quella dopo, e la riga resta corta: il bordo di destra viene frastagliato, ed
+ * e' giusto cosi' — un chunk e' l'unita' di cui la mappa parla, e mostrarne meta'
+ * di qua e meta' di la' fa contare due volte una cosa sola. Il frastagliato non
+ * e' un difetto da riempire: e' dove i pezzi sono finiti.
+ *
+ * **La capacita' di una riga non e' `totale / righe`, e' almeno il pezzo piu'
+ * grande.** Senza, un chunk piu' lungo di una riga non entrerebbe da nessuna
+ * parte. Prendendo il massimo, il pezzo piu' grande occupa **esattamente** una
+ * riga piena e tutti gli altri restano in proporzione a lui: le righe vengono
+ * un po' meno cariche, e nessuna proporzione viene toccata.
  *
  * **La scala viene dal pezzo piu' piccolo di questo documento.** Gli si da' una
  * misura minima e tutto il resto sta in proporzione a lui: e' il numero di righe
@@ -33,12 +39,6 @@ export interface Pezzo {
   indice: number;
   /** Frazione della **riga**, fra 0 e 1. */
   frazione: number;
-  /** Il pezzo continua nella riga seguente: e' un chunk andato a capo. */
-  spezzato: boolean;
-  /** Il pezzo **viene** dalla riga precedente. Serve a chi disegna: un chunk
-   *  spezzato va arrotondato solo dalla parte in cui finisce davvero, altrimenti
-   *  un pezzo solo sembra due. */
-  continuazione: boolean;
 }
 
 /**
@@ -120,48 +120,32 @@ export function quanteRighe(testi: readonly string[]): number {
 export function righeMappa(lunghezze: readonly number[], righe: number): Pezzo[][] {
   if (lunghezze.length === 0 || righe <= 0) return [];
 
-  const totale = lunghezze.reduce((a, b) => a + Math.max(b, 0), 0);
+  const positivi = lunghezze.map((l) => Math.max(l, 0));
+  const totale = positivi.reduce((a, b) => a + b, 0);
   // Tutti i chunk vuoti: non c'e' una proporzione da mostrare, e si ripiega su
   // pezzi uguali. Dividere per zero darebbe `NaN` in ogni larghezza.
-  const capacita = totale > 0 ? totale / righe : lunghezze.length / righe;
+  const misure = totale > 0 ? positivi : positivi.map(() => 1);
+  const somma = totale > 0 ? totale : misure.length;
+  const capacita = Math.max(somma / righe, ...misure);
+
+  // Una tolleranza e non zero: `somma / righe` non torna mai esatta in virgola
+  // mobile, e senza margine l'ultimo pezzo di una riga piena finirebbe a capo
+  // per un milionesimo — una riga in piu' con dentro niente.
+  const tolleranza = capacita * 1e-6;
 
   const fuori: Pezzo[][] = [];
   let riga: Pezzo[] = [];
   let riempita = 0;
 
-  const aCapo = () => {
-    fuori.push(riga);
-    riga = [];
-    riempita = 0;
-  };
-
-  // **Una tolleranza, e non zero.** Con `capacita = totale / righe` la somma dei
-  // pezzi di una riga non torna mai esatta in virgola mobile: l'ultimo chunk
-  // avanzava di un milionesimo di riga e quel milionesimo andava a capo,
-  // aprendo una riga in piu' con dentro un filo largo due pixel. Si vedeva, ed
-  // era un errore di arrotondamento travestito da dato.
-  const tolleranza = capacita * 1e-6;
-
-  for (let i = 0; i < lunghezze.length; i += 1) {
-    let resto = totale > 0 ? Math.max(lunghezze[i], 0) : 1;
-    let continuazione = false;
-    // `do` e non `while`: un chunk lungo zero deve comparire una volta, e con
-    // `while` non entrerebbe mai nel corpo.
-    do {
-      const spazio = capacita - riempita;
-      const parte = Math.min(resto, spazio);
-      resto -= parte;
-      riempita += parte;
-      const pieno = riempita >= capacita - tolleranza;
-      riga.push({
-        indice: i,
-        frazione: parte / capacita,
-        spezzato: resto > tolleranza,
-        continuazione,
-      });
-      continuazione = true;
-      if (pieno) aCapo();
-    } while (resto > tolleranza);
+  for (let i = 0; i < misure.length; i += 1) {
+    const m = misure[i];
+    if (riga.length > 0 && riempita + m > capacita + tolleranza) {
+      fuori.push(riga);
+      riga = [];
+      riempita = 0;
+    }
+    riga.push({ indice: i, frazione: m / capacita });
+    riempita += m;
   }
 
   if (riga.length > 0) fuori.push(riga);

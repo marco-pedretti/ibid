@@ -74,10 +74,14 @@ describe("la striscia, mandata a capo", () => {
     expect(frazioni(r[1])).toEqual([0.5, 0.5]);
   });
 
-  it("ogni riga si riempie: le frazioni sommano a uno", () => {
-    for (const riga of righeMappa([19, 4821, 6302, 1775, 32, 5119], 3)) {
-      const somma = riga.reduce((a, p) => a + p.frazione, 0);
-      expect(somma).toBeCloseTo(1, 9);
+  it("nessuna riga sborda, e nessun pezzo si perde", () => {
+    // Non «somma a uno»: le righe restano corte, ed e' il punto. Cio' che deve
+    // valere e' che nessuna sfori e che i pezzi ci siano tutti.
+    const lunghezze = [19, 4821, 6302, 1775, 32, 5119];
+    const r = righeMappa(lunghezze, 3);
+    expect(r.flat().map((p) => p.indice)).toEqual(lunghezze.map((_, i) => i));
+    for (const riga of r) {
+      expect(riga.reduce((a, p) => a + p.frazione, 0)).toBeLessThanOrEqual(1 + 1e-9);
     }
   });
 
@@ -89,41 +93,40 @@ describe("la striscia, mandata a capo", () => {
   });
 });
 
-describe("un pezzo che non entra va a capo", () => {
-  it("si spezza invece di essere spostato intero", () => {
-    // Spostarlo lascerebbe un buco a fine riga, e in una mappa di proporzioni un
-    // buco si legge come «qui non c'e' niente».
+describe("un pezzo che non entra va a capo intero", () => {
+  it("non si spezza: la riga resta corta", () => {
+    // Un chunk e' l'unita' di cui la mappa parla, e mostrarne meta' di qua e
+    // meta' di la' fa contare due volte una cosa sola. Il bordo frastagliato e'
+    // dove i pezzi sono finiti, non un buco da riempire.
     const r = righeMappa([30, 70], 2);
-    expect(r).toHaveLength(2);
-    expect(r[0].map((p) => p.indice)).toEqual([0, 1]);
-    expect(r[1].map((p) => p.indice)).toEqual([1]);
-    expect(frazioni(r[0])).toEqual([0.6, 0.4]);
-    expect(frazioni(r[1])).toEqual([1]);
+    expect(r.map((riga) => riga.map((p) => p.indice))).toEqual([[0], [1]]);
   });
 
-  it("dice da che parte finisce davvero, cosi' non sembra due pezzi", () => {
-    const r = righeMappa([30, 70], 2);
-    expect(r[0][1]).toMatchObject({ spezzato: true, continuazione: false });
-    expect(r[1][0]).toMatchObject({ spezzato: false, continuazione: true });
-    expect(r[0][0]).toMatchObject({ spezzato: false, continuazione: false });
+  it("riempie una riga finche' ci sta, poi va a capo", () => {
+    const r = righeMappa([40, 40, 40, 40], 2);
+    expect(r.map((riga) => riga.map((p) => p.indice))).toEqual([
+      [0, 1],
+      [2, 3],
+    ]);
   });
 
-  it("un resto da un milionesimo di riga **non** va a capo", () => {
-    // Il difetto che si vedeva: `capacita = totale / righe` non torna esatta in
-    // virgola mobile, l'ultimo chunk avanzava di un nulla, e quel nulla apriva
-    // una riga in piu' con dentro un filo largo due pixel. Un errore di
-    // arrotondamento travestito da dato.
+  it("il pezzo piu' grande occupa esattamente una riga piena", () => {
+    // La capacita' di una riga e' **almeno** il pezzo piu' grande: senza,
+    // un chunk piu' lungo di `totale / righe` non entrerebbe da nessuna parte.
+    // Le righe vengono un po' meno cariche e nessuna proporzione si muove.
+    const r = righeMappa([100, 10, 10], 3);
+    expect(frazioni(r[0])).toEqual([1]);
+    expect(frazioni(r[1])).toEqual([0.1, 0.1]);
+  });
+
+  it("un resto da un milionesimo di riga non apre una riga in piu'", () => {
+    // `somma / righe` non torna esatta in virgola mobile: senza margine
+    // l'ultimo pezzo di una riga piena andava a capo per un nulla, aprendo una
+    // riga con dentro un filo largo due pixel.
     const lunghezze = [4821, 6302, 1775, 5119, 19, 3333, 2222, 1111];
     const r = righeMappa(lunghezze, 3);
-    expect(r).toHaveLength(3);
-    // E l'ultimo pezzo dell'ultima riga e' l'ultimo chunk, non un suo residuo.
-    expect(r[2][r[2].length - 1].indice).toBe(lunghezze.length - 1);
-  });
-
-  it("un pezzo piu' lungo di una riga ne attraversa piu' di una", () => {
-    const r = righeMappa([300], 3);
-    expect(r).toHaveLength(3);
-    expect(r.every((riga) => riga.length === 1 && riga[0].indice === 0)).toBe(true);
+    expect(r.flat()).toHaveLength(lunghezze.length);
+    expect(r.length).toBeLessThanOrEqual(4);
   });
 });
 
