@@ -111,203 +111,6 @@ L'associazione fra `#1` e il run corrispondente e risolta col colore: la tabella
 | I-08 | ✅ fatto (2026-08-12) | **Non stabilito.** I prefissi E5 sfiorano la soglia solo a doc@1 (p=0,0503), **cambiano segno** a doc@3 e spariscono a doc@5: è il profilo di un effetto nullo con rumore. La model card li richiede; su questo corpus non si vedono. |
 | I-10 | ✅ fatto (2026-08-12) | **Effetto reale, piccolo.** Il tetto a 512 token guadagna **+1,26 punti a doc@1** (p=0,0384) su 1.903 query, e regge a tutte e tre le profondità (p=0,038 / 0,040 / 0,034). Costo: **4,05× i chunk**. Vedi sotto. |
 
-### C-06 — la curva di scaling, a due punti su tre
-
-**I numeri** (100 query per dataset, `MAX_NEW_TOKENS=1024`, `REASONING_EFFORT=none`, dense top_k=5):
-
-| | **E2B** (5,1B) | **E4B** (8,0B) | Δ |
-|---|---|---|---|
-| `format_compliance` open_ragbench | 0,8211 | **0,9263** | **+10,5** |
-| `format_compliance` ledger | 0,9487 | **1,0000** | +5,1 |
-| `citation_precision` ORB (NLI) | 0,7150 | 0,6811 | −3,4 ⚠️ |
-| `uncited_claim_rate` ORB | 0,1748 | **0,1261** | |
-| `citation_recall` ORB | 0,5976 | **0,6429** | |
-| `numeric_citation_precision` ledger | 0,5094 | **0,7283** | **+21,9** |
-| latenza p50 ORB | **7,6 s** | 9,4 s | |
-| **VRAM** | **1,93 GB** | 3,28 GB | |
-
-**⚠️ Su ORB E2B sembra battere E4B in `citation_precision`. Non lo batte:** non cita il 17,5% delle affermazioni contro il 12,6%, e ha recall più basso (0,598 contro 0,643). **La precisione sale citando di meno** — la trappola per cui C-03 aveva deciso di riportare `uncited_claim_rate` accanto e mai da solo. È anche un confronto **marginale e non appaiato**: i due modelli producono affermazioni diverse, quindi McNemar non si applica.
-
-**I due controlli di coerenza sono passati.** E4B era già stato misurato in C-01 a 200 query: 0,9309 contro 0,9263 qui (scarto 0,0046) e 1,0000 contro 1,0000 su ledger. È il motivo per cui E4B è dentro C-06 anche se i suoi numeri esistevano già — senza, qualunque differenza fra le taglie sarebbe stata attribuibile anche a un cambio d'ambiente in tre giorni di modifiche.
-
-**C-09 si ripaga subito.** Su LEDGER il verificatore numerico mostra il divario fra le taglie a **+21,9 punti**, dove l'NLI — dominato dal proprio pavimento su quel genere — ne mostra 9 (0,2000 → 0,2931). Senza C-09 quella riga della curva sarebbe stata in gran parte una misura dello strumento.
-
-#### Perché il 12B è stato scartato
-
-**240 s/query, misurati due volte** (1→2 record in 240 s; 3→5 in 480 s): **6,7 ore per dataset, 13,3 in totale**. Il precedente esiste: T-02 aveva già escluso il 26B MoE perché non entrava in VRAM, e la curva si era fermata a 12B.
-
-Il conto tornava dalla tabella di T-02 — prefill 33,8 tok/s su ~5.000 token di contesto fa 148 s, più 75 s di generazione a 2,4 tok/s. **Quel calcolo era stato fatto e poi scartato** perché una calibrazione da 3 query aveva risposto 43 s/query. Due stime che differivano di quattro volte, e ho scelto quella comoda invece di indagare la discrepanza. La calibrazione resta inspiegata: 3 query in 113 secondi totali sono incompatibili con i 240 s misurati sulla **stessa identica prima query**.
-
-> **Regola operativa che ne discende:** uno smoke test da 3 query non è una stima. E il ritmo di una run lunga va misurato nei suoi primi minuti, non annunciato e poi lasciato correre.
-
-#### Cosa questo lascia aperto
-
-**L'affermazione 3 del §0 non è determinata.** Dice *«con un retrieval buono la taglia del modello conta molto meno di quanto si creda»*. Su due punti:
-
-- passare da 5,1B a 8,0B — **1,57× i parametri, 1,7× la VRAM** — compra **+10,5 punti** di conformità su ORB e **+21,9** di precisione numerica su LEDGER;
-- non è un effetto piccolo, quindi **questi dati non sostengono l'affermazione 3**;
-- ma **se la curva si appiattisca fra 8B e 12B era precisamente ciò che il terzo punto doveva dire**, ed è la parte non misurata.
-
-Riportarlo come «taglia conta poco» sarebbe leggere due punti come se fossero tre.
-
-#### Cosa invece questi dati sostengono
-
-**Il genere documentale conta quanto la taglia, e forse di più.** E2B passando da ORB a LEDGER guadagna **12,8 punti**; passare da E2B a E4B su ORB ne vale **10,5**. Cambiare corpus vale più che raddoppiare il modello.
-
-La causa è quella che C-01 aveva già isolato: su open_ragbench il **23% dei chunk contiene già marcatori `[n]`** — sono paper, e i paper citano così — mentre su LEDGER sono **zero**. Il modo dominante di sbagliare, copiare i riferimenti del documento, su LEDGER *non può esistere*. È la terza volta che questo progetto trova il genere come variabile dominante, ed è materia dell'affermazione 2, non della 3.
-
-#### Per completare il terzo punto
-
-```bash
-python scripts/eval_citations.py --dataset open_ragbench --model gemma4:12b --limit 100
-```
-
-**6,7 ore.** Su LEDGER non ne vale la pena: E4B è già a 1,0000 e il 12B non ha margine per migliorare. Restano validi i vincoli della parte 1 — nessuna variabile d'ambiente, e niente modifiche a `src/` o agli indici rispetto ai numeri qui sopra.
-
-### I-10 e I-08 — il tetto di chunking regge, i prefissi no
-
-Misurati insieme su un **indice ridotto** (450 documenti su 997, 9.312 chunk), che è ciò che rende la decisione economica: ~80 minuti di GPU contro i 618 di una re-ingestione completa. Le due varianti condividono l'indice di controllo, quindi separarle sarebbe costato una seconda costruzione per niente.
-
-**1.903 query appaiate**, non 200: il campione contiene documenti interi, quindi ogni query golden i cui documenti rilevanti stanno dentro è valutabile senza reindicizzare nulla.
-
-| criterio | plain → **capped** (I-10) | p | plain → **prefixed** (I-08) | p |
-|---|---|---|---|---|
-| doc@1 | 0,9038 → **0,9164** | **0,0384** | 0,9038 → 0,9138 | 0,0503 |
-| doc@3 | 0,9732 → **0,9811** | **0,0400** | 0,9732 → **0,9716** | 0,7011 |
-| doc@5 | 0,9821 → **0,9895** | **0,0336** | 0,9821 → 0,9827 | 1,0000 |
-
-**I-10 regge a ogni profondità**, con la stessa direzione e un'ampiezza coerente: non è una soglia colpita per caso, è lo stesso effetto letto a tre distanze. **I-08 no**: sfiora la soglia solo dove c'è più margine, cambia segno a doc@3 e sparisce a doc@5.
-
-**A 200 query la lettura era invertita.** `prefixed` sembrava il migliore (2 contro 8 discordanti a doc@1) e `capped` nullo (4 contro 5). Con dieci volte i dati l'ordinamento si ribalta — e i dati in più erano già sugli indici costruiti, bastava non limitarsi alle 200 query che avevano *definito* il campione.
-
-> Non è che il campione da 200 fosse impreciso: dava l'**ordinamento sbagliato**. È lo stesso avvertimento che C-01 aveva già registrato — a quella numerosità il tasso complessivo non ha potenza per guidare una decisione — trovato una seconda volta su una domanda diversa.
-
-**Riportate tutte e tre le profondità, sempre.** `doc@5` è saturo (34 fallimenti su 1.903; su LEDGER **1 su 200**, misurato sull'indice completo) e non può distinguere niente; `doc@1` ha cinque volte il margine. Ma scegliere la profondità dopo aver visto quale conviene sarebbe selezione. Ed è servito: a doc@5 `capped` sembrava non rompere **nessuna** query, mentre a doc@1 ne rompe 50 su 1.903 — il documento giusto veniva spinto giù dalla prima posizione restando dentro le prime cinque.
-
-**Perché LEDGER non è stato misurato.** Verificato prima di spendere: a doc@5 l'indice completo di LEDGER è a **0,9950 — un solo fallimento su 200 query**. Con 494 documenti enormi, i primi 20 chunk coprono una mediana di 5 documenti distinti (12 su ORB): qualunque frammento pertinente trascina dentro il documento giusto. Non è che la misura costasse troppo (3h30, misurate): **non era misurabile** con questo criterio. Cinque minuti di controllo hanno risparmiato tre ore e mezza.
-
-**Cosa resta aperto.** `capped` produce **4,05× i chunk** — l'indice quadruplica, e con esso il tempo di ingestione. Se +1,26 punti a doc@1 valgano quel prezzo è la decisione di I-11, e non la decide questa misura: la decide chi paga la re-ingestione. Quel che questa misura toglie dal tavolo è I-09, che questi dati non giustificano.
-
-**Limite dichiarato:** i tassi assoluti sono ottimistici — l'indice ridotto ha metà dei concorrenti della produzione — e non vanno letti come recall. Si legge il delta appaiato, che della riduzione non risente perché è identica dai due lati. I numeri si ri-derivano con `scripts/probe_index_variants.py eval` in due minuti.
-
-### C-09 — due generi, due strumenti di verifica
-
-**Il problema.** `citation_precision` su LEDGER vale 0,3656 e non è interpretabile: il 96,7% delle affermazioni asserisce numeri presi da tabelle OCR, e chiedere a un modello NLI *«questo testo implica quella frase?»* quando la domanda vera è *«cerca la cella giusta e confronta un numero»* non è un'inferenza linguistica. C-08 aveva già escluso che fosse la formattazione.
-
-**Quanto sbaglia lo strumento vecchio**, misurato prima di sostituirlo (`scripts/probe_table_floor.py`). Su claim i cui numeri sono *dimostrabilmente* nel chunk citato — una ricerca di stringa, nessun modello di mezzo:
-
-| | coppie | accettate a soglia 0,5 | P(entailment) mediana |
-|---|---|---|---|
-| open_ragbench (prosa) | 29 | **58,6%** | 0,580 — sopra soglia |
-| ledger (tabelle) | 161 | **28,0%** | 0,276 — ben sotto |
-
-**Chi sbaglia**, misurato prima di scegliere quanto costruire:
-
-```
-numero dentro una cella di tabella    126/161
-il claim nomina l'etichetta di RIGA    99/126 = 78,6%
-colonna (anno) determinabile           98/126
-  e il claim la nomina                 88/98  = 89,8%
-```
-
-Il generatore cita bene. Il difetto è nello strumento — il che ha reso il verificatore la versione semplice: cercare numeri ed etichette, non capire le tabelle.
-
-**Il risultato, per dataset:**
-
-| dataset | `citation_precision` (NLI) | `numeric_citation_precision` | `numeric_coverage` |
-|---|---|---|---|
-| open_ragbench | 0,6573 | 0,0000 | **0,0020** (1/496) |
-| **ledger** | 0,3656 | **0,7328** | **0,3958** (131/331) |
-
-Su LEDGER il numerico giudica il 39,6% delle coppie e ne accetta il 73,3%, contro il **23,7%** che l'NLI dà sulle stesse. Su open_ragbench giudica **una coppia su 496**: i numeri dei paper stanno nella prosa, non in celle, e lo strumento si rifiuta di giudicare invece di indovinare.
-
-> Quello 0,0000 su ORB **non è un risultato**: è una precisione su un denominatore di uno. La copertura accanto lo dice, ed è la ragione per cui le due chiavi si riportano sempre insieme.
-
-**Il vincolo rispettato.** Le due metriche non finiscono mai nella stessa colonna. Sono definizioni diverse — inferenza linguistica contro ricerca in griglia — e fonderle avrebbe reso i due dataset non confrontabili, che è la trappola che la decisione di OQ-05 doveva evitare. `citation_precision` non è cambiata di una virgola: 0,6573 e 0,3656 restano gli stessi valori registrati il 2026-08-10.
-
-**Perché il 73,3% da solo non prova niente.** Il verificatore accetta secondo lo stesso criterio — etichetta di riga nominata — che la misura di scoping aveva usato per stabilire che il modello cita bene. È circolare. La validazione vera sono i **disaccordi, che si leggono**: 67 casi in cui il numerico dice sì e l'NLI no, e i primi quattro sono citazioni palesemente corrette rifiutate con P(entail) fra 0,07 e 0,21 —
-
-```
-"the cost of goods sold ... in 2017 was $8,265.0 million"
-   numerico: riga='Cost of goods sold'  colonna='2017'     NLI: 0,138
-```
-
-Nell'altra direzione **2 casi soli**, ed entrambi rivelano un limite del numerico, non dell'NLI: righe senza etichetta, e claim troncati da `split_claims` che hanno perso il soggetto — quest'ultimo è un difetto **a monte**, nella segmentazione di C-03.
-
-**Ciò che questo strumento compra non è un numero migliore: è che ogni verdetto dice quale riga e quale colonna ha usato**, quindi si verifica a occhio in due secondi. L'NLI dice 0,138 e non dice perché.
-
-**Un prerequisito più grande del previsto.** Serviva espandere le celle unite nel parser: il **75%** delle tabelle citate usa `colspan≥2` e il **72%** `rowspan≥2`, quasi sempre le stesse. Senza espanderle l'indice di colonna di una riga dati non corrisponde a quello della sua intestazione, e non si può dire a quale anno appartiene un numero. Scrivendo il probe ho riportato **due volte** una limitazione del mio parser come se fosse un difetto del generatore, e le ho corrette entrambe misurando — la seconda volta il campione utile è passato da 12 a 98 casi.
-
-### C-08 — il markup delle tabelle non era la causa
-
-`citation_precision` su LEDGER vale 0,3656 e C-03 l'aveva registrata come non interpretabile. La diagnosi aveva due metà, e C-08 ne ha testata una.
-
-**Il sospetto, quantificato prima di agire** (117 chunk citati nella run C-03): la premessa mediana è per il **26,5%** token di markup `<td>`/`</tr>`, terzo quartile 62,5%, peggiore 77,2%. E il **96,7%** dei claim contiene almeno tre cifre. Nessuno dei due lati della coppia somiglia a ciò su cui un modello NLI addestrato su prosa è stato istruito.
-
-**La misura**, sulle stesse 331 coppie, stesso dump, nessuna rigenerazione:
-
-| premessa | citation_precision | recall | tempo |
-|---|---|---|---|
-| markup intatto | **0,3656** (121/331) | 0,2815 | 129 s |
-| tabelle rese in righe | **0,3263** (108/331) | 0,2222 | 78 s |
-
-Test appaiato per coppia (claim, chunk, marcatore): **35 citazioni perse contro 22 guadagnate, McNemar esatto p = 0,1112**. E la variazione di P(entailment) è simmetrica — mediana **+0,0000**, 132 punteggi scesi e 125 saliti, 74 invariati.
-
-> **Il verificatore è indifferente alla forma superficiale della tabella.** L'ipotesi era che il markup lo portasse fuori distribuzione; se fosse stato così, toglierlo avrebbe spostato i punteggi in una direzione. Li sposta in entrambe, in egual misura.
-
-**Cosa è servito comunque.** La misura era il modo per **falsificare** la spiegazione più semplice, e l'ha falsificata. Ciò che resta è la seconda metà della diagnosi — verificare un'asserzione numerica contro una griglia è una ricerca più un confronto, non un'inferenza linguistica — e non è rimediabile riformattando. Il ROADMAP §8 diceva che costruire un verificatore dedicato *«significherebbe aggirare un difetto rimediabile nel primo strumento»*: ora sappiamo che rimediabile non è, quindi l'obiezione cade. La decisione, con le sue trappole, è in [`open-questions.md`](open-questions.md) OQ-05.
-
-**Il flag resta spento.** Il punto stimato peggiora, anche se non in modo significativo, e non si accende un interruttore per un guadagno che non c'è. Il fatto che la verifica costi il 40% in meno non è una ragione sufficiente.
-
-**Difetto corretto prima di misurare**, con la lezione di C-07 ancora fresca: `_config_hash` di `eval_citation_precision` non conteneva il flag, quindi le due varianti sarebbero finite su disco **sotto lo stesso nome**. Ora `render_tables` entra nell'hash quando è attivo — e nel `config` sempre, anche quando è `False`, perché un campo assente non distingue "spento" da "misurato prima che l'interruttore esistesse".
-
-### C-07 — l'effetto del ragionamento esteso
-
-**La riga, per dataset** (gemma4:latest, T=0, dense top_k=5, 200 query, `MAX_NEW_TOKENS=2048` su entrambi i bracci):
-
-| dataset | ragionamento | conformità grezza | astensione | latenza p50 | token p50 |
-|---|---|---|---|---|---|
-| open_ragbench | spento | 0,9309 | 0,060 | 9,2 s | **76** |
-| open_ragbench | **acceso** | **0,9722** | 0,100 | 19,0 s | **721** |
-| ledger | spento | 0,9931 | 0,280 | 9,6 s | 38 |
-| ledger | **acceso** | **1,0000** | **0,450** | 16,8 s | 556 |
-
-**Il rumore di fondo, misurato e non assunto.** Due repliche del controllo, stessa configurazione: open_ragbench 0,9309 → 0,9362 (**3 query discordanti su 188**, p=1,0000), ledger 0,9931 → 1,0000 (**1 su 144**, p=1,0000). La generazione a T=0 è quasi deterministica — molto più di quanto il §1 lasciasse temere — quindi un effetto reale ha spazio per emergere, e questo è ciò che rende leggibile tutto il resto.
-
-**Il risultato grezzo sembra positivo.** Su open_ragbench il ragionamento porta +4,44 punti al test appaiato, 10 query migliorate contro 2 peggiorate, **p = 0,0386**. Il verdetto di C-01 passerebbe da "non dimostrato" a PASS. Su ledger, invece, **zero**: identico su ogni query in cui entrambi i bracci rispondono.
-
-**Ma il guadagno è tutto in una violazione sola:**
-
-| violazione (open_ragbench) | spento | acceso |
-| `spaced_markers` | **0,0426** | **0,0056** |
-| `no_citation` | 0,0160 | 0,0111 |
-| `out_of_range` | 0,0106 | 0,0111 |
-| `comma_list` | 0,0053 | 0,0056 |
-| `range` | 0,0053 | 0,0056 |
-
-Il ragionamento corregge `[1] [2]` e nient'altro. È il difetto che C-01 aveva isolato come l'ultimo rimasto, e che un promemoria nel prompt aveva provato a correggere **fallendo** (p=0,167, revertito). Fa quello che la prompt non era riuscita a fare.
-
-**E qui il risultato si ribalta.** `[1] [2]` è esattamente la variante che il parser di C-02 ripara. Confrontando ciò che il sistema *serve* invece di ciò che il modello *genera* — `compare_generations.py --repaired`:
-
-| open_ragbench, 180 query appaiate | spento | acceso | delta | McNemar |
-|---|---|---|---|---|
-| grezzo | 0,9278 | 0,9722 | +0,0444 | **p = 0,0386** |
-| **riparato** | 0,9667 | 0,9722 | **+0,0056** | **p = 1,0000** |
-
-Il parser recupera da solo il 90% della differenza. Ciò che resta — 5 query discordanti su 180, 2 contro 3 — è indistinguibile dal rumore, che sulle stesse 200 query vale 3 discordanti.
-
-> **Conclusione di C-07: il ragionamento esteso non migliora il sistema, migliora una metrica.** Su open_ragbench compra 4,4 punti di conformità *grezza* pagandoli **9,5× i token** e 2,1× la latenza, e il parser di C-02 li produce gratis. Su ledger non compra niente in nessuna delle due letture, e costa 14,6× i token.
-
-**Il costo secondario è più grande del primo.** Con il ragionamento acceso l'astensione su ledger passa da 0,280 a **0,450**: 90 domande rifiutate su 200 invece di 56. Trentaquattro domande rispondibili in più a cui il sistema smette di rispondere, in cambio di zero punti di conformità. Su open_ragbench lo stesso effetto è più piccolo ma nella stessa direzione (0,060 → 0,100).
-
-Nota di metodo: le query astenute **escono dal test appaiato da entrambi i lati**, quindi il guadagno grezzo non è un artefatto del modello che evita le domande difficili — le 12 query discordanti sono tutte query a cui entrambi i bracci hanno risposto.
-
-**Perché `MAX_NEW_TOKENS=2048` e non 1024.** A 1024 il braccio con ragionamento tronca il 50% delle risposte e ne restituisce il 17% vuote: si sarebbe misurato il budget e attribuito al ragionamento. Il controllo non se ne accorge perché non tocca mai il tetto — verificato: output identico a 1024, 2048 e 4096 (`scripts/probe_reasoning.py budget`).
-
-**Sull'interruttore, con documentazione alla mano** (`docs.ollama.com`, `openai/openai.go`, `ai.google.dev/gemma`): il gestore `/v1` accetta cinque valori e mappa `none` su thinking spento; **omettere il campo lascia Ollama ad accendere il ragionamento da sé**, quindi il "ragionamento invisibile" scoperto in C-01 non era un bug aggirato ma il default documentato. Gemma 4 espone il thinking come booleano `enable_thinking`, senza livelli — perciò `medium`, `high` e il campo omesso danno token identici query per query, e l'asse è binario come il ROADMAP lo chiama. Resta non spiegato da nessuna delle due fonti perché `low` si distingua dagli altri tre (888 token mediani contro 993): il probe `levels` è pronto per chiuderlo, e non è sulla strada di C-07.
-
-**Difetto trovato e corretto prima di misurare:** `config_hash` non conteneva `reasoning_effort` né `max_new_tokens`, quindi i due bracci sarebbero finiti su disco **con lo stesso nome**. Cercandolo ne è emerso uno già realizzato: `prompt_hash` copriva solo `SYSTEM`, e i run 3 e 4 di C-01 sono registrati sotto lo stesso `2878488d` pur avendo user prompt diversi. Ora l'hash copre anche il template del messaggio utente, e i due bracci di C-07 hanno hash distinti (`df800f52` / `231c3d2c`).
-
 ### C-01 — Prompt con chunk numerati e formato citazione
 
 **Il numero, per dataset** (gemma4:latest / E4B, Q4_K_M, ctx 32768, T=0, dense top_k=5, 200 query per dataset):
@@ -672,6 +475,203 @@ Le frasi aggiunte vengono dall'output reale, non dall'immaginazione. Impatto ret
 ~~**Aperto**: l'harness dei baseline non salva le risposte per query.~~ È il motivo per cui il taglio 45% → 17% resta un'inferenza dai totali invece di un test appaiato, e per cui i tre difetti sopra hanno richiesto di rigenerare le risposte a mano per essere diagnosticati. `citation_harness` ha risolto lo stesso problema in C-01. **1232 test.** — **Chiuso il 2026-08-13 da Q-02**, e **misurato**: `wrong_rate` 0,4500 → 0,1700, **31 query discordanti contro 3**, p<0,0001. Non è più un'inferenza dai totali. Dettagli e le altre due metriche nella sezione Q-02.
 
 ---
+
+### C-07 — l'effetto del ragionamento esteso
+
+**La riga, per dataset** (gemma4:latest, T=0, dense top_k=5, 200 query, `MAX_NEW_TOKENS=2048` su entrambi i bracci):
+
+| dataset | ragionamento | conformità grezza | astensione | latenza p50 | token p50 |
+|---|---|---|---|---|---|
+| open_ragbench | spento | 0,9309 | 0,060 | 9,2 s | **76** |
+| open_ragbench | **acceso** | **0,9722** | 0,100 | 19,0 s | **721** |
+| ledger | spento | 0,9931 | 0,280 | 9,6 s | 38 |
+| ledger | **acceso** | **1,0000** | **0,450** | 16,8 s | 556 |
+
+**Il rumore di fondo, misurato e non assunto.** Due repliche del controllo, stessa configurazione: open_ragbench 0,9309 → 0,9362 (**3 query discordanti su 188**, p=1,0000), ledger 0,9931 → 1,0000 (**1 su 144**, p=1,0000). La generazione a T=0 è quasi deterministica — molto più di quanto il §1 lasciasse temere — quindi un effetto reale ha spazio per emergere, e questo è ciò che rende leggibile tutto il resto.
+
+**Il risultato grezzo sembra positivo.** Su open_ragbench il ragionamento porta +4,44 punti al test appaiato, 10 query migliorate contro 2 peggiorate, **p = 0,0386**. Il verdetto di C-01 passerebbe da "non dimostrato" a PASS. Su ledger, invece, **zero**: identico su ogni query in cui entrambi i bracci rispondono.
+
+**Ma il guadagno è tutto in una violazione sola:**
+
+| violazione (open_ragbench) | spento | acceso |
+| `spaced_markers` | **0,0426** | **0,0056** |
+| `no_citation` | 0,0160 | 0,0111 |
+| `out_of_range` | 0,0106 | 0,0111 |
+| `comma_list` | 0,0053 | 0,0056 |
+| `range` | 0,0053 | 0,0056 |
+
+Il ragionamento corregge `[1] [2]` e nient'altro. È il difetto che C-01 aveva isolato come l'ultimo rimasto, e che un promemoria nel prompt aveva provato a correggere **fallendo** (p=0,167, revertito). Fa quello che la prompt non era riuscita a fare.
+
+**E qui il risultato si ribalta.** `[1] [2]` è esattamente la variante che il parser di C-02 ripara. Confrontando ciò che il sistema *serve* invece di ciò che il modello *genera* — `compare_generations.py --repaired`:
+
+| open_ragbench, 180 query appaiate | spento | acceso | delta | McNemar |
+|---|---|---|---|---|
+| grezzo | 0,9278 | 0,9722 | +0,0444 | **p = 0,0386** |
+| **riparato** | 0,9667 | 0,9722 | **+0,0056** | **p = 1,0000** |
+
+Il parser recupera da solo il 90% della differenza. Ciò che resta — 5 query discordanti su 180, 2 contro 3 — è indistinguibile dal rumore, che sulle stesse 200 query vale 3 discordanti.
+
+> **Conclusione di C-07: il ragionamento esteso non migliora il sistema, migliora una metrica.** Su open_ragbench compra 4,4 punti di conformità *grezza* pagandoli **9,5× i token** e 2,1× la latenza, e il parser di C-02 li produce gratis. Su ledger non compra niente in nessuna delle due letture, e costa 14,6× i token.
+
+**Il costo secondario è più grande del primo.** Con il ragionamento acceso l'astensione su ledger passa da 0,280 a **0,450**: 90 domande rifiutate su 200 invece di 56. Trentaquattro domande rispondibili in più a cui il sistema smette di rispondere, in cambio di zero punti di conformità. Su open_ragbench lo stesso effetto è più piccolo ma nella stessa direzione (0,060 → 0,100).
+
+Nota di metodo: le query astenute **escono dal test appaiato da entrambi i lati**, quindi il guadagno grezzo non è un artefatto del modello che evita le domande difficili — le 12 query discordanti sono tutte query a cui entrambi i bracci hanno risposto.
+
+**Perché `MAX_NEW_TOKENS=2048` e non 1024.** A 1024 il braccio con ragionamento tronca il 50% delle risposte e ne restituisce il 17% vuote: si sarebbe misurato il budget e attribuito al ragionamento. Il controllo non se ne accorge perché non tocca mai il tetto — verificato: output identico a 1024, 2048 e 4096 (`scripts/probe_reasoning.py budget`).
+
+**Sull'interruttore, con documentazione alla mano** (`docs.ollama.com`, `openai/openai.go`, `ai.google.dev/gemma`): il gestore `/v1` accetta cinque valori e mappa `none` su thinking spento; **omettere il campo lascia Ollama ad accendere il ragionamento da sé**, quindi il "ragionamento invisibile" scoperto in C-01 non era un bug aggirato ma il default documentato. Gemma 4 espone il thinking come booleano `enable_thinking`, senza livelli — perciò `medium`, `high` e il campo omesso danno token identici query per query, e l'asse è binario come il ROADMAP lo chiama. Resta non spiegato da nessuna delle due fonti perché `low` si distingua dagli altri tre (888 token mediani contro 993): il probe `levels` è pronto per chiuderlo, e non è sulla strada di C-07.
+
+**Difetto trovato e corretto prima di misurare:** `config_hash` non conteneva `reasoning_effort` né `max_new_tokens`, quindi i due bracci sarebbero finiti su disco **con lo stesso nome**. Cercandolo ne è emerso uno già realizzato: `prompt_hash` copriva solo `SYSTEM`, e i run 3 e 4 di C-01 sono registrati sotto lo stesso `2878488d` pur avendo user prompt diversi. Ora l'hash copre anche il template del messaggio utente, e i due bracci di C-07 hanno hash distinti (`df800f52` / `231c3d2c`).
+
+### I-10 e I-08 — il tetto di chunking regge, i prefissi no
+
+Misurati insieme su un **indice ridotto** (450 documenti su 997, 9.312 chunk), che è ciò che rende la decisione economica: ~80 minuti di GPU contro i 618 di una re-ingestione completa. Le due varianti condividono l'indice di controllo, quindi separarle sarebbe costato una seconda costruzione per niente.
+
+**1.903 query appaiate**, non 200: il campione contiene documenti interi, quindi ogni query golden i cui documenti rilevanti stanno dentro è valutabile senza reindicizzare nulla.
+
+| criterio | plain → **capped** (I-10) | p | plain → **prefixed** (I-08) | p |
+|---|---|---|---|---|
+| doc@1 | 0,9038 → **0,9164** | **0,0384** | 0,9038 → 0,9138 | 0,0503 |
+| doc@3 | 0,9732 → **0,9811** | **0,0400** | 0,9732 → **0,9716** | 0,7011 |
+| doc@5 | 0,9821 → **0,9895** | **0,0336** | 0,9821 → 0,9827 | 1,0000 |
+
+**I-10 regge a ogni profondità**, con la stessa direzione e un'ampiezza coerente: non è una soglia colpita per caso, è lo stesso effetto letto a tre distanze. **I-08 no**: sfiora la soglia solo dove c'è più margine, cambia segno a doc@3 e sparisce a doc@5.
+
+**A 200 query la lettura era invertita.** `prefixed` sembrava il migliore (2 contro 8 discordanti a doc@1) e `capped` nullo (4 contro 5). Con dieci volte i dati l'ordinamento si ribalta — e i dati in più erano già sugli indici costruiti, bastava non limitarsi alle 200 query che avevano *definito* il campione.
+
+> Non è che il campione da 200 fosse impreciso: dava l'**ordinamento sbagliato**. È lo stesso avvertimento che C-01 aveva già registrato — a quella numerosità il tasso complessivo non ha potenza per guidare una decisione — trovato una seconda volta su una domanda diversa.
+
+**Riportate tutte e tre le profondità, sempre.** `doc@5` è saturo (34 fallimenti su 1.903; su LEDGER **1 su 200**, misurato sull'indice completo) e non può distinguere niente; `doc@1` ha cinque volte il margine. Ma scegliere la profondità dopo aver visto quale conviene sarebbe selezione. Ed è servito: a doc@5 `capped` sembrava non rompere **nessuna** query, mentre a doc@1 ne rompe 50 su 1.903 — il documento giusto veniva spinto giù dalla prima posizione restando dentro le prime cinque.
+
+**Perché LEDGER non è stato misurato.** Verificato prima di spendere: a doc@5 l'indice completo di LEDGER è a **0,9950 — un solo fallimento su 200 query**. Con 494 documenti enormi, i primi 20 chunk coprono una mediana di 5 documenti distinti (12 su ORB): qualunque frammento pertinente trascina dentro il documento giusto. Non è che la misura costasse troppo (3h30, misurate): **non era misurabile** con questo criterio. Cinque minuti di controllo hanno risparmiato tre ore e mezza.
+
+**Cosa resta aperto.** `capped` produce **4,05× i chunk** — l'indice quadruplica, e con esso il tempo di ingestione. Se +1,26 punti a doc@1 valgano quel prezzo è la decisione di I-11, e non la decide questa misura: la decide chi paga la re-ingestione. Quel che questa misura toglie dal tavolo è I-09, che questi dati non giustificano.
+
+**Limite dichiarato:** i tassi assoluti sono ottimistici — l'indice ridotto ha metà dei concorrenti della produzione — e non vanno letti come recall. Si legge il delta appaiato, che della riduzione non risente perché è identica dai due lati. I numeri si ri-derivano con `scripts/probe_index_variants.py eval` in due minuti.
+
+### C-08 — il markup delle tabelle non era la causa
+
+`citation_precision` su LEDGER vale 0,3656 e C-03 l'aveva registrata come non interpretabile. La diagnosi aveva due metà, e C-08 ne ha testata una.
+
+**Il sospetto, quantificato prima di agire** (117 chunk citati nella run C-03): la premessa mediana è per il **26,5%** token di markup `<td>`/`</tr>`, terzo quartile 62,5%, peggiore 77,2%. E il **96,7%** dei claim contiene almeno tre cifre. Nessuno dei due lati della coppia somiglia a ciò su cui un modello NLI addestrato su prosa è stato istruito.
+
+**La misura**, sulle stesse 331 coppie, stesso dump, nessuna rigenerazione:
+
+| premessa | citation_precision | recall | tempo |
+|---|---|---|---|
+| markup intatto | **0,3656** (121/331) | 0,2815 | 129 s |
+| tabelle rese in righe | **0,3263** (108/331) | 0,2222 | 78 s |
+
+Test appaiato per coppia (claim, chunk, marcatore): **35 citazioni perse contro 22 guadagnate, McNemar esatto p = 0,1112**. E la variazione di P(entailment) è simmetrica — mediana **+0,0000**, 132 punteggi scesi e 125 saliti, 74 invariati.
+
+> **Il verificatore è indifferente alla forma superficiale della tabella.** L'ipotesi era che il markup lo portasse fuori distribuzione; se fosse stato così, toglierlo avrebbe spostato i punteggi in una direzione. Li sposta in entrambe, in egual misura.
+
+**Cosa è servito comunque.** La misura era il modo per **falsificare** la spiegazione più semplice, e l'ha falsificata. Ciò che resta è la seconda metà della diagnosi — verificare un'asserzione numerica contro una griglia è una ricerca più un confronto, non un'inferenza linguistica — e non è rimediabile riformattando. Il ROADMAP §8 diceva che costruire un verificatore dedicato *«significherebbe aggirare un difetto rimediabile nel primo strumento»*: ora sappiamo che rimediabile non è, quindi l'obiezione cade. La decisione, con le sue trappole, è in [`open-questions.md`](open-questions.md) OQ-05.
+
+**Il flag resta spento.** Il punto stimato peggiora, anche se non in modo significativo, e non si accende un interruttore per un guadagno che non c'è. Il fatto che la verifica costi il 40% in meno non è una ragione sufficiente.
+
+**Difetto corretto prima di misurare**, con la lezione di C-07 ancora fresca: `_config_hash` di `eval_citation_precision` non conteneva il flag, quindi le due varianti sarebbero finite su disco **sotto lo stesso nome**. Ora `render_tables` entra nell'hash quando è attivo — e nel `config` sempre, anche quando è `False`, perché un campo assente non distingue "spento" da "misurato prima che l'interruttore esistesse".
+
+### C-09 — due generi, due strumenti di verifica
+
+**Il problema.** `citation_precision` su LEDGER vale 0,3656 e non è interpretabile: il 96,7% delle affermazioni asserisce numeri presi da tabelle OCR, e chiedere a un modello NLI *«questo testo implica quella frase?»* quando la domanda vera è *«cerca la cella giusta e confronta un numero»* non è un'inferenza linguistica. C-08 aveva già escluso che fosse la formattazione.
+
+**Quanto sbaglia lo strumento vecchio**, misurato prima di sostituirlo (`scripts/probe_table_floor.py`). Su claim i cui numeri sono *dimostrabilmente* nel chunk citato — una ricerca di stringa, nessun modello di mezzo:
+
+| | coppie | accettate a soglia 0,5 | P(entailment) mediana |
+|---|---|---|---|
+| open_ragbench (prosa) | 29 | **58,6%** | 0,580 — sopra soglia |
+| ledger (tabelle) | 161 | **28,0%** | 0,276 — ben sotto |
+
+**Chi sbaglia**, misurato prima di scegliere quanto costruire:
+
+```
+numero dentro una cella di tabella    126/161
+il claim nomina l'etichetta di RIGA    99/126 = 78,6%
+colonna (anno) determinabile           98/126
+  e il claim la nomina                 88/98  = 89,8%
+```
+
+Il generatore cita bene. Il difetto è nello strumento — il che ha reso il verificatore la versione semplice: cercare numeri ed etichette, non capire le tabelle.
+
+**Il risultato, per dataset:**
+
+| dataset | `citation_precision` (NLI) | `numeric_citation_precision` | `numeric_coverage` |
+|---|---|---|---|
+| open_ragbench | 0,6573 | 0,0000 | **0,0020** (1/496) |
+| **ledger** | 0,3656 | **0,7328** | **0,3958** (131/331) |
+
+Su LEDGER il numerico giudica il 39,6% delle coppie e ne accetta il 73,3%, contro il **23,7%** che l'NLI dà sulle stesse. Su open_ragbench giudica **una coppia su 496**: i numeri dei paper stanno nella prosa, non in celle, e lo strumento si rifiuta di giudicare invece di indovinare.
+
+> Quello 0,0000 su ORB **non è un risultato**: è una precisione su un denominatore di uno. La copertura accanto lo dice, ed è la ragione per cui le due chiavi si riportano sempre insieme.
+
+**Il vincolo rispettato.** Le due metriche non finiscono mai nella stessa colonna. Sono definizioni diverse — inferenza linguistica contro ricerca in griglia — e fonderle avrebbe reso i due dataset non confrontabili, che è la trappola che la decisione di OQ-05 doveva evitare. `citation_precision` non è cambiata di una virgola: 0,6573 e 0,3656 restano gli stessi valori registrati il 2026-08-10.
+
+**Perché il 73,3% da solo non prova niente.** Il verificatore accetta secondo lo stesso criterio — etichetta di riga nominata — che la misura di scoping aveva usato per stabilire che il modello cita bene. È circolare. La validazione vera sono i **disaccordi, che si leggono**: 67 casi in cui il numerico dice sì e l'NLI no, e i primi quattro sono citazioni palesemente corrette rifiutate con P(entail) fra 0,07 e 0,21 —
+
+```
+"the cost of goods sold ... in 2017 was $8,265.0 million"
+   numerico: riga='Cost of goods sold'  colonna='2017'     NLI: 0,138
+```
+
+Nell'altra direzione **2 casi soli**, ed entrambi rivelano un limite del numerico, non dell'NLI: righe senza etichetta, e claim troncati da `split_claims` che hanno perso il soggetto — quest'ultimo è un difetto **a monte**, nella segmentazione di C-03.
+
+**Ciò che questo strumento compra non è un numero migliore: è che ogni verdetto dice quale riga e quale colonna ha usato**, quindi si verifica a occhio in due secondi. L'NLI dice 0,138 e non dice perché.
+
+**Un prerequisito più grande del previsto.** Serviva espandere le celle unite nel parser: il **75%** delle tabelle citate usa `colspan≥2` e il **72%** `rowspan≥2`, quasi sempre le stesse. Senza espanderle l'indice di colonna di una riga dati non corrisponde a quello della sua intestazione, e non si può dire a quale anno appartiene un numero. Scrivendo il probe ho riportato **due volte** una limitazione del mio parser come se fosse un difetto del generatore, e le ho corrette entrambe misurando — la seconda volta il campione utile è passato da 12 a 98 casi.
+
+### C-06 — la curva di scaling, a due punti su tre
+
+**I numeri** (100 query per dataset, `MAX_NEW_TOKENS=1024`, `REASONING_EFFORT=none`, dense top_k=5):
+
+| | **E2B** (5,1B) | **E4B** (8,0B) | Δ |
+|---|---|---|---|
+| `format_compliance` open_ragbench | 0,8211 | **0,9263** | **+10,5** |
+| `format_compliance` ledger | 0,9487 | **1,0000** | +5,1 |
+| `citation_precision` ORB (NLI) | 0,7150 | 0,6811 | −3,4 ⚠️ |
+| `uncited_claim_rate` ORB | 0,1748 | **0,1261** | |
+| `citation_recall` ORB | 0,5976 | **0,6429** | |
+| `numeric_citation_precision` ledger | 0,5094 | **0,7283** | **+21,9** |
+| latenza p50 ORB | **7,6 s** | 9,4 s | |
+| **VRAM** | **1,93 GB** | 3,28 GB | |
+
+**⚠️ Su ORB E2B sembra battere E4B in `citation_precision`. Non lo batte:** non cita il 17,5% delle affermazioni contro il 12,6%, e ha recall più basso (0,598 contro 0,643). **La precisione sale citando di meno** — la trappola per cui C-03 aveva deciso di riportare `uncited_claim_rate` accanto e mai da solo. È anche un confronto **marginale e non appaiato**: i due modelli producono affermazioni diverse, quindi McNemar non si applica.
+
+**I due controlli di coerenza sono passati.** E4B era già stato misurato in C-01 a 200 query: 0,9309 contro 0,9263 qui (scarto 0,0046) e 1,0000 contro 1,0000 su ledger. È il motivo per cui E4B è dentro C-06 anche se i suoi numeri esistevano già — senza, qualunque differenza fra le taglie sarebbe stata attribuibile anche a un cambio d'ambiente in tre giorni di modifiche.
+
+**C-09 si ripaga subito.** Su LEDGER il verificatore numerico mostra il divario fra le taglie a **+21,9 punti**, dove l'NLI — dominato dal proprio pavimento su quel genere — ne mostra 9 (0,2000 → 0,2931). Senza C-09 quella riga della curva sarebbe stata in gran parte una misura dello strumento.
+
+#### Perché il 12B è stato scartato
+
+**240 s/query, misurati due volte** (1→2 record in 240 s; 3→5 in 480 s): **6,7 ore per dataset, 13,3 in totale**. Il precedente esiste: T-02 aveva già escluso il 26B MoE perché non entrava in VRAM, e la curva si era fermata a 12B.
+
+Il conto tornava dalla tabella di T-02 — prefill 33,8 tok/s su ~5.000 token di contesto fa 148 s, più 75 s di generazione a 2,4 tok/s. **Quel calcolo era stato fatto e poi scartato** perché una calibrazione da 3 query aveva risposto 43 s/query. Due stime che differivano di quattro volte, e ho scelto quella comoda invece di indagare la discrepanza. La calibrazione resta inspiegata: 3 query in 113 secondi totali sono incompatibili con i 240 s misurati sulla **stessa identica prima query**.
+
+> **Regola operativa che ne discende:** uno smoke test da 3 query non è una stima. E il ritmo di una run lunga va misurato nei suoi primi minuti, non annunciato e poi lasciato correre.
+
+#### Cosa questo lascia aperto
+
+**L'affermazione 3 del §0 non è determinata.** Dice *«con un retrieval buono la taglia del modello conta molto meno di quanto si creda»*. Su due punti:
+
+- passare da 5,1B a 8,0B — **1,57× i parametri, 1,7× la VRAM** — compra **+10,5 punti** di conformità su ORB e **+21,9** di precisione numerica su LEDGER;
+- non è un effetto piccolo, quindi **questi dati non sostengono l'affermazione 3**;
+- ma **se la curva si appiattisca fra 8B e 12B era precisamente ciò che il terzo punto doveva dire**, ed è la parte non misurata.
+
+Riportarlo come «taglia conta poco» sarebbe leggere due punti come se fossero tre.
+
+#### Cosa invece questi dati sostengono
+
+**Il genere documentale conta quanto la taglia, e forse di più.** E2B passando da ORB a LEDGER guadagna **12,8 punti**; passare da E2B a E4B su ORB ne vale **10,5**. Cambiare corpus vale più che raddoppiare il modello.
+
+La causa è quella che C-01 aveva già isolato: su open_ragbench il **23% dei chunk contiene già marcatori `[n]`** — sono paper, e i paper citano così — mentre su LEDGER sono **zero**. Il modo dominante di sbagliare, copiare i riferimenti del documento, su LEDGER *non può esistere*. È la terza volta che questo progetto trova il genere come variabile dominante, ed è materia dell'affermazione 2, non della 3.
+
+#### Per completare il terzo punto
+
+```bash
+python scripts/eval_citations.py --dataset open_ragbench --model gemma4:12b --limit 100
+```
+
+**6,7 ore.** Su LEDGER non ne vale la pena: E4B è già a 1,0000 e il 12B non ha margine per migliorare. Restano validi i vincoli della parte 1 — nessuna variabile d'ambiente, e niente modifiche a `src/` o agli indici rispetto ai numeri qui sopra.
 
 ## Fase 5 — Correttezza delle misure
 
@@ -2452,167 +2452,6 @@ volta invece di toglierlo. Un fallimento **non** si memorizza — un motore muto
 adesso può rispondere fra un minuto — e un test fissa anche l'ordine, perché un
 menu che si riordina da solo fa saltare la selezione a chi ha appena scelto.
 
-### U-06 — la fonte è il chunk intero, e il PDF non c'è affatto
-
-Il criterio dice «da una citazione si raggiunge la pagina della fonte», e la
-parola *pagina* non si poteva prendere alla lettera. Guardato prima di
-cominciare:
-
-| | `open_ragbench` | `ledger` |
-| PDF su disco | **nessuno** — solo il JSON degli articoli | nessuno — solo il Markdown di Mathpix |
-| `page` | sempre `0` | reale (0…N) |
-| `bbox` | `null` | `null` |
-| `source_uri` | `https://arxiv.org/abs/…` | `ledger:NYSE:SHW:2017` |
-
-L'overlay non è scoperto solo perché I-06 è rinviato: **un PDF non c'è proprio**.
-La seconda riga del criterio lo prevede — *«dichiararlo, non simularlo»* — e la
-colonna di destra lo scrive invece di disegnare un riquadro grigio che promette
-qualcosa.
-
-Quello che si può raggiungere è **il chunk intero**, ed è la metà che conta. La
-scheda del pannello ne mostra due righe; il chunk che risponde alla domanda sui
-crediti di Sherwin-Williams è lungo **6.302 caratteri**. Controllare una
-citazione vuol dire leggerli tutti.
-
-#### Terza volta che il dato c'era già
-
-`/documents`, `/document/{id}/chunks` e `/chunk/{id}` esistono dal A-04; A-07 ha
-creato gli indici payload apposta (2,07 s → 0,025 s); `client.ts` li avvolge da
-U-00 con un commento che dice «(U-06)». **Non li aveva mai chiamati nessuno** —
-come `/config` prima di U-03 e `Risposta.config` prima di U-15. Il costo
-misurato: l'elenco di `ledger` è 494 documenti, 21 KB, 0,35 s; il documento più
-grande è 261 chunk, 523 KB, 0,46 s. Si chiedono solo aprendo l'esploratore, non
-all'avvio.
-
-#### La mappa
-
-Una tessera per chunk, larga il doppio dove c'è una tabella. **La larghezza porta
-l'informazione insieme al colore**, non il colore da solo: è la regola dei
-verdetti di U-07. Due documenti dello stesso corpus danno due mappe diverse, e
-quella è l'affermazione 2 del §0 senza una tabella di numeri.
-
-Non si poteva disegnare prima di U-05: fino a ieri il campo `pipeline` diceva il
-nome di una pipeline che non aveva girato.
-
-#### La legenda diceva una cosa vera dell'altro indice
-
-Scritta com'era nel mockup — «tabella · mai spezzata» — era **falsa
-sull'indice generico**: lì i chunk sono una pagina intera e la tabella dentro non
-è stata protetta da nessuno, ci è capitata. Sarebbe stata la stessa
-dichiarazione non verificata che U-05 aveva appena tolto dal campo, rimessa due
-giorni dopo in una legenda. Ora sono due etichette scelte da `taglioPerGenere`,
-la stessa funzione che decide l'accento sulla targhetta.
-
-#### Due modi di arrivarci, nessuno dei due un comando in più
-
-«Esplora il corpus» sotto il selettore del dataset, perché apre una vista su
-*quel* dataset — il docstring del telaio lo aspettava: *«arriverà con la
-schermata che apre»*. E il **nome del documento** sulla scheda della fonte, che
-era già ciò che si guarda per sapere da dove viene una risposta: su una colonna
-larga 272 px un bottone in più sarebbe stato il primo a essere tolto.
-
-#### Un rinominamento per un difetto vero
-
-`app/corpus.tsx` è diventato `app/esploratore.tsx`. Due file con lo stesso nome e
-due estensioni si risolvono per ordine di preferenza del bundler: l'import di
-`usaCorpus` prendeva `corpus.ts`, che non lo esporta, e il typecheck lo ha detto
-subito — ma in un caso meno fortunato avrebbe preso il modulo sbagliato in
-silenzio. Il repo non lo faceva mai: `chat.tsx` sta accanto a `conversazione.ts`.
-
-### U-05 — la targhetta non si poteva disegnare finché il campo mentiva
-
-Il criterio è «rende visibile il routing», e il dato per farlo c'era già:
-`ChunkView` porta `doc_genre` e `pipeline` dal A-04, con un docstring che dice
-testualmente di portarli **per U-05**. Ha retto per un giorno, il tempo di
-guardare cosa contengono.
-
-#### Un campo dichiarato che nessuno verificava, il terzo
-
-Il contratto del §3 diceva `pipeline: str  # ingestion pipeline actually used`.
-I due loader generici scrivevano un'altra cosa:
-
-```python
-ledger.py         pipeline = doc_genre
-open_ragbench.py  pipeline = "table_heavy" if doc_genre == "table_heavy" else "continuous_text"
-```
-
-In tutti e due i casi il codice spezza a mano — una pagina per chunk, una sezione
-per chunk — e i moduli `pipeline_*.py` non vengono mai chiamati. Letto
-sull'indice vivo, 2000 punti per collection:
-
-| collection | `doc_genre` | `pipeline` | punti |
-|---|---|---|---|
-| `ledger` | table_heavy | **table_heavy** | 47.110 |
-| `ledger_routed` | table_heavy | **table_heavy** | 228.331 |
-| `open_ragbench` | academic_pdf | continuous_text | 18.840 |
-| `open_ragbench_routed` | academic_pdf | structured_hierarchical | 98.312 |
-
-Su LEDGER il campo diceva **la stessa cosa nelle due modalità**, ed era falso in
-quella generica. Una targhetta dipinta da lì avrebbe mostrato lo stesso valore
-col routing acceso e spento, sul dataset dove il routing conta di più — cioè
-avrebbe fallito il proprio criterio pur sembrando funzionare.
-
-È la terza volta: `reasoning_enabled` (falso in ogni run per un periodo),
-`context_window` (D-14), questo. La forma è sempre la stessa, e qui il motivo per
-cui è potuto restare sbagliato stava scritto in un commento di `router.py`:
-sosteneva che l'harness leggesse il campo per taggare gli `EvalRun`. Non lo legge
-nessuno. **Niente calcola su `Chunk.pipeline`** — si scrive, si mette nel
-payload, si rilegge in `ChunkView`.
-
-#### Quella stessa cosa ha reso la correzione economica
-
-Se nessuno calcola su quel campo, correggerlo non sposta nessun risultato
-registrato e non chiede di ricostruire un indice: `set_payload` riscrive un campo
-su una collection viva, come gli indici payload di A-07 e il modificatore IDF di
-R-08. 65.950 punti, nessun vettore toccato, verificato col conto esatto e non a
-campione:
-
-| | punti | non-`generic` dopo |
-| `open_ragbench` | 18.840 | 0 |
-| `ledger` | 47.110 | 0 |
-| `open_ragbench_routed` | 98.312 | intatti |
-| `ledger_routed` | 228.331 | intatti |
-
-Le *routed* le rifiuta dal nome, e il rifiuto è il punto: lì il valore è vero,
-l'ha scritto il modulo che ha girato davvero.
-
-Due cose imparate eseguendola, e sono nello script. Su `ledger` la scrittura
-supera i cinque secondi di timeout del client: il server la portava a termine e
-lo script usciva con un errore — **una migrazione riuscita che si dichiara
-fallita invita a rilanciarla cercando un guasto che non c'è**. E «già a posto»
-era deciso su 500 punti campionati, cioè sull'1% di `ledger`; ora è un `count`
-con filtro, e la stessa funzione verifica anche l'esito.
-
-#### La targhetta
-
-`tabelle → taglio generico`, sotto la testata della scheda, dove sta
-`section_path`: è una proprietà del documento da cui la fonte viene, non un
-giudizio su di essa, quindi non va in fondo accanto ai verdetti.
-
-**Le due metà insieme.** La pipeline da sola non dice in base a cosa è stata
-scelta; il genere da solo non dice cosa se n'è fatto. Il routing è la freccia.
-
-**Due vocabolari separati**, anche dove una parola coincide: `table_heavy` come
-genere è «fatto di tabelle», come pipeline è «spezzato tenendo le tabelle
-intere». Su `open_ragbench` un documento `table_heavy` finisce su
-`continuous_text`, perché lì le tabelle sono Markdown — quindi non è un'identità,
-è una decisione. Una mappa condivisa avrebbe accettato `academic_pdf` come nome
-di pipeline, che non lo è.
-
-**L'accento solo quando una pipeline è stata scelta per il genere.** Col routing
-spento tutti i documenti ricevono lo stesso taglio, e cinque targhette accese
-identiche su cinque schede smettono di essere lette. Il genere invece cambia da
-scheda a scheda anche lì.
-
-#### Il limite, dichiarato
-
-Oggi la demo **non instrada mai**: `/datasets` pubblica solo le due collection
-generiche, e le `_routed` esistono in Qdrant senza essere raggiungibili. Quindi
-la seconda metà della targhetta è costante, e ciò che si vede è che il routing
-non è in gioco. È vero e non è tutto ciò che il criterio vorrebbe — registrato
-come **D-18**, perché è una scelta di perimetro che non era scritta da nessuna
-parte.
-
 ### U-04 — la seconda variabile è nella colonna, non nella barra
 
 `baseline_prompt` esisteva nell'API da A-03 — il commit si intitola «il servizio
@@ -2796,3 +2635,164 @@ diff. `endOfLine: "auto"` prende come giusto il fine riga che il file già ha, e
 
 **214 test Vitest** (10 nuovi), 1709 Python invariati, typecheck, build e
 `format:check` verdi.
+
+### U-05 — la targhetta non si poteva disegnare finché il campo mentiva
+
+Il criterio è «rende visibile il routing», e il dato per farlo c'era già:
+`ChunkView` porta `doc_genre` e `pipeline` dal A-04, con un docstring che dice
+testualmente di portarli **per U-05**. Ha retto per un giorno, il tempo di
+guardare cosa contengono.
+
+#### Un campo dichiarato che nessuno verificava, il terzo
+
+Il contratto del §3 diceva `pipeline: str  # ingestion pipeline actually used`.
+I due loader generici scrivevano un'altra cosa:
+
+```python
+ledger.py         pipeline = doc_genre
+open_ragbench.py  pipeline = "table_heavy" if doc_genre == "table_heavy" else "continuous_text"
+```
+
+In tutti e due i casi il codice spezza a mano — una pagina per chunk, una sezione
+per chunk — e i moduli `pipeline_*.py` non vengono mai chiamati. Letto
+sull'indice vivo, 2000 punti per collection:
+
+| collection | `doc_genre` | `pipeline` | punti |
+|---|---|---|---|
+| `ledger` | table_heavy | **table_heavy** | 47.110 |
+| `ledger_routed` | table_heavy | **table_heavy** | 228.331 |
+| `open_ragbench` | academic_pdf | continuous_text | 18.840 |
+| `open_ragbench_routed` | academic_pdf | structured_hierarchical | 98.312 |
+
+Su LEDGER il campo diceva **la stessa cosa nelle due modalità**, ed era falso in
+quella generica. Una targhetta dipinta da lì avrebbe mostrato lo stesso valore
+col routing acceso e spento, sul dataset dove il routing conta di più — cioè
+avrebbe fallito il proprio criterio pur sembrando funzionare.
+
+È la terza volta: `reasoning_enabled` (falso in ogni run per un periodo),
+`context_window` (D-14), questo. La forma è sempre la stessa, e qui il motivo per
+cui è potuto restare sbagliato stava scritto in un commento di `router.py`:
+sosteneva che l'harness leggesse il campo per taggare gli `EvalRun`. Non lo legge
+nessuno. **Niente calcola su `Chunk.pipeline`** — si scrive, si mette nel
+payload, si rilegge in `ChunkView`.
+
+#### Quella stessa cosa ha reso la correzione economica
+
+Se nessuno calcola su quel campo, correggerlo non sposta nessun risultato
+registrato e non chiede di ricostruire un indice: `set_payload` riscrive un campo
+su una collection viva, come gli indici payload di A-07 e il modificatore IDF di
+R-08. 65.950 punti, nessun vettore toccato, verificato col conto esatto e non a
+campione:
+
+| | punti | non-`generic` dopo |
+| `open_ragbench` | 18.840 | 0 |
+| `ledger` | 47.110 | 0 |
+| `open_ragbench_routed` | 98.312 | intatti |
+| `ledger_routed` | 228.331 | intatti |
+
+Le *routed* le rifiuta dal nome, e il rifiuto è il punto: lì il valore è vero,
+l'ha scritto il modulo che ha girato davvero.
+
+Due cose imparate eseguendola, e sono nello script. Su `ledger` la scrittura
+supera i cinque secondi di timeout del client: il server la portava a termine e
+lo script usciva con un errore — **una migrazione riuscita che si dichiara
+fallita invita a rilanciarla cercando un guasto che non c'è**. E «già a posto»
+era deciso su 500 punti campionati, cioè sull'1% di `ledger`; ora è un `count`
+con filtro, e la stessa funzione verifica anche l'esito.
+
+#### La targhetta
+
+`tabelle → taglio generico`, sotto la testata della scheda, dove sta
+`section_path`: è una proprietà del documento da cui la fonte viene, non un
+giudizio su di essa, quindi non va in fondo accanto ai verdetti.
+
+**Le due metà insieme.** La pipeline da sola non dice in base a cosa è stata
+scelta; il genere da solo non dice cosa se n'è fatto. Il routing è la freccia.
+
+**Due vocabolari separati**, anche dove una parola coincide: `table_heavy` come
+genere è «fatto di tabelle», come pipeline è «spezzato tenendo le tabelle
+intere». Su `open_ragbench` un documento `table_heavy` finisce su
+`continuous_text`, perché lì le tabelle sono Markdown — quindi non è un'identità,
+è una decisione. Una mappa condivisa avrebbe accettato `academic_pdf` come nome
+di pipeline, che non lo è.
+
+**L'accento solo quando una pipeline è stata scelta per il genere.** Col routing
+spento tutti i documenti ricevono lo stesso taglio, e cinque targhette accese
+identiche su cinque schede smettono di essere lette. Il genere invece cambia da
+scheda a scheda anche lì.
+
+#### Il limite, dichiarato
+
+Oggi la demo **non instrada mai**: `/datasets` pubblica solo le due collection
+generiche, e le `_routed` esistono in Qdrant senza essere raggiungibili. Quindi
+la seconda metà della targhetta è costante, e ciò che si vede è che il routing
+non è in gioco. È vero e non è tutto ciò che il criterio vorrebbe — registrato
+come **D-18**, perché è una scelta di perimetro che non era scritta da nessuna
+parte.
+
+### U-06 — la fonte è il chunk intero, e il PDF non c'è affatto
+
+Il criterio dice «da una citazione si raggiunge la pagina della fonte», e la
+parola *pagina* non si poteva prendere alla lettera. Guardato prima di
+cominciare:
+
+| | `open_ragbench` | `ledger` |
+| PDF su disco | **nessuno** — solo il JSON degli articoli | nessuno — solo il Markdown di Mathpix |
+| `page` | sempre `0` | reale (0…N) |
+| `bbox` | `null` | `null` |
+| `source_uri` | `https://arxiv.org/abs/…` | `ledger:NYSE:SHW:2017` |
+
+L'overlay non è scoperto solo perché I-06 è rinviato: **un PDF non c'è proprio**.
+La seconda riga del criterio lo prevede — *«dichiararlo, non simularlo»* — e la
+colonna di destra lo scrive invece di disegnare un riquadro grigio che promette
+qualcosa.
+
+Quello che si può raggiungere è **il chunk intero**, ed è la metà che conta. La
+scheda del pannello ne mostra due righe; il chunk che risponde alla domanda sui
+crediti di Sherwin-Williams è lungo **6.302 caratteri**. Controllare una
+citazione vuol dire leggerli tutti.
+
+#### Terza volta che il dato c'era già
+
+`/documents`, `/document/{id}/chunks` e `/chunk/{id}` esistono dal A-04; A-07 ha
+creato gli indici payload apposta (2,07 s → 0,025 s); `client.ts` li avvolge da
+U-00 con un commento che dice «(U-06)». **Non li aveva mai chiamati nessuno** —
+come `/config` prima di U-03 e `Risposta.config` prima di U-15. Il costo
+misurato: l'elenco di `ledger` è 494 documenti, 21 KB, 0,35 s; il documento più
+grande è 261 chunk, 523 KB, 0,46 s. Si chiedono solo aprendo l'esploratore, non
+all'avvio.
+
+#### La mappa
+
+Una tessera per chunk, larga il doppio dove c'è una tabella. **La larghezza porta
+l'informazione insieme al colore**, non il colore da solo: è la regola dei
+verdetti di U-07. Due documenti dello stesso corpus danno due mappe diverse, e
+quella è l'affermazione 2 del §0 senza una tabella di numeri.
+
+Non si poteva disegnare prima di U-05: fino a ieri il campo `pipeline` diceva il
+nome di una pipeline che non aveva girato.
+
+#### La legenda diceva una cosa vera dell'altro indice
+
+Scritta com'era nel mockup — «tabella · mai spezzata» — era **falsa
+sull'indice generico**: lì i chunk sono una pagina intera e la tabella dentro non
+è stata protetta da nessuno, ci è capitata. Sarebbe stata la stessa
+dichiarazione non verificata che U-05 aveva appena tolto dal campo, rimessa due
+giorni dopo in una legenda. Ora sono due etichette scelte da `taglioPerGenere`,
+la stessa funzione che decide l'accento sulla targhetta.
+
+#### Due modi di arrivarci, nessuno dei due un comando in più
+
+«Esplora il corpus» sotto il selettore del dataset, perché apre una vista su
+*quel* dataset — il docstring del telaio lo aspettava: *«arriverà con la
+schermata che apre»*. E il **nome del documento** sulla scheda della fonte, che
+era già ciò che si guarda per sapere da dove viene una risposta: su una colonna
+larga 272 px un bottone in più sarebbe stato il primo a essere tolto.
+
+#### Un rinominamento per un difetto vero
+
+`app/corpus.tsx` è diventato `app/esploratore.tsx`. Due file con lo stesso nome e
+due estensioni si risolvono per ordine di preferenza del bundler: l'import di
+`usaCorpus` prendeva `corpus.ts`, che non lo esporta, e il typecheck lo ha detto
+subito — ma in un caso meno fortunato avrebbe preso il modulo sbagliato in
+silenzio. Il repo non lo faceva mai: `chat.tsx` sta accanto a `conversazione.ts`.
