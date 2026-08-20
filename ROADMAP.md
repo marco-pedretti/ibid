@@ -1,4 +1,4 @@
-﻿# ibid — Piano di implementazione
+# ibid — Piano di implementazione
 
 **Banco di prova per sistemi RAG con attribuzione verificabile**, su modelli piccoli eseguiti in locale, valutato quantitativamente su dataset di benchmark pubblici.
 
@@ -18,16 +18,7 @@ Il nome evocativo attira, la descrizione spiega. Chi scorre una lista di reposit
 
 ---
 
-> **Rinumerazione del 2026-08-13.** L'inserimento della Fase 7 (Servizio e API) ha spostato di uno le sezioni finali. I riferimenti dentro il repo sono stati aggiornati, **ma i messaggi di commit anteriori a quella data no** — non si riscrivono. Chi legge la storia traduca così:
->
-> | prima | ora |
-> |---|---|
-> | §13 Cosa NON fare | **§14** |
-> | §14 Regole di lavoro | **§15** |
-> | §15 Struttura del repo | **§16** |
-> | §16 Rischi | **§17** |
->
-> Le sezioni citate più spesso nel codice — §0 (le tre affermazioni) e §3 (contratti dati) — **non si sono mosse**, ed è il motivo per cui la rinumerazione era accettabile. Le fasi si sono spostate di conseguenza: la vecchia Fase 7 (Interfaccia) è ora la Fase 8, la vecchia Fase 8 (Extra) è la Fase 9.
+> **Rinumerazione del 2026-08-13.** L'inserimento della Fase 7 ha spostato di uno le sezioni finali. Chi legge messaggi di commit anteriori a quella data traduca §13→**§14**, §14→**§15**, §15→**§16**, §16→**§17**, e le fasi 7 e 8 di allora nelle attuali 8 e 9. I riferimenti dentro il repo sono aggiornati; i commit non si riscrivono. **§0 e §3, i più citati, non si sono mossi** — è il motivo per cui la rinumerazione era accettabile.
 
 Questo documento è la fonte di verità per l'implementazione. È scritto per essere eseguibile anche da un coding agent: ogni task ha un identificativo, un deliverable e criteri di accettazione verificabili. Le scelte tecnologiche stanno in `STACK.md`.
 
@@ -115,6 +106,8 @@ Il valore massimo è 400ms [2][3].
 ```
 
 Marcatori `[n]` contigui, un numero per chunk, numerazione stabile per sessione. Vietate `[2, 3]`, `[2 e 3]`, `[2]-[3]`. Il parser normalizza le varianti note (sono documentate in `eval/contamination/`, raccolte dai test preliminari) e scarta i marcatori che puntano a chunk non presenti in contesto.
+
+**Intorno ai marcatori il modello è libero di formattare.** Dal 2026-08-19 (U-14) il prompt *invita* markdown e LaTeX dove aiutano invece di imporre prosa piana; il testo grezzo resta il sistema di coordinate su cui viaggiano marcatori, verdetti per frase e frasi scoperte, e la formattazione si applica **come decorazione su intervalli**. Il debito che questo apre è **D-3**.
 
 ### 3.3 Risultato di valutazione
 
@@ -309,7 +302,7 @@ Per ogni dataset candidato: 16 domande costruite con lo stesso schema dei test p
 | C-07 | Riga dedicata all'effetto del ragionamento esteso on/off | Misurato una volta sola, non per ogni configurazione |
 | I-08 | **Misura** dei prefissi `query:`/`passage:` di E5 su un indice ridotto, senza re-ingestione | Delta appaiato su doc_R@5 — o la sua assenza |
 | I-10 | **Misura** del chunking contro la finestra da 512 token dell'embedder, sullo stesso indice ridotto | Delta appaiato su doc_R@5, **misurato separatamente da I-08** |
-| C-08 | Premessa di entailment senza il markup delle tabelle OCR, e **rimisura** di `citation_precision` su LEDGER | Le due varianti affiancate sulle stesse generazioni. Chiude la decisione che il gate qui sotto rimandava |
+| C-08 | Premessa di entailment senza il markup delle tabelle OCR, e **rimisura** di `citation_precision` su LEDGER | Le due varianti affiancate sulle stesse generazioni. Chiude la decisione che il gate della fase rimandava |
 | C-09 | **Verificatore numerico per il genere tabellare**: `numeric_citation_precision` | Riportata per LEDGER accanto a `citation_precision`, **mai nella stessa colonna**. Validata sul floor test di OQ-05 |
 
 **Perché due task `I-` in questa fase.** Il prefisso indica di cosa parla il task, non in che fase sta (precedente: `D-01` in Fase 3). Entrambi i difetti sono nell'ingestione, ma stanno qui perché **decidono se C-06 può partire**: C-06 è la misura più cara del progetto e l'affermazione 3 del §0 dice *«con un buon retrieval»*. Lanciarlo su una premessa non verificata significa rischiare di rifarlo. I-08 e I-10 **misurano e basta** — le correzioni sono I-09 e I-11, in Fase 5 — e vanno misurati **uno alla volta** (§15): vivono nella stessa funzione, `encode()`, e insieme darebbero un delta non attribuibile.
@@ -322,18 +315,15 @@ Per ogni dataset candidato: 16 domande costruite con lo stesso schema dei test p
 
 L'ordine non è quello della tabella, per la regola del §15. Il vincolo che lo determina: **C-06 rilancia l'intero sistema per ogni taglia di modello**, quindi ogni modifica al comportamento fatta dopo lo invalida.
 
-1. **C-05** — cambia il prompt, e `prompt_hash` entra in `config_hash`: farlo dopo C-04 obbligherebbe a rimisurare C-04. Verificabile in gran parte sulle 891 generazioni già salvate, dove le risposte in lingua mista sono ≤1 su 189 — entrambi i corpus sono inglesi, quindi è più una verifica che una correzione.
-2. **C-04** — l'ultima modifica alla pipeline. C-03 gli ha già fornito i dati: `uncited_claim_rate` 0,106 e 0,156, astensione al 26,5% su LEDGER contro 5,5% su ORB.
-3. **E-04/E-05** — **mai eseguiti** (nessun risultato con `harness: generation` in `eval/results/`), e il gate di questa fase li richiede. Indipendenti dagli altri: si possono lanciare in parallelo.
-4. **C-07** — ✅ fatto il 2026-08-12. Una misura sola, e risultato negativo: il guadagno esiste sul testo grezzo e sparisce dopo il parser di C-02. Vedi `docs/progress.md`.
-5. **I-10, poi I-08** — ✅ fatti il 2026-08-12. I-10 regge (+1,26 punti a doc@1, p=0,0384, significativo a tutte le profondità), I-08 no. C-06 può partire senza aspettare una re-ingestione: entrambe le correzioni restano in Fase 5, e I-09 non è più giustificata.
-6. **C-08** — ✅ fatto il 2026-08-12, risultato negativo: il markup non era la causa (p=0,1112).
-7. **C-09** — ✅ fatto il 2026-08-12. `numeric_citation_precision` 0,7328 su LEDGER contro lo 0,2374 dell'NLI sulle stesse coppie; su open_ragbench copertura 0,2%, cioè lo strumento si rifiuta di giudicare la prosa. La riga LEDGER della curva di scaling ora dice qualcosa.
-8. **C-06** — ✅ fatto a due punti il 2026-08-13. E2B ed E4B; il 12B costa **240 s/query misurati**, cioè 13,3 ore, ed è scartato col precedente del 26B in T-02. **L'affermazione 3 del §0 resta non determinata**: due punti mostrano un divario grande, il terzo avrebbe detto se la curva si appiattisce.
+1. **C-05** — cambia il prompt, e `prompt_hash` entra in `config_hash`: farlo dopo C-04 obbligherebbe a rimisurare C-04.
+2. **C-04** — l'ultima modifica alla pipeline. C-03 gli ha già fornito i dati su cui tarare la soglia.
+3. **E-04/E-05** — il gate della fase li richiede, e sono indipendenti dagli altri: si possono lanciare in parallelo.
+4. **C-07** — una misura sola, non una per configurazione.
+5. **I-10, poi I-08** — uno alla volta: vivono nella stessa funzione, `encode()`, e insieme darebbero un delta non attribuibile.
+6. **C-08**, poi **C-09** — decidono se la riga LEDGER della curva di scaling dice qualcosa. Su LEDGER `citation_precision` non è interpretabile come proprietà del generatore: il verificatore NLI è fuori distribuzione su claim numerici contro tabelle OCR, e nessuno dei due lati della coppia somiglia a ciò su cui è stato addestrato. C-08 toglie il markup e rimisura; **solo se dopo il numero resta non interpretabile** si costruisce un verificatore diverso per quel genere (C-09) — prenderla come una debolezza del modello, o costruire subito il secondo strumento, sarebbe stato decidere senza misurare.
+7. **C-06** — per ultimo, ed è la misura più cara del progetto.
 
-**Da decidere prima di C-06, non dopo — ora è C-08.** Su LEDGER `citation_precision` non è interpretabile come proprietà del generatore: il verificatore NLI è fuori distribuzione su claim numerici contro tabelle OCR (vedi `docs/progress.md`, C-03). Se C-06 gira così, la curva per taglia del modello ha una riga muta su un dataset su due, e la cosa emerge a run finite.
-
-Quantificato il 2026-08-11 sui 117 chunk citati: la premessa mediana è per il **26,5%** token di markup, il terzo quartile 62,5%, la peggiore 77,2% — mentre il **96,7%** dei claim contiene almeno tre cifre. Non è "il modello è debole": è che nessuno dei due lati della coppia somiglia a ciò su cui è stato addestrato. C-08 toglie il markup e rimisura; se dopo il numero resta non interpretabile, allora serve un verificatore diverso per quel genere, ed è una decisione più grande — ma prenderla ora significherebbe costruire un secondo strumento per aggirare un difetto rimediabile nel primo.
+Come è andato ciascuno, e quali sono risultati negativi, sta in [`progress.md`](docs/progress.md).
 
 ---
 
@@ -356,7 +346,7 @@ Tutte e tre le voci nascono dall'audit del 2026-08-11, in cui le librerie sono s
 
 **R-08 e R-09 non si fanno in un commit solo.** Sono due cause indipendenti — l'IDF vive nell'indice, la codifica della query nel client — e correggerle insieme misurando una volta viola il §15. Costa una rimisura in più: dieci minuti.
 
-> **Cosa hanno comprato quei dieci minuti** (misurato il 2026-08-13): R-08 muove fino a **+27,9 punti**, R-09 **4 query su 10.000**. Correggendole insieme il risultato sarebbe stato attribuito a «OQ-03» e la ripartizione — **100 a 0** — non si sarebbe mai vista. La regola non è pignoleria contabile: è l'unica cosa che distingue una causa da una coincidenza.
+> **Cosa hanno comprato quei dieci minuti** (misurato il 2026-08-13): delle due correzioni una muove le metriche di parecchi punti e l'altra di quattro query su diecimila. Correggendole insieme il risultato sarebbe stato attribuito a «OQ-03», e la ripartizione — praticamente 100 a 0 — non si sarebbe mai vista. La regola non è pignoleria contabile: è l'unica cosa che distingue una causa da una coincidenza. I numeri in [`progress.md`](docs/progress.md), R-08 e R-09.
 
 **I-09 e I-11 invece condividono la re-ingestione, se scattano entrambe.** Non è un'eccezione al §15: l'attribuzione è già stata fatta a monte, da I-08 e I-10, che misurano una causa ciascuno su un indice ridotto. La re-ingestione completa non è la misura che separa le cause — è l'adozione di due correzioni già separate, e imporne due da 618 minuti ciascuna costerebbe venti ore di GPU per un'informazione già in mano.
 
@@ -381,15 +371,9 @@ Tutte e tre le voci nascono dall'audit del 2026-08-11, in cui le librerie sono s
 | Q-05 | La scelta del provider ONNX vive in **un posto solo**, e la dipendenza GPU è un extra opzionale di `pyproject.toml` | Nessun file di `src/` nomina `DmlExecutionProvider`; su una macchina senza DirectML l'import riesce e ripiega dichiarandolo |
 | Q-06 | **Registro dei dataset**: i dataset disponibili si leggono da un posto solo, non da 14 liste `choices=[...]` scritte a mano | Aggiungere un dataset dello stesso genere richiede il suo loader e una riga nel registro; **nessuno script va toccato** |
 
-**Ogni voce è un difetto che ha già morso**, non un'ipotesi di stile:
+**Ogni voce è un difetto che ha già morso**, non un'ipotesi di stile: **Q-01** è la stessa duplicazione che ha lasciato `reasoning_enabled=False` scritto a mano mentre il modello ragionava, e l'harness che ancora fa così *usa* il modello quando gira con `--query-rewrite`; **Q-02** ha costretto a rigenerare a mano risposte che le run non avevano salvato, e ha morso una seconda volta sulle run di retrieval archiviate, dove il confronto di R-08 poteva essere solo fra due medie; **Q-03** ha già rotto un import durante C-03; **Q-05** è la cucitura di U-12, e finché il blocco che sceglie il provider ONNX sta in cinque posti la portabilità Linux è cinque modifiche invece di una; **Q-06** è `choices=["open_ragbench", "ledger", "all"]` scritto a mano in **14 script**, mentre il nucleo è già agnostico — il coupling è tutto ai bordi, ed è anche ciò che serve a U-01 per cambiare dataset senza riavvio.
 
-- **Q-01** — è la stessa duplicazione che ha lasciato `reasoning_enabled=False` scritto a mano mentre il modello ragionava, difetto che C-01 ha corretto in due harness su tre. Il terzo è ancora così, e non è cosmetico: con `--query-rewrite` quell'harness *usa* il modello (R-03).
-- **Q-02** — durante E-04/E-05 la diagnosi dei tre difetti ha richiesto di rigenerare a mano le risposte, perché quelle delle run non esistevano più. **E il 2026-08-13 il difetto ha morso di nuovo, altrove**: le run di retrieval archiviate non salvano i risultati per query, quindi il confronto con loro in R-08 era marginale — due medie, nessun test. È stato possibile fare McNemar solo perché lo stato pre-correzione era **riproducibile a comando**, cosa che non sarà vera la prossima volta.
-- **Q-03** — ha già rotto un import durante C-03.
-- **Q-05** — il blocco che sceglie `DmlExecutionProvider` è copiato in `src/index/embed.py`, `src/generation/entailment.py` e `src/retrieval/reranker.py`, più due volte in un probe. Non è solo duplicazione: è **la cucitura di U-12**, e finché sta in cinque posti la portabilità Linux è cinque modifiche invece di una.
-- **Q-06** — `choices=["open_ragbench", "ledger", "all"]` è scritto a mano in **14 script**. Il nucleo è già agnostico (16 sole occorrenze letterali in tutto `src/`, quasi tutte nei loader, cioè dove devono stare): il coupling è tutto ai bordi. Serve anche a U-01, che chiede di cambiare dataset senza riavvio.
-
-**Q-05 e Q-06 sono nuove, aggiunte il 2026-08-13**, e non sono un allargamento di comodo: la prima è il prerequisito della Fase 7 (un servizio che gira su un'altra macchina probabilmente gira su Linux), la seconda è ciò che rende questo un *testbed* invece di un programma per due dataset.
+Le ultime due non sono un allargamento di comodo: Q-05 è il prerequisito della Fase 7 (un servizio che gira su un'altra macchina probabilmente gira su Linux), Q-06 è ciò che rende questo un *testbed* invece di un programma per due dataset.
 
 **Ordine di esecuzione** (§15 chiede di deciderlo prima e di scriverlo):
 
@@ -420,34 +404,11 @@ Il criterio è ridurre il lavoro rifatto, non la difficoltà crescente. Q-03 e Q
 
 **A-02 è il task difficile, ed è bene saperlo prima.** Gli harness leggono `cfg` globale — è ciò che ha permesso a R-11 di passare `SEARCH_EXACT` da variabile d'ambiente senza toccare una firma. Comodo per uno script, **impossibile per un servizio**: due richieste concorrenti con `top_k` diverso condividerebbero lo stesso modulo. Finché A-02 non è fatto, l'API è monoutente e non lo sa.
 
-### A-08 — la finestra di contesto è una proprietà del modello, e si è dovuto misurarlo
-
-Deciso il 2026-08-19, dopo aver cercato un modo di far scegliere la finestra a chi usa la demo. Le tre cose verificate, perché nessuna era ovvia:
-
-1. **`num_ctx` non esiste sul contratto OpenAI.** L'elenco ufficiale dei campi di `/v1/chat/completions` non lo contiene, e la documentazione rimanda a un Modelfile. Mandandolo comunque, Ollama risponde **200 e lo ignora** — misurato: `num_ctx: 4096` sul filo, e il modello resta caricato a 32768. Un controllo costruito lì sembrerebbe funzionare senza fare niente.
-2. **Un `PARAMETER num_ctx` nel Modelfile invece ha effetto attraverso l'endpoint OpenAI.** Misurato creando un modello derivato a 8192: una chiamata a `/v1/chat/completions` lo carica a 8192. La finestra viaggia quindi col **nome del modello**, che è un campo pienamente supportato.
-3. **Da fermo non si può interrogare.** `/api/ps` elenca solo i modelli *caricati*: a servizio inattivo risponde vuoto, quindi non è una fonte di verità su cui costruire.
-
-Ne segue la forma di A-08. Chi guarda deve poter scegliere **modello e finestra separatamente**, come farebbe con due manopole; sotto, quella coppia è un nome nel catalogo. La traduzione fra le due cose sta nel **server**, non nel frontend: dedurre `gemma4-32k` → famiglia `gemma4`, finestra 32768 spezzando una stringa significherebbe scrivere una convenzione di nomi dentro l'interfaccia, cioè la quindicesima copia di Q-06 in TypeScript.
-
-> **Il massimo non è uno solo, ed è misurato** (2026-08-19): sui quattro modelli installati qui, `gemma4:latest` e `gemma4:e2b` si fermano a 131 072, mentre `gemma4:12b` e `qwen3.5:latest` arrivano a 262 144. Le taglie offerte da U-16 dipendono quindi dal modello scelto, e non da una lista sola.
-
-> **Il meccanismo è del motore, non di un modello**, e l'implementazione lo resta a una condizione: Ollama riporta la finestra sotto una chiave che contiene il nome della famiglia — `gemma4.context_length`, `qwen35.context_length`. Leggerla per nome funzionerebbe solo su gemma4; si legge per **pattern** (`*.context_length`), che è ciò che rende il catalogo valido per qualunque modello arrivi domani.
-
-> **Porta anche la quantizzazione, e per una ragione precisa.** `LLM_QUANTIZATION = "Q4_K_M"` è una costante che finisce in ogni `EvalRun`, ed è vera oggi per tutti e quattro i modelli **per coincidenza** — cioè la stessa identica forma di `context_window` e di `reasoning_enabled` prima di lui. Tre campi della stessa famiglia dichiarati e non letti: il catalogo li rende leggibili tutti e tre in un colpo.
-
-> **Chiude anche D-14.** Se la finestra viaggia col nome del modello, `EvalRun.model` la implica e `context_window` smette di essere una costante che nessuno verifica: diventa una proprietà leggibile del catalogo. È la stessa correzione che `reasoning_enabled` ha già subito — dedotto, mai asserito.
+**A-08 — la finestra viaggia col nome del modello, e la coppia la risolve il server.** Deciso il 2026-08-19, dopo tre verifiche: `num_ctx` non è un campo del contratto OpenAI e mandarlo comunque ottiene 200 e nessun effetto; un `PARAMETER num_ctx` nel Modelfile invece funziona anche attraverso `/v1`; `/api/ps` non è interrogabile a servizio fermo. Ne segue la forma del task: chi guarda sceglie **modello e finestra separatamente**, e la traduzione fra quella coppia e il nome nel catalogo sta nel **server** — dedurla spezzando una stringa nel frontend sarebbe la quindicesima copia di Q-06, in TypeScript. Il catalogo si legge **per pattern** (`*.context_length`), quindi vale per qualunque famiglia arrivi domani, e porta anche la quantizzazione: `LLM_QUANTIZATION` era una costante vera per coincidenza, come `context_window` e `reasoning_enabled` prima di lei. Chiude **D-14**. Misure in [`progress.md`](docs/progress.md), A-08.
 
 **A-06 è la verifica, non un extra.** La dashboard importa `src.` in **9 moduli, 22 volte**: è il consumatore più esigente che esista già. Se l'API le basta, basterà anche al frontend — e se non le basta, si scopre ora invece che a React scritto. Se dovesse rivelarsi sproporzionata, va **rimandata dichiarandolo**, non silenziosamente omessa: senza, il confine è affermato e non provato.
 
-**Il criterio è stato riscritto eseguendolo** (2026-08-14), e vale la pena dire perché. Era `grep -r "^from src\." dashboard/` — comodo da controllare, e **un proxy per la cosa che interessa**. Sbagliava in due direzioni:
-
-- **Troppo largo.** Catturava la lettura di `eval/results/` e `eval/golden/`, che sono file sul disco della dashboard e non stanno dietro nessun endpoint. Per leggerli servono i contratti dati del §3, e un contratto condiviso è il contrario di una duplicazione. Soddisfare il `grep` avrebbe richiesto o di ricopiare lo schema di `EvalRun` nella dashboard, o di far servire all'API l'archivio degli esperimenti — e la lista di ciò che la Fase 7 espone è dichiarata vincolante poche righe più su.
-- **Troppo stretto.** `^from src\.` non vede un import annidato dentro una funzione, che è esattamente dove `state.py` teneva il proprio client Qdrant.
-
-Il criterio nuovo dice la cosa che il vecchio approssimava: **la dashboard non deve *eseguire* la pipeline.** Gli import rimasti sono cinque, ciascuno con la ragione scritta accanto in un test che fallisce se ne compare un sesto senza che qualcuno l'abbia deciso.
-
-> **A-06 ha prodotto anche un endpoint.** Dall'API mancava la metà che non genera: l'unico modo di vedere dei chunk era `/query`, cioè pagare una generazione — 200 generazioni per un batch del Failure Explorer. Da qui `POST /retrieve`, che accetta **molte query in una chiamata** perché l'embedding è batch per natura. È esattamente l'esito che questo task esisteva per provocare.
+> **Il criterio in tabella è stato riscritto eseguendolo** (2026-08-14). Era `grep -r "^from src\." dashboard/`, cioè un proxy: troppo largo — catturava la lettura di `eval/results/`, che sono file sul disco della dashboard e non stanno dietro nessun endpoint — e troppo stretto, perché non vede un import annidato dentro una funzione, che è dove `state.py` teneva il proprio client Qdrant. Il criterio nuovo dice la cosa che il vecchio approssimava: **la dashboard non deve *eseguire* la pipeline.** Com'è andata sta in [`progress.md`](docs/progress.md), A-06.
 
 **A-07 è lo stesso meccanismo una seconda volta** (2026-08-14), e questo dice qualcosa che va scritto: A-06 ha esercitato *un* consumatore, non tutti. La bozza d'interfaccia della Fase 8 — quattro schermate disegnate prima di scrivere React — ne ha rivelati altri tre.
 
@@ -460,8 +421,6 @@ Il criterio nuovo dice la cosa che il vecchio approssimava: **la dashboard non d
 **Perché sta in Fase 7 e non in Fase 8.** La Fase 8 dice «il frontend non importa niente da `src/`»: queste sono modifiche a `src/api/` e `src/service/`, e metterle dentro un task U-xx sarebbe la prima violazione di quella regola il giorno dopo averla scritta.
 
 **Nessuna tocca il contratto esistente**, ed è il criterio: due campi additivi e due endpoint nuovi. La regola inversa — cambiare la forma di ciò che è già stato prodotto — è quella che ha reso caro il §3.2.
-
-> **Un effetto collaterale che vale da solo.** `GET /documents` ha bisogno di contare i chunk per documento, e su `ledger` una scansione dei payload costa 2,07 s (10 s su `ledger_routed`). Con un indice payload su `doc_id` la stessa domanda costa **0,025 s** — 80×. L'indice si aggiunge a una collection esistente **senza rifare i vettori**, esattamente come il modificatore IDF di R-08, e `get_by_chunk_id()` prevedeva questo rimedio nella propria docstring da prima che servisse: ogni citazione cliccata in U-06 passa di lì.
 
 **Cosa questa fase NON fa**, e la lista è vincolante quanto quella sopra: nessuna astrazione del vector store, nessun harness a plugin, nessuna coda di messaggi, nessuna autenticazione, nessun multi-tenancy. Le ragioni stanno in §14 — sono la stessa decisione che ha tenuto fuori LangChain.
 
@@ -488,11 +447,18 @@ Il criterio nuovo dice la cosa che il vecchio approssimava: **la dashboard non d
 | U-10 | GIF o video di 90 secondi nel README | ≤ 90 secondi, mostra query → risposta citata → apertura della fonte, senza tagli che nascondano la latenza reale |
 | U-11 | README: le tre affermazioni del §0, architettura, tabelle per dataset, screenshot, limiti, future work | Le tre affermazioni del §0 compaiono ciascuna con la tabella per dataset che la sostiene, e la sezione limiti nomina i risultati negativi invece di ometterli |
 | U-12 | **Portabilità Linux**: provider ONNX scelto dalla piattaforma, dipendenze GPU come extra opzionali, nessun percorso che assuma Windows | Suite verde e `docker compose --profile demo up` su Linux x86_64, senza modifiche al sorgente |
-| U-17 | **Il testo indicizzato**: il documento in fila nella colonna di mezzo, accanto alla mappa, con le cuciture fra un chunk e l'altro visibili | Si legge il documento intero e si vede **dove sono caduti i tagli**, con la stessa selezione della mappa. Ciò che si mostra è il testo **come è stato indicizzato**, non il documento: nell'indice generico i chunk lo partizionano esattamente (misurato: zero sovrapposizioni), in uno instradato no — e in quel caso la vista lo deve dichiarare invece di ripetere il testo condiviso |
-| U-16 | **Modello e finestra di contesto, due selettori**: si scelgono separatamente, e le finestre offerte sono solo quelle compatibili col modello scelto | Chi guarda sceglie due cose, non un nome di catalogo. Nessuna convenzione di nomi nel frontend: la coppia arriva da `Capabilities` (A-08). Una finestra che quel modello non regge **non compare**, invece di comparire e fallire |
-| U-15 | **Con quali parametri è stata data ogni risposta**: la configurazione che ha girato si rilegge nella conversazione, e fra una domanda e l'altra si vede **cosa è cambiato** | Riaprendo una conversazione si sa con quali parametri ogni risposta è stata prodotta, senza aprire niente. Nessun campo nuovo nel contratto né nel deposito: `ConfigView` è già dentro ogni risposta, e ciò che manca è mostrarlo |
-| U-14 | **Markdown e LaTeX nella risposta**: il prompt li **invita** invece di vietarli, e l'interfaccia li disegna | Ciò che il modello formatta si legge formattato, in tutte e due le colonne del confronto. I marcatori di citazione, i verdetti per frase e le frasi scoperte restano allineati al testo grezzo: il markdown è **decorazione su intervalli**, non un testo riscritto |
 | U-13 | **Conversazione nuova e cronologia locale**: pulsante «Nuova conversazione», elenco delle conversazioni nella corsia, persistenza in `localStorage` | Si comincia una conversazione nuova senza ricaricare la pagina, e la cronologia sopravvive a un ricaricamento **dichiarando** di essere locale a questo browser. Nessun endpoint, nessuna sessione lato server |
+| U-14 | **Markdown e LaTeX nella risposta**: il prompt li **invita** invece di vietarli, e l'interfaccia li disegna | Ciò che il modello formatta si legge formattato, in tutte e due le colonne del confronto. I marcatori di citazione, i verdetti per frase e le frasi scoperte restano allineati al testo grezzo: il markdown è **decorazione su intervalli**, non un testo riscritto |
+| U-15 | **Con quali parametri è stata data ogni risposta**: la configurazione che ha girato si rilegge nella conversazione, e fra una domanda e l'altra si vede **cosa è cambiato** | Riaprendo una conversazione si sa con quali parametri ogni risposta è stata prodotta, senza aprire niente. Nessun campo nuovo nel contratto né nel deposito: `ConfigView` è già dentro ogni risposta, e ciò che manca è mostrarlo |
+| U-16 | **Modello e finestra di contesto, due selettori**: si scelgono separatamente, e le finestre offerte sono solo quelle compatibili col modello scelto | Chi guarda sceglie due cose, non un nome di catalogo. Nessuna convenzione di nomi nel frontend: la coppia arriva da `Capabilities` (A-08). Una finestra che quel modello non regge **non compare**, invece di comparire e fallire |
+| U-17 | **Il testo indicizzato**: il documento in fila nella colonna di mezzo, accanto alla mappa, con le cuciture fra un chunk e l'altro visibili | Si legge il documento intero e si vede **dove sono caduti i tagli**, con la stessa selezione della mappa. Ciò che si mostra è il testo **come è stato indicizzato**, non il documento: nell'indice generico i chunk lo partizionano esattamente (misurato: zero sovrapposizioni), in uno instradato no — e in quel caso la vista lo deve dichiarare invece di ripetere il testo condiviso |
+| U-18 | **La corsia si comprime**: la colonna di sinistra si riduce a una striscia e torna, e la scelta si ricorda | A corsia chiusa **nessuna funzione sparisce** — nuova conversazione, cronologia, dataset ed esploratore restano raggiungibili — e la colonna di lavoro guadagna davvero lo spazio, invece di lasciare una traccia vuota nella griglia. La scelta sopravvive al ricaricamento, come le larghezze dell'esploratore (U-17) |
+| U-19 | **La pagina «Che cos'è»**: cosa fa il progetto, le tre affermazioni del §0 e i limiti | Raggiungibile dalla corsia, in IT/EN come tutto il resto. **Nessuna metrica scritta a mano nel frontend**: i numeri che mostra sono quelli del README e vengono da una fonte sola, oppure non ci sono. Dice anche cosa la demo *non* è — quale modello ha risposto e su quale corpus |
+| U-20 | **L'avvio guidato**: si salta, e chi l'ha già fatto non lo rivede | Si salta con **un comando solo**, non torna dopo un ricaricamento, e **non impedisce di fare la prima domanda** mentre è aperto. Dichiara di essere locale a questo browser, come la cronologia di U-13 |
+| U-21 | **Il telefono**: l'interfaccia regge una larghezza da telefono | A **390 px** si fa una domanda, si legge la risposta coi verdetti e si apre una fonte, **senza scorrimento orizzontale**. Il criterio di U-02 vale anche lì: la lista documenti resta raggiungibile in ogni stato — raggiungibile, non necessariamente affiancata |
+| U-22 | **La documentazione tecnica**: architettura, contratti, come si riproduce una misura | Chi arriva da GitHub **rifà una misura** seguendo solo ciò che è scritto lì, senza leggere il codice. Non è il README (U-11), che deve convincere in tre minuti: questa deve bastare a chi ha già deciso di provarci |
+| U-23 | **Le tre domande di partenza per dataset, verificate**: interessanti, e con l'esito noto prima di proporle | Tre per dataset, e la forma resta quella di oggi — due a cui il corpus **può** rispondere e una fuori dal corpus, perché l'astensione è metà della dimostrazione e nasconderla renderebbe la demo una pubblicità. Di ciascuna si registra **cosa deve succedere**: per le prime due il chunk d'oro atteso e la posizione in cui arriva con la configurazione con cui la demo parte; per la terza che il gate si chiuda. La verifica sta in uno **script rieseguibile**, non in un giudizio: chiude **D-17** e vincola U-08, il cui indice ridotto deve contenerle |
+| Q-07 | **Refactor dell'interfaccia** (il prefisso dice l'argomento, non la fase — vedi Fase 4) | **Lista chiusa di difetti scritta prima di toccare un file**, ognuno con la prova che esiste: è la regola con cui la Fase 6 si è tenuta finita. Gate: il numero di test Vitest **non cala** e nessuna schermata cambia comportamento |
 
 **U-03 è la feature che fa capire il progetto a chiunque**, ed è quasi gratis: i baseline li state già calcolando in Fase 2.
 
@@ -500,15 +466,11 @@ Il criterio nuovo dice la cosa che il vecchio approssimava: **la dashboard non d
 
 «Il frontend non importa niente da `src/`» è la regola giusta: un frontend che importasse la pipeline non ne sarebbe un consumatore, sarebbe un secondo posto in cui la pipeline vive. Ma ne segue che **il contratto del §3.5 esiste in due linguaggi**, e due elenchi scritti a mano divergono — è la lezione di Q-06, in TypeScript. Peggio: la seconda copia diverge *in silenzio*, perché nessun test Python guarda dentro `ui/`.
 
-Quindi `ui/src/api/types.ts` non si scrive, **si genera** da `scripts/gen_api_types.py`, e `tests/test_ui_types.py` fallisce se il file committato non è ciò che il generatore produce oggi. Un campo aggiunto ad `AnswerResponse` senza rigenerare rompe la suite Python: si scopre prima di arrivare al browser, e senza che serva Node per accorgersene.
+Quindi `ui/src/api/types.ts` non si scrive, **si genera** da `scripts/gen_api_types.py`, e `tests/test_ui_types.py` fallisce se il file committato non è ciò che il generatore produce oggi. Gli eventi SSE non sono modelli pydantic — `to_wire()` costruisce i payload a mano — quindi il generatore non li legge, li **esegue**: i nomi dei campi vengono dal dizionario che finisce davvero sul filo.
 
-**Gli eventi SSE non sono modelli pydantic**: `to_wire()` costruisce i payload a mano, ed è l'unico punto del contratto in cui una divergenza non romperebbe nessun tipo Python. Per questo il generatore non li legge, li **esegue**: i nomi dei campi vengono dal dizionario che finisce davvero sul filo.
+### Decisioni d'interfaccia
 
-Due proprietà che il tipo fa rispettare meglio di un test: in `QueryRequest` solo `query` è obbligatorio — cioè il criterio di A-07 verificato dal compilatore a ogni chiamata invece che una volta sola — e le liste di `Capabilities` restano `string[]` e non letterali, perché un valore nuovo lato server deve **arrivare** al frontend, non romperlo.
-
-### Decisioni d'interfaccia prese il 2026-08-14
-
-Ricavate disegnando quattro schermate prima di scrivere React. Quelle che vincolano l'implementazione, non l'estetica.
+Ricavate disegnando quattro schermate prima di scrivere React (2026-08-14) e precisate eseguendo i task. Quelle che vincolano l'implementazione, non l'estetica; come sono state applicate sta in [`progress.md`](docs/progress.md).
 
 **La lingua della risposta segue il prompt, non l'interfaccia.** Il selettore IT/EN traduce la cornice — etichette, avvisi, nomi degli stati. Non tocca il testo del modello, gli estratti dei chunk né i messaggi di errore del backend: quelli seguono la lingua della domanda e del corpus. La ragione non è di comodità: far rispondere in italiano su un corpus inglese significherebbe che le citazioni sostengono un testo **tradotto**, e il verificatore NLI di C-03 dovrebbe giudicare cross-lingua un'implicazione che non ha mai misurato in quella condizione. La precisione di citazione è la prima affermazione del §0; non si baratta con una comodità di presentazione.
 
@@ -516,84 +478,38 @@ Ricavate disegnando quattro schermate prima di scrivere React. Quelle che vincol
 
 **Il pannello fonti si apre su `chunks`, non a risposta finita.** Il criterio di U-02 dice «visibile senza interazione in ogni stato», e il protocollo del §3.5 manda `chunks` **prima** del primo token. Le fonti compaiono in ~0,1 s e il testo comincia a ~3 s: l'attesa si riempie invece di premiare, e si vede da dove nasce la risposta mentre nasce.
 
-**U-03 è un layout, non un toggle.** «Affiancate, dalla stessa query, nella stessa sessione» non si ottiene con due messaggi consecutivi in cronologia. Il toggle RAG decide il default della prossima domanda; il confronto è un'azione esplicita su una risposta già data, che la rilancia col RAG invertito e mette le due in due colonne. Il selettore permissivo/severo di U-04 vive **dentro** la colonna senza fonti, l'unico posto dove ha effetto.
+**U-03 è un layout, non un toggle.** «Affiancate, dalla stessa query, nella stessa sessione» non si ottiene con due messaggi consecutivi in cronologia. Il toggle RAG decide il default della prossima domanda; il confronto è un'azione esplicita su una risposta già data, che la rilancia col RAG invertito e mette le due in due colonne. Il selettore permissivo/severo di U-04 vive **dentro** la colonna senza fonti, l'unico posto dove ha effetto. Il secondo braccio riparte dalla configurazione **che ha girato**, non dalla barra: è il §15 dentro l'interfaccia, e rilanciare con le opzioni correnti metterebbe nelle due colonne anche un modello diverso o un `top_k` cambiato nel frattempo.
 
-> **La barra intera è U-03 (2026-08-19).** Il mockup mette cinque controlli sotto il campo — RAG, «Ragionamento», il modello, il prompt del baseline, «Avanzate» — e solo due avevano un ID: U-03 e U-04. Gli altri tre stavano nel disegno, in queste decisioni, e persino nell'API: `reasoning_effort` e `models` esistono perché A-07 li ha aggiunti *guardando questa barra*. In nessun posto con un criterio, però — cioè la situazione della cronologia prima che diventasse U-13, e la conclusione è la stessa: una decisione senza task è la definizione di ciò che non viene fatto. Vengono qui e non in un task nuovo perché **la barra la costruisce U-03**, che è il primo che ne ha bisogno; e non tornano dentro U-02 — dove «Dettagli della run» già legge la configurazione che ha girato — perché quel task è chiuso, e un controllo aggiunto a un confine già passato finisce su `main` staccato da qualunque task, che è precisamente ciò che la regola della Fase 8 esiste per impedire.
+> **La barra intera è U-03 (2026-08-19).** Il mockup mette cinque controlli sotto il campo — RAG, «Ragionamento», il modello, il prompt del baseline, «Avanzate» — e solo due avevano un ID. Gli altri tre stavano nel disegno, in queste decisioni e persino nell'API, in nessun posto con un criterio: cioè la situazione della cronologia prima che diventasse U-13, e **una decisione senza task è la definizione di ciò che non viene fatto**. Vengono qui perché la barra la costruisce U-03, che è il primo che ne ha bisogno.
 
-> **Due di quei controlli portano un argomento, non solo un campo.** Il menu dei modelli è l'**affermazione 3 del §0** resa toccabile: cambiare taglia sulla stessa query, col confronto affiancato lì accanto, è il modo in cui «con un buon retrieval la taglia conta meno del previsto» smette di essere una tabella nel README. Resta **vuoto** quando l'endpoint dei modelli non risponde, invece di mostrare quello configurato — elencarlo affermerebbe che esiste, che è esattamente ciò che non si è potuto verificare (A-07). Il toggle «Ragionamento» ha il problema opposto: accende una cosa che **C-07 ha misurato come risultato negativo** — +0,6 punti di conformità dopo il parser di C-02, 9,5× i token, e l'astensione su `ledger` da 0,280 a 0,450. Un interruttore che dice solo «Ragionamento» invita ad accendere ciò che abbiamo misurato non servire, quindi il suggerimento porta quei numeri. È l'unico comando dell'interfaccia che dichiara il proprio costo, ed è giusto che sia questo: il progetto misura anche ciò che non funziona, e nasconderlo dietro un interruttore muto sarebbe la prima volta che una misura resta fuori dalla UI perché è scomoda.
+> **Due di quei controlli portano un argomento, non solo un campo.** Il menu dei modelli è l'**affermazione 3 del §0** resa toccabile: cambiare taglia sulla stessa query, col confronto affiancato lì accanto. Resta **vuoto** quando l'endpoint dei modelli non risponde, invece di mostrare quello configurato — elencarlo affermerebbe che esiste, che è esattamente ciò che non si è potuto verificare (A-07). Il toggle «Ragionamento» ha il problema opposto: accende una cosa che **C-07 ha misurato come risultato negativo**, quindi il suggerimento porta quei numeri. È l'unico comando dell'interfaccia che dichiara il proprio costo, ed è giusto che sia questo: il progetto misura anche ciò che non funziona, e nasconderlo dietro un interruttore muto sarebbe la prima volta che una misura resta fuori dalla UI perché è scomoda.
+
+**Ogni controllo si apre sul valore in vigore, e niente della barra si ricorda oltre la sessione.** I valori li pubblica il servizio (`GET /config`): preselezionare il primo dell'elenco delle capacità scriverebbe sopra la scelta del deployment una scelta che nessuno ha fatto. E il dataset è una preferenza, mentre «RAG spento, prompt permissivo, `top_k` 20» è un esperimento: ritrovarlo impostato domani è il modo in cui un risultato si legge come il prodotto.
 
 **L'esploratore del corpus non è la dashboard.** Vincolo di CLAUDE.md: due UI separate, non fuse. La dashboard confronta configurazioni di retrieval e fa failure analysis — serve a chi misura. L'esploratore mostra **il corpus e come è stato spezzato**: è ciò che rende visibile il routing (U-05) a chi non sa cosa sia un nDCG. Se diventa un confronto A/B di configurazioni, le due UI sono state fuse per sbaglio.
 
 **Lo stream non si legge con `EventSource`.** `/query/stream` è una `POST` e l'`EventSource` del browser fa solo `GET`: serve `fetch` + `ReadableStream` con un parser SSE scritto a mano. Accettare anche `GET` costringerebbe a serializzare quindici parametri in query string — non si fa. Conseguenza voluta: niente riconnessione automatica, che rilancerebbe una generazione da 11 s e produrrebbe una risposta **diversa**. Su caduta si mostra il parziale marcato incompleto, con un «Riprova» esplicito; serve un `AbortController` anche per il pulsante «Ferma».
 
-**La cronologia vive nel browser** (`localStorage`), nessun endpoint, nessuna sessione: non c'è autenticazione né database nello stack, e §14 li tiene fuori. Va **detto** nella UI, non lasciato dedurre — chi cambia macchina non ritrova le sue conversazioni. Questa decisione era presa ma **non era un task**: compariva al §6 fra le cose che non vincolano l'API, qui fra le decisioni d'interfaccia, e nel mockup come voce della corsia — in nessun posto con un ID e un criterio. È diventata **U-13** il 2026-08-14, perché una decisione senza task è la definizione di ciò che non viene fatto. Da eseguire dopo U-07. Cronologia non significa multi-turno: ogni domanda resta indipendente, e riusare i messaggi precedenti per il retrieval è **X-02**.
+**La cronologia vive nel browser** (`localStorage`), nessun endpoint, nessuna sessione: non c'è autenticazione né database nello stack, e §14 li tiene fuori. Va **detto** nella UI, non lasciato dedurre — chi cambia macchina non ritrova le sue conversazioni. Cronologia non significa multi-turno: ogni domanda resta indipendente, e riusare i messaggi precedenti per il retrieval è **X-02**.
 
-> **Precisato eseguendo U-13 (2026-08-17).** «Nuova conversazione» è un **pulsante con la forma delle azioni della corsia** — quella di «Esplora il corpus» (`.bottone-esplora`) — e non la prima voce della cronologia, che è dove il mockup la mette (`.crono-voce.attiva`). Consegnata come voce era leggibile ma piatta: la voce più usata della corsia aveva lo stesso peso della meno usata. Come azione d'accento il rischio che aveva suggerito di farne una voce — due controlli con le stesse parole uno sull'altro — non c'è, perché una conversazione senza domande non ha una voce sua: il pulsante *è* il suo posto. Il segno `+` la distingue da «Esplora il corpus» quando saranno una sopra l'altra.
+**I verdetti non si distinguono solo per colore**: glifo, colore e parola insieme. E il «non sostiene» non è rosso — U-07 dice che non è un errore da nascondere, è il dato. La ragione non è di stile: chi non distingue l'ocra dal verde vedrebbe due pastiglie identiche, e qui la differenza fra le due **è la tesi**. Dove i verificatori sono due — l'NLI di C-03 e il numerico di C-09 — si mostrano **entrambi**: sceglierne uno in codice sarebbe decidere quale ha ragione, e quella è una misura, non un `if`.
 
-> **La dichiarazione di località sta nel nome della sezione**, «Cronologia locale», col resto della frase nel suggerimento — non in una riga sotto l'elenco. «Solo in questo browser.» era vera e scollegata da ciò di cui parlava: una frase che comincia con «solo» non dice *cosa* sta solo lì. E la cronologia si può **cancellare**, a due tempi: non è nel criterio, ma senza un comando le conversazioni di prova si toglievano solo svuotando `localStorage` dal browser.
+**Il modello è invitato a formattare, e l'interfaccia lo disegna** (deciso il 2026-08-19, U-14). Fino a lì il prompt imponeva prosa piana, ma la sceglieva perché era ciò che l'interfaccia sapeva disegnare — e col divieto attivo da un lato solo le due colonne di U-03 differivano **anche** per il formato, cioè la seconda variabile che il §15 vieta. Il testo grezzo resta il sistema di coordinate: i verdetti per frase arrivano come intervalli su ciò che il modello ha scritto, quindi il markdown si applica **come decorazione su intervalli** e non come testo riscritto. Il debito che ne segue è dichiarato in **D-3**: `prompt_hash` è cambiato, e le run di citazioni a disco valgono per un prompt che non è più quello in vigore.
 
-> **Si riapre su una conversazione nuova, non su quella che si stava leggendo.** Avevo salvato anche quel dato — «altrimenti la cronologia sopravvive al ricaricamento ma la lettura no» — ed è la lettura sbagliata: chi apre `ibid` lo fa per chiedere qualcosa, quindi ricordare il punto di lettura mette un clic davanti al caso frequente per risparmiarne uno al caso raro. Tornare indietro è una voce della corsia. E una risposta rimasta a metà va sigillata rileggendola — nel deposito ha `fase: "scrittura"`, e al ricaricamento il suo pallino pulserebbe per sempre aspettando uno stream che non esiste più.
+**I parametri di retrieval stanno sotto «Avanzate»**, chiusi. Un muro di manopole mostra l'ablation, che è il lavoro della dashboard. Restano sempre leggibili in «Dettagli della run», così la configurazione che ha girato non è mai un mistero.
 
-> **Precisato eseguendo U-03 (2026-08-19).** Il secondo braccio riparte dalla configurazione **che ha girato**, non dalla barra: rilanciare con le opzioni correnti metterebbe nelle due colonne anche un modello diverso o un `top_k` cambiato nel frattempo, e il confronto direbbe «guarda cosa fa il RAG» mostrando l'effetto di tre cose. È il §15 dentro l'interfaccia, e un test conta le chiavi di `ConfigView` perché un campo aggiunto al contratto e dimenticato lì diventerebbe in silenzio la seconda variabile. Da che parte va ciascuna colonna lo dice `config.rag`, cioè ciò che ha girato — quindi il comando compare solo su una risposta **conclusa**: senza `config` non si saprebbe da quale braccio si parte, e una colonna intitolata a caso è peggio di un comando assente.
+### Il riferimento visivo è vincolante
 
-> **La colonna nuda non dice «sbagliato».** Il mockup ci aveva scritto «Plausibile, e sbagliato», che è vero del suo esempio e non di ogni risposta: senza fonti non si può *sapere* se è giusta, ed è esattamente il punto. L'avviso dice ciò che si sa — che non c'è niente da aprire. E lì il pannello fonti laterale sparisce: averle da una parte e non dall'altra è l'argomento della schermata, e una colonna sola di fianco mostrerebbe le fonti di uno dei due bracci senza dire di quale.
-
-> **Ogni controllo si apre sul valore in vigore, marcato «predefinito».** La prima stesura apriva ogni menu su una voce «come configurato» che significava *non lo mando, decidi tu*: `Capabilities` elenca i valori ammessi e non quelli configurati, e preselezionare il primo dell'elenco avrebbe scritto sopra la scelta del deployment una scelta che nessuno aveva fatto. Corretto alla revisione, ed è la lettura giusta: **il servizio quei valori li pubblica**, `GET /config` esiste da A-04 e nessuno lo chiamava. Non serviva un campo nuovo, serviva chiedere. Ne segue che tutto parte esplicito — il campo che parte è quello che torna in `ConfigView` — e che ciò che è stato spostato si vede senza aprire niente, che è l'unica cosa che «Avanzate» chiuso poteva nascondere. Niente della barra si ricorda oltre la sessione: il dataset è una preferenza, «RAG spento, prompt permissivo, `top_k` 20» è un esperimento, e ritrovarlo impostato domani è il modo in cui un risultato si legge come il prodotto.
-
-**I verdetti non si distinguono solo per colore**: glifo, colore e parola insieme. E il «non sostiene» non è rosso — U-07 dice che non è un errore da nascondere, è il dato. La ragione non è di stile: chi non distingue l'ocra dal verde vedrebbe due pastiglie identiche, e qui la differenza fra le due **è la tesi**.
-
-> **Precisato eseguendo U-07 (2026-08-17).** L'accento resta fuori dai verdetti anche sul marcatore in mezzo alla prosa, e non solo sulle pastiglie. Nel mockup un `[1]` verificato restava accento (`.mk.viva`): con **cinque** stati sullo schermo — inerte, attesa, sostenuta, non sostiene, non verificata — un marcatore sostenuto accento e uno non verificato accento sarebbero indistinguibili, cioè il criterio di U-07 mancato. La bozza non modellava «non verificata», e infatti non aveva il problema. L'accento sopravvive dove la domanda **non è** un verdetto: sul marcatore in attesa, dove la domanda è «è un riferimento valido?» e da `answer` in poi la risposta è sì.
-
-> **L'unità del verdetto è la coppia (frase, chunk), non il marcatore.** Lo stesso `[3]` può comparire in tre frasi e reggerne due; un verdetto per marcatore aggregherebbe la granularità che l'affermazione 1 del §0 esiste per misurare. Ne segue che il frontend deve sapere **dove finiscono le frasi** — e le ritrova invece di ritagliarle, perché una seconda copia di `split_claims` in TypeScript è precisamente ciò che U-00 vieta.
-
-> **Dove ci sono due verificatori, mostrarne uno è mostrare quello sbagliato.** `numeric` è additivo per contratto (§3.5, `schema.py`), e la pastiglia deve mostrarlo **accanto** a `supported`, non al suo posto: su `ledger` il 96,7% dei claim è numerico e l'NLI di C-03 non verifica un'asserzione numerica contro una tabella. Misurato dal vivo il 2026-08-17: capex di Sherwin-Williams, NLI «non sostiene» a 0,208, numerico che trova la cifra dentro la tabella citata. Sceglierne uno in codice sarebbe decidere quale verificatore ha ragione, e quella è una misura, non un `if`.
-
-### U-16 — due manopole sopra un nome solo
-
-Chi usa la demo deve poter scegliere **il modello** e **quanto contesto** indipendentemente, perché sono due domande diverse: *chi risponde* e *quanto testo gli entra*. Che sotto quella coppia sia un singolo nome nel catalogo di Ollama è un dettaglio dell'implementazione, e non deve affiorare in una tendina che elenca `gemma4-32k` accanto a `gemma4-8k` — quello è un catalogo, non una scelta.
-
-**Le finestre offerte sono solo quelle che quel modello ha davvero.** Una taglia che compare e poi fallisce è il difetto peggiore di una che non compare: fa scoprire il limite dopo l'attesa, e per giunta come un errore invece che come un vincolo.
-
-> **La suggerimento in base all'hardware è X-05, e non è qui di proposito.** Restringere le taglie a quelle che la macchina regge richiede una sonda di sistema — Ollama non pubblica la VRAM totale, e `/api/ps` risponde vuoto quando non c'è niente di caricato. U-16 dà la scelta; X-05 la restringe, e le due cose si consegnano separate perché la seconda può non arrivare mai senza rendere inutile la prima.
-
-### U-15 — la configurazione era già salvata, mancava di essere letta
-
-Proposto il 2026-08-19: le conversazioni salvate dovrebbero ricordare anche i parametri con cui sono state lanciate, e fra una domanda e l'altra dovrebbe vedersi cosa è cambiato.
-
-**Il dato c'è già, e non da oggi.** `Risposta.config` porta il `ConfigView` che ha davvero girato — non quello chiesto — e arriva con l'evento `done` del §3.5; `cronologia.ts` lo serializza da U-13 senza che nessuno l'avesse pensato per questo. Quindi il contratto non cambia, il deposito non cambia, e non serve una `VERSIONE` nuova: manca solo di essere mostrato. È la seconda volta in due giorni che la cosa da fare era **chiedere a un dato che c'era già** — la prima è stata `/config` in U-03.
-
-Tre decisioni che valgono più dell'implementazione:
-
-- **Si mostra la differenza, non la configurazione.** Quattordici campi ripetuti a ogni domanda sarebbero un muro che nessuno legge, e ciò che serve sapere è *cosa è cambiato da prima*. La prima riga di una conversazione fa la differenza contro i **predefiniti del servizio**, che `/config` pubblica: una conversazione partita senza toccare niente lo dice in tre parole invece che in quattordici.
-- **La differenza copre tutto `ConfigView`**, non i soli controlli della barra. Un parametro cambiato lato server fra due domande è esattamente ciò che questa riga esiste per non far sparire, e coprire tutto il contratto la rende automatica: un campo aggiunto domani compare da solo.
-- **I nomi dei campi restano quelli del server.** `retrieval_mode`, `top_k`: tradurli vorrebbe dire tenere un elenco di chiavi del backend nel frontend, e una chiave nuova comparirebbe senza nome. È la stessa scelta già presa per i tempi nella riga di stato.
-
-### U-14 — la regola sul formato si rovescia, e costa una rimisurazione
-
-Fino a qui il §3.2 diceva al modello **prosa piana**: niente titoli, elenchi, grassetto o HTML. La regola era giusta per la ragione scritta in `prompt.py` — *«il formato è un contratto, non un'abitudine che abbiamo misurato»* — ma sceglieva la prosa piana perché era ciò che l'interfaccia sapeva disegnare. Deciso il 2026-08-19 di rovesciarla: **il prompt invita markdown e LaTeX dove servono, e l'interfaccia li disegna.**
-
-Cosa la rende una decisione e non una preferenza:
-
-- **Il confronto di U-03 smette di avere due formati.** Col divieto solo da un lato, la colonna con le fonti era in prosa piana per contratto e quella nuda formattava libera: due colonne che differiscono anche per come sono scritte, cioè la seconda variabile che il §15 vieta. Ora la politica di formato è la stessa e la differenza resta una — le fonti.
-- **Il modello è un parametro della richiesta**, e da U-03 lo si sceglie dalla barra. `prompt.py` aveva previsto il caso come rischio ipotetico («uno più grande che rispondesse con una tabella Markdown arriverebbe come pipe letterali»): con un menu dei modelli sullo schermo non è più ipotetico.
-- **Il testo grezzo resta il sistema di coordinate.** I verdetti per frase arrivano dal backend come intervalli su ciò che il modello ha scritto: un renderer che togliesse i caratteri di sintassi sposterebbe gli offset e le sottolineature finirebbero sulla frase sbagliata. Il markdown si applica **come decorazione su intervalli**, la stessa tecnica dei marcatori e delle frasi scoperte.
-
-> **Il debito è dichiarato, non nascosto.** Cambiare `SYSTEM` cambia `prompt_hash`, e le 17 run di citazioni a disco (2 hash distinti) diventano non confrontabili con quelle successive. È esattamente il lavoro che quel campo fa — rendere visibile una rottura che altrimenti sarebbe silenziosa — e le misure di C-01, C-02 e C-07 vanno rifatte a interfaccia finita. **I prompt dei baseline non si toccano**: non hanno mai avuto una regola di formato, quindi sono già «invitati», ed E-04/E-05 restano confrontabili.
-
-**I parametri di retrieval stanno sotto «Avanzate»**, chiusi. Un muro di manopole mostra l'ablation, che è il lavoro della dashboard. Restano sempre leggibili in «Dettagli della run», così la configurazione che ha girato non è mai un mistero. Il pannello è dentro U-03, col resto della barra.
-
-**Il riferimento visivo è [`docs/ui-mockup.html`](docs/ui-mockup.html), ed è vincolante.** Non è un'illustrazione: è dove palette, tipografia e forme sono state decise, e ogni task U-xx ne eredita i token invece di sceglierne di propri. Tre cose in particolare non si cambiano senza dirlo:
+[`docs/ui-mockup.html`](docs/ui-mockup.html) non è un'illustrazione: è dove palette, tipografia e forme sono state decise, e ogni task U-xx ne eredita i token invece di sceglierne di propri. Tre cose in particolare non si cambiano senza dirlo:
 
 - **inchiostro indaco su carta** — accento `#3C4CA8` chiaro / `#97A5F7` scuro, carta `#F7F7F5` / `#131421`. La carta scura è indaco profondo e non grigio neutro: è la stessa tinta dell'accento portata al fondo della scala, ed è ciò che tiene insieme i due temi invece di farli sembrare due progetti;
 - **tre ruoli tipografici veri**, e la distinzione non è decorativa: **serif** per il marchio e i titoli (il nome viene da *ibidem*, e la grazia appartiene al mondo bibliografico da cui arriva), **sans** per ciò che si opera, **mono** per i dati — `chunk_id`, marcatori, punteggi, etichette. Tutti font di sistema: U-08 chiede il profilo `demo` senza rete;
 - **il marchio** `ib`·`i`·`d` con la **`i` centrale in accento**, serif, weight 600. L'accento della `i` è il token `--marchio`, non `--accent` crudo: su carta chiara l'accento pieno e l'inchiostro sono due scuri quasi uguali di valore e la lettera legge come nera, quindi il token tiene in ciascun tema la variante che si allontana di più dall'inchiostro — resta uguale **l'effetto**, non l'esadecimale. Quella lettera è il punto in cui *ibidem* si lascia intravedere — è l'unica parte dell'interfaccia che spiega il proprio nome senza una nota.
 - **i simboli si disegnano, non si scrivono.** Niente glifi di font (`▾`, `↑`, `☾`): il punto precedente impone font di **sistema**, e lì quei caratteri arrivano sottili, più piccoli della loro dimensione nominale e diversi su ogni macchina — a 12 px spariscono. L'insieme sta in `ui/src/ui/Icona.tsx` e ha cinque regole: griglia unica `0 0 16 16`, solo tratto (l'unica eccezione è «sistema», dove il contrasto pieno/vuoto **è** il significato), spessore 2 che scala con la dimensione, estremità e giunti tondi, `currentColor` sempre. Un'icona nuova che le rispetta appartiene all'insieme senza doverla confrontare con le altre.
 
-`ok` / `warn` / `wait` restano separati dall'accento: un verdetto colorato con l'accento smette di essere un verdetto e diventa decorazione.
+`ok` / `warn` / `wait` restano separati dall'accento: un verdetto colorato con l'accento smette di essere un verdetto e diventa decorazione. E il **rosso** (`danger`) vale per ciò che distrugge e per niente altro — colorare «cancella la cronologia» con l'ocra dei verdetti darebbe lo stesso segnale a un rilievo e a un'azione irreversibile; se un giorno comparisse su un verdetto, la domanda da farsi è cosa è cambiato nella tesi del §0.
 
-> **Il rosso è entrato con U-13 (2026-08-17), e solo per ciò che distrugge.** `danger` non è un `warn` più acceso: colorare «cancella la cronologia» con l'ocra dei verdetti darebbe lo stesso segnale a un rilievo — una citazione che non regge — e a un'azione irreversibile. Vale per il comando che cancella e per niente altro: se un giorno comparisse su un verdetto o su un avviso, la domanda da farsi è cosa è cambiato nella tesi del §0.
-
-**Le query d'esempio dello stato vuoto vincolano U-08.** Tre esempi, uno per affermazione del §0, così che la demo *sia* l'argomento invece di illustrarlo — e il video di U-10 abbia già il suo copione. Ma nel profilo `demo` l'indice contiene solo i chunk d'oro di ~30 query: se gli esempi non sono **quelle**, il primo clic di chi prova il progetto finisce in un'astensione. I due task si decidono insieme.
+**Le query d'esempio dello stato vuoto vincolano U-08.** Tre esempi, uno per affermazione del §0, così che la demo *sia* l'argomento invece di illustrarlo — e il video di U-10 abbia già il suo copione. Ma nel profilo `demo` l'indice contiene solo i chunk d'oro di ~30 query: se gli esempi non sono **quelle**, il primo clic di chi prova il progetto finisce in un'astensione. I due task si decidono insieme, e **D-17** è la prova che il vincolo era reale.
 
 ### Come si avvia, oggi e alla fine
 
@@ -601,45 +517,32 @@ Due comandi diversi per due destinatari diversi, e confonderli è ciò che rende
 
 | | comando | cosa serve prima |
 |---|---|---|
-| **chi tocca il codice** | `make dev` | Node, e Docker acceso. Qdrant lo avvia lui se e' fermo; senza Ollama parte lo stesso e lo **dice** |
+| **chi tocca il codice** | `make dev` | Node, e Docker acceso. Qdrant lo avvia lui se è fermo; senza Ollama parte lo stesso e lo **dice** |
 | **chi vuole solo vederlo** | `docker compose --profile demo up` (U-08) | Docker, e basta |
 
 `make dev` avvia l'API, **aspetta** che risponda, poi avvia Vite; chiudendo si porta via entrambi. L'attesa non è cortesia: senza, il primo `/datasets` parte contro una porta chiusa e la pagina si apre già in stato di guasto, che chi guarda legge come un bug del frontend.
 
-Controlla anche i servizi, e **non allo stesso modo**: senza indice non funziona niente, quindi Qdrant viene avviato (`docker compose start qdrant`, e solo in mancanza `up -d`) e l'avvio si ferma se non ci riesce; senza modello invece si sfoglia il corpus, si cambia dataset e il recupero risponde — cade solo la generazione, quindi Ollama è un avviso e non un blocco. Trattarli uguali impedirebbe di lavorare sull'interfaccia mentre la GPU è occupata da una valutazione, che è metà del lavoro di questa fase.
-
-**Docker Desktop non lo apre.** È un'applicazione con interfaccia, ci mette un minuto, e il comando per avviarla è diverso su ognuno dei tre sistemi che U-12 vuole supportare: un avvio che dipende dal sistema operativo di chi lo lancia è esattamente ciò che quello script esiste per evitare.
+Controlla anche i servizi, e **non allo stesso modo**: senza indice non funziona niente, quindi Qdrant viene avviato e l'avvio si ferma se non ci riesce; senza modello invece si sfoglia il corpus, si cambia dataset e il recupero risponde — cade solo la generazione, quindi Ollama è un avviso e non un blocco. Trattarli uguali impedirebbe di lavorare sull'interfaccia mentre la GPU è occupata da una valutazione, che è metà del lavoro di questa fase. **Docker Desktop non lo apre**: è un'applicazione con interfaccia, ci mette un minuto, e il comando per avviarla è diverso su ognuno dei tre sistemi che U-12 vuole supportare.
 
 **Nella consegna il proxy non esiste.** Il frontend viene costruito (`vite build`) dentro l'immagine con uno stadio Node, e **l'API serve `ui/dist` come file statici**: stessa origine, un container in meno, e soprattutto la ragione per cui il backend non ha CORS smette di essere un'aspirazione e diventa vera. È una decisione di U-09, e va scritta ora perché è ciò che rende legittimo il proxy di sviluppo di U-00 — un proxy che nascondesse un problema di CORS destinato a ripresentarsi in produzione sarebbe un debito, non una comodità.
 
 ### U-08 in dettaglio — come e quando si pubblica l'indice
 
-**Il problema, detto una volta.** Chi arriva da GitHub trova il codice, non i vettori. Rigenerarli costa **~2 ore di GPU** (122 minuti misurati in I-07 per 65.950 chunk) più il download dei corpus da HuggingFace. Nessuno prova un progetto a quel prezzo, e un README che lo chiede sta dicendo «non provarlo».
+**Il problema, detto una volta.** Chi arriva da GitHub trova il codice, non i vettori. Rigenerarli costa ~2 ore di GPU più il download dei corpus da HuggingFace. Nessuno prova un progetto a quel prezzo, e un README che lo chiede sta dicendo «non provarlo».
 
 **Le tre strade non sono alternative: sono tre bisogni diversi**, e vanno tutte e tre documentate perché chi arriva non sa quale è la sua.
 
 | bisogno | cosa riceve | costo | dove sta |
 |---|---|---|---|
 | **vedere com'è** | indice `demo` committato | < 2 min, zero rete | in git, `data/demo/` |
-| **provare sul dataset vero** | snapshot Qdrant | 161 MB da scaricare | asset di **GitHub Release** |
+| **provare sul dataset vero** | snapshot Qdrant | ~160 MB da scaricare | asset di **GitHub Release** |
 | **riprodurre le misure** | ingestione completa | ~2 h di GPU | `make fetch-datasets && make ingest` |
 
 Solo la terza rigenera i vettori, ed è quella su cui poggia ogni numero in `docs/progress.md`. Le prime due servono a **mostrare**, e vanno dichiarate come tali: un demo che sembra riprodurre le misure è peggio di nessun demo.
 
-#### Misure, prese il 2026-08-14 su cui la scelta si basa
+**I vettori densi non comprimono** (1024 dimensioni × 4 byte per punto): lo snapshot compresso di `open_ragbench` è il 76% dell'originale. Ogni piano che assuma una compressione migliore è sbagliato. Le taglie misurate stanno in [`progress.md`](docs/progress.md).
 
-| collection | punti | su disco | snapshot | compresso |
-|---|---|---|---|---|
-| `open_ragbench` | 18.840 | 212 MB | 212 MB | **161 MB** |
-| `ledger` | 47.110 | 445 MB | — | ~340 MB |
-| `open_ragbench_routed` | 98.312 | 683 MB | — | — |
-| `ledger_routed` | 228.331 | 1,4 GB | — | — |
-
-I vettori densi sono 1024 dimensioni × 4 byte per punto e **non comprimono**: 161 su 212 MB è il 76%, cioè quasi niente. Ogni piano che assuma una compressione migliore è sbagliato.
-
-#### La licenza permette di ridistribuire, ed è la prima cosa da verificare
-
-Uno snapshot contiene **il testo dei chunk**, non solo i vettori. Non è un artefatto derivato opaco: è il corpus, riorganizzato.
+**La licenza permette di ridistribuire, ed è la prima cosa da verificare.** Uno snapshot contiene **il testo dei chunk**, non solo i vettori: non è un artefatto derivato opaco, è il corpus riorganizzato.
 
 | dataset | licenza | ridistribuibile | obbligo |
 |---|---|---|---|
@@ -648,29 +551,17 @@ Uno snapshot contiene **il testo dei chunk**, non solo i vettori. Non è un arte
 
 **«Accanto all'artefatto» e non solo nel repo**: chi scarica uno snapshot da una release può non aver mai visto `data/README.md`. L'attribuzione va nel corpo della release e in un file dentro l'archivio.
 
-#### Come — il meccanismo
+**Il meccanismo.** Qdrant ripristina direttamente da un URL (`POST /collections/{nome}/snapshots/recover` con `{"location": "https://…/open_ragbench.snapshot"}`), quindi non c'è nessun file da maneggiare a mano. Si pubblicano `open_ragbench` e `ledger`; **non** le varianti `_routed` — servono all'ablation R-07, cioè a chi riproduce, e chi riproduce ingerisce.
 
-Qdrant ripristina **direttamente da un URL**, quindi non c'è nessun file da maneggiare a mano:
+**Quando.** L'indice `demo` dentro U-08, perché è ciò che quel task consegna: costruito dai chunk d'oro di ~30 query più distrattori, ordine di 1.500–2.000 chunk, che stanno in git senza LFS (`dataset_id: "demo"` è già nello schema `Chunk` del §3 — era previsto). Lo snapshot su Release al primo tag pubblico, insieme a U-11: prima non ha destinatari, e uno snapshot pubblicato prima delle misure definitive invecchia male.
 
-```
-POST /collections/open_ragbench/snapshots/recover
-{"location": "https://github.com/<org>/ibid/releases/download/<tag>/open_ragbench.snapshot"}
-```
-
-Cosa pubblicare, e cosa no: `open_ragbench` e `ledger`. **Non** le varianti `_routed` (2,1 GB insieme) — servono all'ablation R-07, cioè a chi riproduce, e chi riproduce ingerisce.
-
-#### Quando
-
-- **L'indice `demo`**: dentro U-08, perché è ciò che quel task consegna. Va costruito dai chunk d'oro di ~30 query più distrattori — ordine di 1.500–2.000 chunk, ~10–15 MB, che stanno in git senza LFS. `dataset_id: "demo"` è già nello schema `Chunk` del §3: era previsto.
-- **Lo snapshot su Release**: al primo tag pubblico, insieme a U-11 (il README che presenta il progetto). Prima non ha destinatari, e uno snapshot pubblicato prima delle misure definitive invecchia male — va rigenerato a ogni re-ingestione che cambia i vettori.
-
-#### Cosa non fare, e perché
+**Cosa non fare, e perché:**
 
 - **Committare lo snapshot in git.** GitHub rifiuta i file oltre 100 MB, e anche sotto quella soglia un binario nella storia la gonfia per sempre: si cancella dal working tree, non dai commit.
 - **Git LFS sul piano gratuito.** 1 GB di banda al mese: si esaurisce dopo sei cloni, e dal settimo chi clona vede un errore invece del dataset. È il modo peggiore di fallire — sembra funzionare finché il progetto non interessa a nessuno.
-- **Pubblicare uno snapshot senza dire da quale commit e con quale modello di embedding è stato costruito.** Un indice è legato al modello che l'ha prodotto (§A-02: interrogarlo con un altro embedder restituisce spazzatura *senza errore*). Il tag della release e il nome del modello vanno nel corpo della release.
+- **Pubblicare uno snapshot senza dire da quale commit e con quale modello di embedding è stato costruito.** Un indice è legato al modello che l'ha prodotto: interrogarlo con un altro embedder restituisce spazzatura *senza errore*. Il tag della release e il nome del modello vanno nel corpo della release.
 
-**U-12 sta in Fase 7 e non in Fase 8** perché il criterio di U-09 è "primo avvio pulito su macchina vergine", e una macchina Linux è una macchina vergine: un progetto MIT pensato per essere provato da altri non è presentabile se gira su un sistema operativo solo. Non è però un lavoro grande, ed è più piccolo di quanto sembri: `src/index/embed.py` sceglie già `DmlExecutionProvider` solo se disponibile e ripiega su CPU, quindi su Linux il codice **gira già**. Mancano due cose, misurate il 2026-08-10: la lista provider non contiene `ROCMExecutionProvider`/`CUDAExecutionProvider`, quindi su Linux si finisce su CPU anche con GPU capace (2,38 embed/s contro ~10: l'ingestion passa da ~2 a ~8 ore); e `onnxruntime-directml` non è dichiarato in `pyproject.toml`, quindi la dipendenza GPU esiste solo nella tabella di `STACK.md`. L'inferenza LLM non è coinvolta: Ollama gira su Vulkan, che è lo stesso codice llama.cpp sui due sistemi.
+**U-12 è più piccolo di quanto sembri, e non è rinviabile.** Il criterio di U-09 è «primo avvio pulito su macchina vergine», e una macchina Linux è una macchina vergine: un progetto MIT pensato per essere provato da altri non è presentabile se gira su un sistema operativo solo. `src/index/embed.py` sceglie già il provider DirectML solo se disponibile e ripiega su CPU, quindi su Linux il codice **gira già**; mancano l'ordine di preferenza dei provider Linux (senza, si finisce su CPU anche con GPU capace) e la dipendenza GPU dichiarata in `pyproject.toml` invece che solo nella tabella di `STACK.md`. L'inferenza LLM non è coinvolta: Ollama gira su Vulkan, che è lo stesso codice llama.cpp sui due sistemi. Cosa resta da **provare** e non solo da elencare è in **D-10**.
 
 ---
 
@@ -679,6 +570,8 @@ Cosa pubblicare, e cosa no: `open_ragbench` e `ledger`. **Non** le varianti `_ro
 **Senza numero di proposito.** I riferimenti `§13`–`§17` sono citati in decine di commenti nel codice: rinumerarli per infilare una sezione qui li renderebbe tutti sbagliati, e un documento che si aggiorna rompendo i suoi lettori non è una fonte di verità. Sta dopo la Fase 8 perché è lì che i debiti si sono accumulati.
 
 Ogni voce dice **cosa fare**, non solo cosa manca. Un debito senza il comando che lo salda è un promemoria, e i promemoria non si saldano.
+
+> **`D-1` e `D-01` non sono la stessa famiglia.** Qui i debiti sono `D-1`…`D-18`; `D-01` è la dashboard Streamlit della Fase 3. La collisione è nata dopo, e si tiene così: rinominare l'una o gli altri sposterebbe riferimenti in commit e commenti già scritti, per guadagnare una cifra.
 
 ### A. Misure da rifare — richiedono la GPU, e un via libera
 
@@ -722,6 +615,59 @@ Ogni voce dice **cosa fare**, non solo cosa manca. Un debito senza il comando ch
 
 ---
 
+## Il piano di chiusura
+
+**Quattro decisioni prese il 2026-08-20**, e ognuna toglie lavoro invece che aggiungerlo:
+
+1. **Il repository è pubblico.** Ne segue che gli asset di Release sono scaricabili senza autenticazione, quindi U-08 può fare ciò per cui è stato scritto, e l'immagine può stare su un registro pubblico invece che dentro un file da 2 GB.
+2. **Niente demo ospitata**, e non per pigrizia — verificato il 2026-08-20. Non esiste GPU gratuita: il modello andrebbe preso in prestito da un endpoint OpenAI-compatibile (che l'architettura permetterebbe senza toccare `src/`, ed è il pregio di `LLM_BASE_URL`), ma **il limite che morde è 6.000 token al minuto**, e una query RAG con cinque chunk ne consuma quattro o cinque mila: circa **una domanda al minuto**. In più ogni piano gratuito dorme, e chi arriva per primo paga il caricamento di ~2,5 GB di modelli ONNX. Un link lento e a quota è peggio di nessun link. Si consegna `docker compose --profile demo up` (U-08) e il video di U-10; l'hosting è **X-06**, in Fase 9.
+3. **Niente RASD e Design Document formali.** Si consegnano il README (U-11) e la documentazione tecnica (U-22). **Il README principale è in italiano**, con un secondo in inglese accanto (`README.en.md`) e un rimando reciproco in cima a entrambi: il progetto è scritto in italiano — ROADMAP, `progress.md`, i commenti nel codice — e un README inglese davanti a un quaderno italiano prometterebbe una cosa che il repo non mantiene. `ROADMAP.md`, `progress.md` e `open-questions.md` restano in italiano e non si traducono: sono il quaderno di lavoro, non la vetrina.
+4. **Nessuna scadenza.** Le tappe che seguono sono ordinate per **dipendenza e per rischio**, non compresse: nessuna di esse va tagliata a metà per far entrare la successiva.
+
+### Le tappe, in ordine
+
+| | tappa | cosa contiene | perché sta qui |
+|---|---|---|---|
+| **1** | **L'interfaccia finita** | U-18, U-19, U-20, U-21, e i debiti che sono lavoro d'interfaccia: **D-5**, **D-7**, **D-17**, **D-18** | Tutte le funzionalità **prima** del refactor: aggiungerne una dopo significa risporcare ciò che si è appena pulito. E due di quei debiti bloccano il resto — D-17 blocca U-08 (la demo si astiene su un esempio che propone lei), D-18 è l'unica cosa che rende l'affermazione 2 visibile invece che solo scritta |
+| **2** | **Le misure che mancano** — *in parallelo alla tappa 1* | **D-1**, **D-2**, **D-3**; i due passi a costo zero di **OQ-07** e **OQ-08**; la decisione sull'affermazione 3 (sotto) | È l'unica tappa vincolata dalla GPU, e l'interfaccia non lo è: `make dev` è costruito apposta per funzionare mentre la GPU è occupata («senza modello si sfoglia il corpus, cade solo la generazione»). Tenerle in serie costa giornate a mani ferme |
+| **3** | **Il refactor dell'interfaccia** | **Q-07** | Dopo le funzionalità e prima dei documenti: un refactor si giudica a comportamento fermo, e i documenti descrivono il codice che resta |
+| **4** | **I documenti** | **U-11**, **U-22**, **U-10** | Qui i numeri esistono già, arrivati dalla tappa 2. Scrivere il README prima significherebbe citare misure fatte con un prompt che non è più quello in vigore |
+| **5** | **La consegna** | **U-08**, **U-09**, **U-12** (e **D-10**: provare i provider Linux invece di elencarli), l'immagine pubblica su registro, le attribuzioni accanto agli artefatti | U-12 non è un extra: il container **è** Linux, e il criterio di U-09 dice «primo avvio pulito su macchina vergine» |
+| **6** | **Extra** | Fase 9, §13 | Solo se avanza voglia |
+
+### Le tre affermazioni, allo stato dei fatti
+
+Il criterio di U-11 chiede che **ognuna** compaia col proprio tavolo di misure. Due oggi non reggono, e vanno scritte per quello che sono invece che scoperte mentre si scrive il README:
+
+- **1 — la precisione di citazione è misurabile.** Regge, ma i numeri a disco valgono per un prompt che U-14 ha cambiato: sono **D-1**, **D-2**, **D-3**, e sono obbligatori a prescindere.
+- **2 — il routing batte la pipeline generica.** **Non sostenuta, e adesso si sa di quanto.** Con **ricerca esatta** — l'unico confronto legittimo fra due indici di densità diversa, §15 — il routing guadagna **+1,06 punti** di `doc_R@5` su `open_ragbench` e ne **perde 13,72** su `ledger`. Gli otto punti che separano quel −13,72 dal −21,71 che si leggeva prima **erano il richiamo dell'indice, non il routing** (R-11). Nel README va così, per dataset e mai aggregata: *il valore del routing dipende dal genere, e sul genere tabellare la pipeline scritta a mano per lui peggiora il recupero.* È un risultato negativo per l'affermazione, ed è il reperto più interessante del progetto — il §7 dice che i risultati negativi restano in tabella.
+- **3 — la taglia conta meno del previsto.** **Non determinata**, due punti su tre. Il terzo costa **6,7 ore** e non 13,3, perché su `ledger` non va fatto: E4B è già a `1,0000` e il 12B non ha margine (C-06 lo aveva già scritto). Restano 100 query di `open_ragbench` a 240 s.
+
+> **E si può dimezzare.** Girando il 12B sulle **prime 50** di quelle 100 query, i punti E2B ed E4B si ricalcolano **sulle stesse 50** dai dump già a disco — costo zero, ed è precisamente ciò che Q-02 ha comprato (`rescore_citations.py` ricalcola dai dump; gli serve solo un filtro sulle query). Il confronto resta **appaiato sulle stesse domande**, con barre d'errore più larghe: **3,3 ore**, di giorno.
+>
+> **Deciso il 2026-08-20: si fanno le 50.** Tre ore e mezza di giorno sono spendibili, tredici no — la macchina sta in camera da letto e la run notturna non esiste. Il confronto resta appaiato sulle stesse domande; le barre d'errore più larghe si dichiarano insieme al risultato, che è l'unico modo in cui un campione piccolo resta onesto.
+
+
+### Le due collection instradate: si tengono, e si rendono confutabili
+
+`open_ragbench_routed` (98.312 punti, 683 MB) e `ledger_routed` (228.331, 1,4 GB) non sono materiale di scarto: **sono il secondo braccio di R-07**, cioè l'unica misura che decide l'affermazione 2. Tre decisioni, e la terza è quella che non era ovvia.
+
+1. **Non si cancellano.** Liberano 2,1 GB e costano la riproducibilità: senza, R-07 non si rifà se non re-ingerendo, che è ordine di due ore di GPU. Un numero nel README di cui non esiste più il modo di rifare la misura è un numero che vale meno.
+2. **Non si pubblicano** (già deciso in U-08): 2,1 GB servono a chi riproduce, e chi riproduce ingerisce. Sulle Release vanno solo le due generiche.
+3. **Nell'interfaccia diventano un *modo*, non due corpus in più** — è D-18, e va fatto: renderlo visibile è ciò che lo rende confutabile, ed è il senso della targhetta di U-05. Ma con una condizione tecnica precisa, che è il motivo per cui questa voce esiste:
+
+> **Esposte con la ricerca approssimata, mostrerebbero un routing peggiore di com'è, di otto punti.** Su `ledger_routed` l'ANN restituisce l'84,8% del vero top-5 e più di una query su tre riceve un top-5 sbagliato (R-11). Una demo che pesca lì col default farebbe vedere il routing **più il difetto dell'indice**, cioè esattamente l'errore che R-11 ha trovato in R-07 — stavolta però mostrato a chi guarda invece che scritto in una tabella. Quindi la demo gira con `SEARCH_EXACT` acceso: a 228k punti costa **2,5 ms contro 1,4**, cioè niente, e sulle collection generiche sposta le metriche fra 0,0000 e 0,0046. Va detto in U-19 — è l'unico punto in cui la demo non è configurata come la valutazione, e la ragione è che la valutazione può permettersi un difetto noto, una dimostrazione no.
+>
+> Oggi `SEARCH_EXACT` è una manopola di piattaforma e non un campo della richiesta (§3.4, e la classificazione di A-02): per la demo basta l'ambiente, e non serve toccare il contratto.
+
+### Cosa questa lista non contiene, di proposito
+
+- **Autenticazione, quote, limitazione per IP.** Servivano solo alla demo ospitata; senza hosting non hanno un destinatario, e il §14 le teneva fuori.
+- **Un secondo indice o un secondo corpus.** L'affermazione 2 si chiude misurando quello che c'è, non aggiungendo materiale.
+- **Il multi-turno.** Resta **X-02**: ogni domanda è indipendente, e riusare i messaggi precedenti per il recupero è un'altra cosa.
+
+---
+
 ## 13. Fase 9 — Extra, in ordine di priorità
 
 Solo se avanza tempo. Nessuno di questi è necessario perché il progetto sia completo.
@@ -733,6 +679,7 @@ Solo se avanza tempo. Nessuno di questi è necessario perché il progetto sia co
 | X-03 | Controllo di scala: qualche migliaio di documenti non annotati | Solo tempo di indicizzazione, latenza, dimensione indice, VRAM |
 | X-04 | Retrieval visivo in stile ColPali sul dataset table-heavy | Il più ambizioso. Timebox rigido, si taglia senza rimpianti |
 | X-05 | **La finestra di contesto decisa dall'hardware**: la preparazione guarda VRAM e memoria, sceglie la taglia di partenza e crea quelle che ha senso avere | Rinviato di proposito il 2026-08-19: U-16 dà la scelta con una partenza fissa a 32k — la finestra con cui il progetto misura — e questo la fa dipendere dalla macchina. Ci finisce anche la voce «non fissata», tolta dal menu perché era l'unica che non è una misura: qui tornerebbe come *una misura scelta guardando l'hardware*. Serve una sonda di sistema — Ollama non pubblica la VRAM totale, e `/api/ps` elenca solo i modelli **caricati** |
+| X-06 | **La demo ospitata**: un'istanza pubblica che risponde senza scaricare niente | Rinviato di proposito il 2026-08-20, con la ragione scritta nel piano di chiusura. Se un giorno si fa, tre cose sono obbligatorie e non facoltative: un tetto per chi interroga, un modo di dire «quota esaurita» che non sia un errore, e una riga che dichiara **quale modello ha risposto** — perché non sarà quello con cui il progetto ha misurato |
 
 ---
 
@@ -754,9 +701,9 @@ Solo se avanza tempo. Nessuno di questi è necessario perché il progetto sia co
 
 - Ogni fase finisce con numeri committati in `eval/results/`, con hash del commit.
 - Mai due modifiche senza misurare in mezzo.
-- **Prima di confrontare una metrica fra due configurazioni, verificare che il cambiamento non muova anche lo strumento che la misura.** Il tetto di chunking di I-11 sembrava alzare `citation_precision` di 11 punti; erano le premesse più corte, e quel verificatore accetta il 79% sotto i 343 token contro il 58% sopra i 1.784. Una metrica è confrontabile solo lungo gli assi che non toccano il suo strumento, e quali siano va saputo prima, non dopo.
-- **Due indici di taglia o densità diversa non si confrontano con la ricerca approssimata.** HNSW è approssimato, e perde più richiamo dove i punti sono più fitti: su `ledger_routed` restituisce l'84,8% del vero top-5 contro il 98,9% di `ledger`. Il confronto fra le due pipeline misurava quindi anche il divario fra i due richiami, e **8 dei 21,7 punti attribuiti al routing in R-07 erano l'indice** (R-11). Usare `SEARCH_EXACT=1`, oppure verificare prima con `scripts/probe_index_density.py` che il richiamo sia equivalente: costa un minuto e non serve nessun golden set.
-- **Un test pre-registrato protegge dallo scegliere il test dopo aver visto i dati. Non protegge dall'aver scelto il test sbagliato prima.** Il passo 2 di OQ-01 era scritto in anticipo e dava +17,33% a favore dell'ipotesi; un braccio di controllo con un dato **finto** dava lo stesso identico +17,33%, perché in regime di quasi-pareggio qualunque perturbazione ribalta una frazione di casi. Ogni esperimento vuole un controllo che dica **cosa sta misurando**, e il controllo non è nel protocollo per definizione — il protocollo è ciò di cui si dubita.
+- **Prima di confrontare una metrica fra due configurazioni, verificare che il cambiamento non muova anche lo strumento che la misura.** Il tetto di chunking di I-11 sembrava alzare `citation_precision` di undici punti: era la lunghezza delle premesse, a cui quel verificatore è sensibile. Una metrica è confrontabile solo lungo gli assi che non toccano il suo strumento, e quali siano va saputo prima, non dopo.
+- **Due indici di taglia o densità diversa non si confrontano con la ricerca approssimata.** HNSW perde più richiamo dove i punti sono più fitti, quindi il confronto fra due pipeline misura anche il divario fra i due richiami: **un terzo del guadagno attribuito al routing in R-07 era l'indice** (R-11). Usare `SEARCH_EXACT=1`, oppure verificare prima con `scripts/probe_index_density.py` che il richiamo sia equivalente: costa un minuto e non serve nessun golden set.
+- **Un test pre-registrato protegge dallo scegliere il test dopo aver visto i dati. Non protegge dall'aver scelto il test sbagliato prima.** Il passo 2 di OQ-01 era scritto in anticipo e dava un delta a favore dell'ipotesi; un braccio di controllo con un dato **finto** dava lo stesso identico delta, perché in regime di quasi-pareggio qualunque perturbazione ribalta una frazione di casi. Ogni esperimento vuole un controllo che dica **cosa sta misurando**, e il controllo non è nel protocollo per definizione — il protocollo è ciò di cui si dubita.
 - **Una misura la cui etichetta si rivela falsa non è un risultato negativo da conservare: è un risultato da rifare.** Il §7 dice che i risultati negativi restano in tabella, e vale per una misura che ha risposto *male* alla domanda giusta. Non copre il caso in cui la domanda era un'altra — `E-06` si chiamava *«retrieval lessicale BM25»* e misurava qualcos'altro. La riga non si cancella: si rifà, e le due misure restano affiancate con detto quale descriveva cosa. Distinguere i due casi è il motivo per cui esiste la Fase 5.
 - **L'ordine dei task dentro una fase non è quello della tabella.** Ciò che cambia il comportamento va prima di ciò che lo misura, e una misura costosa ripetuta per N configurazioni va per ultima: qualsiasi modifica al comportamento fatta dopo la invalida, e ce ne si accorge a GPU spesa. Prima di iniziare una fase, ordinare i suoi task su questo criterio e scriverlo nella sezione della fase.
 - Temperatura 0 e finestra 32k su ogni run di valutazione, annotate nel risultato.
@@ -782,11 +729,9 @@ Solo se avanza tempo. Nessuno di questi è necessario perché il progetto sia co
 
 ```
 ├── compose.yml              # profili demo / full / eval
-├── Makefile                 # fetch-datasets, ingest, eval, demo
-├── README.md
-├── ROADMAP.md
-├── STACK.md
-├── .env.example
+├── Dockerfile               # multi-stage: build del frontend + servizio Python
+├── Makefile                 # fetch-datasets, ingest, eval, dev, demo, dashboard
+├── README.md · ROADMAP.md · STACK.md · CLAUDE.md · .env.example
 ├── src/
 │   ├── datasets/            # caricamento HF, normalizzazione a Chunk
 │   ├── profiling/           # profilatore documenti, assegnazione doc_genre
@@ -794,15 +739,21 @@ Solo se avanza tempo. Nessuno di questi è necessario perché il progetto sia co
 │   ├── index/               # embedding, upsert Qdrant (una collection per dataset)
 │   ├── retrieval/           # ibrido, RRF, rerank, filtri, riscrittura, routing
 │   ├── generation/          # prompt, parsing e riparazione citazioni, entailment, astensione
-│   ├── api/
+│   ├── eval/                # harness, metriche, config di run
+│   ├── service/             # un caso d'uso per funzione: CLI e API chiamano qui (A-01)
+│   ├── api/                 # FastAPI, eventi SSE
+│   ├── providers.py         # scelta del provider ONNX, in un posto solo (Q-05)
 │   └── config.py
 ├── eval/
 │   ├── contamination/       # prompt, chiavi, output grezzi dei test pre-implementazione
 │   ├── golden/              # query e qrels normalizzati, incluse le non rispondibili
 │   ├── metrics/
-│   └── results/             # un EvalRun per esecuzione, con hash commit
+│   └── results/             # un EvalRun per esecuzione, con hash commit, più i dump per query
+├── scripts/                 # CLI di ingestione, valutazione, migrazione e sonde
+├── tests/                   # suite Python, inclusi i test di confine (dashboard, tipi UI)
 ├── dashboard/               # Streamlit interna per debug e confronto configurazioni
-├── ui/                      # frontend demo
+├── ui/                      # frontend demo: api/ (contratto generato), app/ (stato), ui/ (viste)
+├── docs/                    # progress.md, open-questions.md, hardware.md, ui-mockup.html
 └── data/                    # gitignored, tranne il mini-dataset demo
 ```
 
