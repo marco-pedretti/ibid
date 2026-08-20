@@ -21,7 +21,7 @@ from huggingface_hub import snapshot_download
 
 from src.profiling.genre import assign_genre
 from src.ingestion.router import route_text
-from .schema import Chunk
+from .schema import PIPELINE_GENERIC, Chunk
 
 REPO_ID = "artefactory/ledger-long-context-KPI-QA"
 DATASET_ID = "ledger"
@@ -136,7 +136,6 @@ def iter_chunks(dataset_dir: Path) -> Iterator[Chunk]:
         td = n_table_pages / n if n > 0 else 0.0
         asl = n_chars / n if n > 0 else 0.0
         doc_genre = assign_genre(td, asl)
-        pipeline = doc_genre  # "table_heavy" | "academic_pdf" | "continuous_text"
 
         for page_num, page_text in enumerate(pages):
             page_text = page_text.strip()
@@ -151,7 +150,11 @@ def iter_chunks(dataset_dir: Path) -> Iterator[Chunk]:
                 dataset_id=DATASET_ID,
                 doc_id=doc_id,
                 doc_genre=doc_genre,
-                pipeline=pipeline,
+                # Una pagina per chunk: nessuna delle tre pipeline ha girato.
+                # Scriveva `doc_genre` -- quindi `table_heavy` su tutto LEDGER,
+                # esattamente il valore che la collection *routed* porta per
+                # davvero, e la targhetta di U-05 non avrebbe distinto le due.
+                pipeline=PIPELINE_GENERIC,
                 section_path="",
                 page=page_num,
                 bbox=None,

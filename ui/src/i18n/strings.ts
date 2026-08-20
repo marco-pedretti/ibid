@@ -184,6 +184,27 @@ export const it = {
   "compare.prompt.hint":
     "Cambia come è stata posta la domanda al modello senza fonti, e rifà questa colonna sola: l'altra resta ferma a fare da paragone. Chiedendogli di astenersi quando non sa, le risposte inventate scendono dal 45% al 17% e quelle corrette non calano (prompt severo, misurato su 100 domande sui paper).",
 
+  // U-05: come il documento e' stato riconosciuto e come e' stato spezzato. Due
+  // vocabolari separati anche dove una parola coincide: «tabelle» come genere
+  // dice com'e' fatto il documento, «per tabelle» come taglio dice come e' stato
+  // spezzato — e che il primo scelga il secondo e' la decisione da mostrare.
+  "source.genre.paper": "paper",
+  "source.genre.tables": "tabelle",
+  "source.genre.prose": "testo continuo",
+  // «generico» non e' un dato mancante: e' il termine di paragone, cioe' l'unita'
+  // che il documento offriva gia' — una pagina, una sezione — senza pipeline.
+  "source.cut.generic": "taglio generico",
+  "source.cut.sections": "per sezioni",
+  "source.cut.tables": "per tabelle",
+  "source.cut.paragraphs": "per paragrafi",
+  "source.pipeline.hint":
+    "Come questo documento è stato spezzato prima di entrare nell'indice: riconosciuto come {genere}, tagliato {taglio}. Se scegliere il taglio in base al genere migliori il recupero è una delle cose che questo progetto misura.",
+  // Quando una pipeline e' stata scelta per il genere, e quando invece no. Due
+  // frasi e non una con un «non»: la seconda deve dire cosa **e'** successo.
+  "source.pipeline.routed": "Il taglio è stato scelto in base al genere.",
+  "source.pipeline.generic":
+    "Tutti i documenti di questo indice sono stati tagliati allo stesso modo, qualunque fosse il genere.",
+
   "example.note.numbers": "Un numero preciso: la citazione deve reggerlo.",
   "example.note.paper": "Sta dentro un paper: guarda da quale sezione arriva.",
   "example.note.table": "La risposta sta in una tabella.",
@@ -423,6 +444,19 @@ export const en: Record<Chiave, string> = {
   "compare.prompt.strict": "Abstains",
   "compare.prompt.hint":
     "Changes how the question was put to the model without sources, and re-runs this column only: the other one stays put as the comparison. Asking it to abstain when it does not know takes invented answers from 45% down to 17%, and correct ones do not drop (strict prompt, measured on 100 paper questions).",
+
+  "source.genre.paper": "paper",
+  "source.genre.tables": "tables",
+  "source.genre.prose": "continuous text",
+  "source.cut.generic": "generic split",
+  "source.cut.sections": "by section",
+  "source.cut.tables": "by table",
+  "source.cut.paragraphs": "by paragraph",
+  "source.pipeline.hint":
+    "How this document was split before it entered the index: recognised as {genere}, cut {taglio}. Whether choosing the split by document kind improves retrieval is one of the things this project measures.",
+  "source.pipeline.routed": "The split was chosen from the document kind.",
+  "source.pipeline.generic":
+    "Every document in this index was split the same way, whatever its kind.",
 
   "example.note.numbers": "A precise number: the citation has to hold it up.",
   "example.note.paper": "It sits inside a paper: look at which section it comes from.",

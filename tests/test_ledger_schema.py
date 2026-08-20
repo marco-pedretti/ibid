@@ -7,6 +7,7 @@ from pathlib import Path
 
 
 from src.datasets.ledger import PAGE_SEP, _content_type, _parse_doc_id, iter_chunks, qrel_doc_id
+from src.datasets.schema import PIPELINE_GENERIC
 from src.datasets.schema import Chunk
 
 
@@ -71,6 +72,28 @@ def test_iter_chunks_basic():
 
     assert len(chunks) == 3
     assert all(isinstance(c, Chunk) for c in chunks)
+
+
+def test_iter_chunks_pipeline_says_no_pipeline_ran():
+    """Il campo dice cosa ha prodotto il chunk, e qui non ha prodotto niente.
+
+    Scriveva `doc_genre`, cioe' `table_heavy` su tutto LEDGER: lo stesso valore
+    che la collection *routed* porta per davvero, dove la pipeline `table_heavy`
+    gira sul serio. Le due modalita' erano indistinguibili nel payload, e il
+    campo dichiarava una pipeline che non aveva girato -- la stessa famiglia di
+    `reasoning_enabled` e di `context_window`.
+    """
+    with tempfile.TemporaryDirectory() as td:
+        dataset_dir = _make_mmd_dir(Path(td), {
+            "NYSE_SHW_2017.mmd": f"<table><tr><td>Revenue</td></tr></table>\n{PAGE_SEP}\nAltro testo.",
+        })
+        chunks = list(iter_chunks(dataset_dir))
+
+    assert all(c.pipeline == PIPELINE_GENERIC for c in chunks)
+    # Il genere resta osservato: lo calcola `assign_genre` dalle feature del
+    # documento, ed e' l'ingresso della decisione di routing.
+    assert all(c.doc_genre == "table_heavy" for c in chunks)
+    assert all(c.pipeline != c.doc_genre for c in chunks)
 
 
 def test_iter_chunks_dataset_id():

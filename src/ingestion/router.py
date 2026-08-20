@@ -33,7 +33,12 @@ from src.ingestion import (
 )
 
 # Maps each genre to the pipeline name string stored in Chunk.pipeline.
-# Used by the eval harness to tag EvalRuns with the routing decision.
+#
+# The second line of this comment used to claim the eval harness reads it to tag
+# EvalRuns.  It does not, and never did: `EvalRun.pipeline_mode` comes from the
+# ingest CLI.  Nothing computes on `Chunk.pipeline` — it is written here, stored
+# in the payload, and read back by `ChunkView` for the U-05 badge.  That is
+# exactly why it could stay wrong in the generic loaders without a test noticing.
 PIPELINE_FOR_GENRE: dict[str, str] = {
     "academic_pdf": "structured_hierarchical",
     "table_heavy": "table_heavy",

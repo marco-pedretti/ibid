@@ -20,10 +20,15 @@
  * in una colonna larga 272 px prendeva lo spazio delle fonti vere. Nel testo si
  * legge *dove* manca la citazione, che e' l'unica cosa che serve saperne.
  *
- * Targhette `pipeline`/`doc_genre` non sono qui: sono U-05, e arrivano col proprio
- * criterio. Metterle ora significa consegnarle senza il test che le verifica.
+ * **Come il documento e' stato spezzato sta sulla scheda** (U-05), sotto la
+ * testata e nel posto in cui stava `section_path`: e' una proprieta' del
+ * documento da cui la fonte viene, non un giudizio su di essa, quindi non va in
+ * fondo accanto ai verdetti. Si legge in mono e attenuata come tutto cio' che e'
+ * un dato, e prende l'accento **solo quando una pipeline e' stata scelta per il
+ * genere** — cioe' quando c'e' un routing da vedere.
  */
 import { usaChat } from "../app/chat";
+import { nomeGenere, nomeTaglio, taglioPerGenere } from "../app/genere";
 import { usaLingua } from "../app/i18n";
 import { spiegaPunteggio } from "../app/recupero";
 import { esitoDellaScheda, esitoNumericoDellaScheda } from "../app/verdetti";
@@ -99,6 +104,51 @@ function inAttesa(fase: string): boolean {
   return fase === "attesa";
 }
 
+/**
+ * Riconosciuto come X, tagliato Y — la decisione di routing, sulla fonte.
+ *
+ * **Le due meta' insieme.** La pipeline da sola non dice in base a cosa e' stata
+ * scelta, e il genere da solo non dice cosa se n'e' fatto. Il criterio di U-05 e'
+ * «rende visibile il routing», e il routing e' la freccia fra i due.
+ *
+ * **L'accento solo quando c'e' un routing da vedere.** Con l'indice generico
+ * ogni documento riceve lo stesso taglio, e una targhetta accesa cinque volte
+ * uguale su cinque schede smetterebbe di essere letta — e' la regola del
+ * riepilogo dei verdetti e della riga dei parametri. Il genere invece cambia
+ * scheda per scheda anche li': su `open_ragbench` un documento su nove e' fatto
+ * di tabelle, e vederlo accanto a quattro paper e' meta' della domanda che
+ * questo progetto misura.
+ *
+ * Un valore che non conosciamo si mostra com'e' e senza spiegazione: tradurre un
+ * genere aggiunto domani direbbe una cosa che nessuno ha verificato.
+ */
+function Taglio({ chunk }: { chunk: ChunkView }) {
+  const { t } = usaLingua();
+  const genere = nomeGenere(chunk.doc_genre);
+  const taglio = nomeTaglio(chunk.pipeline);
+  if (chunk.doc_genre === "" && chunk.pipeline === "") return null;
+
+  const scelto = taglioPerGenere(chunk.pipeline);
+  const parole = {
+    genere: genere === null ? chunk.doc_genre : t(genere),
+    taglio: taglio === null ? chunk.pipeline : t(taglio),
+  };
+
+  return (
+    <p className="min-w-0">
+      <Suggerimento
+        dato
+        testo={`${t("source.pipeline.hint", parole)} ${t(
+          scelto ? "source.pipeline.routed" : "source.pipeline.generic",
+        )}`}
+        className={`block truncate font-mono text-[9.5px] ${scelto ? "text-accent" : "text-muted"}`}
+      >
+        {parole.genere} → {parole.taglio}
+      </Suggerimento>
+    </p>
+  );
+}
+
 function Scheda({
   chunk,
   citata,
@@ -149,6 +199,8 @@ function Scheda({
           {chunk.score.toFixed(3)}
         </Suggerimento>
       </div>
+
+      <Taglio chunk={chunk} />
 
       {chunk.section_path !== "" && (
         <p className="min-w-0">

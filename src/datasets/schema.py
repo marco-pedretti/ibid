@@ -5,6 +5,19 @@ from typing import Any
 
 from pydantic import BaseModel, Field
 
+#: Il valore di `Chunk.pipeline` quando **nessuna pipeline ha girato**.
+#:
+#: La modalita' generica e' il termine di paragone di R-07: si prende l'unita'
+#: che il documento offre gia' -- una pagina per `ledger`, una sezione per
+#: `open_ragbench` -- e non si applica nessuna delle tre pipeline di `ingestion`.
+#: Non e' un'assenza di dato: e' cio' che ha prodotto quel chunk, e detto cosi'
+#: la targhetta di U-05 mostra una differenza dove una differenza c'e'.
+#:
+#: La parola e' quella di `EvalRun.pipeline_mode` (`"generic" | "routed"`) e non
+#: una seconda: le due dicono la stessa cosa a due livelli diversi -- la run e il
+#: chunk -- e due vocabolari per lo stesso fatto divergono al primo che cambia.
+PIPELINE_GENERIC: str = "generic"
+
 
 class Chunk(BaseModel):
     chunk_id: str    # "{dataset_id}:{doc_id}:{seq}"

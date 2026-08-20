@@ -6,6 +6,8 @@ from pathlib import Path
 
 from src.datasets.schema import Chunk
 from src.datasets.open_ragbench import iter_chunks, DATASET_ID
+from src.datasets.schema import PIPELINE_GENERIC
+from src.ingestion.router import PIPELINE_FOR_GENRE
 
 
 # ---------------------------------------------------------------------------
@@ -70,6 +72,25 @@ def test_iter_chunks_text_section(tmp_path):
     assert chunks[0].content_type == "text"
     assert chunks[0].dataset_id == DATASET_ID
     assert chunks[0].chunk_id == f"{DATASET_ID}:2401.00001v1:0"
+
+
+def test_iter_chunks_pipeline_says_no_pipeline_ran(tmp_path):
+    """Una sezione per chunk non e' `continuous_text`.
+
+    Diceva `continuous_text`, che e' il nome di una pipeline vera: raggruppa
+    paragrafi a ~1000 caratteri con 200 di sovrapposizione. Qui si prende la
+    sezione com'e' nel JSON. Lo stesso nome copriva due spezzettamenti diversi,
+    e la collection *routed* ne ha 98.312 punti contro 18.840.
+    """
+    _write_corpus(tmp_path, "2401.00001v1", [
+        {"section_id": 0, "text": "Introduction text.", "tables": {}, "images": {}},
+    ])
+    chunks = list(iter_chunks(tmp_path))
+    assert all(c.pipeline == PIPELINE_GENERIC for c in chunks)
+    # Il punto: qui non puo' comparire il nome di una pipeline, perche' nessuna
+    # ha girato. Il genere invece resta osservato e dipende dal documento --
+    # su una fixture di due righe non e' `academic_pdf`, ed e' giusto cosi'.
+    assert all(c.pipeline not in PIPELINE_FOR_GENRE.values() for c in chunks)
 
 
 def test_iter_chunks_table_section(tmp_path):

@@ -1600,6 +1600,7 @@ Per la stessa ragione `/document/{doc_id}/chunks` restituisce i chunk **in ordin
 | U-00 | âœ… fatto (2026-08-14) | Scheletro `ui/`: Vite 8 + React 19 + TypeScript 7 + Tailwind 4, client SSE scritto a mano, temi, i18n IT/EN, `/datasets` all'avvio. **19 test Vitest** + 15 test Python sul contratto generato. `npm run typecheck && npm test && npm run build` verdi; catena provata contro l'API viva. Dettaglio sotto. |
 | U-01 | ✅ fatto (2026-08-14) | Selettore dataset nella corsia laterale del mockup, scelta ricordata in `localStorage` e **validata** contro `/datasets`. La regola di selezione è in funzioni pure: **9 test Vitest** in più (28 in tutto), senza jsdom. Provato contro l'API viva: `open_ragbench` 18.840 e `ledger` 47.110 chunk. Dettaglio sotto. |
 | U-02 | ✅ fatto (2026-08-14) | Schermata di chat con **pannello fonti sempre visibile** (nel telaio, non nella chat): otto stati, uno per evento del §3.5, macchina a stati in un reducer puro con **16 test** (44 lato Vitest). Marcatori inerti finché non arriva `answer`. I valori di `abstention` ora sono generati come i tipi. Esempi dello stato vuoto presi da `eval/golden`. Provato contro l'API viva su una query d'oro reale. **Rendering LaTeX** con KaTeX, regola dei delimitatori misurata: 49 falsi positivi tolti su 49, zero formule vere perse. Dettaglio sotto. |
+| U-05 | ✅ fatto (2026-08-20) | **Come il documento è stato riconosciuto e come è stato tagliato**, sulla scheda della fonte: `tabelle → taglio generico`, con l'accento solo quando una pipeline è stata scelta per il genere. Prima però il campo andava reso vero: i loader generici scrivevano il nome di una pipeline che **non aveva girato** — terza volta di quella famiglia dopo `reasoning_enabled` e `context_window`. Migrazione di payload su 65.950 punti, senza re-ingestione. **6 test Vitest** in più (225) e 2 Python (1711). Dettaglio sotto. |
 | U-04 | ✅ fatto (2026-08-20) | **Il prompt del modello senza fonti si sceglie dentro quella colonna**: due pastiglie — «risponde comunque» e «si astiene» — che rifanno **quella colonna sola**, con l'altra ferma a fare da paragone. È il 45%→17% di E-04/E-05 su una domanda singola invece che in una tabella. Il braccio nudo diventa un campo dello stato: ricavarlo da `config` faceva scambiare di posto le due colonne mentre una si rifà. **10 test Vitest** in più (214 in tutto). Dettaglio sotto. |
 | U-16 | ✅ fatto (2026-08-19) | **Modello e contesto, due selettori**: il primo elenca i modelli, il secondo le finestre che quel modello regge — e compare solo quando ce n'è più di una. Nessuna convenzione sui nomi: il raggruppamento passa da `parent_model`. Con `scripts/model_sizes.py` che crea le taglie. **15 test Vitest** in più (198 in tutto). Dettaglio sotto. |
 | A-08 | ✅ fatto (2026-08-19) | **Il catalogo dei modelli**: `Capabilities` porta famiglia, finestra massima e quantizzazione di ciascuno. La finestra si legge **per pattern** (`*.context_length`), quindi vale per qualunque famiglia — e il massimo non è uno solo: 131.072 per `gemma4:latest`, 262.144 per `gemma4:12b`. **12 test** in più (1690 in tutto). Additivo: `models` invariato. Dettaglio sotto. |
@@ -2479,6 +2480,101 @@ Servono tutti e due: la cache da sola avrebbe nascosto il costo alla seconda
 volta invece di toglierlo. Un fallimento **non** si memorizza — un motore muto
 adesso può rispondere fra un minuto — e un test fissa anche l'ordine, perché un
 menu che si riordina da solo fa saltare la selezione a chi ha appena scelto.
+
+### U-05 — la targhetta non si poteva disegnare finché il campo mentiva
+
+Il criterio è «rende visibile il routing», e il dato per farlo c'era già:
+`ChunkView` porta `doc_genre` e `pipeline` dal A-04, con un docstring che dice
+testualmente di portarli **per U-05**. Ha retto per un giorno, il tempo di
+guardare cosa contengono.
+
+#### Un campo dichiarato che nessuno verificava, il terzo
+
+Il contratto del §3 diceva `pipeline: str  # ingestion pipeline actually used`.
+I due loader generici scrivevano un'altra cosa:
+
+```python
+ledger.py         pipeline = doc_genre
+open_ragbench.py  pipeline = "table_heavy" if doc_genre == "table_heavy" else "continuous_text"
+```
+
+In tutti e due i casi il codice spezza a mano — una pagina per chunk, una sezione
+per chunk — e i moduli `pipeline_*.py` non vengono mai chiamati. Letto
+sull'indice vivo, 2000 punti per collection:
+
+| collection | `doc_genre` | `pipeline` | punti |
+|---|---|---|---|
+| `ledger` | table_heavy | **table_heavy** | 47.110 |
+| `ledger_routed` | table_heavy | **table_heavy** | 228.331 |
+| `open_ragbench` | academic_pdf | continuous_text | 18.840 |
+| `open_ragbench_routed` | academic_pdf | structured_hierarchical | 98.312 |
+
+Su LEDGER il campo diceva **la stessa cosa nelle due modalità**, ed era falso in
+quella generica. Una targhetta dipinta da lì avrebbe mostrato lo stesso valore
+col routing acceso e spento, sul dataset dove il routing conta di più — cioè
+avrebbe fallito il proprio criterio pur sembrando funzionare.
+
+È la terza volta: `reasoning_enabled` (falso in ogni run per un periodo),
+`context_window` (D-14), questo. La forma è sempre la stessa, e qui il motivo per
+cui è potuto restare sbagliato stava scritto in un commento di `router.py`:
+sosteneva che l'harness leggesse il campo per taggare gli `EvalRun`. Non lo legge
+nessuno. **Niente calcola su `Chunk.pipeline`** — si scrive, si mette nel
+payload, si rilegge in `ChunkView`.
+
+#### Quella stessa cosa ha reso la correzione economica
+
+Se nessuno calcola su quel campo, correggerlo non sposta nessun risultato
+registrato e non chiede di ricostruire un indice: `set_payload` riscrive un campo
+su una collection viva, come gli indici payload di A-07 e il modificatore IDF di
+R-08. 65.950 punti, nessun vettore toccato, verificato col conto esatto e non a
+campione:
+
+| | punti | non-`generic` dopo |
+|---|---|---|
+| `open_ragbench` | 18.840 | 0 |
+| `ledger` | 47.110 | 0 |
+| `open_ragbench_routed` | 98.312 | intatti |
+| `ledger_routed` | 228.331 | intatti |
+
+Le *routed* le rifiuta dal nome, e il rifiuto è il punto: lì il valore è vero,
+l'ha scritto il modulo che ha girato davvero.
+
+Due cose imparate eseguendola, e sono nello script. Su `ledger` la scrittura
+supera i cinque secondi di timeout del client: il server la portava a termine e
+lo script usciva con un errore — **una migrazione riuscita che si dichiara
+fallita invita a rilanciarla cercando un guasto che non c'è**. E «già a posto»
+era deciso su 500 punti campionati, cioè sull'1% di `ledger`; ora è un `count`
+con filtro, e la stessa funzione verifica anche l'esito.
+
+#### La targhetta
+
+`tabelle → taglio generico`, sotto la testata della scheda, dove sta
+`section_path`: è una proprietà del documento da cui la fonte viene, non un
+giudizio su di essa, quindi non va in fondo accanto ai verdetti.
+
+**Le due metà insieme.** La pipeline da sola non dice in base a cosa è stata
+scelta; il genere da solo non dice cosa se n'è fatto. Il routing è la freccia.
+
+**Due vocabolari separati**, anche dove una parola coincide: `table_heavy` come
+genere è «fatto di tabelle», come pipeline è «spezzato tenendo le tabelle
+intere». Su `open_ragbench` un documento `table_heavy` finisce su
+`continuous_text`, perché lì le tabelle sono Markdown — quindi non è un'identità,
+è una decisione. Una mappa condivisa avrebbe accettato `academic_pdf` come nome
+di pipeline, che non lo è.
+
+**L'accento solo quando una pipeline è stata scelta per il genere.** Col routing
+spento tutti i documenti ricevono lo stesso taglio, e cinque targhette accese
+identiche su cinque schede smettono di essere lette. Il genere invece cambia da
+scheda a scheda anche lì.
+
+#### Il limite, dichiarato
+
+Oggi la demo **non instrada mai**: `/datasets` pubblica solo le due collection
+generiche, e le `_routed` esistono in Qdrant senza essere raggiungibili. Quindi
+la seconda metà della targhetta è costante, e ciò che si vede è che il routing
+non è in gioco. È vero e non è tutto ciò che il criterio vorrebbe — registrato
+come **D-18**, perché è una scelta di perimetro che non era scritta da nessuna
+parte.
 
 ### U-04 — la seconda variabile è nella colonna, non nella barra
 
