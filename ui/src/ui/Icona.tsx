@@ -103,6 +103,59 @@ export function Corpus(p: PropsIcona) {
   );
 }
 
+/**
+ * La corsia, aperta o chiusa: un pannello con la sua striscia a sinistra.
+ *
+ * **La stessa forma per i due versi**, e non una freccia che cambia direzione.
+ * Una freccia dice «di la'», e qui non si va da nessuna parte: si toglie e si
+ * rimette una colonna. Il verso lo dice il nome del comando — «Comprimi la
+ * corsia», «Apri la corsia» — che chi ascolta sente e chi guarda legge nel
+ * suggerimento, mentre due frecce speculari costringerebbero a ricordare quale
+ * significa cosa.
+ */
+export function Corsia(p: PropsIcona) {
+  return (
+    <Base {...p}>
+      <rect x="2.5" y="3" width="11" height="10" rx="1.5" />
+      <path d="M6.5 3 V13" />
+    </Base>
+  );
+}
+
+/**
+ * La cronologia: cio' che si e' chiesto prima.
+ *
+ * Un orologio con le lancette in alto a destra, che e' il modo in cui «recente»
+ * si disegna. Non una lista di righe: quella e' `Corpus`, e li' le righe
+ * disuguali **sono** il significato — due icone di righe orizzontali a 13 px
+ * sono la stessa icona.
+ */
+export function Orologio(p: PropsIcona) {
+  return (
+    <Base {...p}>
+      <circle cx="8" cy="8" r="5.5" />
+      <path d="M8 4.9 L8 8 L10.4 9.4" />
+    </Base>
+  );
+}
+
+/**
+ * L'indice su cui si sta chiedendo: una pila.
+ *
+ * Un dataset qui e' una **collezione** — migliaia di chunk impilati e cercabili
+ * — e la pila e' la forma che lo dice senza promettere altro. Una cartella
+ * direbbe «file», un cilindro «database»: nessuno dei due e' cio' che c'e'
+ * dentro.
+ */
+export function Indice(p: PropsIcona) {
+  return (
+    <Base {...p}>
+      <path d="M8 2.6 L14 5.9 L8 9.2 L2 5.9 Z" />
+      <path d="M2.6 9.2 L8 12.2 L13.4 9.2" />
+    </Base>
+  );
+}
+
 /** Si apre fuori da qui: una freccia che esce dal riquadro (U-06). */
 export function Esterno(p: PropsIcona) {
   return (

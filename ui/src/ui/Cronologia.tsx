@@ -50,7 +50,7 @@ import { titoloDi, vuota } from "../app/cronologia";
 import type { Conversazione } from "../app/cronologia";
 import { usaLingua } from "../app/i18n";
 import { Etichetta } from "./Etichetta";
-import { Cestino, Piu } from "./Icona";
+import { Cestino, Orologio, Piu } from "./Icona";
 import { Suggerimento } from "./Suggerimento";
 
 /** Quanto resta armato «Cancella» prima di tornare innocuo. Abbastanza per un
@@ -84,6 +84,65 @@ export function Cronologia() {
         </section>
       )}
     </>
+  );
+}
+
+/**
+ * «Nuova conversazione» nella striscia (U-18): lo stesso comando, senza la
+ * parola.
+ *
+ * Tiene l'accento e il riempimento al passaggio perche' resta **l'azione
+ * principale** anche quando la corsia e' chiusa: fra sette glifi grigi uno
+ * d'accento e' l'unico modo di dire quale si usa per primo. Il nome che il
+ * bottone perde va nell'`aria-label` e nella bolla, cioe' non si perde.
+ */
+export function NuovaCompatta() {
+  const { t } = usaLingua();
+  const { occupato, nuova } = usaChat();
+
+  return (
+    <Attivabile
+      bloccato={occupato}
+      etichetta={t("history.new")}
+      suggerimento={occupato ? t("history.busy") : t("history.new")}
+      onClick={nuova}
+      className={`flex h-[34px] w-full items-center justify-center rounded-[7px] border border-accent bg-accent-soft text-accent transition-colors ${
+        occupato ? "" : "hover:bg-accent hover:text-accent-ink"
+      }`}
+    >
+      <Piu size={14} />
+    </Attivabile>
+  );
+}
+
+/**
+ * La cronologia nella striscia: un bottone che **riapre la corsia**.
+ *
+ * E' l'unica delle funzioni della corsia che non sopravvive a 34 px, e la
+ * ragione e' scritta qui sopra: il titolo di una voce e' gia' la prima domanda
+ * troncata a ~28 caratteri, e troncarla di nuovo a un glifo non lascerebbe un
+ * titolo — lascerebbe una fila di righe indistinguibili. Un comando che riporta
+ * dove l'elenco si legge e' un gesto solo, come aprirebbe una tendina, e la
+ * bolla dice **perche'** invece di lasciarlo scoprire cliccando.
+ *
+ * Non c'e' quando non c'e' niente da riaprire, per la stessa regola dell'elenco.
+ */
+export function CronologiaCompatta({ apri }: { apri: () => void }) {
+  const { t } = usaLingua();
+  const { conversazioni } = usaChat();
+
+  if (conversazioni.every(vuota)) return null;
+
+  return (
+    <Attivabile
+      bloccato={false}
+      etichetta={t("history.title")}
+      suggerimento={t("rail.history.hint")}
+      onClick={apri}
+      className="flex h-[34px] w-full items-center justify-center rounded-[7px] border border-line-2 text-ink-2 transition-colors hover:border-accent-2 hover:text-ink"
+    >
+      <Orologio size={14} />
+    </Attivabile>
   );
 }
 
