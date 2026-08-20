@@ -29,6 +29,7 @@ import type { ReactNode } from "react";
 import type { ChunkView } from "../api/types";
 import { filtra, indirizzo } from "../app/corpus";
 import { usaEsploratore } from "../app/esploratore";
+import type { StatoDocumento } from "../app/esploratore";
 import { usaDataset } from "../app/dataset";
 import { nomeGenere, nomeTaglio, taglioPerGenere } from "../app/genere";
 import { usaLingua } from "../app/i18n";
@@ -161,7 +162,7 @@ export function Corpus() {
           onFine={finisci}
           onSposta={(d) => sposta("documenti", d)}
         />
-        <Mappa />
+        <Centro />
         <Separatore
           etichetta={t("corpus.resize.detail")}
           valore={larghezze.dettaglio}
@@ -262,6 +263,124 @@ function Documenti() {
 const STACCO = 2;
 const MINIMO_TRATTO = 3;
 
+/**
+ * La colonna di mezzo: due viste dello stesso documento.
+ *
+ * **La mappa dice quanto sono grandi i pezzi, il testo dice cosa c'era nel punto
+ * in cui uno e' stato tagliato.** Sono la stessa domanda — «com'e' stato
+ * spezzato» — guardata da lontano e da vicino, e condividono la selezione:
+ * scegliendo un tratto sulla mappa e passando al testo ci si ritrova li'.
+ *
+ * Il modo **non** si ricorda oltre la sessione, a differenza delle larghezze:
+ * quelle sono una preferenza («voglio piu' spazio per leggere»), questo e' cosa
+ * si sta guardando adesso.
+ */
+function Centro() {
+  const { t } = usaLingua();
+  const { documento } = usaEsploratore();
+  const [vista, setVista] = useState<"mappa" | "testo">("mappa");
+
+  if (documento.stato === "nessuno") {
+    return (
+      <section className="flex min-h-0 flex-col justify-center px-[18px] py-4">
+        <p className="text-center text-[12px] text-muted">{t("corpus.pickDocument")}</p>
+      </section>
+    );
+  }
+
+  return (
+    <section className="flex min-h-0 flex-col gap-3 overflow-y-auto px-[18px] py-4">
+      <div className="flex items-center gap-1">
+        <Modo attivo={vista === "mappa"} onClick={() => setVista("mappa")}>
+          {t("corpus.howSplit")}
+        </Modo>
+        <Modo attivo={vista === "testo"} onClick={() => setVista("testo")}>
+          {t("corpus.indexedText")}
+        </Modo>
+      </div>
+      {vista === "mappa" ? <Mappa /> : <TestoIndicizzato />}
+    </section>
+  );
+}
+
+/**
+ * Il documento in fila, con le cuciture visibili.
+ *
+ * **Non e' «il documento»**, ed e' la ragione per cui si chiama «il testo
+ * indicizzato»: il PDF non ce l'abbiamo, e cio' che si puo' mettere in fila sono
+ * i chunk. Oggi le due cose coincidono — misurato: nell'indice generico non c'e'
+ * **nessuna** sovrapposizione fra chunk adiacenti, quindi i pezzi partizionano
+ * il documento esattamente. In una collection instradata non sarebbe piu' vero:
+ * un quarto delle coppie condivide fino a 586 caratteri, e la lettura continua
+ * li mostrerebbe due volte. Sta in D-18, che e' il debito che renderebbe quelle
+ * collection raggiungibili.
+ *
+ * **Le cuciture sono il contenuto, non un difetto.** Vedere dove un taglio e'
+ * caduto — in mezzo a una frase, prima di una tabella, dopo un titolo — e' la
+ * tesi del progetto applicata al corpus: la mappa dice che i pezzi sono
+ * disuguali, questa dice cosa c'era nel punto in cui uno e' stato staccato.
+ */
+function TestoIndicizzato() {
+  const { t } = usaLingua();
+  const { documento, scelto, scegliChunk } = usaEsploratore();
+  if (documento.stato !== "pronto") return <Attesa stato={documento} />;
+
+  return (
+    <div className="flex flex-col">
+      {documento.chunks.map((c, i) => (
+        <article key={c.chunk_id}>
+          {/* La cucitura sta **sopra** il chunk e non fra due: cosi' porta il
+              nome di quello che apre, e il primo taglio si vede come gli altri
+              invece di essere l'unico senza riga. */}
+          <button
+            type="button"
+            onClick={() => scegliChunk(c.chunk_id)}
+            aria-current={c.chunk_id === scelto}
+            className="group flex w-full items-center gap-2 py-1.5 text-left"
+          >
+            <span
+              className={`font-mono text-[9.5px] tabular-nums transition-colors ${
+                c.chunk_id === scelto ? "text-accent" : "text-muted group-hover:text-ink-2"
+              }`}
+            >
+              {t("corpus.seam", { n: i + 1, caratteri: c.text.length })}
+            </span>
+            <span
+              className={`h-px flex-1 transition-colors ${
+                c.chunk_id === scelto ? "bg-accent" : "bg-line group-hover:bg-line-2"
+              }`}
+            />
+          </button>
+          <div
+            className={`rounded-[7px] px-2.5 py-1.5 transition-colors ${
+              c.chunk_id === scelto ? "bg-accent-soft" : ""
+            }`}
+          >
+            <Leggibile testo={c.text} />
+          </div>
+        </article>
+      ))}
+    </div>
+  );
+}
+
+/** Il caricamento e il guasto di un documento, che le due viste dividono. */
+function Attesa({ stato }: { stato: StatoDocumento }) {
+  const { t } = usaLingua();
+  if (stato.stato === "caricamento") {
+    return (
+      <p className="font-mono text-[11px] text-muted">
+        <span className="mr-2 inline-block h-1.5 w-1.5 animate-pulse rounded-full bg-accent align-middle" />
+        {t("corpus.loading")}
+      </p>
+    );
+  }
+  if (stato.stato === "guasto") {
+    return <p className="font-mono text-[10px] break-all text-warn">{stato.errore}</p>;
+  }
+  return null;
+}
+
 function Mappa() {
   const { t } = usaLingua();
   const { documento, scelto, scegliChunk } = usaEsploratore();
@@ -280,29 +399,7 @@ function Mappa() {
     return () => osserva.disconnect();
   }, [documento.stato]);
 
-  if (documento.stato === "nessuno") {
-    return (
-      <section className="flex min-h-0 flex-col justify-center px-[18px] py-4">
-        <p className="text-center text-[12px] text-muted">{t("corpus.pickDocument")}</p>
-      </section>
-    );
-  }
-
-  if (documento.stato !== "pronto") {
-    return (
-      <section className="flex min-h-0 flex-col gap-3 px-[18px] py-4">
-        <Etichetta>{t("corpus.howSplit")}</Etichetta>
-        {documento.stato === "caricamento" ? (
-          <p className="font-mono text-[11px] text-muted">
-            <span className="mr-2 inline-block h-1.5 w-1.5 animate-pulse rounded-full bg-accent align-middle" />
-            {t("corpus.loading")}
-          </p>
-        ) : (
-          <p className="font-mono text-[10px] break-all text-warn">{documento.errore}</p>
-        )}
-      </section>
-    );
-  }
+  if (documento.stato !== "pronto") return <Attesa stato={documento} />;
 
   const chunks = documento.chunks;
   // Genere e pipeline sono proprieta' del **documento**: il primo chunk le porta
@@ -312,13 +409,10 @@ function Mappa() {
   const perGenere = primo !== undefined && taglioPerGenere(primo.pipeline);
 
   return (
-    <section className="flex min-h-0 flex-col gap-3.5 overflow-y-auto px-[18px] py-4">
-      <div>
-        <Etichetta>{t("corpus.howSplit")}</Etichetta>
-        <p className="mt-1 font-mono text-[10px] text-muted tabular-nums">
-          {t("corpus.chunks", { n: chunks.length })}
-        </p>
-      </div>
+    <div className="flex flex-col gap-3.5">
+      <p className="font-mono text-[10px] text-muted tabular-nums">
+        {t("corpus.chunks", { n: chunks.length })}
+      </p>
 
       {/* La larghezza vera serve al conto: le larghezze dei tratti sono in
           **pixel interi** perche' cosi' ogni stacco e' uguale, e per farli interi
@@ -363,7 +457,7 @@ function Mappa() {
       </div>
 
       {primo !== undefined && <Spiegazione chunk={primo} />}
-    </section>
+    </div>
   );
 }
 
