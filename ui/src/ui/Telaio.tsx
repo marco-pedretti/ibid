@@ -29,6 +29,7 @@ import { usaLingua } from "../app/i18n";
 import { usaTema } from "../app/theme";
 import type { SceltaTema } from "../app/theme";
 import { LINGUE } from "../i18n/strings";
+import { griglia } from "./corsia";
 import { Cronologia } from "./Cronologia";
 import { Etichetta } from "./Etichetta";
 import { Chiaro, Corpus, Scuro, Sistema } from "./Icona";
@@ -46,14 +47,15 @@ export function Telaio({ children, fianco }: { children: ReactNode; fianco?: Rea
     // loro, e con un'altezza minima scorrerebbe la pagina intera portandosi via
     // la corsia e il campo di scrittura.
     <div
+      // Le colonne sono uno stile in linea e non una classe: sono una misura
+      // calcolata, e `corsia.ts` la calcola dove si puo' provarla.
+      style={{ gridTemplateColumns: griglia(false, fianco !== undefined) }}
       // `grid-rows-[minmax(0,1fr)]`: senza una riga dichiarata quella
       // implicita e' `auto`, cioe' alta quanto il contenuto -- e una colonna
       // piu' alta dello schermo la faceva crescere oltre `h-dvh` invece di
       // scorrere dentro di se'. E' lo stesso difetto delle due colonne del
       // confronto, un piano piu' su.
-      className={`grid h-dvh grid-rows-[minmax(0,1fr)] overflow-hidden bg-paper text-ink ${
-        fianco ? "grid-cols-[200px_1fr_272px]" : "grid-cols-[200px_1fr]"
-      }`}
+      className="grid h-dvh grid-rows-[minmax(0,1fr)] overflow-hidden bg-paper text-ink"
     >
       {/* Niente `overflow-y-auto` qui: un contenitore di scorrimento ritaglia
           cio' che esce dai suoi bordi, e la tendina del dataset -- che e' posizionata
