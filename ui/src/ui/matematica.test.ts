@@ -74,6 +74,47 @@ describe("il `$` singolo", () => {
   });
 });
 
+describe("un numero da solo non e' una formula", () => {
+  it("la cifra resta prosa e i delimitatori spariscono", () => {
+    // Il caso visto su `ledger` nella revisione di U-04. `da` cade **dopo** la
+    // `$`: il delimitatore non appartiene a nessun segmento, quindi nessuno lo
+    // disegna, e chi legge vede il numero e non il modo in cui il modello l'ha
+    // incorniciato.
+    expect(segmenta("erano $(222.8)$ milioni")).toEqual([
+      testo("erano ", 0),
+      testo("(222.8)", 7),
+      testo(" milioni", 15),
+    ]);
+  });
+
+  it("un anno, una percentuale, un intervallo", () => {
+    // Tre degli 11 casi contati sulle risposte di riferimento di
+    // `open_ragbench`: cifre che un paper ha incorniciato per abitudine.
+    expect(segmenta("$2010$")).toEqual([testo("2010", 1)]);
+    expect(segmenta("$0.47$")).toEqual([testo("0.47", 1)]);
+    expect(segmenta("$[-1,1]$")).toEqual([testo("[-1,1]", 1)]);
+  });
+
+  it("un apice resta matematica", () => {
+    // `448^{2}` e' fra le coppie vere del corpus: ha una struttura da
+    // comporre, e la regola non deve toccarla.
+    expect(segmenta("$448^{2}$")).toEqual([inline("448^{2}", 0)]);
+  });
+
+  it("una relazione fra numeri resta matematica", () => {
+    // `=`, `<` e `>` non sono nella classe: dicono qualcosa, non sono cifre.
+    expect(segmenta("$2+2=4$")).toEqual([inline("2+2=4", 0)]);
+    expect(segmenta("$0<1$")).toEqual([inline("0<1", 0)]);
+  });
+
+  it("una variabile sola resta matematica anche se corta", () => {
+    // La regola tocca **solo** cio' che non ha lettere: le 125 coppie senza
+    // segnale LaTeX misurate a U-02 passano ancora tutte.
+    expect(segmenta("$n$")).toEqual([inline("n", 0)]);
+    expect(segmenta("$p(y, o, u)$")).toEqual([inline("p(y, o, u)", 0)]);
+  });
+});
+
 describe("le tabelle HTML di `ledger`", () => {
   it("due importi in celle diverse non sono una formula", () => {
     // Misurato su 600 chunk: 49 spans accettati dalla sola regola stretta, tutti

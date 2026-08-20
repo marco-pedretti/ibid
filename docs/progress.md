@@ -2573,6 +2573,42 @@ anche il meccanismo — *niente la obbliga a fermarsi dove finiscono i documenti
 che vale in lunghezza e in impaginazione insieme, ed è vero per costruzione
 invece che per una misura non ancora fatta.
 
+#### Un numero da solo non è una formula
+
+Seconda cosa vista alla revisione, su `ledger`: il modello scrive `$(222.8)$
+million dollars` e la cifra usciva in Computer Modern in mezzo alla prosa. Cioè
+un **quarto ruolo tipografico** accanto ai tre del §12 — e per giunta su un
+corpus dove `$` è il simbolo della valuta e le parentesi vogliono dire
+«negativo».
+
+Misurato prima di toccare la regola, sulle risposte di riferimento e con lo
+stesso taglio del frontend:
+
+| | coppie `$…$` accettate | di cui soli numeri |
+|---|---|---|
+| `open_ragbench` | 717 | **11** |
+| `ledger` | 0 | 0 |
+
+Gli undici sono `2010`, `0.47`, `0.33`, `0.01`, `0`, `198.088`, `357.856`,
+`[-1,1]`, `(1,2,3)`, `0.874(0.006)` — cifre che un paper ha incorniciato per
+abitudine, e nessuna perde qualcosa a essere scritta nel carattere del testo
+intorno. La regola è **stretta di proposito**: basta una lettera, un comando, un
+apice o un `=` perché resti matematica. `448^{2}`, che è nel corpus, non la
+sfiora.
+
+**I delimitatori spariscono invece di restare a vista.** Era la trappola della
+correzione ovvia: dire «non è matematica» e basta avrebbe stampato `$(222.8)$`
+con i dollari scritti, cioè avrebbe mostrato *il modo in cui il modello ha
+sbagliato* invece del numero che ha detto. Il segmento parte da `da: i + 1`, così
+la `$` non appartiene a nessun segmento e nessuno la disegna — lo stesso effetto
+dei `nascosti` del markdown, ottenuto dove i caratteri di sintassi sono già in
+mano a chi taglia.
+
+Resta aperto il verso opposto, che è del prompt e non del renderer: «Keep
+formulas in LaTeX between `$...$`» non dice *formule, non numeri*, ed è ciò che
+ha invitato il modello a incorniciare una cifra. Una riga lì cambia
+`prompt_hash`, quindi va insieme alla rimisura già dovuta da U-14 — non prima.
+
 #### Due cose emerse di lato
 
 **La pastiglia esce dalla barra.** Quattro costanti di stile in `ui/pastiglia.ts`:

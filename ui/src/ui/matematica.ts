@@ -27,6 +27,22 @@
  *
  * `\(…\)` e `\[…\]` non sono ambigui e passano sempre.
  *
+ * **Un numero da solo non e' una formula**, e i suoi delimitatori spariscono.
+ * Visto nella revisione di U-04 su `ledger`: il modello scrive `$(222.8)$
+ * million dollars` e la cifra usciva in Computer Modern in mezzo alla prosa —
+ * un quarto ruolo tipografico accanto ai tre del §12, e per giunta su un corpus
+ * dove `$` e' il simbolo della valuta e le parentesi vogliono dire «negativo».
+ * Misurato sulle risposte di riferimento: delle **717** coppie `$…$` accettate
+ * in `open_ragbench` solo **11** sono di soli numeri — `2010`, `0.47`,
+ * `198.088` — cioe' cifre che un paper ha incorniciato per abitudine, e in
+ * `ledger` sono **zero**. Il rischio di perdere matematica vera e' quello: gli
+ * apici restano matematica (`448^{2}` ha `^{}`, non passa di qui), e cosi'
+ * qualunque cosa abbia una lettera, un comando, un `=` o un confronto.
+ *
+ * Il contenuto resta **prosa**, non testo con i `$` a vista: quelli sono
+ * sintassi, e lasciarli scritti mostrerebbe a chi legge il modo in cui il
+ * modello ha sbagliato invece del numero che ha detto.
+ *
  * **Una formula incompleta resta testo**, e questa non e' una rinuncia: mentre i
  * token arrivano, `$\frac{a}` non ha ancora la sua chiusura. Trattarla come TeX
  * significherebbe disegnare un errore rosso per mezzo secondo a ogni formula che
@@ -64,6 +80,18 @@ const COPPIE: Coppia[] = [
   { apre: "\\(", chiude: "\\)", tipo: "inline" },
 ];
 
+/**
+ * Cifre e punteggiatura, e nient'altro: nessuna lettera, nessun comando,
+ * nessun apice o pedice, nessun `=` ne' confronto.
+ *
+ * E' deliberatamente stretta. La tentazione opposta — accettare come formula
+ * solo cio' che contiene un comando LaTeX — e' gia' stata misurata e scartata
+ * (vedi la nota in testa): butterebbe via un quarto della matematica vera.
+ * Questa toglie **11 casi su 717**, tutti numeri, e nessuno di essi perde
+ * qualcosa a essere scritto nel carattere del testo intorno.
+ */
+const SOLO_NUMERO = /^[\s0-9.,()[\]%+\-−–—:'"]+$/;
+
 export function segmenta(testo: string): Segmento[] {
   const fuori: Segmento[] = [];
   let prosa = "";
@@ -90,8 +118,17 @@ export function segmenta(testo: string): Segmento[] {
     if (testo[i] === "$") {
       const fine = chiusuraDollaro(testo, i);
       if (fine !== -1) {
+        const contenuto = testo.slice(i + 1, fine);
         chiudiProsa();
-        fuori.push({ tipo: "inline", tex: testo.slice(i + 1, fine), da: i });
+        // `da: i + 1` e non `i`: il segmento comincia **dopo** il delimitatore,
+        // che cosi' non appartiene a nessun segmento e nessuno lo disegna. E'
+        // lo stesso effetto dei `nascosti` del markdown, ottenuto dove i
+        // caratteri di sintassi sono gia' in mano a chi taglia.
+        fuori.push(
+          SOLO_NUMERO.test(contenuto)
+            ? { tipo: "testo", valore: contenuto, da: i + 1 }
+            : { tipo: "inline", tex: contenuto, da: i },
+        );
         i = fine + 1;
         continue;
       }
