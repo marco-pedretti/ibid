@@ -230,6 +230,10 @@ export const it = {
   // che U-05 ha appena tolto dal campo `pipeline`.
   "corpus.legend.table": "contiene una tabella",
   "corpus.legend.table.routed": "tabella · mai spezzata",
+  // Terza voce, ed e' quella che mancava: l'accento vuol dire «scelto» in tutta
+  // l'interfaccia, e la legenda deve dirlo invece di lasciarlo indovinare.
+  "corpus.legend.selected": "il chunk scelto",
+  "corpus.chunkHint": "{id} · {tipo} · {caratteri} caratteri",
   "corpus.selected": "Chunk selezionato",
   // Due modi, e il secondo non e' un ripiego: «grezzo» e' la stringa che sta
   // nell'indice, cioe' quella che il modello ha ricevuto e che il controllo ha
@@ -518,6 +522,8 @@ export const en: Record<Chiave, string> = {
   "corpus.legend.text": "text",
   "corpus.legend.table": "contains a table",
   "corpus.legend.table.routed": "table · never split",
+  "corpus.legend.selected": "the selected chunk",
+  "corpus.chunkHint": "{id} · {tipo} · {caratteri} characters",
   "corpus.selected": "Selected chunk",
   "corpus.readable": "readable",
   "corpus.raw": "raw",

@@ -11,11 +11,11 @@
  * domanda sui crediti di Sherwin-Williams e' lungo 6.302 caratteri. Verificare
  * una citazione vuol dire leggerli tutti.
  *
- * **La mappa e' il pezzo che non si poteva disegnare prima di U-05.** Ogni
- * tessera e' un chunk, e la sua larghezza dice cosa contiene: una tabella non
- * viene mai spezzata, quindi occupa il doppio. Guardare due documenti dello
- * stesso corpus e vedere due mappe diverse e' l'affermazione 2 del §0 senza una
- * tabella di numeri.
+ * **La mappa e' il pezzo che non si poteva disegnare prima di U-05.** E' una
+ * striscia continua, mandata a capo: ogni tratto e' un chunk, largo **quanto il
+ * chunk e' grande davvero**. Guardare due documenti dello stesso corpus e vedere
+ * due mappe diverse e' l'affermazione 2 del §0 senza una tabella di numeri —
+ * e vedere che i pezzi sono disuguali e' meta' di cio' che la pipeline fa.
  *
  * **Niente pagina renderizzata, e non e' solo I-06.** Su nessuno dei due corpus
  * esiste un PDF: `open_ragbench` ha il JSON degli articoli, `ledger` il Markdown
@@ -35,6 +35,7 @@ import { usaLingua } from "../app/i18n";
 import { griglia, leggi, ridimensiona } from "./colonne";
 import type { Larghezze } from "./colonne";
 import { Etichetta } from "./Etichetta";
+import { quanteRighe, righeMappa } from "./mappa";
 import { Esterno, Indietro, Lente } from "./Icona";
 import { Separatore } from "./Separatore";
 import { Suggerimento } from "./Suggerimento";
@@ -243,12 +244,18 @@ function Documenti() {
 }
 
 /**
- * Com'e' stato spezzato: una tessera per chunk.
+ * Com'e' stato spezzato: la striscia del documento, mandata a capo.
  *
- * **La larghezza porta l'informazione**, non solo il colore: una tabella non
- * viene mai spezzata e occupa il doppio. Il colore da solo si perderebbe per chi
- * non lo distingue, ed e' la stessa regola dei verdetti in U-07 — glifo, colore
- * e parola insieme, mai uno solo.
+ * **La larghezza e' la dimensione vera del pezzo.** Su `NYSE_SHW_2017` il chunk
+ * piu' grande e' 6.302 caratteri e il piu' piccolo 19: con tessere tutte uguali
+ * quella differenza spariva, ed era la cosa da mostrare — la pipeline esiste
+ * perche' una tabella non si spezza, e il risultato e' un documento fatto di
+ * pezzi molto diversi. Il conto sta in `mappa.ts`, provato a parte.
+ *
+ * **Il tipo e' una densita', non un colore.** Nel §12 l'accento vuol dire
+ * «scelto»: usarlo per «tabella» faceva sembrare selezionate tutte le tabelle e
+ * spente tutte le altre. Ora l'accento e' l'unica cosa colorata della mappa, ed
+ * e' il tratto scelto — che la legenda dichiara invece di lasciarlo indovinare.
  */
 function Mappa() {
   const { t } = usaLingua();
@@ -294,22 +301,31 @@ function Mappa() {
         </p>
       </div>
 
-      <div className="flex flex-wrap gap-[3px]">
-        {chunks.map((c) => (
-          <Tessera
-            key={c.chunk_id}
-            chunk={c}
-            scelta={c.chunk_id === scelto}
-            onClick={() => scegliChunk(c.chunk_id)}
-          />
+      <div className="flex flex-col gap-px">
+        {righeMappa(
+          chunks.map((c) => c.text.length),
+          quanteRighe(chunks.length),
+        ).map((riga, n) => (
+          <div key={n} className="flex h-[22px] gap-px">
+            {riga.map((p, k) => (
+              <Tratto
+                key={`${p.indice}-${k}`}
+                chunk={chunks[p.indice]}
+                frazione={p.frazione}
+                scelta={chunks[p.indice].chunk_id === scelto}
+                onClick={() => scegliChunk(chunks[p.indice].chunk_id)}
+              />
+            ))}
+          </div>
         ))}
       </div>
 
-      <div className="flex gap-3 font-mono text-[10px] text-muted">
-        <Voce quadro="border-line-2 bg-surface-2">{t("corpus.legend.text")}</Voce>
-        <Voce quadro="border-accent-2 bg-accent-soft">
+      <div className="flex flex-wrap gap-3 font-mono text-[10px] text-muted">
+        <Voce quadro="bg-surface-2">{t("corpus.legend.text")}</Voce>
+        <Voce quadro="bg-line-2">
           {t(perGenere ? "corpus.legend.table.routed" : "corpus.legend.table")}
         </Voce>
+        <Voce quadro="bg-accent">{t("corpus.legend.selected")}</Voce>
       </div>
 
       {primo !== undefined && <Spiegazione chunk={primo} />}
@@ -317,30 +333,63 @@ function Mappa() {
   );
 }
 
-/** Una tessera: un chunk, largo il doppio se contiene una tabella. */
-function Tessera({
+/**
+ * Un tratto della striscia: un chunk, o la parte che ne entra in questa riga.
+ *
+ * **La larghezza e' la proporzione**, non una taglia in due misure. `flexGrow`
+ * invece di una percentuale perche' fra un tratto e l'altro c'e' un pixel di
+ * stacco: con le percentuali la riga sborderebbe della somma degli stacchi,
+ * mentre `flex` distribuisce cio' che resta **dopo** averli tolti.
+ *
+ * `min-w-[2px]` e' l'unico punto in cui la proporzione viene tradita, e sta qui
+ * e non nel conto: un chunk da 19 caratteri su 348.942 e' largo niente, ed e'
+ * vero — ma un pezzo del documento che non si puo' cliccare e' un pezzo che non
+ * esiste. Il conto resta esatto (`mappa.ts`), la bugia sta nel disegno e si
+ * ferma a due pixel.
+ *
+ * **Il colore non usa l'accento per il tipo.** Nel §12 l'accento vuol dire
+ * «questo e' scelto», e usarlo per «questa e' una tabella» faceva sembrare
+ * selezionate tutte le tabelle e spente tutte le altre. Il tipo si legge come
+ * densita' — un neutro chiaro e uno piu' fitto — e l'accento resta **solo** per
+ * il tratto scelto, che cosi' e' l'unica cosa colorata della mappa.
+ */
+function Tratto({
   chunk,
+  frazione,
   scelta,
   onClick,
 }: {
   chunk: ChunkView;
+  frazione: number;
   scelta: boolean;
   onClick: () => void;
 }) {
+  const { t, lingua } = usaLingua();
   const tabella = chunk.content_type === "table" || chunk.content_type === "mixed";
 
   return (
-    <Suggerimento dato testo={`${chunk.chunk_id} · ${chunk.content_type}`} fuoco={false}>
+    <Suggerimento
+      dato
+      fuoco={false}
+      testo={t("corpus.chunkHint", {
+        id: chunk.chunk_id,
+        tipo: chunk.content_type,
+        caratteri: chunk.text.length.toLocaleString(lingua === "it" ? "it-IT" : "en-US"),
+      })}
+    >
       <button
         type="button"
         onClick={onClick}
         aria-label={chunk.chunk_id}
         aria-current={scelta}
-        className={`h-[22px] rounded-[3px] border transition-colors ${
-          tabella
-            ? "w-[26px] border-accent-2 bg-accent-soft"
-            : "w-[13px] border-line-2 bg-surface-2"
-        } ${scelta ? "outline-2 outline-offset-1 outline-accent" : "hover:border-accent"}`}
+        style={{ flexGrow: frazione, flexBasis: 0 }}
+        className={`h-full min-w-[2px] transition-colors ${
+          scelta
+            ? "bg-accent"
+            : tabella
+              ? "bg-line-2 hover:bg-muted"
+              : "bg-surface-2 hover:bg-line-2"
+        }`}
       />
     </Suggerimento>
   );
@@ -349,7 +398,7 @@ function Tessera({
 function Voce({ quadro, children }: { quadro: string; children: ReactNode }) {
   return (
     <span className="flex items-center gap-1.5">
-      <i className={`inline-block h-[9px] w-[9px] rounded-[2px] border ${quadro}`} />
+      <i className={`inline-block h-[9px] w-[9px] rounded-[2px] ${quadro}`} />
       {children}
     </span>
   );
