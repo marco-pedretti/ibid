@@ -1,6 +1,8 @@
 # Stato di avanzamento
 
-Tracciamento dei task di `ROADMAP.md` man mano che vengono completati. Non sostituisce `ROADMAP.md` (che resta la fonte di verità, immutabile in questo file) — qui si registra solo cosa è stato fatto, quando, e con quale verifica.
+Tracciamento dei task di `ROADMAP.md` man mano che vengono completati. Non sostituisce `ROADMAP.md` (che resta la fonte di verità, immutabile in questo file) — qui si registra solo cosa è stato fatto, quando, e con quale verifica. Le **ipotesi non ancora verificate**, col protocollo per verificarle, stanno in [`open-questions.md`](open-questions.md).
+
+**Come è ordinato**, perché tre volte era già derivato: ogni fase ha **una tabella sola**, subito sotto il titolo, con le righe **per identificativo** — è l'ordine in cui un task si cerca. Sotto, una **sezione di dettaglio per task**, nell'ordine in cui il lavoro è stato fatto — che non è quello della tabella, e `ROADMAP.md` §15 dice perché. Un task si registra nella fase in cui il piano lo mette, non in quella durante la quale è capitato di farlo.
 
 ## Fase 0 — Fetta verticale e gate di contaminazione
 

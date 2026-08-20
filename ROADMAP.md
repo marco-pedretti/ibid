@@ -564,6 +564,8 @@ Solo la terza rigenera i vettori, ed è quella su cui poggia ogni numero in `doc
 
 Ogni voce dice **cosa fare**, non solo cosa manca. Un debito senza il comando che lo salda è un promemoria, e i promemoria non si saldano.
 
+> **`D-1` e `D-01` non sono la stessa famiglia.** Qui i debiti sono `D-1`…`D-18`; `D-01` è la dashboard Streamlit della Fase 3. La collisione è nata dopo, e si tiene così: rinominare l'una o gli altri sposterebbe riferimenti in commit e commenti già scritti, per guadagnare una cifra.
+
 ### A. Misure da rifare — richiedono la GPU, e un via libera
 
 `prompt_hash` è cambiato due volte: con la correzione del prompt di C-01, e con U-14 che ha rovesciato la regola sul formato. Le **17 run di citazioni** a disco valgono per prompt che non sono più quello in vigore, e ogni numero di conformità va citato **insieme al prompt a cui si riferisce** finché non si rimisura.
