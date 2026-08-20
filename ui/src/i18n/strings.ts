@@ -213,6 +213,10 @@ export const it = {
   "corpus.open.action": "Esplora il corpus",
   "corpus.back": "Torna alla conversazione",
   "corpus.documents": "Documenti",
+  // Sui due manici: e' l'`aria-label` di un `separator`, quindi dice **cosa si
+  // sta ridimensionando**, non «trascina qui».
+  "corpus.resize.documents": "Larghezza dell'elenco dei documenti",
+  "corpus.resize.detail": "Larghezza del chunk selezionato",
   "corpus.search": "Cerca un documento…",
   "corpus.loading": "carico…",
   "corpus.count": "{visti} su {tutti}",
@@ -503,6 +507,8 @@ export const en: Record<Chiave, string> = {
   "corpus.open.action": "Explore the corpus",
   "corpus.back": "Back to the conversation",
   "corpus.documents": "Documents",
+  "corpus.resize.documents": "Width of the document list",
+  "corpus.resize.detail": "Width of the selected chunk",
   "corpus.search": "Find a document…",
   "corpus.loading": "loading…",
   "corpus.count": "{visti} of {tutti}",

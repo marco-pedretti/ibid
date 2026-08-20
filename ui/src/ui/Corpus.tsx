@@ -23,7 +23,7 @@
  * riquadro grigio che promette qualcosa — «dichiararlo, non simularlo» sta nel
  * criterio.
  */
-import { useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { ReactNode } from "react";
 
 import type { ChunkView } from "../api/types";
@@ -32,17 +32,65 @@ import { usaEsploratore } from "../app/esploratore";
 import { usaDataset } from "../app/dataset";
 import { nomeGenere, nomeTaglio, taglioPerGenere } from "../app/genere";
 import { usaLingua } from "../app/i18n";
+import { griglia, leggi, ridimensiona } from "./colonne";
+import type { Larghezze } from "./colonne";
 import { Etichetta } from "./Etichetta";
 import { Esterno, Indietro, Lente } from "./Icona";
+import { Separatore } from "./Separatore";
 import { Suggerimento } from "./Suggerimento";
 import { pezzi } from "./tabellaHtml";
 import type { Cella } from "./tabellaHtml";
 import { Prosa } from "./Testo";
 
+/** Dove si ricordano le larghezze. Una preferenza, come il tema — vedi `colonne.ts`. */
+const DEPOSITO = "ibid.corpus.colonne";
+
 export function Corpus() {
   const { t } = usaLingua();
   const { chiudi } = usaEsploratore();
   const { scelto: dataset } = usaDataset();
+  const contenitore = useRef<HTMLDivElement>(null);
+  const [larghezze, setLarghezze] = useState<Larghezze>(() => {
+    try {
+      return leggi(localStorage.getItem(DEPOSITO));
+    } catch {
+      // Deposito negato (modalita' privata, iframe): si parte dai predefiniti.
+      return leggi(null);
+    }
+  });
+
+  const sposta = useCallback((quale: keyof Larghezze, delta: number) => {
+    // La larghezza disponibile si misura **adesso**: la finestra puo' essere
+    // stata ridimensionata da quando la schermata si e' aperta, e un totale
+    // vecchio farebbe fermare i manici nel posto sbagliato.
+    const totale = (contenitore.current?.clientWidth ?? 0) - 10;
+    setLarghezze((l) => ridimensiona(l, quale, delta, Math.max(totale, 0)));
+  }, []);
+
+  // Si scrive **dopo** il trascinamento, non a ogni pixel: un `pointermove`
+  // arriva decine di volte al secondo, e serializzare a ogni passaggio farebbe
+  // pagare al deposito un movimento del mouse. La pausa e' la stessa idea del
+  // ritardo di salvataggio della cronologia.
+  useEffect(() => {
+    const t = setTimeout(() => {
+      try {
+        localStorage.setItem(DEPOSITO, JSON.stringify(larghezze));
+      } catch {
+        // Le misure restano valide per questa sessione: non ricordarle e' meno
+        // grave che rifiutare di cambiarle.
+      }
+    }, 300);
+    return () => clearTimeout(t);
+  }, [larghezze]);
+
+  // La finestra si stringe: le colonne fisse restano, e la mappa puo' finire
+  // sotto il proprio minimo. Un `ridimensiona` di zero le riporta dentro i
+  // limiti senza spostare niente quando non serve.
+  useEffect(() => {
+    const controlla = () => sposta("documenti", 0);
+    window.addEventListener("resize", controlla, { passive: true });
+    return () => window.removeEventListener("resize", controlla);
+  }, [sposta]);
 
   return (
     <div className="flex h-full min-h-0 flex-col bg-paper">
@@ -63,12 +111,30 @@ export function Corpus() {
         </button>
       </div>
 
-      {/* Le tre colonne del mockup. `grid-rows-[minmax(0,1fr)]` per la ragione
-          di sempre: senza una riga dichiarata quella implicita e' `auto`, e a
-          scorrere sarebbe la pagina invece delle colonne. */}
-      <div className="grid min-h-0 flex-1 grid-cols-[210px_1fr_290px] grid-rows-[minmax(0,1fr)] divide-x divide-line overflow-hidden">
+      {/* Le tre colonne del mockup, con due manici in mezzo.
+          `grid-rows-[minmax(0,1fr)]` per la ragione di sempre: senza una riga
+          dichiarata quella implicita e' `auto`, e a scorrere sarebbe la pagina
+          invece delle colonne.
+
+          I bordi non sono piu' `divide-x`: adesso li fanno i manici, che sono
+          una traccia della griglia. Due linee, una sola volta. */}
+      <div
+        ref={contenitore}
+        style={{ gridTemplateColumns: griglia(larghezze) }}
+        className="grid min-h-0 flex-1 grid-rows-[minmax(0,1fr)] overflow-hidden"
+      >
         <Documenti />
+        <Separatore
+          etichetta={t("corpus.resize.documents")}
+          valore={larghezze.documenti}
+          onSposta={(d) => sposta("documenti", d)}
+        />
         <Mappa />
+        <Separatore
+          etichetta={t("corpus.resize.detail")}
+          valore={larghezze.dettaglio}
+          onSposta={(d) => sposta("dettaglio", d)}
+        />
         <Dettaglio />
       </div>
     </div>
