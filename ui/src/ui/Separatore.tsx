@@ -7,6 +7,16 @@
  * vede un bordo, chi trascina prende undici pixel — la misura sotto cui un
  * puntatore comincia a mancarlo.
  *
+ * **Si misura dall'origine del trascinamento, non dall'ultimo fotogramma.** E'
+ * la differenza fra un manico che si comporta e uno che no. Sommando i delta
+ * fotogramma per fotogramma e tagliando ogni volta il risultato, l'eccedenza
+ * oltre il limite **si perde**: si trascina duecento pixel oltre il minimo, si
+ * inverte di uno, e il manico riparte subito — mentre il puntatore e' ancora
+ * lontanissimo. Tenendo la posizione di partenza e la larghezza di partenza, la
+ * larghezza e' sempre `iniziale + (x - x0)` tagliata: per rimettere in moto il
+ * manico bisogna riportare il puntatore dove il manico e' rimasto, che e' cio'
+ * che fa ogni altro ridimensionamento al mondo.
+ *
  * **`setPointerCapture` e non un `mousemove` sul documento.** Con la cattura gli
  * eventi continuano ad arrivare a *questo* elemento anche quando il puntatore
  * ne esce, il che rende il trascinamento immune alle due cose che lo rompono
@@ -29,16 +39,23 @@ const PASSO = 10;
 export function Separatore({
   etichetta,
   valore,
+  onInizio,
   onSposta,
+  onFine,
 }: {
   /** Cosa si sta ridimensionando, per chi ascolta. */
   etichetta: string;
   /** La larghezza attuale della colonna, in pixel: la porta `aria-valuenow`. */
   valore: number;
-  /** Di quanti pixel si e' spostato il manico. Positivo = verso destra. */
+  /** Il trascinamento comincia: chi ascolta fissa la larghezza di partenza. */
+  onInizio: () => void;
+  /** Di quanti pixel il puntatore si e' spostato **dall'inizio** del
+   *  trascinamento. Positivo = verso destra. */
   onSposta: (delta: number) => void;
+  /** Il trascinamento e' finito. */
+  onFine: () => void;
 }) {
-  const ultimo = useRef<number | null>(null);
+  const origine = useRef<number | null>(null);
 
   return (
     <div
@@ -52,29 +69,36 @@ export function Separatore({
         // un trascinamento cominciato li' resterebbe attaccato al puntatore.
         if (e.button !== 0) return;
         e.preventDefault();
-        ultimo.current = e.clientX;
+        origine.current = e.clientX;
+        onInizio();
         e.currentTarget.setPointerCapture(e.pointerId);
       }}
       onPointerMove={(e) => {
-        if (ultimo.current === null) return;
-        // Il **delta** e non la posizione assoluta: cosi' il manico non salta
-        // sotto il dito quando lo si prende da un bordo invece che dal centro.
-        const delta = e.clientX - ultimo.current;
-        if (delta === 0) return;
-        ultimo.current = e.clientX;
-        onSposta(delta);
+        if (origine.current === null) return;
+        // Dall'origine e **non** dall'ultimo fotogramma: vedi la nota in testa.
+        // La distanza dal punto in cui si e' cominciato non si perde quando il
+        // risultato viene tagliato, quindi oltre il limite il manico resta fermo
+        // finche' il puntatore non torna indietro davvero.
+        onSposta(e.clientX - origine.current);
       }}
       onPointerUp={(e) => {
-        ultimo.current = null;
+        origine.current = null;
+        onFine();
         e.currentTarget.releasePointerCapture(e.pointerId);
       }}
       onPointerCancel={() => {
-        ultimo.current = null;
+        origine.current = null;
+        onFine();
       }}
       onKeyDown={(e) => {
         if (e.key !== "ArrowLeft" && e.key !== "ArrowRight") return;
         e.preventDefault();
+        // Ogni pressione e' un gesto per conto suo: si fissa la partenza, si
+        // sposta di un passo, si chiude. Cosi' la tastiera usa la stessa strada
+        // del puntatore invece di una seconda.
+        onInizio();
         onSposta(e.key === "ArrowRight" ? PASSO : -PASSO);
+        onFine();
       }}
       className="group relative cursor-col-resize touch-none focus-visible:outline-none"
     >

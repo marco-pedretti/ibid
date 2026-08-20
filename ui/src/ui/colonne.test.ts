@@ -49,6 +49,25 @@ describe("i limiti, che sono la parte che conta", () => {
     expect(TOT - largo.documenti - largo.dettaglio).toBe(MINIME.mappa);
   });
 
+  it("oltre il limite, tornare indietro di poco non muove niente", () => {
+    // **Il difetto per cui `ridimensiona` prende un delta dall'origine e non
+    // dall'ultimo fotogramma.** Sommando i delta e tagliando ogni volta, il
+    // trascinamento oltre il limite si perde: si va duecento pixel oltre, si
+    // inverte di dieci, e il manico riparte subito mentre il puntatore e'
+    // ancora lontanissimo. Con la partenza fissa la larghezza e' sempre
+    // `iniziale + (x - x0)` tagliata, quindi finche' il puntatore non torna
+    // dove il manico e' rimasto non succede niente.
+    const base = l();
+    const oltre = ridimensiona(base, "documenti", -9999, TOT);
+    const tornato = ridimensiona(base, "documenti", -9989, TOT);
+    expect(tornato.documenti).toBe(oltre.documenti);
+    expect(tornato.documenti).toBe(MINIME.documenti);
+
+    // E quando il puntatore torna davvero dentro, riparte.
+    const dentro = ridimensiona(base, "documenti", -30, TOT);
+    expect(dentro.documenti).toBe(PREDEFINITE.documenti - 30);
+  });
+
   it("una finestra troppo stretta per i tre minimi non solleva niente", () => {
     // Non e' un errore, e' una finestra piccola: si va ai minimi e la pagina
     // scorrera'. Meglio tre colonne che sporgono di tre schiacciate a niente.

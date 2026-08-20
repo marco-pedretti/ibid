@@ -59,13 +59,39 @@ export function Corpus() {
     }
   });
 
-  const sposta = useCallback((quale: keyof Larghezze, delta: number) => {
-    // La larghezza disponibile si misura **adesso**: la finestra puo' essere
-    // stata ridimensionata da quando la schermata si e' aperta, e un totale
-    // vecchio farebbe fermare i manici nel posto sbagliato.
-    const totale = (contenitore.current?.clientWidth ?? 0) - 10;
-    setLarghezze((l) => ridimensiona(l, quale, delta, Math.max(totale, 0)));
+  /** Le larghezze correnti, leggibili da un gestore che non si ri-crea. */
+  const correnti = useRef(larghezze);
+  useEffect(() => {
+    correnti.current = larghezze;
+  }, [larghezze]);
+
+  /** Quelle di **quando il trascinamento e' cominciato**, o `null` se non e' in
+   *  corso. Vedi la nota in testa a `Separatore`: e' cio' che impedisce al
+   *  manico di ripartire appena il puntatore inverte, quando e' finito ben oltre
+   *  il limite. */
+  const partenza = useRef<Larghezze | null>(null);
+
+  /** La larghezza che le tre colonne hanno insieme, **adesso**: la finestra puo'
+   *  essere cambiata da quando la schermata si e' aperta, e un totale vecchio
+   *  farebbe fermare i manici nel posto sbagliato. I 10 px sono i due manici. */
+  const disponibile = useCallback(
+    () => Math.max((contenitore.current?.clientWidth ?? 0) - 10, 0),
+    [],
+  );
+
+  const inizia = useCallback(() => {
+    partenza.current = correnti.current;
   }, []);
+  const finisci = useCallback(() => {
+    partenza.current = null;
+  }, []);
+  const sposta = useCallback(
+    (quale: keyof Larghezze, delta: number) => {
+      const da = partenza.current ?? correnti.current;
+      setLarghezze(ridimensiona(da, quale, delta, disponibile()));
+    },
+    [disponibile],
+  );
 
   // Si scrive **dopo** il trascinamento, non a ogni pixel: un `pointermove`
   // arriva decine di volte al secondo, e serializzare a ogni passaggio farebbe
@@ -87,10 +113,13 @@ export function Corpus() {
   // sotto il proprio minimo. Un `ridimensiona` di zero le riporta dentro i
   // limiti senza spostare niente quando non serve.
   useEffect(() => {
-    const controlla = () => sposta("documenti", 0);
+    // Non passa da `sposta`: quello lavora sulla partenza di un trascinamento, e
+    // qui non ce n'e' uno. Un delta di zero sulle larghezze **correnti** le
+    // riporta dentro i limiti senza muovere niente quando non serve.
+    const controlla = () => setLarghezze((l) => ridimensiona(l, "documenti", 0, disponibile()));
     window.addEventListener("resize", controlla, { passive: true });
     return () => window.removeEventListener("resize", controlla);
-  }, [sposta]);
+  }, [disponibile]);
 
   return (
     <div className="flex h-full min-h-0 flex-col bg-paper">
@@ -127,12 +156,16 @@ export function Corpus() {
         <Separatore
           etichetta={t("corpus.resize.documents")}
           valore={larghezze.documenti}
+          onInizio={inizia}
+          onFine={finisci}
           onSposta={(d) => sposta("documenti", d)}
         />
         <Mappa />
         <Separatore
           etichetta={t("corpus.resize.detail")}
           valore={larghezze.dettaglio}
+          onInizio={inizia}
+          onFine={finisci}
           onSposta={(d) => sposta("dettaglio", d)}
         />
         <Dettaglio />
