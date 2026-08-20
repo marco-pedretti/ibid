@@ -581,3 +581,60 @@ Se è vero, è una classe di errore che **nessuna delle due metriche di citazion
 Perché è il limite onesto di «citazione verificata», che è l'**affermazione 1 del §0**: una frase può citare perfettamente — chunk giusto, riga giusta, anno giusto — ed essere sbagliata lo stesso, e qui nessuna delle due metriche se ne accorge. Non è un difetto di uno dei due verificatori: è una cosa che nessuno dei due sta guardando.
 
 E la variabile che decide è ancora una volta il **genere del documento**. Su `open_ragbench` questa domanda non si pone: la notazione contabile è una convenzione dei bilanci, e la stessa cifra in un paper non cambia segno cambiando tabella.
+
+---
+
+## OQ-08 — 498 chunk di LEDGER non hanno niente da leggere, e nessuno li pesca
+
+**Nuova (2026-08-20), e per metà già risolta dai dati su disco.** Osservata costruendo la mappa dell'esploratore (U-06). Riproducibile con `scripts/probe_chunk_vuoti.py`, che non tocca la GPU.
+
+> **La metà allarmante è falsificata.** L'intuizione era «spazzatura nell'indice → spazzatura nelle risposte». Sui sei dump di generazione già su disco — **4.000 chunk mandati in contesto su 900 query** — quelli senza contenuto sono **zero**. Non è uno zero dimostrato (i dump coprono 900 query delle 10.000 del golden set, con `top_k=5`) ma è un limite superiore stretto, ed è costato niente perché la misura era già stata pagata.
+>
+> Quello che resta è più piccolo e più noioso: **498 punti morti nell'indice**, che occupano memoria e nodi del grafo HNSW senza servire a nessuno.
+
+### Il fatto
+
+Il pezzo più piccolo di `NYSE_SHW_2017` sulla mappa era largo 19 caratteri, e conteneva `![](images/0_0.jpg)`. Quello di `NASDAQ_LOOP_2017` ne aveva 32: `Powered by TCPDF (www.tcpdf.org)`. Non sono chunk piccoli — sono **pagine di servizio del PDF**, indicizzate ed embeddate come tutte le altre.
+
+Contati sui `.mmd`, che sono la sorgente (il loader generico produce un chunk per pagina non vuota, quindi il conto non è campionato):
+
+| | |
+|---|---|
+| chunk di `ledger` | 47.110 |
+| **senza contenuto** | **498 (1,06%)** |
+| documenti che ne hanno almeno uno | **218 su 494** |
+
+E le forme sono poche e ricorrenti — un elenco chiuso, non una coda lunga:
+
+| | |
+|---|---|
+| `Powered by TCPDF (www.tcpdf.org)` | 227 |
+| solo un riferimento a un'immagine | 106 |
+| `[THIS PAGE INTENTIONALLY LEFT BLANK]` e varianti | 127 |
+
+Su `open_ragbench` il fenomeno non c'è: i chunk corti sono lo 0,23% e sono veri — ringraziamenti, conflitti di interesse, sezioni brevi davvero. **È una proprietà del genere**, come tutto ciò che in questo progetto si è rivelato dominante.
+
+### L'ipotesi che resta
+
+Che togliere quei 498 punti non cambi nessuna metrica e serva solo a non tenere spazzatura in un indice. Se è vero, la decisione è di igiene e non di qualità, e va presa come tale.
+
+**Non è misurata.** Le due cose che potrebbero renderla falsa:
+
+1. i dump coprono la **generazione**, cioè `top_k=5` su 900 query. Il recupero valutato in E-02 gira su 10.000 query e a profondità 10: un chunk vuoto potrebbe comparire in fondo a un top-10 senza mai entrare in un top-5;
+2. su LEDGER l'intero top-5 sta dentro **0,0085 di coseno** (OQ-01). In una banda così stretta 498 punti in più non sono ovviamente innocui per l'indice approssimato, anche se non vincono mai: HNSW naviga un grafo, e i nodi morti sono nodi del grafo.
+
+### Protocollo
+
+1. **Cercarli nei dump di recupero** invece che in quelli di generazione, a profondità 10 e su tutte le query disponibili. Nessuna GPU: sono `chunk_id` contro un insieme.
+2. Se non compaiono nemmeno lì, la questione è chiusa come igiene: si toglie il filtro all'ingestione — una riga nel loader di `ledger` — e si ri-ingesta **quando c'è un'altra ragione per farlo**, non prima. Cancellarli dall'indice vivo si può (`delete` con filtro), ma cambierebbe il numero di punti sotto misure già registrate.
+3. Se invece compaiono, la domanda diventa un'altra e più interessante: quanto costa a `doc_R@5` avere 498 nodi morti in un indice la cui banda di similarità è larga 0,0085.
+
+### Trappole
+
+**Chiamarla una causa.** È l'errore che OQ-01 ha già fatto pagare: «sub-chunking aggressivo → IDF diluito» era una congettura scritta senza misura. Qui la misura c'è per metà e dice **di no**; il resto va misurato prima di toccare l'ingestione.
+
+**Toglierli dalla mappa dell'esploratore.** Sono nell'indice, e la mappa dice cosa c'è nell'indice: nasconderli farebbe sembrare il corpus più pulito di com'è. Nella mappa non dettano la scala — quello sì, perché era un artefatto che decideva la dimensione di tutto il resto — ma restano disegnati.
+
+### Perché conta lo stesso
+
+Perché è la seconda volta che una proprietà dell'OCR di `ledger` emerge guardando l'interfaccia e non le metriche: la prima è **OQ-07**, il segno contabile fra parentesi. Le metriche aggregate non le avrebbero mostrate né l'una né l'altra — `citation_precision` e `doc_R@5` sono medie, e una media non dice mai *cosa* c'è dentro un chunk. Disegnare il corpus è stato un modo di leggerlo.
