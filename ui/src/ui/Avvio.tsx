@@ -1,55 +1,68 @@
 /**
- * L'avvio guidato: una striscia in cima alla colonna di lavoro (U-20).
+ * L'avvio guidato: una scheda che indica la zona di cui sta parlando (U-20).
  *
- * **Non e' una finestra modale, e questo e' il criterio, non lo stile.** U-20
- * chiede che la guida non impedisca di fare la prima domanda mentre e' aperta:
- * il modo di ottenerlo non e' un velo che si lascia attraversare, e' non
- * metterlo. Sta sopra la conversazione, il campo resta dov'era, e chi vuole
- * ignorarla scrive e manda. Chi invece la legge la tiene aperta **durante** la
- * prima risposta, che e' il solo momento in cui i primi due passi hanno
- * qualcosa da mostrare — le fonti che compaiono prima del testo, i verdetti che
- * arrivano dopo. Chiuderla alla prima domanda avrebbe tolto la guida esattamente
- * quando serviva.
+ * **Indica sul serio, e non impedisce niente.** Il criterio chiede che la prima
+ * domanda si possa fare mentre la guida e' aperta, e un velo che copre lo
+ * schermo di solito e' esattamente il modo in cui una guida dice il contrario.
+ * Qui il velo c'e' — smorzato, basso, quel tanto che porta l'occhio dentro
+ * l'alone — ma **non intercetta il puntatore**: tutto lo strato e'
+ * `pointer-events-none` tranne la scheda, che ha due bottoni. Si puo' scrivere
+ * nel campo, mandare, cliccare un esempio, cambiare dataset, con la guida
+ * aperta. Il velo e' un peso visivo, non una porta chiusa.
  *
- * **Fuori dal contenitore che scorre**, quindi resta ferma mentre la risposta
- * cresce sotto. Dentro, sparirebbe dopo tre frasi di testo: una guida che si
- * porta via da sola non e' una guida che si e' saltata.
+ * **Ogni zona si dichiara da se'.** L'alone non nasce da un selettore CSS
+ * indovinato da qui: nasce da un `data-guida` che il componente della zona si
+ * mette addosso, tipizzato su `Passo["id"]`, quindi una zona scritta storta non
+ * compila. Era l'obiezione con cui questa forma era stata scartata la prima
+ * volta — una guida che evidenzia regioni dello schermo si disallinea in
+ * silenzio il giorno in cui l'impaginazione cambia — e la risposta e' che a
+ * dichiarare la zona sia chi la disegna. Se poi il nodo non e' sullo schermo
+ * (schermata diversa, pannello assente) **l'alone non si disegna affatto** e la
+ * scheda si mette in basso: la guida dice una cosa in meno, non una cosa falsa.
  *
- * **Un glifo per passo, e sono i glifi delle cose di cui parla.** Il quarto e'
- * quello del bottone «Che cos'e'» che nomina, il terzo e' il segno
- * dell'astensione che si vedra' rispondendo alla terza domanda d'esempio. E' il
- * modo di indicare senza disegnare una freccia sopra l'interfaccia: una guida
- * che evidenzia le regioni dello schermo va tenuta allineata a un'impaginazione
- * che cambia, e sbaglia in silenzio il giorno in cui qualcosa si sposta.
+ * **La collocazione e' aritmetica, e sta in `riflettore.ts`.** E' l'unica parte
+ * che puo' dare un risultato sbagliato invece che brutto, quindi si prova in
+ * `node`: e' la stessa divisione di lavoro fra `Suggerimento` e
+ * `collocazione.ts`, e le due costanti — distanza e margine — sono le stesse,
+ * lette da li'.
  *
- * **«Salta» e «Avanti» hanno la stessa veste, e nessuna delle due e' d'accento.**
- * L'unico bottone pieno di questa colonna e' «Invia», ed e' giusto che resti
- * l'unico: una guida che si presenta con un richiamo piu' forte di quello del
- * campo starebbe chiedendo di essere letta prima che si faccia la cosa per cui
- * si e' aperta la pagina. Fra i due nemmeno c'e' un primario — chi salta e chi
- * prosegue fanno due scelte legittime, e vestirne una meglio dell'altra sarebbe
- * un'opinione travestita da disegno.
+ * **Si converte al confine.** `getBoundingClientRect` e `innerWidth` arrivano in
+ * px di finestra, `left` e `top` si scrivono in px di disegno: senza dividere
+ * per `scala()` l'alone si allontanerebbe dal bersaglio esattamente del fattore
+ * di zoom. E' il difetto gia' pagato una volta dalla bolla del suggerimento.
  *
- * **La riga in fondo dichiara le due cose che il criterio chiede** — che si puo'
- * chiedere mentre e' aperta, e che saltarla si ricorda in questo browser — e sta
- * nella striscia, non in un suggerimento: la localita' della cronologia (U-13)
- * ha lo stesso posto, sotto gli occhi, perche' e' una promessa sul dato e non
- * una nota d'aiuto.
+ * **Il portale non e' un vezzo**, ed e' la stessa ragione del suggerimento: le
+ * colonne dell'interfaccia sono contenitori che scorrono, e un elemento
+ * posizionato dentro uno di quelli viene ritagliato ai suoi bordi. Qui in piu'
+ * l'alone deve poter stare **sopra la corsia** mentre la scheda sta sopra la
+ * colonna di mezzo: due antenati diversi, nessuno dei due giusto.
+ *
+ * **Si rimisura di continuo, invece di ascoltare gli eventi giusti.** Le cose
+ * che spostano un bersaglio qui sono quattro — la finestra che cambia, una
+ * colonna che scorre, il pannello fonti che compare, la corsia che si comprime —
+ * e l'ultima **sostituisce il nodo** invece di ridimensionarlo, quindi un
+ * `ResizeObserver` su cio' che si e' trovato smette di parlare proprio quando
+ * servirebbe. Un giro ogni 100 ms che rilegge la zona e aggiorna solo se e'
+ * cambiata costa una misura su un elemento, dura quanto la guida, e non ha casi
+ * scoperti.
  */
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import type { ReactNode } from "react";
 
 import { DEPOSITO, PASSI, avanti, primoPasso, scrivi } from "../app/avvio";
 import type { Passo } from "../app/avvio";
 import { leggiCronologia } from "../app/cronologia";
 import { usaLingua } from "../app/i18n";
+import type { Misura, Rettangolo } from "./collocazione";
 import { Astensione, Indice, Informazioni, Sostiene } from "./Icona";
 import type { PropsIcona } from "./Icona";
-import { MISURA } from "./misura";
+import { alone, collocaScheda } from "./riflettore";
+import type { PosaScheda } from "./riflettore";
+import { scala } from "./scala";
 
 /** Il disegno di ogni passo: il glifo della cosa di cui parla, mai un glifo
- *  nuovo. Sta qui e non in `avvio.ts` perche' e' l'unica parte di quel modulo
- *  che non si puo' provare senza guardarla. */
+ *  nuovo — il quarto e' quello del bottone «Che cos'e'» che nomina. */
 const GLIFO: Record<Passo["id"], (p: PropsIcona) => ReactNode> = {
   fonti: Indice,
   verdetti: Sostiene,
@@ -57,7 +70,33 @@ const GLIFO: Record<Passo["id"], (p: PropsIcona) => ReactNode> = {
   resta: Informazioni,
 };
 
-/** Quello che serve per disegnare la striscia, e per sapere che c'e'. */
+/** L'attributo con cui una zona dichiara di essere il bersaglio di un passo.
+ *  Una costante e non una stringa scritta in due file: e' un contratto che
+ *  nessun tipo puo' controllare da solo. */
+export const ATTRIBUTO = "data-guida";
+
+/**
+ * Da mettere sulla zona che un passo indica: `<aside {...zona("fonti")}>`.
+ *
+ * Una funzione e non l'attributo scritto a mano, perche' cosi' l'identificativo
+ * passa dal tipo: `zona("fonto")` non compila, mentre `data-guida="fonto"`
+ * sarebbe una stringa qualunque che nessuno controlla e un alone che non compare
+ * mai. E' la sola parte di questo meccanismo che si puo' sbagliare in silenzio,
+ * quindi e' la sola che vale la pena chiudere.
+ */
+export function zona(id: Passo["id"]): Record<string, string> {
+  return { [ATTRIBUTO]: id };
+}
+
+/** Quanto spesso si rilegge la zona. Vedi la nota in testa: e' il prezzo di non
+ *  avere casi scoperti, ed e' una misura ogni decimo di secondo. */
+const RILETTURA_MS = 100;
+
+/** La scheda: larga fissa, perche' e' una colonna di lettura corta e non deve
+ *  cambiare forma spostandosi da una zona all'altra. */
+const LARGHEZZA = 360;
+
+/** Quello che serve per disegnare la guida, e per sapere che c'e'. */
 export interface Guida {
   /** Il passo sullo schermo, o `null` se la guida e' finita o saltata. */
   passo: number | null;
@@ -68,11 +107,11 @@ export interface Guida {
 /**
  * Lo stato della guida, tenuto **da chi disegna la colonna** e non qui dentro.
  *
- * Serve in due posti: la striscia, e lo stato vuoto sotto — che finche' la guida
+ * Serve in due posti: la guida, e lo stato vuoto sotto — che finche' la guida
  * c'e' tace la propria riga di spiegazione, perche' e' la versione in una frase
- * di cio' che i primi due passi dicono per esteso. Due copie della stessa cosa a
- * cinque righe di distanza, sulla primissima schermata, sono il difetto che
- * questa guida dovrebbe evitare e non introdurre.
+ * di cio' che i primi due passi dicono per esteso. Due copie della stessa cosa
+ * sulla primissima schermata sono il difetto che questa guida dovrebbe evitare e
+ * non introdurre.
  *
  * Un hook e non un contesto: i due che lo leggono stanno nello stesso
  * componente, e un provider in piu' in `App` direbbe che qualcun altro potrebbe
@@ -110,57 +149,235 @@ export function usaAvvio(): Guida {
   return useMemo(() => ({ passo, salta, prosegui }), [passo, salta, prosegui]);
 }
 
+/** La zona in px di disegno, o `null` se quel passo non ha un bersaglio sullo
+ *  schermo. Fuori da React perche' non dipende da niente di React. */
+function leggiZona(id: Passo["id"]): Rettangolo | null {
+  const nodo = document.querySelector(`[${ATTRIBUTO}="${id}"]`);
+  if (nodo === null) return null;
+
+  const r = nodo.getBoundingClientRect();
+  if (r.width === 0 && r.height === 0) return null;
+
+  const z = scala();
+  return { x: r.left / z, y: r.top / z, larghezza: r.width / z, altezza: r.height / z };
+}
+
+function finestraOra(): Misura {
+  const z = scala();
+  return { larghezza: window.innerWidth / z, altezza: window.innerHeight / z };
+}
+
+/** Uguali abbastanza da non ridisegnare: sotto il mezzo pixel non si vede, e
+ *  aggiornare lo stato a ogni frazione sarebbe un ciclo di render continuo. */
+function stessaZona(a: Rettangolo | null, b: Rettangolo | null): boolean {
+  if (a === null || b === null) return a === b;
+  return (
+    Math.abs(a.x - b.x) < 0.5 &&
+    Math.abs(a.y - b.y) < 0.5 &&
+    Math.abs(a.larghezza - b.larghezza) < 0.5 &&
+    Math.abs(a.altezza - b.altezza) < 0.5
+  );
+}
+
 export function Avvio({ guida }: { guida: Guida }) {
+  const { passo } = guida;
+  const id = passo === null ? null : PASSI[passo].id;
+
+  const [zona, setZona] = useState<Rettangolo | null>(null);
+  const [finestra, setFinestra] = useState<Misura | null>(null);
+
+  // Un giro solo finche' la guida e' aperta. La zona si rilegge a intervalli e
+  // lo stato cambia solo quando e' cambiata davvero: vedi la nota in testa sul
+  // perche' non bastano gli eventi.
+  useLayoutEffect(() => {
+    if (id === null) return;
+
+    let frame = 0;
+    let ultima = 0;
+
+    const giro = (ora: number) => {
+      frame = requestAnimationFrame(giro);
+      if (ora - ultima < RILETTURA_MS) return;
+      ultima = ora;
+
+      const letta = leggiZona(id);
+      setZona((prima) => (stessaZona(prima, letta) ? prima : letta));
+      setFinestra((prima) => {
+        const f = finestraOra();
+        return prima !== null && prima.larghezza === f.larghezza && prima.altezza === f.altezza
+          ? prima
+          : f;
+      });
+    };
+
+    frame = requestAnimationFrame(giro);
+    return () => cancelAnimationFrame(frame);
+  }, [id]);
+
+  // **Escape non salta la guida, ed e' una deroga voluta.** In questa
+  // interfaccia Escape chiude cio' che si e' aperto sopra il contenuto — la
+  // tendina, la bolla — e quelle cose si riaprono. Qui la stessa pressione
+  // prenderebbe una decisione **definitiva**, e due dei quattro passi indicano
+  // proprio una zona che contiene una tendina: chi la chiude con Escape si
+  // ritroverebbe la guida via per sempre senza averlo chiesto. Il comando solo
+  // che il criterio chiede e' «Salta», e si vede.
+
+  // **Memorizzato, e non e' ottimizzazione prematura.** Questo componente sta
+  // dentro la chat, che ridisegna a ogni token in arrivo: un contorno nuovo a
+  // ogni giro rifarebbe la misura della scheda una volta per parola, mentre la
+  // risposta scorre. Le due misure da cui dipende cambiano dieci volte al
+  // secondo al massimo, e solo quando cambiano davvero.
+  //
+  // Senza bersaglio la zona e' la finestra intera: `collocaScheda` risponde
+  // `dentro`, cioe' in basso al centro, che e' dove va una scheda che non ha
+  // niente da indicare. L'alone pero' non si disegna.
+  const contorno = useMemo(
+    () =>
+      finestra === null
+        ? null
+        : alone(
+            zona ?? { x: 0, y: 0, larghezza: finestra.larghezza, altezza: finestra.altezza },
+            finestra,
+          ),
+    [zona, finestra],
+  );
+
+  if (passo === null || id === null || finestra === null || contorno === null) return null;
+
+  return createPortal(
+    <Strato
+      guida={guida}
+      id={id}
+      contorno={contorno}
+      conAlone={zona !== null}
+      finestra={finestra}
+    />,
+    document.body,
+  );
+}
+
+/**
+ * Lo strato sopra tutto: il velo con il suo buco, e la scheda.
+ *
+ * Un componente a parte perche' la scheda **si misura**: la sua altezza dipende
+ * da dove il testo va a capo, e nessuno la sa prima di averla disegnata. Due
+ * passate, come la bolla del suggerimento — invisibile per essere misurata, poi
+ * collocata, poi accesa. Accenderla prima la farebbe comparire in alto a
+ * sinistra per un fotogramma.
+ */
+const Strato = memo(function Strato({
+  guida,
+  id,
+  contorno,
+  conAlone,
+  finestra,
+}: {
+  guida: Guida;
+  id: Passo["id"];
+  contorno: Rettangolo;
+  conAlone: boolean;
+  finestra: Misura;
+}) {
   const { t } = usaLingua();
   const { passo, salta, prosegui } = guida;
+  const scheda = useRef<HTMLDivElement>(null);
+  const [posa, setPosa] = useState<PosaScheda | null>(null);
+
+  useLayoutEffect(() => {
+    const c = scheda.current?.getBoundingClientRect();
+    if (!c) return;
+    const z = scala();
+    const nuova = collocaScheda(
+      contorno,
+      { larghezza: c.width / z, altezza: c.height / z },
+      finestra,
+    );
+    setPosa((prima) =>
+      prima !== null && prima.x === nuova.x && prima.y === nuova.y && prima.lato === nuova.lato
+        ? prima
+        : nuova,
+    );
+  }, [contorno, finestra, id]);
 
   if (passo === null) return null;
-
-  const { id, titolo, testo } = PASSI[passo];
+  const { titolo, testo } = PASSI[passo];
   const Glifo = GLIFO[id];
   const ultimo = passo === PASSI.length - 1;
 
   return (
-    <section
-      aria-label={t("start.title")}
-      className="shrink-0 border-b border-line bg-surface px-[22px] py-3"
-    >
-      <div className={`${MISURA} flex items-start gap-[11px]`}>
-        <Glifo size={14} className="mt-[3px] shrink-0 text-accent" />
+    // Tutto lo strato lascia passare il puntatore: e' il criterio, non una
+    // rifinitura. Solo la scheda lo riprende, perche' ha due bottoni.
+    <div className="pointer-events-none fixed inset-0 z-50">
+      {conAlone && (
+        <div
+          aria-hidden="true"
+          // Il velo e' l'**ombra** dell'alone, non un pannello a parte: cosi' il
+          // buco e il contorno sono lo stesso rettangolo e non possono
+          // scollarsi di un pixel. 9999px basta a coprire qualunque schermo.
+          style={{
+            left: contorno.x,
+            top: contorno.y,
+            width: contorno.larghezza,
+            height: contorno.altezza,
+            boxShadow: "0 0 0 9999px var(--velo)",
+          }}
+          // L'alone **scivola** da una zona all'altra invece di saltarci:
+          // e' l'unico movimento della guida, ed e' quello che rende
+          // leggibile il legame fra il passo di prima e quello dopo. Le
+          // quattro proprieta' per nome e non `all`: qui dentro c'e' anche
+          // un'ombra da 9999 px, e interpolarla non serve a nessuno.
+          className="absolute rounded-[10px] border-2 border-accent transition-[left,top,width,height] duration-200 ease-out"
+        />
+      )}
 
-        {/* `aria-live`: cambiando passo cambia il testo di una regione che era
-            gia' sullo schermo, e senza questo chi ascolta sentirebbe solo il
-            proprio clic. */}
-        <div aria-live="polite" className="min-w-0 flex-1">
+      <div
+        ref={scheda}
+        role="region"
+        aria-label={t("start.title")}
+        style={{
+          left: posa?.x ?? 0,
+          top: posa?.y ?? 0,
+          width: LARGHEZZA,
+          maxWidth: finestra.larghezza - 16,
+          opacity: posa === null ? 0 : 1,
+        }}
+        className="pointer-events-auto absolute rounded-lg border border-line-2 bg-surface px-3.5 py-3 shadow-carta transition-opacity duration-150"
+      >
+        {/* `aria-live`: cambiando passo cambia il testo di una regione gia'
+            sullo schermo, e senza questo chi ascolta sentirebbe solo il proprio
+            clic. */}
+        <div aria-live="polite">
           <div className="flex items-baseline gap-2">
-            <h2 className="min-w-0 text-[12.5px] font-semibold text-ink">{t(titolo)}</h2>
+            <Glifo size={13} className="translate-y-px text-accent" />
+            <h2 className="min-w-0 flex-1 text-[12.5px] font-semibold text-ink">{t(titolo)}</h2>
             {/* Mono e tabellare: e' una posizione in una serie, e cambiando passo
                 le cifre non devono spostare il titolo. */}
             <span className="shrink-0 font-mono text-[10px] text-muted tabular-nums">
               {t("start.step", { n: passo + 1, tot: PASSI.length })}
             </span>
           </div>
-          {/* Un'altezza minima di **tre righe**, che e' quanto occupa il passo
-              piu' lungo alla misura di lettura. Senza, la striscia si alza e si
-              abbassa di una riga a ogni «Avanti» e la conversazione qui sotto
-              salta con lei: un oggetto che cambia di misura mentre lo si legge
-              e' lo stesso difetto che vieta le transizioni sulla griglia del
-              telaio, solo piu' piccolo. */}
-          <p className="mt-1 min-h-[4.8em] text-[12px] leading-[1.6] text-ink-2">{t(testo)}</p>
-          <p className="mt-1.5 text-[11px] leading-[1.5] text-muted">{t("start.local")}</p>
+          {/* Un'altezza minima di tre righe, che e' quanto occupa il passo piu'
+              lungo a questa larghezza: senza, la scheda si alza e si abbassa a
+              ogni «Avanti» e l'alone le balla accanto. */}
+          <p className="mt-1.5 min-h-[4.8em] text-[12px] leading-[1.6] text-ink-2">{t(testo)}</p>
         </div>
 
-        <div className="flex shrink-0 items-center gap-1.5">
-          <Comando onClick={salta}>{t("start.skip")}</Comando>
-          <Comando onClick={prosegui}>{ultimo ? t("start.done") : t("start.next")}</Comando>
+        <div className="mt-2 flex items-end justify-between gap-3">
+          <p className="min-w-0 text-[10.5px] leading-[1.45] text-muted">{t("start.local")}</p>
+          <div className="flex shrink-0 items-center gap-1.5">
+            <Comando onClick={salta}>{t("start.skip")}</Comando>
+            <Comando onClick={prosegui}>{ultimo ? t("start.done") : t("start.next")}</Comando>
+          </div>
         </div>
       </div>
-    </section>
+    </div>
   );
-}
+});
 
 /** La veste dei due comandi: quella neutra della colonna — bordo sottile, testo
- *  attenuato — ed e' la stessa per tutti e due apposta. */
+ *  attenuato — ed e' la stessa per tutti e due apposta. L'unico bottone pieno
+ *  dell'interfaccia e' «Invia», e una guida non deve chiamare piu' forte del
+ *  campo in cui si scrive. */
 function Comando({ onClick, children }: { onClick: () => void; children: ReactNode }) {
   return (
     <button

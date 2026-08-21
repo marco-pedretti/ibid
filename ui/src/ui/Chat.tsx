@@ -23,7 +23,7 @@ import { usaLingua } from "../app/i18n";
 import { configDi, configPrecedente } from "../app/parametri";
 import { riepilogo } from "../app/verdetti";
 import type { Riepilogo } from "../app/verdetti";
-import { Avvio, usaAvvio } from "./Avvio";
+import { Avvio, usaAvvio, zona } from "./Avvio";
 import { Barra } from "./Barra";
 import {
   Astensione,
@@ -57,18 +57,22 @@ export function Chat() {
 
   return (
     <div className="flex h-full min-h-0 flex-col bg-paper">
-      {/* L'avvio guidato sta **sopra** il contenitore che scorre e non dentro:
-          li' se ne andrebbe da solo dopo tre frasi di risposta, e una guida che
-          si porta via da sola non e' una guida che si e' saltata. Sopra il campo
-          e non davanti a niente: U-20 chiede che la prima domanda si possa fare
-          mentre e' aperta. */}
+      {/* Non disegna qui: si porta in fondo al `body` con un portale, perche'
+          l'alone deve poter circondare tanto la corsia quanto questa colonna.
+          Sta comunque in questo componente perche' la guida parla della
+          schermata di lavoro, e quando si apre l'esploratore se ne va con lei —
+          il passo pero' e' scritto, quindi tornando riprende dov'era. */}
       <Avvio guida={guida} />
       {/* Il contenitore che scorre resta **largo quanto la colonna**: e' lui che
           porta la barra di scorrimento, e una barra che compare in mezzo allo
           schermo invece che al bordo e' il difetto classico di questa
           impaginazione. La misura di lettura sta nel figlio. */}
       <div className="flex min-h-0 flex-1 flex-col overflow-y-auto px-[22px] py-5">
-        <div className={`${MISURA} flex shrink-0 grow flex-col gap-4`}>
+        {/* La zona che il passo sui verdetti indica: **dove le risposte
+            compaiono**, che c'e' anche prima che ce ne sia una. Ringhiare il
+            verdetto di una frase sarebbe piu' preciso e impossibile al primo
+            avvio, quando di frasi non ce n'e' nessuna. */}
+        <div {...zona("verdetti")} className={`${MISURA} flex shrink-0 grow flex-col gap-4`}>
           {scambi.length === 0 ? (
             <Vuoto conGuida={guida.passo !== null} />
           ) : (

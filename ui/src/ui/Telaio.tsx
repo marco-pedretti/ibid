@@ -55,6 +55,7 @@ import { usaPresentazione } from "../app/presentazione";
 import { usaTema } from "../app/theme";
 import type { SceltaTema } from "../app/theme";
 import { LINGUE } from "../i18n/strings";
+import { zona } from "./Avvio";
 import { DEPOSITO, griglia, leggi } from "./corsia";
 import { Cronologia, CronologiaCompatta, NuovaCompatta } from "./Cronologia";
 import { Etichetta } from "./Etichetta";
@@ -139,7 +140,7 @@ function CorsiaAperta({ chiudi }: { chiudi: () => void }) {
         <BottoneCorsia chiusa={false} cambia={chiudi} className="h-[26px] w-[26px]" />
       </div>
 
-      <div>
+      <div {...zona("corpus")}>
         <div className="mb-[7px] px-1">
           <Etichetta>{t("datasets.title")}</Etichetta>
         </div>
@@ -199,8 +200,14 @@ function Striscia({ apri }: { apri: () => void }) {
       <Marchio className="-mx-[7px] block text-center text-[19px] whitespace-nowrap" />
       <BottoneCorsia chiusa cambia={apri} className="h-[34px] w-full" />
 
-      <SelettoreDataset compatta />
-      <BottoneCorpus compatto />
+      {/* Gli stessi due della corsia larga, in un contenitore che ripete il
+          suo passo: la zona che la guida indica deve essere una sola cosa in
+          tutti e due gli stati, altrimenti l'alone cambia di senso comprimendo
+          la corsia. */}
+      <div {...zona("corpus")} className="flex flex-col gap-2">
+        <SelettoreDataset compatta />
+        <BottoneCorpus compatto />
+      </div>
       <NuovaCompatta />
       <CronologiaCompatta apri={apri} />
 
@@ -329,32 +336,39 @@ function BottoneInfo({ compatto = false }: { compatto?: boolean }) {
   const { t } = usaLingua();
   const { apri } = usaPresentazione();
 
+  // Il `div` esiste per la guida e non per l'impaginazione: `Suggerimento` non
+  // inoltra attributi, e la zona va dichiarata su qualcosa che sta nel DOM.
+  // Nella colonna in cui vive e' un blocco fra blocchi, quindi non sposta niente.
   if (compatto) {
     return (
-      <Suggerimento testo={t("about.hint")} fuoco={false} className="block">
-        <button
-          type="button"
-          onClick={apri}
-          aria-label={t("about.action")}
-          className="flex h-[34px] w-full items-center justify-center rounded-[7px] border border-line-2 text-ink-2 transition-colors hover:border-accent-2 hover:text-ink"
-        >
-          <Informazioni size={14} />
-        </button>
-      </Suggerimento>
+      <div {...zona("resta")}>
+        <Suggerimento testo={t("about.hint")} fuoco={false} className="block">
+          <button
+            type="button"
+            onClick={apri}
+            aria-label={t("about.action")}
+            className="flex h-[34px] w-full items-center justify-center rounded-[7px] border border-line-2 text-ink-2 transition-colors hover:border-accent-2 hover:text-ink"
+          >
+            <Informazioni size={14} />
+          </button>
+        </Suggerimento>
+      </div>
     );
   }
 
   return (
-    <Suggerimento testo={t("about.hint")} fuoco={false} className="block">
-      <button
-        type="button"
-        onClick={apri}
-        className="flex h-[34px] w-full items-center gap-2 rounded-[7px] border border-line-2 px-2.5 text-[11.5px] text-ink-2 transition-colors hover:border-accent-2 hover:text-ink"
-      >
-        <Informazioni size={13} />
-        {t("about.action")}
-      </button>
-    </Suggerimento>
+    <div {...zona("resta")}>
+      <Suggerimento testo={t("about.hint")} fuoco={false} className="block">
+        <button
+          type="button"
+          onClick={apri}
+          className="flex h-[34px] w-full items-center gap-2 rounded-[7px] border border-line-2 px-2.5 text-[11.5px] text-ink-2 transition-colors hover:border-accent-2 hover:text-ink"
+        >
+          <Informazioni size={13} />
+          {t("about.action")}
+        </button>
+      </Suggerimento>
+    </div>
   );
 }
 
