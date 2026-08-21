@@ -132,8 +132,64 @@
   --font-mono: ui-monospace, "SF Mono", "Cascadia Mono", Consolas, monospace;
 }
 
+/* **La scala dell'interfaccia: una costante sola, e sta qui.**
+
+   Le misure di questa UI vengono dal mockup, e il mockup e' stato disegnato in
+   un riquadro stretto: 12,5 px di testo, 9,5 px di etichetta, 200 px di corsia.
+   Numeri giusti fra loro e piccoli in assoluto -- su un 27" QHD a 100% un
+   carattere di 13 px arriva all'occhio come 11,4, cioe' il 71% della misura
+   predefinita del web. Il rapporto fra le parti e' quello voluto; e' l'unita' a
+   essere piccola.
+
+   `zoom` sulla radice cambia **l'unita'**, non i rapporti: e' l'equivalente
+   esatto dello zoom del browser, quindi ogni misura del progetto resta quella
+   scritta nel codice e nessuna va ritoccata a mano -- che e' il punto, perche'
+   ritoccarne duecento significherebbe ridisegnare l'interfaccia per rimediare a
+   una costante.
+
+   **Sale a scalini con la finestra, e l'anello non c'e'.** Legare lo zoom alla
+   larghezza sembra ricorsivo — se lo zoom cambiasse la larghezza vista dalle
+   media query, uno scalino cambierebbe lo zoom che cambierebbe lo scalino — ma
+   misurato in Chromium e in Firefox **una media query non risente dello zoom
+   della radice**: vede sempre la finestra vera. Nessuna oscillazione. (La stessa
+   misura sta in `scala.ts`, con la tabella delle due unita'.)
+
+   Gli scalini servono perche' una costante sola non puo' andar bene ovunque, e
+   la ragione e' che il problema e' **relativo**: la stessa riga di testo che in
+   una finestra da mille pixel riempie la colonna, in una da 2.560 galleggia. In
+   pratica gli scalini tengono la larghezza *di disegno* in una banda fra ~1.200
+   e ~1.800 px invece di lasciarla crescere all'infinito — cioe' fanno da soli
+   quello che uno fa a mano con Ctrl+rotella.
+
+   Sotto i 1.400 px non si scala affatto: li' ci sono i portatili e i telefoni,
+   dove la finestra e' gia' stretta e ingrandire toglie spazio invece di darne. E
+   lo zoom del browser e la scala del sistema operativo restano **sopra** questi
+   numeri e continuano a moltiplicare: qui si dice quanto e' grande il disegno,
+   non quanto grande lo vuole chi guarda. */
+:root {
+  zoom: 1;
+}
+
+@media (min-width: 1400px) {
+  :root {
+    zoom: 1.15;
+  }
+}
+
+@media (min-width: 1800px) {
+  :root {
+    zoom: 1.3;
+  }
+}
+
+@media (min-width: 2300px) {
+  :root {
+    zoom: 1.45;
+  }
+}
+
 /* **La pagina non scorre mai, e non e' un rimedio: e' che tipo di programma
-   e' questo.** Il telaio dichiara `h-dvh` e ogni area che scorre lo fa per
+   e' questo.** Il telaio dichiara `h-full` e ogni area che scorre lo fa per
    conto suo -- la cronologia nella corsia, le colonne del confronto, il
    pannello fonti. Una barra di scorrimento del *documento* non porta quindi
    da nessuna parte: trascina via anche la corsia e il campo, cioe' le due
@@ -142,10 +198,18 @@
    si veda come contenuto tagliato -- dove sta -- invece che come
    un'interfaccia che scivola.
 
+   **`#root` sta nella lista, e non e' pignoleria.** La catena delle altezze si
+   interrompe al primo anello che non ne dichiara una: `html` e `body` erano al
+   100%, il div in mezzo no, e il telaio ci si appoggiava sopra con `h-full`
+   ereditando un'altezza di contenuto — l'applicazione occupava il 52% dello
+   schermo e sotto restava carta. Finche' il telaio diceva `h-dvh` il buco non si
+   vedeva, perche' un'unita' di viewport non chiede niente al genitore.
+
    Per trovarlo se ricapita, dalla console del browser:
    `[...document.querySelectorAll("*")].filter(e => e.getBoundingClientRect().bottom > innerHeight + 4)` */
 html,
-body {
+body,
+#root {
   height: 100%;
   overflow: hidden;
 }

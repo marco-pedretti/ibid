@@ -32,6 +32,8 @@
  */
 import { useRef } from "react";
 
+import { scala } from "./scala";
+
 /** Quanto sposta una freccia. Dieci px: abbastanza da vedersi, poco da poter
  *  ripetere senza contare. */
 const PASSO = 10;
@@ -79,7 +81,13 @@ export function Separatore({
         // La distanza dal punto in cui si e' cominciato non si perde quando il
         // risultato viene tagliato, quindi oltre il limite il manico resta fermo
         // finche' il puntatore non torna indietro davvero.
-        onSposta(e.clientX - origine.current);
+        //
+        // Diviso per la scala della radice: `clientX` arriva in px di finestra,
+        // mentre le larghezze che questo delta muove sono px di disegno — quelle
+        // che `clientWidth` restituisce e che finiscono in `grid-template-columns`.
+        // Senza, con lo zoom a 1,45 le colonne correrebbero mezzo passo piu'
+        // veloci del dito. Vedi `scala.ts`.
+        onSposta((e.clientX - origine.current) / scala());
       }}
       onPointerUp={(e) => {
         origine.current = null;

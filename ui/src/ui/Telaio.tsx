@@ -85,19 +85,25 @@ export function Telaio({ children, fianco }: { children: ReactNode; fianco?: Rea
   }, [chiusa]);
 
   return (
-    // `h-dvh` e non `min-h-dvh`: da qui in poi le colonne scorrono per conto
-    // loro, e con un'altezza minima scorrerebbe la pagina intera portandosi via
-    // la corsia e il campo di scrittura.
+    // `h-full` e non `h-dvh`: le due sarebbero equivalenti — `html` e `body`
+    // sono al 100% in `index.css` — se non fosse per lo `zoom` della radice.
+    // Misurato in Chromium e in Firefox: un'unita' di viewport si risolve nel
+    // viewport **non scalato** e poi viene moltiplicata per lo zoom, quindi
+    // `100dvh` valeva 960 px in una finestra da 800 e la barra sotto il campo
+    // finiva fuori. Una percentuale no: risolve dentro lo spazio gia' scalato e
+    // torna esatta. Resta un'altezza fissa e non minima — da qui in poi le
+    // colonne scorrono per conto loro, e con `min-h-` scorrerebbe la pagina
+    // intera portandosi via la corsia e il campo di scrittura.
     <div
       // Le colonne sono uno stile in linea e non una classe: sono una misura
       // calcolata, e `corsia.ts` la calcola dove si puo' provarla.
       style={{ gridTemplateColumns: griglia(chiusa, fianco !== undefined) }}
       // `grid-rows-[minmax(0,1fr)]`: senza una riga dichiarata quella
       // implicita e' `auto`, cioe' alta quanto il contenuto -- e una colonna
-      // piu' alta dello schermo la faceva crescere oltre `h-dvh` invece di
+      // piu' alta dello schermo la faceva crescere oltre l'altezza piena invece di
       // scorrere dentro di se'. E' lo stesso difetto delle due colonne del
       // confronto, un piano piu' su.
-      className="grid h-dvh grid-rows-[minmax(0,1fr)] overflow-hidden bg-paper text-ink"
+      className="grid h-full grid-rows-[minmax(0,1fr)] overflow-hidden bg-paper text-ink"
     >
       {chiusa ? (
         <Striscia apri={() => setChiusa(false)} />
