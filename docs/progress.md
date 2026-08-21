@@ -3332,9 +3332,39 @@ banda in cui questa decisione si prende px di finestra e px di disegno sono la
 stessa cosa. La conversione si fa lo stesso — «si converte al confine» resta la
 regola — ma dimenticarla non potrebbe cambiare la forma del telaio.
 
-Restano scoperti i **suggerimenti**, che si aprono al passaggio del puntatore e su
-un dito non si aprono affatto: tutto ciò che spiegano sta anche altrove o è un
-dato che si legge, ma su un telefono qualche spiegazione in meno c'è. Non è un
-debito di U-21 — è la stessa cosa su ogni schermo senza mouse — e vale la pena
-scriverlo qui perché è l'unica parte dell'interfaccia che a 390 px *dice meno*
-invece di dire lo stesso in un'altra forma.
+#### I suggerimenti, e i due casi del tocco
+
+Erano stati dati per scoperti — «si aprono al passaggio del puntatore, e su un
+dito non si aprono affatto» — e la metà buona di quella frase era falsa. Su un
+**dato** il tocco funzionava già da U-02: `Suggerimento` distingue il clic del
+mouse dal tocco guardando se al momento del clic il puntatore è ancora sul
+bersaglio, e su un tocco non lo è mai. Un punteggio, un marcatore, un `chunk_id`
+non hanno nessun comando sotto, quindi il tocco non ha altro da significare e
+apre la bolla.
+
+**Dove sotto c'è un comando, no**, e lì il difetto c'era davvero: il tocco è già
+preso — manda la domanda, cambia dataset, apre l'esploratore — e non può anche
+voler dire «spiegami». Con una cosa da fare e due da dire, quella che si perde è
+sempre la spiegazione: la bolla compariva un istante e spariva insieme alla
+schermata che l'aveva aperta.
+
+Lì la domanda si fa quindi **tenendo premuto** (450 ms, la soglia che iOS e
+Android usano già: il gesto o è quello che chi tocca ha in mano, o non è niente).
+Il clic che chiude la pressione non arriva al comando, e la bolla non se ne va
+quando il dito si alza — un `pointerleave` arriva subito dopo il `pointerup`, e
+chiudere lì vorrebbe dire non averla mai mostrata. Se ne va al tocco successivo,
+ovunque cada, o con Escape.
+
+**Non è una modalità che si accende sotto una certa larghezza**, ed è la
+correzione che vale più del resto: si guarda `pointerType`, cioè **il gesto**,
+non lo schermo. Un portatile con lo schermo a tocco non ha un passaggio sopra
+nemmeno a 1.600 px, e un mouse in una finestra stretta ce l'ha eccome. La
+distinzione fra i due casi non è un interruttore nuovo: è `fuoco`, che già
+esiste e già significa «dentro c'è qualcosa che prende il fuoco», cioè un
+comando.
+
+Resta scoperta la **scoperta**: nessun segno dice che tenendo premuto si ottiene
+qualcosa, esattamente come sul desktop nessun segno dice che fermandosi sopra si
+ottiene qualcosa — `cursor-help` è tutto, e su un dito non c'è un cursore. È il
+prezzo di una spiegazione che non occupa posto quando non serve, ed è lo stesso
+prezzo che il `title` nativo fa pagare da trent'anni.
