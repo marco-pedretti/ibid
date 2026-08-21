@@ -25,6 +25,18 @@
  * glifi a ogni fotogramma, ed e' la causa vera dello scatto. Chi ha chiesto meno
  * movimento lo ottiene dalla regola globale `prefers-reduced-motion`.
  *
+ * **Un'interazione manda via la bolla, e ne rimanda il ritorno.** Un clic sul
+ * bersaglio non e' mai una domanda su di lui: e' il controllo che si sta usando.
+ * Chi apre una tendina restando fermo sopra la pastiglia trovava la bolla di
+ * nuovo li' nell'istante in cui la richiudeva — l'attesa era gia' scaduta, e il
+ * secondo clic la ritrovava smontata e la riapriva «subito». Adesso dopo un clic
+ * l'attesa **ricomincia**, e lo stesso vale per il fuoco che arriva da un clic
+ * invece che da un Tab: `:focus-visible` e' la distinzione che il browser fa gia'
+ * al posto nostro. Il tocco resta l'eccezione — li' un dito non ha un
+ * «passaggio sopra», quindi il clic e' l'unico modo di chiedere — e si riconosce
+ * da se': su un tocco `pointerleave` arriva **prima** del `click`, quindi al
+ * momento del clic il puntatore c'e' solo se e' un mouse.
+ *
  * **Il testo e' leggibile anche senza la bolla.** `aria-describedby` punta a uno
  * `<span>` sempre presente e visivamente nascosto: la bolla e' `aria-hidden` e
  * puramente visiva. Legarla agli assistivi significherebbe che un'informazione
@@ -113,6 +125,9 @@ export function Suggerimento({
   const bersaglio = useRef<HTMLSpanElement>(null);
   const bolla = useRef<HTMLDivElement>(null);
   const attesa = useRef<ReturnType<typeof setTimeout> | null>(null);
+  /** Il puntatore e' **adesso** sul bersaglio. Vedi `onClick`: e' cio' che
+   *  distingue un clic dato col mouse da un tocco su un telefono. */
+  const dentro = useRef(false);
   const uscita = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const fermaTimer = () => {
@@ -206,12 +221,32 @@ export function Suggerimento({
         // queste sono le prime, e non rubano il posto a nessuna.
         tabIndex={fuoco ? 0 : undefined}
         aria-describedby={fuoco ? `${id}-testo` : undefined}
-        onPointerEnter={() => apri()}
-        onPointerLeave={chiudi}
-        // Il tocco non ha un «passaggio sopra»: senza questo, su un telefono la
-        // spiegazione non esisterebbe. Subito, perche' un tocco **e'** intenzione.
-        onClick={() => (montato ? chiudi() : apri(true))}
-        onFocus={() => apri(true)}
+        onPointerEnter={() => {
+          dentro.current = true;
+          apri();
+        }}
+        onPointerLeave={() => {
+          dentro.current = false;
+          chiudi();
+        }}
+        // **Un clic col puntatore non e' una domanda: e' un'interazione col
+        // controllo, e l'attesa ricomincia.** Il tocco non ha un «passaggio
+        // sopra», quindi li' il clic e' l'unico modo di chiedere e apre subito —
+        // e i due casi si distinguono da soli, perche' su un tocco il browser
+        // manda `pointerleave` *prima* del `click`: al momento del clic il
+        // puntatore c'e' solo se e' un mouse.
+        //
+        // Senza questo, chiudere una tendina che si e' aperta stando fermi sopra
+        // la pastiglia faceva ricomparire la bolla nello stesso istante: il
+        // secondo clic la trovava smontata e la riapriva «subito».
+        onClick={() => (montato ? chiudi() : apri(!dentro.current))}
+        // Il fuoco che arriva **da un clic** non e' una domanda: e' il bersaglio
+        // che si prende il fuoco perche' e' stato premuto. `:focus-visible` e' la
+        // distinzione che il browser fa gia' fra la tastiera e il puntatore, e
+        // farla qui evita di dover indovinare da dove viene il fuoco.
+        onFocus={(e) => {
+          if (e.target.matches(":focus-visible")) apri(true);
+        }}
         onBlur={chiudi}
         // `cursor-help` e' tutto il segnale che serve, ed e' voluto che sia poco:
         // una sottolineatura al passaggio comparirebbe solo quando ci sei gia'
