@@ -54,12 +54,14 @@ import { DEPOSITO, PASSI, avanti, primoPasso, scrivi } from "../app/avvio";
 import type { Passo } from "../app/avvio";
 import { leggiCronologia } from "../app/cronologia";
 import { usaLingua } from "../app/i18n";
+import { LINGUE } from "../i18n/strings";
 import type { Misura, Rettangolo } from "./collocazione";
 import { Astensione, FrecciaSu, Indice, Informazioni, Sostiene } from "./Icona";
 import type { PropsIcona } from "./Icona";
 import { alone, buco, collocaScheda } from "./riflettore";
 import type { PosaScheda } from "./riflettore";
 import { scala } from "./scala";
+import { Suggerimento } from "./Suggerimento";
 
 /**
  * Il disegno di ogni passo: il glifo della cosa di cui parla, mai un glifo
@@ -316,7 +318,7 @@ const Strato = memo(function Strato({
   conAlone: boolean;
   finestra: Misura;
 }) {
-  const { t } = usaLingua();
+  const { t, lingua } = usaLingua();
   const { passo, salta, prosegui } = guida;
   const scheda = useRef<HTMLDivElement>(null);
   const [posa, setPosa] = useState<PosaScheda | null>(null);
@@ -336,7 +338,11 @@ const Strato = memo(function Strato({
         ? prima
         : nuova,
     );
-  }, [contorno, finestra, id]);
+    // `lingua` fra le dipendenze e non per scrupolo: cambiandola cambia il
+    // testo, quindi l'altezza della scheda, quindi dove va messa. Senza,
+    // passando a EN la scheda resterebbe ancorata all'angolo di prima e
+    // crescerebbe in basso — nel caso `dentro` uscendo dalla zona che spiega.
+  }, [contorno, finestra, id, lingua]);
 
   // Un fotogramma dopo la prima collocazione, e non insieme: se la transizione
   // fosse gia' accesa quando la posizione passa da (0, 0) a quella vera, il
@@ -433,8 +439,13 @@ const Strato = memo(function Strato({
           <p className="mt-1.5 min-h-[6.4em] text-[12px] leading-[1.6] text-ink-2">{t(testo)}</p>
         </div>
 
-        <div className="mt-2 flex items-end justify-between gap-3">
-          <p className="min-w-0 text-[10.5px] leading-[1.45] text-muted">{t("start.local")}</p>
+        <p className="mt-2 text-[10.5px] leading-[1.45] text-muted">{t("start.local")}</p>
+
+        {/* La riga dei comandi, e la lingua sta a sinistra insieme a loro invece
+            che in cima accanto al contatore: e' una cosa che si fa, non un dato
+            che si legge. */}
+        <div className="mt-2.5 flex items-center justify-between gap-3">
+          <Lingua />
           <div className="flex shrink-0 items-center gap-1.5">
             <Comando onClick={salta}>{t("start.skip")}</Comando>
             <Comando onClick={prosegui}>{ultimo ? t("start.done") : t("start.next")}</Comando>
@@ -445,6 +456,17 @@ const Strato = memo(function Strato({
   );
 });
 
+/**
+ * L'altezza dei controlli nel piede della scheda, **dichiarata**.
+ *
+ * Tre bottoni in fila che prendono l'altezza dal proprio contenuto vengono fuori
+ * di tre altezze diverse — 25, 26 e 24 px qui — e una differenza di un pixel non
+ * si legge come una gerarchia, si legge come un errore. E' la lezione che la
+ * corsia ha gia' pagato in U-19, dove sette comandi incolonnati avevano sette
+ * altezze.
+ */
+const ALTO = "flex h-[26px] items-center rounded-md border border-line-2 transition-colors";
+
 /** La veste dei due comandi: quella neutra della colonna — bordo sottile, testo
  *  attenuato — ed e' la stessa per tutti e due apposta. L'unico bottone pieno
  *  dell'interfaccia e' «Invia», e una guida non deve chiamare piu' forte del
@@ -454,9 +476,62 @@ function Comando({ onClick, children }: { onClick: () => void; children: ReactNo
     <button
       type="button"
       onClick={onClick}
-      className="rounded-md border border-line-2 px-[9px] py-[5px] text-[11px] whitespace-nowrap text-ink-2 transition-colors hover:border-accent-2 hover:text-ink"
+      className={`${ALTO} px-[9px] text-[11px] whitespace-nowrap text-ink-2 hover:border-accent-2 hover:text-ink`}
     >
       {children}
     </button>
+  );
+}
+
+/**
+ * La lingua, dentro la scheda (chiesto da Marco).
+ *
+ * **Il selettore della corsia c'e' gia', e non basta.** Il velo lascia passare
+ * il puntatore, quindi quella pastiglia in fondo alla corsia e' cliccabile anche
+ * adesso — ma e' scurita, sfocata e piccola, cioe' e' esattamente cio' che la
+ * guida sta dicendo di non guardare. Chi apre il programma e non legge
+ * l'italiano deve poter cambiare lingua **prima** di decidere se questa
+ * spiegazione gli interessa, e non dopo averla saltata.
+ *
+ * **Stessa grammatica della pastiglia in corsia**, non lo stesso componente:
+ * quello e' dimensionato sulla griglia della corsia e ha gia' due varianti: una
+ * terza lo farebbe servire un posto per cui non e' stato fatto. Cio' che non
+ * puo' divergere e' il **modo di dire la stessa cosa** — tutte e due le sigle
+ * visibili, quella viva in accento su fondo accento — e sono tre righe.
+ *
+ * Il suggerimento e' quello di sempre, ed e' l'unico posto in cui va detto:
+ * questo cambia la cornice, non la lingua della risposta.
+ */
+function Lingua() {
+  const { t, lingua, imposta } = usaLingua();
+  const altra = LINGUE[(LINGUE.indexOf(lingua) + 1) % LINGUE.length];
+
+  return (
+    <Suggerimento testo={t("lang.hint")} fuoco={false} className="shrink-0">
+      <button
+        type="button"
+        onClick={() => imposta(altra)}
+        // L'`aria-label` porta il valore corrente perche' **sostituisce** il
+        // testo dentro il bottone: senza, chi ascolta sentirebbe il nome del
+        // comando e mai la lingua in cui si trova.
+        aria-label={`${t("lang.label")}: ${lingua.toUpperCase()}`}
+        className={`${ALTO} shrink-0 gap-0.5 px-[7px] text-[10px] text-muted hover:border-line`}
+      >
+        {LINGUE.map((l, i) => (
+          <span key={l} className="flex items-center gap-0.5">
+            {i > 0 && <span className="text-line-2">/</span>}
+            <span
+              className={
+                l === lingua
+                  ? "rounded-[3px] bg-accent-soft px-[3px] py-px font-semibold text-accent"
+                  : "px-[3px] py-px"
+              }
+            >
+              {l.toUpperCase()}
+            </span>
+          </span>
+        ))}
+      </button>
+    </Suggerimento>
   );
 }
