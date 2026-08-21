@@ -468,31 +468,27 @@ export const it = {
   "about.claim3.detail":
     "Manca il confronto col modello grande, che costa ore di scheda video. Finché non c'è resta un'ipotesi, e viene scritta come tale.",
 
-  "about.now.title": "Cosa sta girando adesso",
-  "about.now.note":
-    "Non è scritto in questa pagina: è ciò che il server risponde, come per la barra sotto il campo.",
-  "about.now.missing":
-    "Il server non ha risposto, e senza di lui questa pagina non indovina chi sta rispondendo.",
-  "about.now.model": "Chi risponde",
-  "about.now.corpus": "Su quale corpus",
-  "about.now.mode": "Come cerca",
-  "about.now.rerank": "Riordino",
-  "about.now.exact": "Ricerca esatta",
-  "about.now.verify": "Controllo delle citazioni",
-  // Il punto che il piano chiede di dire qui, per nome: è l'unica differenza fra
-  // com'è configurata la demo e com'è configurata la valutazione.
-  "about.now.exact.note":
-    "La ricerca esatta è l'unico punto in cui la demo non è configurata come la valutazione. Su un indice fitto quella approssimata salta qualcosa, e la demo finirebbe per mostrare quel difetto credendo di mostrare il recupero: qui il tempo che costa non si vede, e il dubbio sparisce.",
-
   "about.not.title": "Cosa questa demo non è",
   "about.not.product":
     "Non è un prodotto, è un banco di prova. Serve a misurare, e mostra anche ciò che misura male.",
+  // Le due cose che il criterio chiede per nome — quale modello ha risposto e su
+  // quale corpus — stanno qui come **limite** e non come scheda tecnica: la
+  // pagina dice cosa la demo non è, e «non è un panorama» è esattamente questo.
+  // I due nomi arrivano dal servizio, mai scritti a mano: vedi `app/scheda.ts`.
+  "about.not.only":
+    "Non è un panorama: a ogni domanda risponde un modello solo, su un corpus solo. Adesso sono {modello} e {corpus}, e si cambiano dalla barra sotto il campo e dalla corsia.",
+  "about.not.only.unknown":
+    "Non è un panorama: a ogni domanda risponde un modello solo, su un corpus solo. Quali, in questo momento il server non lo dice.",
   "about.not.world":
     "Non sa niente oltre il corpus qui sopra. Fuori da lì si astiene invece di inventare, ed è metà della dimostrazione: una delle domande d'esempio sta fuori dal corpus apposta.",
   "about.not.truth":
     "Una citazione verificata dice che il pezzo citato sostiene la frase, non che la frase sia vera. Se il documento sbaglia, la risposta sbaglia con lui.",
   "about.not.measure":
     "Una risposta sola non è una misura. Lo stesso modello, con tutto il resto uguale, risponde in modo diverso da un'esecuzione all'altra: le tabelle nascono da migliaia di domande, non da quella che hai appena fatto.",
+  // Il punto che il piano chiede di dire qui, per nome: è l'unica differenza fra
+  // com'è configurata la demo e com'è configurata la valutazione.
+  "about.not.exact":
+    "Non è configurata esattamente come la valutazione, e la differenza è una: qui la ricerca nell'indice è esatta invece che approssimata. Su un indice fitto quella approssimata salta qualcosa, e una dimostrazione finirebbe per mostrare quel difetto credendo di mostrare il recupero.",
 } as const;
 
 export type Chiave = keyof typeof it;
@@ -797,29 +793,21 @@ export const en: Record<Chiave, string> = {
   "about.claim3.detail":
     "The comparison against the large model is missing, and it costs hours of GPU time. Until it exists this stays a hypothesis, and it is written as one.",
 
-  "about.now.title": "What is running right now",
-  "about.now.note":
-    "It is not written on this page: it is what the server answers, the same way the bar under the field gets its values.",
-  "about.now.missing":
-    "The server did not answer, and without it this page will not guess who is answering.",
-  "about.now.model": "Who answers",
-  "about.now.corpus": "On which corpus",
-  "about.now.mode": "How it searches",
-  "about.now.rerank": "Reranking",
-  "about.now.exact": "Exact search",
-  "about.now.verify": "Citation check",
-  "about.now.exact.note":
-    "Exact search is the one point where the demo is not configured the way the evaluation is. On a dense index the approximate one misses things, and the demo would end up showing that flaw while believing it was showing retrieval: here the time it costs is invisible, and the doubt is gone.",
-
   "about.not.title": "What this demo is not",
   "about.not.product":
     "It is not a product, it is a testbed. It exists to measure, and it shows what it measures badly too.",
+  "about.not.only":
+    "It is not a panorama: every question is answered by one model, on one corpus. Right now those are {modello} and {corpus}, and both are changed from the bar under the field and from the sidebar.",
+  "about.not.only.unknown":
+    "It is not a panorama: every question is answered by one model, on one corpus. Which ones, the server is not saying right now.",
   "about.not.world":
     "It knows nothing beyond the corpus named above. Outside it the system abstains instead of inventing, and that is half the demonstration: one of the example questions sits outside the corpus on purpose.",
   "about.not.truth":
     "A verified citation says the cited passage supports the sentence, not that the sentence is true. If the document is wrong, the answer is wrong with it.",
   "about.not.measure":
     "A single answer is not a measurement. The same model, with everything else identical, answers differently from one run to the next: the tables come from thousands of questions, not from the one you just asked.",
+  "about.not.exact":
+    "It is not configured exactly the way the evaluation is, and there is one difference: here the index is searched exactly rather than approximately. On a dense index the approximate search misses things, and a demonstration would end up showing that flaw while believing it was showing retrieval.",
 };
 
 export const LINGUE = ["it", "en"] as const;

@@ -9,11 +9,16 @@
  * cui ci si puo' permettere un numero che era vero l'altro ieri. Cio' che manca
  * viene dichiarato invece che simulato: le tabelle stanno nel repository.
  *
- * **La configurazione invece si mostra, e non e' una misura.** Chi ha risposto e
- * su quale corpus sono le due cose che il criterio chiede per nome, e arrivano
- * vive da `/config` e da `/datasets` — le stesse due risposte che governano la
- * barra. La regola di quali righe esistono sta in `app/scheda.ts`, dove si puo'
- * provare senza un browser.
+ * **Chi ha risposto e su quale corpus sono un limite, non una scheda tecnica.**
+ * Il criterio li chiede per nome, e stanno dentro «cosa questa demo non e'»:
+ * «non e' un panorama — a ogni domanda risponde un modello solo, su un corpus
+ * solo». La tabella della configurazione c'era, ed e' stata tolta: quei valori
+ * si leggono gia' nella barra sotto il campo e in «Dettagli della run», dove
+ * servono mentre si lavora, e ripeterli qui rispondeva a una domanda che questa
+ * pagina non fa. Cio' che le altre due non dicono e' che sono **una**, ed e'
+ * quello che resta. I due nomi arrivano comunque vivi da `/config` e da
+ * `/datasets`, mai scritti a mano: la regola sta in `app/scheda.ts`, dove si
+ * prova senza un browser — o si sanno tutte e due, o la frase e' un'altra.
  *
  * **Le tre affermazioni portano un verdetto, con la grammatica dei verdetti.**
  * Stesso glifo, stesso tono, stessa pastiglia con cui `Verdetto` giudica una
@@ -37,7 +42,6 @@ import { usaLingua } from "../app/i18n";
 import type { Traduci } from "../app/i18n";
 import { usaPresentazione } from "../app/presentazione";
 import { scheda } from "../app/scheda";
-import type { Voce } from "../app/scheda";
 import type { Chiave } from "../i18n/strings";
 import { Etichetta } from "./Etichetta";
 import { InAttesa, Indietro, NonSostiene, Sostiene } from "./Icona";
@@ -87,20 +91,13 @@ const AFFERMAZIONI: Affermazione[] = [
   },
 ];
 
-const LIMITI: Chiave[] = [
-  "about.not.product",
-  "about.not.world",
-  "about.not.truth",
-  "about.not.measure",
-];
-
 export function Presentazione() {
   const { t } = usaLingua();
   const { chiudi } = usaPresentazione();
   const { backend } = usaBackend();
   const { scelto } = usaDataset();
 
-  const voci = scheda(backend.stato === "pronto" ? backend.predefiniti : null, scelto);
+  const chi = scheda(backend.stato === "pronto" ? backend.predefiniti : null, scelto);
 
   return (
     <div className="flex h-full min-h-0 flex-col bg-paper">
@@ -138,37 +135,24 @@ export function Presentazione() {
             <p className="text-[11.5px] leading-[1.6] text-muted">{t("about.claims.note")}</p>
           </Sezione>
 
-          <Sezione titolo={t("about.now.title")}>
-            {voci.length === 0 ? (
-              <p className="text-[12.5px] leading-[1.65] text-ink-2">{t("about.now.missing")}</p>
-            ) : (
-              <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1.5 rounded-lg border border-line-2 bg-surface px-3.5 py-3">
-                {voci.map((v) => (
-                  <Coppia key={v.nome} voce={v} t={t} />
-                ))}
-              </dl>
-            )}
-            <p className="text-[11.5px] leading-[1.6] text-muted">{t("about.now.note")}</p>
-            {/* Il punto che il piano chiede di dire qui per nome: e' l'unica
-                differenza fra come e' configurata la demo e come e' configurata
-                la valutazione. Sta sotto la scheda e non dentro, perche' e' una
-                ragione e non un valore. */}
-            <p className="border-l-2 border-line-2 pl-3 text-[11.5px] leading-[1.6] text-ink-2">
-              {t("about.now.exact.note")}
-            </p>
-          </Sezione>
-
           <Sezione titolo={t("about.not.title")}>
             <ul className="flex flex-col gap-2">
-              {LIMITI.map((k) => (
-                <li key={k} className="flex gap-2.5 text-[12.5px] leading-[1.65] text-ink-2">
-                  {/* Un trattino disegnato, non un pallino di lista: sono quattro
-                      frasi intere, e un elenco puntato le farebbe leggere come
-                      voci di un menu. */}
-                  <span aria-hidden="true" className="mt-[10px] h-px w-2.5 shrink-0 bg-line-2" />
-                  <span>{t(k)}</span>
-                </li>
-              ))}
+              <Limite>{t("about.not.product")}</Limite>
+              {/* Le due cose che il criterio chiede per nome. O il servizio le
+                  dice tutte e due, o la frase e' un'altra: vedi `app/scheda.ts`. */}
+              <Limite>
+                {chi.noti
+                  ? t("about.not.only", { modello: chi.modello, corpus: chi.corpus })
+                  : t("about.not.only.unknown")}
+              </Limite>
+              <Limite>{t("about.not.world")}</Limite>
+              <Limite>{t("about.not.truth")}</Limite>
+              <Limite>{t("about.not.measure")}</Limite>
+              {/* Il punto che il piano chiede di dire qui per nome: e' l'unica
+                  differenza fra come e' configurata la demo e come e'
+                  configurata la valutazione. Ed e' un «cosa non e'» a tutti gli
+                  effetti, quindi sta in questo elenco invece che in una nota. */}
+              <Limite>{t("about.not.exact")}</Limite>
             </ul>
           </Sezione>
         </div>
@@ -218,18 +202,14 @@ function Riga({
   );
 }
 
-/** Una riga della scheda. Cio' che arriva dal servizio si stampa in mono — il
- *  ruolo dei dati — e uno stato tradotto no: `hybrid` e' la parola che finisce
- *  sul filo, «acceso» e' una parola nostra. */
-function Coppia({ voce, t }: { voce: Voce; t: Traduci }) {
+/** Una voce dell'elenco «cosa non e'»: un trattino disegnato, non un pallino di
+ *  lista. Sono frasi intere, e un elenco puntato le farebbe leggere come voci di
+ *  un menu. */
+function Limite({ children }: { children: ReactNode }) {
   return (
-    <>
-      <dt className="text-[11.5px] text-ink-2">{t(voce.nome)}</dt>
-      {"dato" in voce ? (
-        <dd className="font-mono text-[11.5px] break-all text-ink">{voce.dato}</dd>
-      ) : (
-        <dd className="text-[11.5px] text-ink">{t(voce.testo)}</dd>
-      )}
-    </>
+    <li className="flex gap-2.5 text-[12.5px] leading-[1.65] text-ink-2">
+      <span aria-hidden="true" className="mt-[10px] h-px w-2.5 shrink-0 bg-line-2" />
+      <span>{children}</span>
+    </li>
   );
 }

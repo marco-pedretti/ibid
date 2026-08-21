@@ -27,41 +27,21 @@ const DATASET: DatasetView = {
   n_chunks: 228331,
 };
 
-const nomi = (config: ConfigView | null, dataset: DatasetView | null) =>
-  scheda(config, dataset).map((v) => v.nome);
-
 describe("scheda", () => {
   it("dice chi risponde e su quale corpus, coi valori del servizio", () => {
-    expect(scheda(CONFIG, DATASET)).toContainEqual({
-      nome: "about.now.model",
-      dato: "gemma4:e4b",
-    });
-    expect(scheda(CONFIG, DATASET)).toContainEqual({
-      nome: "about.now.corpus",
-      dato: "ledger",
+    expect(scheda(CONFIG, DATASET)).toEqual({
+      noti: true,
+      modello: "gemma4:e4b",
+      corpus: "ledger",
     });
   });
 
-  it("senza risposta dal servizio non inventa niente", () => {
-    expect(scheda(null, DATASET)).toEqual([]);
-  });
-
-  // A-07: quando non si sa chi risponde, non lo si dice. Una riga col trattino
-  // sarebbe la stessa affermazione mancata, scritta piu' piano.
-  it("non fa una riga per un campo che il servizio ha lasciato vuoto", () => {
-    expect(nomi({ ...CONFIG, model: "" }, DATASET)).not.toContain("about.now.model");
-    expect(nomi(CONFIG, null)).not.toContain("about.now.corpus");
-    expect(nomi({ ...CONFIG, retrieval_mode: "" }, DATASET)).not.toContain("about.now.mode");
-  });
-
-  // Gli interruttori invece ci sono sempre: `false` e' uno stato, non un'assenza,
-  // e «ricerca esatta: spento» e' proprio la cosa che questa pagina deve dire.
-  it("gli interruttori restano anche da spenti", () => {
-    const spenti = { ...CONFIG, rerank: false, search_exact: false, verify: false };
-    expect(scheda(spenti, DATASET)).toContainEqual({
-      nome: "about.now.exact",
-      testo: "bar.advanced.off",
-    });
-    expect(nomi(spenti, DATASET)).toEqual(nomi(CONFIG, DATASET));
+  // A-07: quando non si sa chi risponde, non lo si dice. Una frase col trattino
+  // al posto del nome sarebbe la stessa affermazione mancata, scritta piu' piano
+  // — e siccome la frase e' una sola, basta che ne manchi una perche' cada.
+  it("se ne manca una non ne afferma nessuna", () => {
+    expect(scheda(null, DATASET)).toEqual({ noti: false });
+    expect(scheda({ ...CONFIG, model: "" }, DATASET)).toEqual({ noti: false });
+    expect(scheda(CONFIG, null)).toEqual({ noti: false });
   });
 });
