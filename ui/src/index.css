@@ -147,12 +147,7 @@
    ritoccarne duecento significherebbe ridisegnare l'interfaccia per rimediare a
    una costante.
 
-   **Non si adatta alla larghezza della finestra, di proposito.** Legare lo zoom
-   a `vw` e' un anello: `zoom` sulla radice cambia quanto vale `100vw`, che
-   ricalcola lo zoom. E soprattutto lo zoom del browser e la scala del sistema
-   operativo sono la risposta che chi guarda ha **gia' dato** alla domanda «quanto
-   grandi le voglio»: questa costante dice quanto e' grande il disegno, la loro
-   resta sopra e continua a moltiplicare. */
+   **Non si adatta alla larghezza della finestra, di proposito.** */
 :root {
   zoom: 1.2;
 }
@@ -167,10 +162,18 @@
    si veda come contenuto tagliato -- dove sta -- invece che come
    un'interfaccia che scivola.
 
+   **`#root` sta nella lista, e non e' pignoleria.** La catena delle altezze si
+   interrompe al primo anello che non ne dichiara una: `html` e `body` erano al
+   100%, il div in mezzo no, e il telaio ci si appoggiava sopra con `h-full`
+   ereditando un'altezza di contenuto — l'applicazione occupava il 52% dello
+   schermo e sotto restava carta. Finche' il telaio diceva `h-dvh` il buco non si
+   vedeva, perche' un'unita' di viewport non chiede niente al genitore.
+
    Per trovarlo se ricapita, dalla console del browser:
    `[...document.querySelectorAll("*")].filter(e => e.getBoundingClientRect().bottom > innerHeight + 4)` */
 html,
-body {
+body,
+#root {
   height: 100%;
   overflow: hidden;
 }
