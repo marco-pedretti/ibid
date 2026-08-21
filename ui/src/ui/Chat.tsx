@@ -29,6 +29,7 @@ import {
   Avvertimento,
   Discordi,
   DueColonne,
+  Ferma,
   FrecciaSu,
   NonCitata,
   NonSostiene,
@@ -494,12 +495,19 @@ function Campo() {
           />
 
           {occupato ? (
+            // Un quadrato di 26 px, esattamente dov'era la freccia e della
+            // stessa misura: mentre la risposta arriva l'unica cosa che si puo'
+            // fare li' e' fermarla, e un bottone che cambia larghezza sotto il
+            // campo sposta il campo. Bordato e non pieno d'accento, perche' il
+            // pieno d'accento in questa palette vuol dire «azione principale» e
+            // fermare non lo e': e' l'uscita.
             <button
               type="button"
               onClick={ferma}
-              className="grid h-[26px] shrink-0 place-items-center rounded-md border border-line-2 px-2.5 text-[11px] text-ink-2 transition-colors hover:border-accent-2 hover:text-ink"
+              aria-label={t("chat.stop")}
+              className="grid h-[26px] w-[26px] shrink-0 place-items-center rounded-md border border-line-2 text-ink-2 transition-colors hover:border-accent-2 hover:text-ink"
             >
-              {t("chat.stop")}
+              <Ferma size={14} />
             </button>
           ) : (
             <button

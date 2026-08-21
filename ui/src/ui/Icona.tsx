@@ -178,6 +178,29 @@ export function Informazioni(p: PropsIcona) {
   );
 }
 
+/**
+ * Ferma cio' che sta arrivando: il quadrato.
+ *
+ * **Pieno, ed e' la seconda eccezione alla regola 2** — che dice «solo tratto».
+ * La regola esiste per non dover scegliere un secondo colore che regga su carta
+ * e su fondo scuro, e un riempimento in `currentColor` quel problema non ce
+ * l'ha: e' la stessa deroga di `Sistema`, per la stessa ragione.
+ *
+ * Serve, perche' il quadrato vuoto e' gia' preso: `NonVerificata` e' una casella
+ * vuota, e vuol dire «di questa frase non e' stato detto niente». Le due non si
+ * incontrano mai — una sta nel campo di scrittura, l'altra sui marcatori dentro
+ * una risposta — ma due quadrati di tratto con due significati diversi sarebbero
+ * comunque due volte la stessa figura, e il pieno e' anche la forma con cui
+ * «ferma» si scrive dappertutto.
+ */
+export function Ferma(p: PropsIcona) {
+  return (
+    <Base {...p}>
+      <rect x="4" y="4" width="8" height="8" rx="1.6" fill="currentColor" stroke="none" />
+    </Base>
+  );
+}
+
 /** Si apre fuori da qui: una freccia che esce dal riquadro (U-06). */
 export function Esterno(p: PropsIcona) {
   return (
