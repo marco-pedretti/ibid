@@ -158,7 +158,7 @@
 }
 
 /* **La pagina non scorre mai, e non e' un rimedio: e' che tipo di programma
-   e' questo.** Il telaio dichiara `h-dvh` e ogni area che scorre lo fa per
+   e' questo.** Il telaio dichiara `h-full` e ogni area che scorre lo fa per
    conto suo -- la cronologia nella corsia, le colonne del confronto, il
    pannello fonti. Una barra di scorrimento del *documento* non porta quindi
    da nessuna parte: trascina via anche la corsia e il campo, cioe' le due
