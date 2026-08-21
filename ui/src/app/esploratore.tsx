@@ -53,6 +53,11 @@ interface Esploratore {
    *  seleziona — e' la strada che arriva da una citazione. */
   apri: (doc_id?: string, chunk_id?: string) => void;
   chiudi: () => void;
+  /** Lascia il documento aperto e torna all'elenco, senza chiudere
+   *  l'esploratore. Serve dove le tre colonne non ci stanno (U-21): li' una
+   *  colonna sola le mostra a turno, e per risalire da un documento non basta
+   *  sceglierne un altro. */
+  lascia: () => void;
   scegliChunk: (chunk_id: string) => void;
 }
 
@@ -151,11 +156,18 @@ export function ProvvedeEsploratore({ children }: { children: ReactNode }) {
   );
 
   const chiudi = useCallback(() => setAperto(false), []);
+  // La selezione se ne va col documento: un `chunk_id` di un documento che non
+  // e' piu' aperto indicherebbe una tessera che non c'e' sulla mappa seguente.
+  const lascia = useCallback(() => {
+    setDocumento({ stato: "nessuno" });
+    setScelto(null);
+    setChiesto(null);
+  }, []);
   const scegliChunk = useCallback((chunk_id: string) => setScelto(chunk_id), []);
 
   const valore = useMemo(
-    () => ({ aperto, elenco, documento, scelto, apri, chiudi, scegliChunk }),
-    [aperto, elenco, documento, scelto, apri, chiudi, scegliChunk],
+    () => ({ aperto, elenco, documento, scelto, apri, chiudi, lascia, scegliChunk }),
+    [aperto, elenco, documento, scelto, apri, chiudi, lascia, scegliChunk],
   );
   return <Contesto.Provider value={valore}>{children}</Contesto.Provider>;
 }

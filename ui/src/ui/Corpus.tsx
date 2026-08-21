@@ -38,6 +38,7 @@ import type { Larghezze } from "./colonne";
 import { Etichetta } from "./Etichetta";
 import { larghezzePixel, quanteRighe, righeMappa } from "./mappa";
 import { Esterno, Indietro, Lente } from "./Icona";
+import { usaForma } from "./Telaio";
 import { Separatore } from "./Separatore";
 import { Suggerimento } from "./Suggerimento";
 import { pezzi } from "./tabellaHtml";
@@ -51,6 +52,7 @@ export function Corpus() {
   const { t } = usaLingua();
   const { chiudi } = usaEsploratore();
   const { scelto: dataset } = usaDataset();
+  const stretta = usaForma() === "stretta";
   const contenitore = useRef<HTMLDivElement>(null);
   const [larghezze, setLarghezze] = useState<Larghezze>(() => {
     try {
@@ -142,35 +144,99 @@ export function Corpus() {
         </button>
       </div>
 
-      {/* Le tre colonne del mockup, con due manici in mezzo.
-          `grid-rows-[minmax(0,1fr)]` per la ragione di sempre: senza una riga
-          dichiarata quella implicita e' `auto`, e a scorrere sarebbe la pagina
-          invece delle colonne.
+      {stretta ? (
+        <Affondo />
+      ) : (
+        /* Le tre colonne del mockup, con due manici in mezzo.
+           `grid-rows-[minmax(0,1fr)]` per la ragione di sempre: senza una riga
+           dichiarata quella implicita e' `auto`, e a scorrere sarebbe la pagina
+           invece delle colonne.
 
-          I bordi non sono piu' `divide-x`: adesso li fanno i manici, che sono
-          una traccia della griglia. Due linee, una sola volta. */}
-      <div
-        ref={contenitore}
-        style={{ gridTemplateColumns: griglia(larghezze) }}
-        className="grid min-h-0 flex-1 grid-rows-[minmax(0,1fr)] overflow-hidden"
-      >
+           I bordi non sono piu' `divide-x`: adesso li fanno i manici, che sono
+           una traccia della griglia. Due linee, una sola volta. */
+        <div
+          ref={contenitore}
+          style={{ gridTemplateColumns: griglia(larghezze) }}
+          className="grid min-h-0 flex-1 grid-rows-[minmax(0,1fr)] overflow-hidden"
+        >
+          <Documenti />
+          <Separatore
+            etichetta={t("corpus.resize.documents")}
+            valore={larghezze.documenti}
+            onInizio={inizia}
+            onFine={finisci}
+            onSposta={(d) => sposta("documenti", d)}
+          />
+          <Centro />
+          <Separatore
+            etichetta={t("corpus.resize.detail")}
+            valore={larghezze.dettaglio}
+            onInizio={inizia}
+            onFine={finisci}
+            onSposta={(d) => sposta("dettaglio", d)}
+          />
+          <Dettaglio />
+        </div>
+      )}
+    </div>
+  );
+}
+
+/**
+ * A colonna sola le tre colonne diventano **due schermate in fila**: l'elenco,
+ * e poi il documento scelto.
+ *
+ * **Un affondo e non tre riquadri impilati.** L'elenco dei documenti e' una
+ * cosa che si interroga — 494 voci su `ledger` — e messo sopra la mappa
+ * costringerebbe a scorrerlo tutto ogni volta per arrivare al documento che si
+ * sta gia' leggendo. Le altre due invece si impilano davvero, perche' sono la
+ * stessa cosa vista da due distanze: la mappa dice dove sono caduti i tagli, il
+ * dettaglio dice cosa c'e' dentro quello scelto, e sceglierne uno sulla mappa
+ * riempie il riquadro che gli sta appena sotto.
+ *
+ * **I manici non ci sono**, e non e' una perdita: servivano a spartire una
+ * larghezza fra tre colonne, e qui di larghezza ce n'e' una sola da spartire con
+ * nessuno. Le misure ricordate restano dove sono e tornano quando lo schermo
+ * torna largo.
+ *
+ * Il nome del documento sta accanto al comando che risale, e non e' decorazione:
+ * e' l'unica cosa che dice **da dove** si sta risalendo, visto che l'elenco —
+ * dove il documento aperto e' marcato — adesso non e' sullo schermo.
+ */
+function Affondo() {
+  const { t } = usaLingua();
+  const { documento, lascia } = usaEsploratore();
+
+  if (documento.stato === "nessuno") {
+    // Una griglia di una riga sola, e non un `flex-1` sulla sezione: e' il modo
+    // gia' usato qui e nel telaio per dare a un figlio l'altezza disponibile
+    // senza che il suo scorrimento interno diventi lo scorrimento della pagina.
+    return (
+      <div className="grid min-h-0 flex-1 grid-rows-[minmax(0,1fr)] overflow-hidden">
         <Documenti />
-        <Separatore
-          etichetta={t("corpus.resize.documents")}
-          valore={larghezze.documenti}
-          onInizio={inizia}
-          onFine={finisci}
-          onSposta={(d) => sposta("documenti", d)}
-        />
-        <Centro />
-        <Separatore
-          etichetta={t("corpus.resize.detail")}
-          valore={larghezze.dettaglio}
-          onInizio={inizia}
-          onFine={finisci}
-          onSposta={(d) => sposta("dettaglio", d)}
-        />
-        <Dettaglio />
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex min-h-0 flex-1 flex-col">
+      <div className="flex shrink-0 items-center gap-2 border-b border-line px-[18px] py-2">
+        <button
+          type="button"
+          onClick={lascia}
+          className="flex shrink-0 items-center gap-1.5 rounded-md border border-line-2 px-[9px] py-[5px] text-[11px] text-ink-2 transition-colors hover:border-accent-2 hover:text-ink"
+        >
+          <Indietro size={12} />
+          {t("corpus.documents")}
+        </button>
+        <span className="min-w-0 truncate font-mono text-[10.5px] text-muted">
+          {documento.doc_id}
+        </span>
+      </div>
+
+      <div className="flex min-h-0 flex-1 flex-col divide-y divide-line overflow-y-auto">
+        <Centro impilato />
+        <Dettaglio impilato />
       </div>
     </div>
   );
@@ -291,7 +357,7 @@ const MINIMO_TRATTO = 10;
  * quelle sono una preferenza («voglio piu' spazio per leggere»), questo e' cosa
  * si sta guardando adesso.
  */
-function Centro() {
+function Centro({ impilato = false }: { impilato?: boolean }) {
   const { t } = usaLingua();
   const { documento } = usaEsploratore();
   const [vista, setVista] = useState<"mappa" | "testo">("mappa");
@@ -305,7 +371,9 @@ function Centro() {
   }
 
   return (
-    <section className="flex min-h-0 flex-col gap-3 overflow-y-auto px-[18px] py-4">
+    <section
+      className={`flex flex-col gap-3 px-[18px] py-4 ${impilato ? "" : "min-h-0 overflow-y-auto"}`}
+    >
       <div className="flex items-center gap-1">
         <Modo attivo={vista === "mappa"} onClick={() => setVista("mappa")}>
           {t("corpus.howSplit")}
@@ -589,7 +657,7 @@ function Spiegazione({ chunk }: { chunk: ChunkView }) {
 }
 
 /** Il chunk scelto, **intero**: e' cio' che U-06 chiede. */
-function Dettaglio() {
+function Dettaglio({ impilato = false }: { impilato?: boolean }) {
   const { t } = usaLingua();
   const { documento, scelto } = usaEsploratore();
 
@@ -600,7 +668,7 @@ function Dettaglio() {
 
   if (chunk === null) {
     return (
-      <aside className="flex min-h-0 flex-col px-3 py-3.5">
+      <aside className={`flex flex-col px-3 py-3.5 ${impilato ? "" : "min-h-0"}`}>
         <Etichetta>{t("corpus.selected")}</Etichetta>
       </aside>
     );
@@ -609,7 +677,9 @@ function Dettaglio() {
   const href = indirizzo(chunk.source_uri);
 
   return (
-    <aside className="flex min-h-0 flex-col gap-2.5 overflow-y-auto px-3 py-3.5">
+    <aside
+      className={`flex flex-col gap-2.5 px-3 py-3.5 ${impilato ? "" : "min-h-0 overflow-y-auto"}`}
+    >
       <Etichetta>{t("corpus.selected")}</Etichetta>
 
       <div className="flex flex-wrap gap-1">
