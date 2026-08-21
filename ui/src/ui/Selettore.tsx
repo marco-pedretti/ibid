@@ -215,7 +215,12 @@ export function Selettore<T extends string>({
           }}
           className={[
             "absolute z-20 overflow-hidden rounded-lg border border-line-2 bg-surface p-1 shadow-carta",
-            larghezza === "bottone" ? "w-full" : "min-w-full w-max",
+            // `w-max` prende la larghezza della voce piu' lunga, e su uno
+            // schermo da telefono quella voce puo' essere piu' larga dello
+            // schermo: il tetto e' li' perche' cio' che sporge da un lato
+            // sarebbe **irraggiungibile**, non solo brutto — la pagina non
+            // scorre in orizzontale per costruzione (`index.css`).
+            larghezza === "bottone" ? "w-full" : "min-w-full w-max max-w-[calc(100vw-16px)]",
             verso === "giu" ? "top-full mt-1.5" : "bottom-full mb-1.5",
             // Solo `opacity` e `transform`: sono le due proprieta' che il
             // compositore anima senza ridisegnare. **Niente `scale`**, che sul

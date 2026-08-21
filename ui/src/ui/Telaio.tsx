@@ -241,7 +241,7 @@ export function Telaio({ children, fianco }: { children: ReactNode; fianco?: Rea
 
         {f === "stretta" && cassetto && (
           <Strato lato="sinistra" larghezza={APERTA} chiudi={chiudiCassetto} nome={t("rail.close")}>
-            <CorsiaAperta chiudi={chiudiCassetto} />
+            <CorsiaAperta chiudi={chiudiCassetto} nelCassetto />
           </Strato>
         )}
 
@@ -381,7 +381,13 @@ function Strato({
 }
 
 /** La corsia larga: quella di sempre, piu' il comando che la chiude. */
-function CorsiaAperta({ chiudi }: { chiudi: () => void }) {
+function CorsiaAperta({
+  chiudi,
+  nelCassetto = false,
+}: {
+  chiudi: () => void;
+  nelCassetto?: boolean;
+}) {
   const { t } = usaLingua();
 
   return (
@@ -395,7 +401,12 @@ function CorsiaAperta({ chiudi }: { chiudi: () => void }) {
           riga del marchio e' il bordo di questa colonna. */}
       <div className="flex items-center justify-between gap-2 px-1">
         <Marchio className="text-[19px]" />
-        <BottoneCorsia chiusa={false} cambia={chiudi} className="h-[26px] w-[26px]" />
+        <BottoneCorsia
+          chiusa={false}
+          nelCassetto={nelCassetto}
+          cambia={chiudi}
+          className="h-[26px] w-[26px]"
+        />
       </div>
 
       <div {...zona("corpus")}>
@@ -489,20 +500,26 @@ function BottoneCorsia({
   chiusa,
   cambia,
   className,
+  nelCassetto = false,
 }: {
   chiusa: boolean;
   cambia: () => void;
   className: string;
+  nelCassetto?: boolean;
 }) {
   const { t } = usaLingua();
-  const nome = chiusa ? t("rail.expand") : t("rail.collapse");
+  // Dentro il cassetto lo stesso bottone non **comprime**: chiude, e non resta
+  // nessuna striscia di comandi. Dirlo lo stesso sarebbe promettere un ripiego
+  // che a colonna sola non esiste.
+  const nome = nelCassetto ? t("rail.close") : chiusa ? t("rail.expand") : t("rail.collapse");
+  const bolla = nelCassetto
+    ? t("rail.close.hint")
+    : chiusa
+      ? t("rail.expand.hint")
+      : t("rail.collapse.hint");
 
   return (
-    <Suggerimento
-      testo={chiusa ? t("rail.expand.hint") : t("rail.collapse.hint")}
-      fuoco={false}
-      className="block"
-    >
+    <Suggerimento testo={bolla} fuoco={false} className="block">
       <button
         type="button"
         onClick={cambia}

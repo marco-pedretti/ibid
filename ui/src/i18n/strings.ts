@@ -83,6 +83,7 @@ export const it = {
   // bersaglio grande e senza forma, e chi ci arriva da tastiera lo sente
   // annunciare prima di premerlo.
   "rail.close": "Chiudi la corsia",
+  "rail.close.hint": "Torna alla conversazione. Si riapre dal comando in alto a sinistra.",
   "sources.close": "Chiudi le fonti",
   "sources.open.hint":
     "Le fonti di questa risposta, coi verdetti. Si apre di lato, e si chiude toccando fuori.",
@@ -573,6 +574,7 @@ export const en: Record<Chiave, string> = {
   "rail.history.hint": "A title cut down to a strip is not a title: the click reopens the sidebar.",
 
   "rail.close": "Close the sidebar",
+  "rail.close.hint": "Back to the conversation. It reopens from the control at the top left.",
   "sources.close": "Close sources",
   "sources.open.hint":
     "The sources behind this answer, with their verdicts. It opens at the side; tap outside to close.",
