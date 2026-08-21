@@ -29,6 +29,7 @@ Usage:
     python scripts/eval_citations.py --dataset open_ragbench --limit 50
     python scripts/eval_citations.py --dataset ledger --model gemma4:12b --limit 50
     python scripts/eval_citations.py --dataset open_ragbench --limit 3 --no-write
+    python scripts/eval_citations.py --dataset ledger --limit 200         --system-prompt-file eval/results/generations/20260812_172405_ledger.prompt.txt
 """
 
 import argparse
@@ -42,7 +43,7 @@ sys.path.insert(0, str(ROOT))
 
 import src.config as cfg
 from src.datasets import registry
-from src.eval.citation_harness import GenerationWriter, run_citation_eval
+from src.eval.citation_harness import GenerationWriter, prompt_hash, run_citation_eval
 from src.generation.citation_format import COMPLIANCE_TARGET, VIOLATION_KINDS
 from src.generation.prompt import SYSTEM
 
@@ -68,7 +69,27 @@ def main() -> None:
     p.add_argument("--no-write", action="store_true",
                    help="stampa soltanto, non scrive EvalRun ne generazioni: per calibrazioni "
                         "e smoke test, che non vanno archiviati come misure")
+    p.add_argument("--system-prompt-file", type=Path, default=None, metavar="FILE",
+                   help="prompt di sistema letto da file invece di quello in vigore in "
+                        "src/generation/prompt.py: serve a rimisurare col codice di oggi "
+                        "un prompt che non e' piu' quello corrente. Ogni run ne lascia "
+                        "una copia in eval/results/generations/*.prompt.txt")
     args = p.parse_args()
+
+    # Il prompt sotto misura, deciso una volta per l'intera invocazione.
+    #
+    # Letto e basta, senza normalizzare niente: il sidecar e' scritto con
+    # `write_text`, quindi il file restituisce gli stessi byte e quindi lo stesso
+    # `prompt_hash`. Verificato sui due run del 2026-08-12, che dal file tornano
+    # a `3a50ef63`, il valore registrato nel loro `config`. Aggiungere o togliere
+    # un a-capo qui produrrebbe un hash diverso da quello che si vuole rimisurare
+    # -- e `test_differs_on_whitespace` esiste perche' quella differenza conta.
+    system_prompt = SYSTEM
+    if args.system_prompt_file is not None:
+        if not args.system_prompt_file.exists():
+            print(f"[ERROR] {args.system_prompt_file} non trovato.")
+            sys.exit(1)
+        system_prompt = args.system_prompt_file.read_text(encoding="utf-8")
 
     datasets = registry.resolve(args.dataset)
     RESULTS_DIR.mkdir(parents=True, exist_ok=True)
@@ -89,9 +110,13 @@ def main() -> None:
         # precisione, non configurazione, e giustamente non entra nell'hash.
         # Il rimedio non e' rinominare le misure: e' non archiviare cio' che
         # misura non e'. Stesso `--no-write` di eval_citation_precision.py.
-        writer = None if args.no_write else GenerationWriter(gen_path, SYSTEM)
+        writer = None if args.no_write else GenerationWriter(gen_path, system_prompt)
 
         print(f"\n=== C-01 citation format — {dataset_id} ===", flush=True)
+        # Il prompt e' cio' che questo script misura: stamparne l'identita' e'
+        # l'unico modo perche' due run con numeri diversi si spieghino da sole.
+        origine = "" if args.system_prompt_file is None else f" da {args.system_prompt_file}"
+        print(f"  prompt {prompt_hash(system_prompt)}{origine}", flush=True)
         if writer is not None:
             print(f"  generazioni in {writer.tmp.relative_to(ROOT)}", flush=True)
         else:
@@ -105,7 +130,7 @@ def main() -> None:
             limit=args.limit,
             model=args.model,
             pipeline_mode=args.pipeline_mode,
-            system_prompt=SYSTEM,
+            system_prompt=system_prompt,
             writer=writer,
         )
         if writer is not None:

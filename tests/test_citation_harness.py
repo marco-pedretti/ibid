@@ -413,6 +413,22 @@ class TestPromptHash:
     def test_short(self):
         assert len(prompt_hash("x")) == 8
 
+    def test_sopravvive_al_giro_dal_sidecar(self, tmp_path):
+        """Un prompt salvato da una run passata si puo' rimisurare tale e quale.
+
+        E' cio' su cui poggia `--system-prompt-file`: il sidecar lo scrive con
+        `write_text` e lo script lo rilegge con `read_text`, senza normalizzare
+        niente, quindi tornano gli stessi byte e con loro lo stesso hash. Se un
+        giorno una delle due parti aggiungesse un a-capo, la run di confronto
+        misurerebbe un prompt diverso da quello che dichiara -- e il numero
+        sembrerebbe comunque buono, che e' il modo peggiore di sbagliare.
+        """
+        prompt = "Answer using only the sources.\nCite as [1][2].\n"
+        write_generations(tmp_path / "gen.jsonl", [], prompt)
+        riletto = (tmp_path / "gen.prompt.txt").read_text(encoding="utf-8")
+        assert riletto == prompt
+        assert prompt_hash(riletto) == prompt_hash(prompt)
+
 
 class TestIncrementalWriting:
     """A run that dies partway must leave its generations behind.
