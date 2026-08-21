@@ -1670,7 +1670,7 @@ typecheck verde, tipi TypeScript rigenerati.
 | U-17 | ✅ fatto (2026-08-20) | **Il testo indicizzato**: la colonna di mezzo dell'esploratore ha due viste dello stesso documento — la mappa dice quanto sono grandi i pezzi, il testo dice cosa c'era nel punto in cui uno è stato tagliato — con le cuciture visibili e la selezione condivisa. **51 test Vitest** in più (287). Dettaglio sotto. |
 | U-18 | ✅ fatto (2026-08-20) | **La corsia si comprime**: un comando accanto al marchio la riduce a una striscia di 48 px e la riporta larga, e la scelta vale al prossimo avvio. Nella striscia restano i due comandi e le tre tendine; la cronologia no, e il suo bottone riapre la corsia dicendo perché. **8 test Vitest** in più (295). Dettaglio sotto. |
 | U-19 | ✅ fatto (2026-08-21) | **La pagina «Che cos'è»**: cosa fa il progetto, le tre affermazioni del §0 col verdetto che hanno oggi, cosa la demo non è, e chi l'ha fatta. Raggiungibile dalla corsia in tutti e due gli stati, in IT/EN. **Nessuna metrica scritta a mano**: i numeri non ci sono, e la pagina dice dove sono. **2 test Vitest** in più (300). Dettaglio sotto. |
-| U-20 | ✅ fatto (2026-08-21) | **L'avvio guidato**: quattro passi in una striscia sopra la conversazione, non una finestra modale — si può chiedere mentre è aperta, si salta con un comando, e non torna. Il deposito ricorda **il passo**, non solo che è finita; chi in questo browser ha già una cronologia non la vede affatto. **12 test Vitest** in più (312). Dettaglio sotto. |
+| U-20 | ✅ fatto (2026-08-21) | **L'avvio guidato**: quattro passi, e ognuno **circonda con un alone la zona di cui parla** — le fonti, la colonna delle risposte, il dataset nella corsia, «Che cos'è». Il velo smorza il resto ma **non intercetta il puntatore**: si scrive e si manda con la guida aperta. Si salta con un comando, non torna, e il deposito ricorda il passo. **21 test Vitest** in più (321). Dettaglio sotto. |
 
 ### U-00 — il contratto esiste in due linguaggi, e uno dei due si genera
 
@@ -2945,92 +2945,137 @@ l'embedder ONNX **prima** che Ollama carichi il modello, quello che resta di VRA
 non basta e il modello finisce in parte sulla CPU — misurato, **123 s a domanda**
 invece di 22. Si evita scaldando il modello prima di lanciare la run.
 
-### U-20 — una guida che non sta davanti a niente
+### U-20 — una guida che indica, e non impedisce niente
 
 Il criterio chiede quattro cose, e tre sono vincoli sulla **forma**: si salta con
 un comando solo, non torna dopo un ricaricamento, non impedisce di fare la prima
-domanda mentre è aperta, e dichiara di essere locale a questo browser. Messe
-insieme escludono la cosa che di solito si chiama avvio guidato — una finestra al
-centro con «1 di 4» e lo sfondo spento. La terza in particolare non si soddisfa
-con un velo che si lascia attraversare: si soddisfa **non mettendolo**.
+domanda mentre è aperta, e dichiara di essere locale a questo browser.
 
-Quindi è una striscia in cima alla colonna di lavoro, sopra la conversazione e
-fuori dal contenitore che scorre. Il campo resta dov'era, e chi vuole ignorarla
-scrive e manda. Chi invece la legge la tiene aperta **durante** la prima
-risposta, che è il solo momento in cui i suoi primi due passi hanno qualcosa da
-mostrare: le fonti che compaiono prima del testo, i verdetti che arrivano dopo.
-Chiuderla alla prima domanda — che sarebbe stata la scelta comoda — avrebbe tolto
-la guida esattamente quando serviva.
+La prima forma era una striscia in cima alla colonna di lavoro — non una finestra
+modale, perché la terza richiesta escludeva il velo che copre tutto. Marco l'ha
+guardata e ha chiesto altro: «qualcosa di più interattivo, che indichi le zone
+dell'interfaccia». È la forma che l'avvio guidato ha adesso, e la richiesta era
+giusta: una striscia di testo dice *che* le fonti compaiono a destra; un alone
+attorno alla colonna delle fonti lo **mostra**, e la differenza è tutta lì.
 
-**Fuori dal contenitore che scorre** e non dentro: lì se ne sarebbe andata da
-sola dopo tre frasi di risposta, e una guida che si porta via da sola non è una
-guida che si è saltata.
+#### Il velo c'è, e non chiude niente
 
-#### I quattro passi indicano, e indicano con i glifi che l'interfaccia ha già
+L'obiezione che aveva fatto scartare l'overlay è che di solito un overlay *è* il
+modo in cui una guida dice «adesso non puoi fare altro» — cioè esattamente ciò
+che il criterio vieta. La risposta è che il velo sia un peso visivo e non una
+porta: tutto lo strato è `pointer-events: none` tranne la scheda, che ha due
+bottoni. Si scrive nel campo, si manda, si clicca un esempio, si cambia dataset,
+con la guida aperta e l'alone acceso. Il token `--velo` è basso apposta (0,16 sul
+chiaro, 0,34 sul buio): abbastanza da portare l'occhio dentro l'alone, non
+abbastanza da sembrare una porta chiusa. Un velo che dicesse il contrario di ciò
+che il programma fa sarebbe una bugia disegnata.
 
-L'ordine non è quello di un elenco di funzionalità: è quello in cui le cose
-compaiono guardando una risposta nascere. Le fonti prima del testo; il verdetto
-su ogni frase; il corpus come unico posto in cui il sistema sa qualcosa; e infine
-dove sta la spiegazione che **resta**, cioè la pagina «Che cos'è» di U-19.
+#### Le quattro zone si dichiarano da sé
 
-Quel quarto passo è anche la risposta alla domanda che il criterio non fa: se la
-guida non torna mai più, dove va chi voleva rileggerla? In una pagina che si apre
-quando si vuole, invece che in una striscia che si ripresenta a chi l'ha già
-letta. La guida è transitoria per costruzione, e nomina ciò che è permanente.
+L'altra obiezione — quella con cui questa forma era stata scartata la prima volta
+— è che una guida che evidenzia regioni dello schermo si disallinea in silenzio
+il giorno in cui l'impaginazione cambia. Vale per le guide che cercano le regioni
+con un selettore CSS scritto altrove. Qui a dichiarare la zona è **chi la
+disegna**: `<aside {...zona("fonti")}>`, e `zona()` prende un `Passo["id"]`,
+quindi una zona scritta storta non compila. È la sola parte del meccanismo che si
+poteva sbagliare in silenzio, ed è la sola che valeva la pena chiudere.
 
-Ogni passo porta il glifo della cosa di cui parla — l'indice, il segno di
-«sostiene», quello dell'astensione, e per il quarto **lo stesso glifo del bottone
-che nomina**. È il modo di indicare senza disegnare frecce sopra l'interfaccia:
-una guida che evidenzia regioni dello schermo va tenuta allineata a
-un'impaginazione che cambia, e il giorno in cui qualcosa si sposta sbaglia in
-silenzio. Un glifo condiviso no: o è lo stesso simbolo, o non compila.
+E se il nodo non è sullo schermo — schermata diversa, pannello assente —
+**l'alone non si disegna affatto** e la scheda si mette in basso al centro. La
+guida dice una cosa in meno, non una cosa falsa.
 
-#### Si ricorda il passo, non solo che è finita
+Le quattro zone: il pannello fonti; la colonna in cui le risposte compaiono (non
+il verdetto di una frase, che sarebbe più preciso e **impossibile al primo
+avvio**, quando di frasi non ce n'è nessuna); il blocco del dataset nella corsia,
+che è una zona sola nei due stati della corsia; e il bottone «Che cos'è», che il
+quarto passo nomina. Ogni passo porta anche il glifo della sua zona — il quarto è
+lo stesso glifo di quel bottone.
 
-Costa lo stesso e paga due volte. La guida sopravvive a un ricaricamento senza
-ricominciare da capo — ed è metà del criterio — ma soprattutto sopravvive
+#### L'aritmetica sta fuori da React, come per le bolle
+
+`ui/riflettore.ts` decide dove va l'alone e dove va la scheda, e si prova in
+`node` senza un DOM: è l'unica parte che può dare un risultato **sbagliato**
+invece che brutto — una scheda mezza fuori schermo, un alone attorno al vuoto.
+È la stessa divisione di lavoro che `Suggerimento` ha con `collocazione.ts`, da
+cui questo modulo **legge le due costanti** invece di ridichiararle: distanza fra
+una cosa e la sua spiegazione, margine oltre il quale si è fuori finestra.
+
+L'ordine dei lati è `destra, sinistra, sotto, sopra`, e vince il primo in cui la
+scheda ci sta **per intero**. Non «il lato con più spazio», che è la regola delle
+bolle: una bolla di tre parole sta quasi ovunque, una scheda con un titolo e due
+frasi no, e scegliere il meno stretto fra due lati stretti significa comunque
+sporgere. L'ordine porta i bersagli agli estremi a spiegarsi tutti sopra la
+colonna di mezzo: quelli della corsia col fianco destro libero, quello delle
+fonti ripiegando a sinistra perché a destra il posto non c'è.
+
+`dentro` non è un ripiego: è il caso della colonna di mezzo, che è alta quanto la
+finestra e non ha un «accanto». Lì la scheda va dentro l'alone, **in basso**,
+dove non copre ciò che l'alone sta indicando.
+
+**Si converte al confine**, come sempre da quando esiste lo `zoom` sulla radice:
+`getBoundingClientRect` e `innerWidth` arrivano in px di finestra, `left` e `top`
+si scrivono in px di disegno, e senza dividere per `scala()` l'alone si
+allontanerebbe dal bersaglio esattamente del fattore di zoom — il difetto già
+pagato una volta dalla bolla del suggerimento.
+
+#### Due decisioni che si vedono solo se si sbagliano
+
+**Si rimisura di continuo invece di ascoltare gli eventi giusti.** Le cose che
+spostano un bersaglio qui sono quattro: la finestra che cambia, una colonna che
+scorre, il pannello fonti che compare, la corsia che si comprime. L'ultima
+**sostituisce il nodo** invece di ridimensionarlo, quindi un `ResizeObserver` su
+ciò che si è trovato smette di parlare proprio quando servirebbe. Un giro ogni
+100 ms che rilegge la zona e aggiorna lo stato solo se è cambiata costa una
+misura su un elemento, dura quanto la guida, e non lascia casi scoperti.
+
+**Escape non salta la guida**, ed è una deroga alla regola che vale nel resto
+dell'interfaccia. Lì Escape chiude ciò che si è aperto sopra il contenuto — una
+tendina, una bolla — e quelle cose si riaprono. Qui la stessa pressione
+prenderebbe una decisione **definitiva**, e due dei quattro passi indicano una
+zona che contiene una tendina: chi la chiude con Escape si ritroverebbe la guida
+via per sempre senza averlo chiesto.
+
+#### Ciò che non è cambiato passando da una forma all'altra
+
+I quattro passi, il loro ordine — quello in cui le cose compaiono guardando una
+risposta nascere — e il fatto che l'ultimo nomini «Che cos'è». È la risposta alla
+domanda che il criterio non fa: se la guida non torna mai più, chi voleva
+rileggerla va in una pagina che si apre quando si vuole, invece che in qualcosa
+che si ripresenta a chi l'ha già letto. La guida è transitoria per costruzione, e
+nomina ciò che è permanente.
+
+**Si ricorda il passo, non solo che è finita.** Costa lo stesso e paga due volte:
+sopravvive a un ricaricamento — ed è metà del criterio — ma soprattutto
 all'aprire «Che cos'è» o l'esploratore, che smontano la colonna della chat e con
 lei qualunque stato tenuto in React. Arrivare al passo 3, aprire la pagina che il
-passo 4 nomina e ritrovarsi al passo 1 sarebbe stata la guida che punisce chi le
-dà retta.
+passo 4 nomina e ritrovarsi al passo 1 sarebbe la guida che punisce chi le dà
+retta.
 
-**Il verso sicuro qui è l'opposto di quello di `corsia.ts`.** Un deposito storto —
-un valore scritto a mano, l'indice di una versione con più passi — riparte dal
-primo passo e non dalla fine: il caso da proteggere è chi la guida non l'ha mai
-vista. Nella corsia era il contrario, perché lì il caso da proteggere era non
-perdere una colonna. Due default opposti, e nessuno dei due è «quello sicuro» in
-astratto.
+**Il verso sicuro qui è l'opposto di quello di `corsia.ts`.** Un deposito storto
+riparte dal primo passo e non dalla fine: il caso da proteggere è chi la guida non
+l'ha mai vista. Nella corsia era il contrario, perché lì il caso da proteggere era
+non perdere una colonna. Due default opposti, e nessuno dei due è «quello sicuro»
+in astratto.
 
 **Chi in questo browser ha già una cronologia non la vede affatto.** La chiave
-`ibid.avvio` è nuova: senza questa regola, il primo avvio dopo U-20 avrebbe
-accolto con un tour chi usa la demo da settimane. Una cronologia non vuota è
-l'unica prova disponibile che la prima volta è già passata, e vale come una guida
-saltata — perché lo è. Ma se il deposito dice qualcosa, comanda lui: chi ha
-lasciato la guida a metà per chiedere qualcosa non se la vede chiudere alle
-spalle. Per la stessa ragione il passo si scrive **anche al primo disegno** e non
-solo al primo clic.
+`ibid.avvio` è nuova: senza questa regola, il primo avvio dopo U-20 avrebbe accolto
+con un tour chi usa la demo da settimane. Una cronologia non vuota è l'unica prova
+disponibile che la prima volta è già passata, e vale come una guida saltata —
+perché lo è. Ma se il deposito dice qualcosa, comanda lui. Per la stessa ragione il
+passo si scrive **anche al primo disegno** e non solo al primo clic.
 
-#### Due cose che il criterio non chiedeva, e una che chiedeva a metà
+**«Salta» e «Avanti» hanno la stessa veste, e nessuna è d'accento.** L'unico
+bottone pieno dell'interfaccia è «Invia»: una guida che chiama più forte del campo
+in cui si scrive starebbe chiedendo di essere letta prima che si faccia la cosa per
+cui si è aperta la pagina. Fra i due non c'è nemmeno un primario — chi salta e chi
+prosegue fanno due scelte legittime.
 
-«Salta» e «Avanti» hanno la stessa veste, e nessuna delle due è d'accento.
-L'unico bottone pieno di questa colonna è «Invia», ed è giusto che resti l'unico:
-una guida che si presenta con un richiamo più forte di quello del campo starebbe
-chiedendo di essere letta prima che si faccia la cosa per cui si è aperta la
-pagina. Fra i due non c'è nemmeno un primario — chi salta e chi prosegue fanno
-due scelte legittime, e vestirne una meglio dell'altra sarebbe un'opinione
-travestita da disegno.
+**Lo stato vuoto tace la propria riga finché la guida c'è**, perché è la versione
+in una frase di ciò che i primi due passi dicono per esteso.
 
-**Lo stato vuoto tace la propria riga finché la guida c'è.** «Ogni frase della
-risposta porta la fonte da cui viene, e le fonti compaiono prima del testo» è la
-versione in una frase di ciò che i primi due passi dicono per esteso: due copie
-della stessa cosa a cinque righe di distanza, sulla primissima schermata, sono il
-difetto che questa guida dovrebbe evitare e non introdurre. Resta il titolo, che
-è un invito e non una spiegazione — col margine che passa a lui, altrimenti gli
-esempi gli finiscono addosso.
-
-La quarta richiesta — dichiarare di essere locale a questo browser — sta nella
-striscia e non in un suggerimento, allo stesso posto in cui sta quella della
-cronologia di U-13: è una promessa sul dato, non una nota d'aiuto. E dice tutte e
-due le cose in una riga, perché sono la stessa promessa vista da due lati:
-*«Puoi chiedere mentre è aperta. Saltata una volta non torna, e la scelta resta
-in questo browser come la cronologia.»*
+E la quarta richiesta del criterio — dichiarare di essere locale a questo browser
+— sta nella scheda e non in un suggerimento, allo stesso posto in cui sta quella
+della cronologia di U-13: è una promessa sul dato, non una nota d'aiuto. Dice
+tutte e due le cose in una riga, perché sono la stessa promessa vista da due lati:
+*«Puoi chiedere mentre è aperta. Saltata una volta non torna, e la scelta resta in
+questo browser come la cronologia.»*
