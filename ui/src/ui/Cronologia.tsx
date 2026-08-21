@@ -167,7 +167,7 @@ function BottoneNuova() {
       bloccato={occupato}
       suggerimento={occupato ? t("history.busy") : null}
       onClick={nuova}
-      className={`flex w-full items-center gap-[7px] rounded-[7px] border border-accent bg-accent-soft px-2.5 py-2 text-left text-[12px] font-medium text-accent transition-colors ${
+      className={`flex h-[34px] w-full items-center gap-[7px] rounded-[7px] border border-accent bg-accent-soft px-2.5 text-left text-[12px] font-medium text-accent transition-colors ${
         occupato ? "" : "hover:bg-accent hover:text-accent-ink"
       }`}
     >

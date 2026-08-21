@@ -427,6 +427,75 @@ export const it = {
   "index.dense": "dimensione densa",
   "index.sparse": "vettori sparsi",
   "index.missing": "Il server non elenca nessuna collection con questo nome.",
+
+  // U-19 — la pagina «Che cos'è».
+  //
+  // **I numeri non ci sono, ed è una scelta scritta.** Il criterio del task ne
+  // ammette due: quelli del README, da una fonte sola, oppure nessuno. Vale la
+  // seconda, e non per pigrizia — le misure delle tre affermazioni vanno rifatte
+  // col prompt cambiato da U-14, e una copia scritta a mano qui invecchierebbe
+  // senza dirlo, che è il difetto peggiore per una pagina che spiega. Ciò che la
+  // pagina mostra invece è la **configurazione in vigore**: non è una misura, e
+  // arriva viva dal server come tutto il resto dell'interfaccia.
+  "about.title": "Che cos'è",
+  "about.subtitle": "Cosa fa ibid, cosa vuole dimostrare, e dove non arriva.",
+  "about.action": "Che cos'è ibid",
+  "about.hint": "Cosa fa il progetto, cosa ha misurato finora, e cosa questa demo non è.",
+  "about.back": "Chiudi",
+
+  "about.what.title": "Cosa fa",
+  "about.what":
+    "Risponde con i documenti di un corpus davanti, e di ogni frase che scrive dice da quale pezzo viene. Poi rilegge: un secondo modello controlla se quel pezzo sostiene davvero la frase, e il verdetto resta visibile anche quando è negativo.",
+  "about.name":
+    "«ibid» è l'abbreviazione con cui una nota bibliografica rimanda alla fonte appena citata, senza ripeterla. È il nome del progetto perché è ciò che il sistema fa per ogni singola frase.",
+
+  "about.claims.title": "Le tre cose che vuole dimostrare",
+  "about.claims.note":
+    "I numeri non stanno qui: stanno nelle tabelle del repository, l'unico posto in cui vengono rifatti quando cambia qualcosa. Una copia in questa pagina invecchierebbe senza dirlo.",
+  "about.claim1":
+    "Che l'attribuzione verificata frase per frase si può misurare, e che i modelli piccoli, senza quel controllo, sbagliano in modo sistematico.",
+  "about.claim1.state": "Regge",
+  "about.claim1.detail":
+    "È la ragione per cui qui ogni frase porta un verdetto invece di un elenco di link in fondo: senza il controllo, un rimando ben scritto e un rimando giusto sono indistinguibili.",
+  "about.claim2":
+    "Che scegliere come spezzare i documenti in base al loro genere batta una pipeline unica per tutti.",
+  "about.claim2.state": "Non regge",
+  "about.claim2.detail":
+    "Dipende dal genere: sugli articoli guadagna poco, e sui bilanci la pipeline scritta apposta per le tabelle peggiora il recupero. È un risultato negativo, ed è il reperto più interessante del progetto: resta in tabella invece di sparire.",
+  "about.claim3":
+    "Che con un recupero buono la taglia del modello conti molto meno di quanto si crede.",
+  "about.claim3.state": "Non decisa",
+  "about.claim3.detail":
+    "Manca il confronto col modello grande, che costa ore di scheda video. Finché non c'è resta un'ipotesi, e viene scritta come tale.",
+
+  "about.not.title": "Cosa questa demo non è",
+  "about.not.product":
+    "Non è un prodotto, è un banco di prova. Serve a misurare, e mostra anche ciò che misura male.",
+  // Le due cose che il criterio chiede per nome — quale modello ha risposto e su
+  // quale corpus — stanno qui come **limite** e non come scheda tecnica: la
+  // pagina dice cosa la demo non è, e «non è un panorama» è esattamente questo.
+  // I due nomi arrivano dal servizio, mai scritti a mano: vedi `app/scheda.ts`.
+  "about.not.only":
+    "Non è un panorama: a ogni domanda risponde un modello solo, su un corpus solo. Adesso sono {modello} e {corpus}, e si cambiano dalla barra sotto il campo e dalla corsia.",
+  "about.not.only.unknown":
+    "Non è un panorama: a ogni domanda risponde un modello solo, su un corpus solo. Quali, in questo momento il server non lo dice.",
+  "about.not.world":
+    "Non sa niente oltre il corpus qui sopra. Fuori da lì si astiene invece di inventare, ed è metà della dimostrazione: una delle domande d'esempio sta fuori dal corpus apposta.",
+  "about.not.truth":
+    "Una citazione verificata dice che il pezzo citato sostiene la frase, non che la frase sia vera. Se il documento sbaglia, la risposta sbaglia con lui.",
+  "about.not.measure":
+    "Una risposta sola non è una misura. Lo stesso modello, con tutto il resto uguale, risponde in modo diverso da un'esecuzione all'altra: le tabelle nascono da migliaia di domande, non da quella che hai appena fatto.",
+  // Il punto che il piano chiede di dire qui, per nome: è l'unica differenza fra
+  // com'è configurata la demo e com'è configurata la valutazione.
+  "about.not.exact":
+    "Non è configurata esattamente come la valutazione, e la differenza è una: qui la ricerca nell'indice è esatta invece che approssimata. Su un indice fitto quella approssimata salta qualcosa, e una dimostrazione finirebbe per mostrare quel difetto credendo di mostrare il recupero.",
+
+  "about.who.title": "Chi l'ha fatto",
+  "about.who":
+    "Marco Pedretti ed Elia Dallanoce, in due sulla stessa parte. È il motivo per cui qui quasi ogni scelta ha accanto la ragione per cui è stata presa: erano in due a doverla accettare.",
+  "about.who.license":
+    "Il codice è aperto, licenza MIT. Insieme al codice ci sono il piano, le tabelle delle misure e le domande ancora senza risposta — comprese le misure andate male, che restano in tabella.",
+  "about.who.repo": "Il progetto su GitHub",
 } as const;
 
 export type Chiave = keyof typeof it;
@@ -700,6 +769,59 @@ export const en: Record<Chiave, string> = {
   "index.dense": "dense size",
   "index.sparse": "sparse vectors",
   "index.missing": "The server lists no collection with this name.",
+
+  "about.title": "What this is",
+  "about.subtitle": "What ibid does, what it sets out to show, and where it stops.",
+  "about.action": "What ibid is",
+  "about.hint": "What the project does, what it has measured so far, and what this demo is not.",
+  "about.back": "Close",
+
+  "about.what.title": "What it does",
+  "about.what":
+    "It answers with the documents of a corpus in front of it, and for every sentence it writes it says which passage that sentence came from. Then it reads back: a second model checks whether the passage really supports the sentence, and the verdict stays visible even when it is negative.",
+  "about.name":
+    "“ibid” is the abbreviation a footnote uses to point at the source it has just cited, without repeating it. It is the name of the project because that is what the system does for every single sentence.",
+
+  "about.claims.title": "The three things it sets out to show",
+  "about.claims.note":
+    "The numbers are not here: they are in the tables in the repository, the only place where they are redone when something changes. A copy on this page would go stale without saying so.",
+  "about.claim1":
+    "That sentence-level verified attribution can be measured, and that small models, without that check, get it wrong systematically.",
+  "about.claim1.state": "Holds",
+  "about.claim1.detail":
+    "It is why every sentence here carries a verdict instead of a list of links at the bottom: without the check, a well-formed reference and a correct one look exactly alike.",
+  "about.claim2":
+    "That picking how to split documents by their genre beats a single pipeline for everything.",
+  "about.claim2.state": "Does not hold",
+  "about.claim2.detail":
+    "It depends on the genre: on articles it gains little, and on ledgers the pipeline written specifically for tables makes retrieval worse. It is a negative result, and it is the most interesting find in the project: it stays in the table instead of disappearing.",
+  "about.claim3": "That with good retrieval, model size matters far less than people assume.",
+  "about.claim3.state": "Undecided",
+  "about.claim3.detail":
+    "The comparison against the large model is missing, and it costs hours of GPU time. Until it exists this stays a hypothesis, and it is written as one.",
+
+  "about.not.title": "What this demo is not",
+  "about.not.product":
+    "It is not a product, it is a testbed. It exists to measure, and it shows what it measures badly too.",
+  "about.not.only":
+    "It is not a panorama: every question is answered by one model, on one corpus. Right now those are {modello} and {corpus}, and both are changed from the bar under the field and from the sidebar.",
+  "about.not.only.unknown":
+    "It is not a panorama: every question is answered by one model, on one corpus. Which ones, the server is not saying right now.",
+  "about.not.world":
+    "It knows nothing beyond the corpus named above. Outside it the system abstains instead of inventing, and that is half the demonstration: one of the example questions sits outside the corpus on purpose.",
+  "about.not.truth":
+    "A verified citation says the cited passage supports the sentence, not that the sentence is true. If the document is wrong, the answer is wrong with it.",
+  "about.not.measure":
+    "A single answer is not a measurement. The same model, with everything else identical, answers differently from one run to the next: the tables come from thousands of questions, not from the one you just asked.",
+  "about.not.exact":
+    "It is not configured exactly the way the evaluation is, and there is one difference: here the index is searched exactly rather than approximately. On a dense index the approximate search misses things, and a demonstration would end up showing that flaw while believing it was showing retrieval.",
+
+  "about.who.title": "Who made it",
+  "about.who":
+    "Marco Pedretti and Elia Dallanoce, two people on the same part. It is why almost every choice here has the reason for it written next to it: two people had to agree on it.",
+  "about.who.license":
+    "The code is open, MIT licensed. Alongside it are the plan, the measurement tables and the questions still without an answer — including the measurements that went badly, which stay in the table.",
+  "about.who.repo": "The project on GitHub",
 };
 
 export const LINGUE = ["it", "en"] as const;

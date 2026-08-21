@@ -17,11 +17,13 @@ import { ProvvedeChat, usaChat } from "./app/chat";
 import { ProvvedeDataset } from "./app/dataset";
 import { ProvvedeEsploratore, usaEsploratore } from "./app/esploratore";
 import { ProvvedeLingua, usaLingua } from "./app/i18n";
+import { ProvvedePresentazione, usaPresentazione } from "./app/presentazione";
 import { ProvvedeTema } from "./app/theme";
 import { Chat } from "./ui/Chat";
 import { Confronto } from "./ui/Confronto";
 import { Corpus } from "./ui/Corpus";
 import { PannelloFonti } from "./ui/PannelloFonti";
+import { Presentazione } from "./ui/Presentazione";
 import { Telaio } from "./ui/Telaio";
 
 export function App() {
@@ -33,7 +35,9 @@ export function App() {
             <ProvvedeBarra>
               <ProvvedeChat>
                 <ProvvedeEsploratore>
-                  <Schermata />
+                  <ProvvedePresentazione>
+                    <Schermata />
+                  </ProvvedePresentazione>
                 </ProvvedeEsploratore>
               </ProvvedeChat>
             </ProvvedeBarra>
@@ -60,6 +64,22 @@ export function App() {
 function Schermata() {
   const { confronto } = usaChat();
   const { aperto } = usaEsploratore();
+  const { aperta } = usaPresentazione();
+
+  // «Che cos'e'» viene prima di tutto e non chiude niente: si legge e si torna
+  // dov'eravamo, che sia la chat, il confronto o l'esploratore. Una pagina che
+  // spiega il programma non deve costare la conversazione in corso.
+  //
+  // Senza `fianco`, come l'esploratore e per la stessa ragione: il pannello
+  // fonti risponde a «da dove viene questa risposta», e qui non c'e' una
+  // risposta.
+  if (aperta) {
+    return (
+      <Telaio>
+        <Presentazione />
+      </Telaio>
+    );
+  }
 
   // L'esploratore viene **prima** del confronto e non lo chiude: si apre da una
   // citazione, che nel confronto sta dentro una colonna. Chiudendolo si torna

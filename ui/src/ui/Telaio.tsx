@@ -51,13 +51,14 @@ import type { ReactNode } from "react";
 
 import { usaEsploratore } from "../app/esploratore";
 import { usaLingua } from "../app/i18n";
+import { usaPresentazione } from "../app/presentazione";
 import { usaTema } from "../app/theme";
 import type { SceltaTema } from "../app/theme";
 import { LINGUE } from "../i18n/strings";
 import { DEPOSITO, griglia, leggi } from "./corsia";
 import { Cronologia, CronologiaCompatta, NuovaCompatta } from "./Cronologia";
 import { Etichetta } from "./Etichetta";
-import { Chiaro, Corpus, Corsia, Scuro, Sistema } from "./Icona";
+import { Chiaro, Corpus, Corsia, Informazioni, Scuro, Sistema } from "./Icona";
 import type { PropsIcona } from "./Icona";
 import { Marchio } from "./Marchio";
 import { SelettoreDataset } from "./SelettoreDataset";
@@ -148,9 +149,22 @@ function CorsiaAperta({ chiudi }: { chiudi: () => void }) {
 
       <Cronologia />
 
-      <div className="mt-auto flex gap-1.5 px-1">
-        <PastigliaLingua />
-        <PastigliaTema />
+      {/* Due righe e non una: le tre cose affiancate non ci stavano — misurate,
+          185 px dentro 175 — e la prima ha comunque un'aria diversa dalle altre
+          due. Lingua e tema sono due valori che si commutano; «Che cos'e'» apre
+          una schermata, come «Esplora il corpus», e ne porta la stessa forma. */}
+      <div className="mt-auto flex flex-col gap-1.5">
+        <BottoneInfo />
+        {/* Il tema prende quel che resta: cosi' la riga finisce dove finiscono
+            i comandi qui sopra, invece di lasciare ventisette pixel di vuoto a
+            destra. La lingua no — le sue due sigle hanno una larghezza loro, e
+            allargarla le separerebbe senza motivo. */}
+        <div className="flex gap-1.5">
+          <PastigliaLingua />
+          <div className="min-w-0 flex-1">
+            <PastigliaTema />
+          </div>
+        </div>
       </div>
     </aside>
   );
@@ -183,7 +197,7 @@ function Striscia({ apri }: { apri: () => void }) {
           piu' largo di quelli previsti: meglio che sporga di un pelo, che
           spezzarsi in due righe. */}
       <Marchio className="-mx-[7px] block text-center text-[19px] whitespace-nowrap" />
-      <BottoneCorsia chiusa cambia={apri} className="h-[30px] w-full" />
+      <BottoneCorsia chiusa cambia={apri} className="h-[34px] w-full" />
 
       <SelettoreDataset compatta />
       <BottoneCorpus compatto />
@@ -191,6 +205,7 @@ function Striscia({ apri }: { apri: () => void }) {
       <CronologiaCompatta apri={apri} />
 
       <div className="mt-auto flex flex-col gap-1.5">
+        <BottoneInfo compatto />
         <PastigliaLingua compatta />
         <PastigliaTema compatta />
       </div>
@@ -228,7 +243,7 @@ function BottoneCorsia({
         onClick={cambia}
         aria-label={nome}
         aria-expanded={!chiusa}
-        className={`flex items-center justify-center rounded-md text-muted transition-colors hover:bg-surface-2 hover:text-ink ${className}`}
+        className={`flex items-center justify-center rounded-[7px] text-muted transition-colors hover:bg-surface-2 hover:text-ink ${className}`}
       >
         <Corsia size={chiusa ? 15 : 14} />
       </button>
@@ -254,7 +269,7 @@ function BottoneCorpus({ compatto = false }: { compatto?: boolean }) {
           type="button"
           onClick={() => apri()}
           aria-label={t("corpus.open.action")}
-          className="flex h-[34px] w-full items-center justify-center rounded-lg border border-line-2 text-ink-2 transition-colors hover:border-accent-2 hover:text-ink"
+          className="flex h-[34px] w-full items-center justify-center rounded-[7px] border border-line-2 text-ink-2 transition-colors hover:border-accent-2 hover:text-ink"
         >
           <Corpus size={14} />
         </button>
@@ -266,7 +281,7 @@ function BottoneCorpus({ compatto = false }: { compatto?: boolean }) {
     <button
       type="button"
       onClick={() => apri()}
-      className="mt-1.5 flex w-full items-center gap-2 rounded-lg border border-line-2 px-2.5 py-[7px] text-[11.5px] text-ink-2 transition-colors hover:border-accent-2 hover:text-ink"
+      className="mt-1.5 flex h-[34px] w-full items-center gap-2 rounded-[7px] border border-line-2 px-2.5 text-[11.5px] text-ink-2 transition-colors hover:border-accent-2 hover:text-ink"
     >
       <Corpus size={13} />
       {t("corpus.open.action")}
@@ -274,12 +289,74 @@ function BottoneCorpus({ compatto = false }: { compatto?: boolean }) {
   );
 }
 
-/** La pastiglia in fondo alla corsia: bordo sottile, testo attenuato. Le due
- *  misure sono separate perche' due classi in conflitto nella stessa stringa non
- *  si risolvono nell'ordine in cui sono scritte — vince l'ordine del foglio. */
-const PASTIGLIA = "rounded-[5px] border border-line-2 text-muted";
-const PASTIGLIA_LARGA = `${PASTIGLIA} px-[7px] py-1 text-[10px]`;
-const PASTIGLIA_STRETTA = `${PASTIGLIA} px-1 text-[9px]`;
+/**
+ * La pastiglia in fondo alla corsia: bordo sottile, testo attenuato.
+ *
+ * **L'altezza e' dichiarata, non dedotta dal contenuto.** Erano 27 px la lingua
+ * e 25 il tema nella corsia larga, 42 e 26 nella striscia — perche' una porta
+ * due sigle impilate e l'altro un glifo, e la scatola seguiva. Due controlli
+ * affiancati che differiscono di due pixel non si leggono come due misure, si
+ * leggono come un errore; nella striscia, dove sono uno sopra l'altro in una
+ * colonna di celle da 34, quella da 42 rompe il ritmo di tutte.
+ *
+ * Le due misure restano costanti separate perche' due classi in conflitto nella
+ * stessa stringa non si risolvono nell'ordine in cui sono scritte — vince
+ * l'ordine del foglio.
+ */
+const PASTIGLIA = "rounded-[7px] border border-line-2 text-muted";
+const PASTIGLIA_LARGA = `${PASTIGLIA} h-[26px] px-[7px] text-[10px]`;
+const PASTIGLIA_STRETTA = `${PASTIGLIA} h-[34px] px-1 text-[9px]`;
+
+/**
+ * «Che cos'e'»: la pagina che presenta il progetto (U-19).
+ *
+ * **Sta in fondo, sopra lingua e tema**, e quel gruppo non e' «le impostazioni»:
+ * e' cio' che riguarda l'applicazione invece della conversazione o del corpus.
+ * Sopra c'e' il dataset, che e' il corpus, e la cronologia, che e' la
+ * conversazione; una pagina che dice cosa fa il programma non appartiene a
+ * nessuno dei due.
+ *
+ * **Ha la forma di «Esplora il corpus» e non di una pastiglia**, perche' fa la
+ * stessa cosa: apre una schermata. Lingua e tema commutano un valore e restano
+ * dove sono — accanto a loro questo bottone sarebbe stato un terzo oggetto della
+ * stessa taglia con un comportamento diverso, e per giunta non ci stava: misurati,
+ * i tre affiancati chiedono 185 px dove la corsia ne ha 175.
+ *
+ * **La parola c'e' finche' c'e' posto.** Nella striscia resta il solo glifo, come
+ * per gli altri comandi, e il nome passa nell'`aria-label` e nella bolla.
+ */
+function BottoneInfo({ compatto = false }: { compatto?: boolean }) {
+  const { t } = usaLingua();
+  const { apri } = usaPresentazione();
+
+  if (compatto) {
+    return (
+      <Suggerimento testo={t("about.hint")} fuoco={false} className="block">
+        <button
+          type="button"
+          onClick={apri}
+          aria-label={t("about.action")}
+          className="flex h-[34px] w-full items-center justify-center rounded-[7px] border border-line-2 text-ink-2 transition-colors hover:border-accent-2 hover:text-ink"
+        >
+          <Informazioni size={14} />
+        </button>
+      </Suggerimento>
+    );
+  }
+
+  return (
+    <Suggerimento testo={t("about.hint")} fuoco={false} className="block">
+      <button
+        type="button"
+        onClick={apri}
+        className="flex h-[34px] w-full items-center gap-2 rounded-[7px] border border-line-2 px-2.5 text-[11.5px] text-ink-2 transition-colors hover:border-accent-2 hover:text-ink"
+      >
+        <Informazioni size={13} />
+        {t("about.action")}
+      </button>
+    </Suggerimento>
+  );
+}
 
 /**
  * `IT / EN` come nel mockup, e resta un bottone.
@@ -320,7 +397,7 @@ function PastigliaLingua({ compatta = false }: { compatta?: boolean }) {
         onClick={() => imposta(altra)}
         aria-label={`${t("lang.label")}: ${lingua.toUpperCase()}`}
         className={`${compatta ? PASTIGLIA_STRETTA : PASTIGLIA_LARGA} flex transition-colors hover:border-line ${
-          compatta ? "w-full flex-col items-stretch gap-px py-1" : "items-center gap-0.5 py-1"
+          compatta ? "w-full flex-col items-center justify-center gap-px" : "items-center gap-0.5"
         }`}
       >
         {LINGUE.map((l, i) => (
@@ -395,7 +472,7 @@ function PastigliaTema({ compatta = false }: { compatta?: boolean }) {
       onCambia={imposta}
       verso="su"
       className={`${compatta ? PASTIGLIA_STRETTA : PASTIGLIA_LARGA} flex items-center ${
-        compatta ? "justify-center py-1.5" : "gap-1.5"
+        compatta ? "justify-center" : "gap-1.5"
       }`}
     >
       <Segno size={12} />
