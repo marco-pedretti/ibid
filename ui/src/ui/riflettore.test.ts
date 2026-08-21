@@ -159,14 +159,37 @@ describe("dove va la scheda", () => {
   });
 
   it("una zona grande quanto la finestra non ha nemmeno un bordo: dentro, in basso", () => {
-    // E' il caso senza bersaglio, dove la zona **e'** la finestra: nessun lato
-    // ha spazio, nemmeno per meta' scheda.
+    // Un bersaglio che riempie lo schermo: nessun lato ha spazio, nemmeno per
+    // meta' scheda. L'alone c'e', quindi la ragione di stare in basso vale.
     const zona = { x: 0, y: 0, larghezza: FINESTRA.larghezza, altezza: FINESTRA.altezza };
     const p = collocaScheda(zona, SCHEDA, FINESTRA);
     expect(p.lato).toBe("dentro");
     // In basso, non al centro: sopra c'e' cio' che l'alone sta indicando.
     expect(p.y + SCHEDA.altezza).toBe(FINESTRA.altezza - MARGINE);
     expect(sta(p, SCHEDA, FINESTRA)).toBe(true);
+  });
+
+  it("senza bersaglio va in alto, dove non c'e' il campo in cui si scrive", () => {
+    // A colonna sola due dei cinque passi parlano di cose che stanno nel
+    // cassetto della corsia, e per loro l'alone non si disegna. In basso la
+    // scheda coprirebbe il campo, e il criterio di U-20 dice che la prima
+    // domanda si deve poter fare con la guida aperta.
+    const p = collocaScheda(null, SCHEDA, FINESTRA);
+    expect(p.lato).toBe("dentro");
+    expect(p.y).toBe(MARGINE);
+    expect(p.x).toBe(FINESTRA.larghezza / 2 - SCHEDA.larghezza / 2);
+    expect(sta(p, SCHEDA, FINESTRA)).toBe(true);
+  });
+
+  it("senza bersaglio, su uno schermo stretto, resta al margine", () => {
+    // Uno schermo largo quanto la scheda: la centratura la mette a zero, e i due
+    // limiti si incrociano — il massimo (-8) e' minore del minimo (8). Nell'ordine
+    // sbagliato la scheda uscirebbe a sinistra, che e' l'errore gia' pagato una
+    // volta da `collocazione.ts`.
+    const telefono: Misura = { larghezza: 360, altezza: 780 };
+    const p = collocaScheda(null, SCHEDA, telefono);
+    expect(p.x).toBe(MARGINE);
+    expect(p.y).toBe(MARGINE);
   });
 
   it("non esce mai dalla finestra, dovunque sia il bersaglio", () => {

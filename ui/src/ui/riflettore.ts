@@ -152,6 +152,16 @@ const ORDINE: Lato[] = ["destra", "sinistra", "sotto", "sopra"];
  *    quello che manca, e copre un bordo invece che il mezzo.
  * 3. Solo se nemmeno quello, `dentro`, in basso.
  *
+ * **Senza bersaglio (`zona` a `null`) la scheda va in alto.** E' il caso in cui
+ * quel passo indica qualcosa che su questo schermo non c'e' — a colonna sola la
+ * corsia e' un cassetto, e due dei cinque passi parlano di roba che ci sta
+ * dentro. La ragione di mettersi in basso era «sopra c'e' cio' che l'alone sta
+ * indicando», e senza alone quella ragione non c'e' piu': resta l'altra, che in
+ * fondo alla colonna di lavoro c'e' **il campo in cui si scrive**, e il criterio
+ * di U-20 dice che la prima domanda si deve poter fare con la guida aperta.
+ * Coprire il campo con una scheda lo impedirebbe tanto quanto intercettare il
+ * puntatore.
+ *
  * Il gradino 2 e' arrivato dopo, guardando il passo sulla colonna delle
  * risposte: quella zona e' alta quanto la finestra e larga quanto la misura di
  * lettura, quindi sopra e sotto non c'e' niente e ai fianchi ci sono trecento
@@ -159,7 +169,23 @@ const ORDINE: Lato[] = ["destra", "sinistra", "sotto", "sopra"];
  * `dentro`, cioe' con la spiegazione appoggiata sopra la cosa spiegata — che e'
  * il difetto che questo modulo esiste per non avere.
  */
-export function collocaScheda(zona: Rettangolo, scheda: Misura, finestra: Misura): PosaScheda {
+export function collocaScheda(
+  zona: Rettangolo | null,
+  scheda: Misura,
+  finestra: Misura,
+): PosaScheda {
+  if (zona === null) {
+    return {
+      x: stringi(
+        finestra.larghezza / 2 - scheda.larghezza / 2,
+        MARGINE,
+        finestra.larghezza - scheda.larghezza - MARGINE,
+      ),
+      y: MARGINE,
+      lato: "dentro",
+    };
+  }
+
   const centroX = stringi(
     zona.x + zona.larghezza / 2 - scheda.larghezza / 2,
     MARGINE,

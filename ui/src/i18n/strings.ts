@@ -121,8 +121,13 @@ export const it = {
   "chat.noModel": "Il modello configurato non è installato: scegline uno dalla barra qui sotto.",
   "chat.hint.invio": "Invio per mandare, Maiusc+Invio per andare a capo.",
 
-  // U-20: l'avvio guidato. Quattro passi, nell'ordine in cui le cose compaiono
-  // guardando una risposta nascere — non un elenco di funzionalità. La riga
+  // U-20: l'avvio guidato. Cinque passi, nell'ordine in cui le cose compaiono
+  // guardando una risposta nascere — non un elenco di funzionalità.
+  //
+  // **Nessuno dei passi nomina una posizione sullo schermo** (U-21). A dire
+  // dov'è la cosa c'è l'alone, che la circonda; il testo dice che cos'è. Su un
+  // telefono le fonti non stanno «a destra» e il corpus non si cambia «da qui»,
+  // e una guida che indica il posto sbagliato è peggio di una che non indica. La riga
   // sotto dichiara le due cose che il criterio chiede di dichiarare: che si può
   // chiedere mentre è aperta, e che la scelta di saltarla è locale a questo
   // browser, come la cronologia.
@@ -136,7 +141,7 @@ export const it = {
 
   "start.sources.title": "Le fonti arrivano prima della risposta",
   "start.sources":
-    "Il pannello a destra si riempie in un attimo, il testo comincia qualche secondo dopo: si vede da dove nasce la risposta mentre nasce.",
+    "Le fonti compaiono in un attimo, il testo comincia qualche secondo dopo: si vede da dove nasce la risposta mentre nasce.",
   "start.verdicts.title": "Ogni frase porta un verdetto",
   "start.verdicts":
     "Un controllo rilegge ogni frase contro il pezzo che cita e dice se lo sostiene davvero: senza, una citazione ben scritta e una corretta si somigliano troppo.",
@@ -145,7 +150,7 @@ export const it = {
     "Fonti sì o no, ragionamento, modello e finestra di contesto: ogni pastiglia cambia la prossima domanda. Quella che ha girato resta scritta sopra ogni risposta, quindi si sa sempre con cosa è stata fatta.",
   "start.corpus.title": "Sa solo quello che c'è nel corpus",
   "start.corpus":
-    "Fuori dai documenti del dataset scelto si astiene invece di inventare, e la terza domanda d'esempio serve a vederlo. Da qui si cambia corpus, e «Esplora» mostra come è stato spezzato.",
+    "Fuori dai documenti del dataset scelto si astiene invece di inventare, e la terza domanda d'esempio serve a vederlo. Il corpus si cambia dalla corsia, dove «Esplora» mostra anche come è stato spezzato.",
   "start.rest.title": "Il resto sta in «Che cos'è»",
   "start.rest":
     "Cosa dimostra il progetto, cosa regge e cosa no: in fondo alla corsia, e resta lì. Questa guida invece non torna.",
@@ -603,7 +608,7 @@ export const en: Record<Chiave, string> = {
 
   "start.sources.title": "Sources arrive before the answer",
   "start.sources":
-    "The panel on the right fills in an instant, the text starts a few seconds later: you watch where the answer comes from while it is being written.",
+    "The sources show up in an instant, the text starts a few seconds later: you watch where the answer comes from while it is being written.",
   "start.verdicts.title": "Every sentence carries a verdict",
   "start.verdicts":
     "A check reads each sentence against the passage it cites and says whether it really supports it: without that, a well-formed citation and a correct one look too much alike.",
@@ -612,7 +617,7 @@ export const en: Record<Chiave, string> = {
     "Sources on or off, reasoning, model and context window: each pill changes the next question. Whichever ones ran stay written above every answer, so you always know what made it.",
   "start.corpus.title": "It only knows what is in the corpus",
   "start.corpus":
-    "Outside the documents of the chosen dataset it abstains instead of inventing, and the third example question is there to show that. The corpus is changed from here, and «Explore» shows how it was split.",
+    "Outside the documents of the chosen dataset it abstains instead of inventing, and the third example question is there to show that. The corpus is changed from the sidebar, where «Explore» also shows how it was split.",
   "start.rest.title": "The rest is in «What this is»",
   "start.rest":
     "What the project sets out to prove, what holds and what does not: at the bottom of the sidebar, and it stays there. This guide does not come back.",

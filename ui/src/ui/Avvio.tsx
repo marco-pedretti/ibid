@@ -18,7 +18,8 @@
  * silenzio il giorno in cui l'impaginazione cambia — e la risposta e' che a
  * dichiarare la zona sia chi la disegna. Se poi il nodo non e' sullo schermo
  * (schermata diversa, pannello assente) **l'alone non si disegna affatto** e la
- * scheda si mette in basso: la guida dice una cosa in meno, non una cosa falsa.
+ * scheda si mette in alto, lontana dal campo: la guida dice una cosa in meno,
+ * non una cosa falsa, e continua a non impedire la prima domanda.
  *
  * **La collocazione e' aritmetica, e sta in `riflettore.ts`.** E' l'unica parte
  * che puo' dare un risultato sbagliato invece che brutto, quindi si prova in
@@ -268,30 +269,19 @@ export function Avvio({ guida }: { guida: Guida }) {
   // risposta scorre. Le due misure da cui dipende cambiano dieci volte al
   // secondo al massimo, e solo quando cambiano davvero.
   //
-  // Senza bersaglio la zona e' la finestra intera: `collocaScheda` risponde
-  // `dentro`, cioe' in basso al centro, che e' dove va una scheda che non ha
-  // niente da indicare. L'alone pero' non si disegna.
+  // `null` quando il passo non ha un bersaglio su questo schermo, e non una
+  // finta zona grande quanto la finestra: e' `collocaScheda` a sapere dove va
+  // una scheda che non indica niente, e passargli il caso com'e' invece di
+  // camuffarlo e' cio' che gli permette di distinguerlo.
   const contorno = useMemo(
-    () =>
-      finestra === null
-        ? null
-        : alone(
-            zona ?? { x: 0, y: 0, larghezza: finestra.larghezza, altezza: finestra.altezza },
-            finestra,
-          ),
+    () => (finestra === null || zona === null ? null : alone(zona, finestra)),
     [zona, finestra],
   );
 
-  if (passo === null || id === null || finestra === null || contorno === null) return null;
+  if (passo === null || id === null || finestra === null) return null;
 
   return createPortal(
-    <Strato
-      guida={guida}
-      id={id}
-      contorno={contorno}
-      conAlone={zona !== null}
-      finestra={finestra}
-    />,
+    <Strato guida={guida} id={id} contorno={contorno} finestra={finestra} />,
     document.body,
   );
 }
@@ -309,13 +299,11 @@ const Strato = memo(function Strato({
   guida,
   id,
   contorno,
-  conAlone,
   finestra,
 }: {
   guida: Guida;
   id: Passo["id"];
-  contorno: Rettangolo;
-  conAlone: boolean;
+  contorno: Rettangolo | null;
   finestra: Misura;
 }) {
   const { t, lingua } = usaLingua();
@@ -362,7 +350,7 @@ const Strato = memo(function Strato({
     // Tutto lo strato lascia passare il puntatore: e' il criterio, non una
     // rifinitura. Solo la scheda lo riprende, perche' ha due bottoni.
     <div className="pointer-events-none fixed inset-0 z-50">
-      {conAlone && (
+      {contorno !== null && (
         <>
           {/* Il velo: **uno strato solo**, fermo, ritagliato. Era l'ombra da
               9999 px dell'alone — piu' semplice, e incompatibile con la
