@@ -1868,7 +1868,7 @@ Le tabelle sarebbero peggio del disordine che risolvono: la verifica di C-03 è 
 
 Il grassetto inline resta possibile in futuro — dieci righe, nessuna dipendenza, `**` non collide con `[n]` — ma va aggiunto come cambiamento **isolato**, con la sua misura: gli asterischi finiscono nel testo che `claims.py` spezza in frasi e che l'NLI giudica. Oggi il guadagno sarebbe comunque piccolo: le risposte misurate sono di due-quattro frasi, e l'unico accento che serve ce l'ha già il marcatore acceso.
 
-> **Debito aperto, scritto qui perché non si perda.** `prompt_hash` entra nel `config_hash` di C-01, quindi il test d'ancora ora **salta** — come era stato scritto per fare — e il **98% di conformità vale per il prompt vecchio**. Per riaffermarlo al nuovo: `python scripts/eval_citations.py --dataset open_ragbench --limit 200`, ~65–70 minuti di GPU. Finché non gira, quel numero va citato insieme al prompt a cui si riferisce.
+> **Debito saldato il 2026-08-21 (D-1/D-2), e il numero è cambiato.** Il test d'ancora aveva fatto ciò per cui era scritto: saltare invece di mentire. Rimisurato col prompt in vigore, `open_ragbench` dopo il parser di C-02 fa **0,9628** — non il 98% di prima, che valeva per `3a50ef63`. L'ancora ora punta alla run nuova e il test non salta più. Dettaglio in fondo, «D-1 e D-2».
 
 #### Provato contro l'API viva
 
@@ -2849,3 +2849,97 @@ I due nomi arrivano comunque vivi da `/config` e da `/datasets`, mai scritti a m
 La regola, adesso dichiarata: **un comando è alto 34 px** in tutte e due le corsie (nella striscia senza eccezioni — la lingua stava a 42 perché impila due sigle e la scatola seguiva); **un'impostazione è alta 26 px** nella corsia larga, così lingua e tema restano più piccole dei comandi come nel mockup ma uguali fra loro; **il raggio è 7 px ovunque**, quello che il mockup già usa sul dataset e su «Nuova conversazione». In più: il gruppo in fondo aveva un `px-1` che lo rientrava di quattro pixel rispetto al resto della colonna, ed è via; e il tema prende la larghezza che avanza, così la riga finisce dove finiscono i comandi sopra.
 
 `MISURA` esce da `Chat.tsx` e diventa `ui/misura.ts` in un commit suo, senza cambiare comportamento: la misura di lettura è una proprietà dell'occhio, non di una schermata, e due tetti diversi nella stessa applicazione sarebbero due misure di lettura per lo stesso lettore.
+
+### D-1 e D-2 — la conformità delle citazioni col prompt in vigore
+
+Due run da 200 domande, una per corpus, mai aggregate. `gemma4:latest` (E4B,
+Q4_K_M, ctx 32768), T=0, dense, `top_k` 5, `prompt_hash 53a5e756` — quello che
+U-14 ha messo in vigore. Le 17 run precedenti valevano per `3a50ef63`.
+
+**I numeri, per dataset**, grezzi e dopo il parser di C-02, contro le due run del
+12 agosto misurate con lo stesso strumento:
+
+| dataset | | grezza | dopo `parse()` | valutate | astensioni |
+|---|---|---|---|---|---|
+| **open_ragbench** | prompt vecchio | 0,9263 | 0,9579 | 95 | 5,0% |
+| | **prompt in vigore** | **0,9255** | **0,9628** | 188 | 6,0% |
+| **ledger** | prompt vecchio | 1,0000 | 1,0000 | 81 | 19,0% |
+| | **prompt in vigore** | **0,9664** | **0,9732** | 149 | 25,5% |
+
+`open_ragbench` non raggiunge lo 0,95 di C-01 — e non lo raggiungeva neanche
+prima. Non è una regressione, è lo stesso numero: va detto ogni volta che lo si
+cita.
+
+**Il confronto non è appaiato**, e questo è il limite che lo governa: codice
+diverso, numerosità diversa, prompt diverso. Tre differenze dentro una misura
+sola, ed è esattamente perché D-3 esiste e resta aperto. Queste due run dicono
+**dove si sta**, non perché.
+
+#### Il calo di `ledger` non è ciò che la previsione diceva
+
+La previsione rinviata da U-14 era che il markdown avrebbe prodotto risposte
+«più belle e meno verificate», e l'argomento erano **le tabelle**: una riga di
+tabella non è una frase, quindi la verifica di C-03 non la sa attribuire.
+
+Guardando le risposte: su 337 valutate nei due corpus col prompt nuovo, le
+tabelle generate sono **zero**. Come erano zero col prompt vecchio. Ciò che è
+cambiato davvero è la forma minuta:
+
+| | elenchi | grassetto |
+|---|---|---|
+| `open_ragbench` vecchio → nuovo | 8 → **63** | 9 → **33** |
+| `ledger` vecchio → nuovo | 4 → **33** | 1 → 2 |
+
+E i cinque fallimenti di `ledger` non hanno niente a che vedere col markdown:
+uno è `[1] [2]` con lo spazio, che il parser ripara; gli altri **quattro sono
+rifiuti scritti con parole proprie** invece che con la stringa esatta che il
+prompt impone — «The provided context does not contain the operating income
+figure for Barnwell Industries, Inc. for the year 2017.» Non essendo nell'elenco
+di `ABSTENTION_PHRASES` non contano come astensioni, quindi entrano fra le
+valutate e falliscono per `no_citation`. **Sono l'intero calo**: senza di loro
+`ledger` sarebbe a 0,9931. È registrato come **D-19**, perché la scelta fra le
+due letture tocca anche E-04/E-05, che condividono quell'elenco.
+
+Quindi la previsione di U-14 **non è confermata come era scritta**, e non è
+nemmeno smentita: il fenomeno che temeva non si è presentato affatto su questi
+due corpus, mentre la forma delle risposte è cambiata molto. Distinguere il
+merito dal caso è il lavoro di D-3, che ora ha un'ipotesi più affilata di
+quando è stato scritto.
+
+#### Due cose viste passando
+
+`out_of_range` torna su `open_ragbench` in 4 risposte su 188: marcatori come
+`[16][17][18][19]`, `[30]`, `[34]` con cinque chunk in contesto. È la causa
+dominante che C-01 aveva ridotto da 19 a 4 — il modello che copia la
+**bibliografia del paper** invece del nostro sistema di riferimenti — e a 4 è
+rimasta. Il parser le scarta tutte e quattro, perché puntano fuori dal contesto.
+
+Le astensioni salgono su tutti e due i corpus, e su `ledger` di sei punti e
+mezzo (19,0% → 25,5%). Su un corpus dove il chunk giusto è nei primi 5 nel 20,7%
+dei casi è un dato sul **retrieval** più che sul formato, e riguarda C-04 e
+D-17: va letto accanto alla conformità, non dentro.
+
+#### Cosa cambia nel repository
+
+L'ancora di `config_hash` per C-01 punta alla run di D-1 invece che a quella del
+12 agosto. Dal 19 agosto quel test **saltava** — correttamente, perché il suo
+hash include il prompt e il prompt era cambiato — e per due giorni non ha
+protetto niente. Ora i **1712 test passano e nessuno salta**: era l'unico.
+
+Le generazioni sono a disco accanto ai risultati, col prompt che le ha prodotte.
+Sono ciò da cui D-3 e D-19 ripartono senza toccare la GPU: `measure_repair.py` e
+`rescore_citations.py` lavorano sui file, non sul modello.
+
+#### Il costo vero, per chi pianifica D-3
+
+Il piano stimava 65–70 minuti a run. Le due insieme ne hanno prese **156**, dalle
+12:12 alle 14:48. Il ritmo non è costante: 17,5 s a domanda nella prima metà di
+D-1, 28,7 s nella seconda, con la scheda che rallenta sotto carico continuo — non
+per risposte più lunghe (87 token mediani contro 81) e non per uno spill di VRAM,
+che è stata verificata piena per tutta la run. **22 s a domanda** è la media da
+usare per stimare: D-3 sui due corpus è una sessione da ~2 h 30.
+
+Una nota operativa che vale la pena non riscoprire: se il processo di eval carica
+l'embedder ONNX **prima** che Ollama carichi il modello, quello che resta di VRAM
+non basta e il modello finisce in parte sulla CPU — misurato, **123 s a domanda**
+invece di 22. Si evita scaldando il modello prima di lanciare la run.
