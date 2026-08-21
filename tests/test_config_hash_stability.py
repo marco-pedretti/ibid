@@ -42,7 +42,15 @@ ANCORE_RETRIEVAL = (
 
 #: Una run di C-01. Separata perche' il suo hash dipende dal prompt, che e'
 #: proprio cio' che quel task misura.
-ANCORA_CITAZIONI = "20260812_170338_open_ragbench_citations.json"
+#:
+#: **L'ancora si sposta quando il prompt cambia, e non prima.** Dal 19 agosto
+#: puntava alla run del 12, il cui prompt U-14 aveva sostituito: il test saltava
+#: -- correttamente, come era scritto per fare -- e quindi non proteggeva piu'
+#: niente. Ora punta a D-1, che misura il prompt in vigore. Non e' una
+#: riscrittura della misura vecchia: quella resta a disco col suo hash e col suo
+#: prompt accanto. E' l'ancora che deve stare dove sta il codice, altrimenti e'
+#: un test verde che non guarda nulla.
+ANCORA_CITAZIONI = "20260821_101208_open_ragbench_citations.json"
 
 
 def load(name: str) -> dict:
