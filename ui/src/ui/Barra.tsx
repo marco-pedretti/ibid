@@ -385,7 +385,7 @@ function PannelloAvanzate({ modalita }: { modalita: readonly string[] }) {
 
   return (
     <div className="mt-[9px] flex flex-wrap items-end gap-x-4 gap-y-2.5 rounded-[7px] border border-line-2 bg-paper px-3 py-2.5">
-      <Campo etichetta={t("bar.advanced.mode")}>
+      <Campo etichetta={t("bar.advanced.mode")} suggerimento={t("bar.advanced.mode.hint")}>
         <Menu
           etichetta={t("bar.advanced.mode")}
           valore={opzioni.retrieval_mode}
@@ -397,7 +397,7 @@ function PannelloAvanzate({ modalita }: { modalita: readonly string[] }) {
         </Menu>
       </Campo>
 
-      <Campo etichetta={t("bar.advanced.rerank")}>
+      <Campo etichetta={t("bar.advanced.rerank")} suggerimento={t("bar.advanced.rerank.hint")}>
         <Menu
           etichetta={t("bar.advanced.rerank")}
           valore={comeSN(opzioni.rerank)}
@@ -412,7 +412,7 @@ function PannelloAvanzate({ modalita }: { modalita: readonly string[] }) {
         </Menu>
       </Campo>
 
-      <Campo etichetta="top_k">
+      <Campo etichetta="top_k" suggerimento={t("bar.advanced.topk.hint")}>
         <Passo
           valore={opzioni.top_k}
           predefinito={predefiniti.top_k}
@@ -421,7 +421,7 @@ function PannelloAvanzate({ modalita }: { modalita: readonly string[] }) {
         />
       </Campo>
 
-      <Campo etichetta="hnsw_ef">
+      <Campo etichetta="hnsw_ef" suggerimento={t("bar.advanced.ef.hint")}>
         <Passo
           valore={opzioni.hnsw_ef}
           predefinito={predefiniti.hnsw_ef}
@@ -436,12 +436,40 @@ function PannelloAvanzate({ modalita }: { modalita: readonly string[] }) {
   );
 }
 
-function Campo({ etichetta, children }: { etichetta: string; children: ReactNode }) {
+/**
+ * Una manopola col suo nome e la sua spiegazione.
+ *
+ * **La spiegazione sta sul nome, non sul controllo.** Il controllo qui e' un
+ * `Selettore` o un `Passo`, cioe' un `<div>`, e il bersaglio di `Suggerimento`
+ * e' uno `<span>`: un blocco dentro uno span non e' annidamento valido, ed e' lo
+ * stesso vincolo che nella cronologia mette la bolla dentro l'etichetta invece
+ * che attorno. Il nome e' comunque il posto giusto — la domanda e' «che cos'e'
+ * questo», non «cosa fa questo bottone».
+ *
+ * **Perche' ci sono, se il pannello dichiara di non avere una riga di
+ * istruzioni.** Non e' la stessa cosa: quella riga spiegava le **regole del
+ * pannello** — che ogni manopola parte dal valore configurato, che il segno la
+ * riporta indietro — ed erano cose che il pannello mostra gia'. Queste dicono
+ * **che cos'e' la manopola**, che il pannello non puo' mostrare: `hnsw_ef` e'
+ * il nome del campo che parte sul filo, e un nome di campo non si spiega da se'.
+ */
+function Campo({
+  etichetta,
+  suggerimento,
+  children,
+}: {
+  etichetta: string;
+  suggerimento: string;
+  children: ReactNode;
+}) {
   return (
     <div className="flex flex-col gap-1">
-      <span className="font-mono text-[9.5px] tracking-[0.04em] text-muted uppercase">
+      <Suggerimento
+        testo={suggerimento}
+        className="font-mono text-[9.5px] tracking-[0.04em] text-muted uppercase"
+      >
         {etichetta}
-      </span>
+      </Suggerimento>
       {children}
     </div>
   );

@@ -158,8 +158,25 @@ export const it = {
   "bar.advanced": "Avanzate",
   "bar.advanced.hint":
     "Come si cerca nel corpus, prima che il modello scriva. Stanno chiuse di proposito: confrontare configurazioni è il lavoro del cruscotto, non di qui.",
+  // Le quattro manopole del pannello. Il nome sul campo resta quello del campo
+  // dell'API — `top_k`, `hnsw_ef` — perché è ciò che parte sul filo e ciò che si
+  // rilegge in «Dettagli della run»; la frase è il posto dove diventano
+  // leggibili anche a chi quel campo non lo conosce.
   "bar.advanced.mode": "Ricerca",
+  "bar.advanced.mode.hint":
+    "Come si trova un pezzo del corpus: per significato, per parole esatte, o le due cose fuse insieme (dense, sparse, hybrid). Nessuna delle tre vince sempre — su articoli e su bilanci si comportano in modo diverso, ed è il motivo per cui qui le misure non si mediano mai fra dataset.",
   "bar.advanced.rerank": "Riordino",
+  "bar.advanced.rerank.hint":
+    "Un secondo modello rilegge i pezzi trovati e li rimette in ordine, stavolta guardando domanda e pezzo insieme invece che separatamente. Costa tempo a ogni domanda, e quanto si legge nella riga dei tempi.",
+  // Quanti pezzi vanno nel prompt. Il rischio dei due estremi è diverso, e la
+  // frase li nomina tutti e due: senza, «alza top_k» sembra sempre migliorativo.
+  "bar.advanced.topk.hint":
+    "Quanti pezzi del corpus finiscono davanti al modello. Pochi rischiano di lasciar fuori la risposta; tanti la annacquano fra i vicini e riempiono la finestra di contesto.",
+  // Il dettaglio che un esperto cerca è il richiamo misurato in R-11 — 0,9994 su
+  // open_ragbench e 0,9892 su ledger — arrotondato onestamente a «il 99%», con
+  // la condizione in cui smetterebbe di valere.
+  "bar.advanced.ef.hint":
+    "Quanti candidati l'indice visita prima di rispondere: più ne visita, più i primi cinque sono davvero i primi cinque, e più lentamente risponde. Sui due indici di questa demo l'approssimazione ne prende già il 99%, quindi alzarlo cambia poco — su un indice più denso cambierebbe molto.",
   "bar.advanced.on": "acceso",
   "bar.advanced.off": "spento",
   "bar.advanced.auto": "auto",
@@ -493,7 +510,15 @@ export const en: Record<Chiave, string> = {
   "bar.advanced.hint":
     "How the corpus is searched, before the model writes. Closed on purpose: comparing configurations is the dashboard's job, not this one's.",
   "bar.advanced.mode": "Search",
+  "bar.advanced.mode.hint":
+    "How a piece of the corpus is found: by meaning, by exact words, or the two fused together (dense, sparse, hybrid). None of the three always wins — they behave differently on articles and on ledgers, which is why measurements here are never averaged across datasets.",
   "bar.advanced.rerank": "Reranking",
+  "bar.advanced.rerank.hint":
+    "A second model reads the retrieved pieces again and reorders them, this time looking at question and piece together instead of separately. It costs time on every question, and the timing line says how much.",
+  "bar.advanced.topk.hint":
+    "How many pieces of the corpus end up in front of the model. Too few risk leaving the answer out; too many dilute it among its neighbours and fill the context window.",
+  "bar.advanced.ef.hint":
+    "How many candidates the index visits before answering: the more it visits, the more the top five really are the top five, and the slower it answers. On this demo's two indexes the approximation already gets 99% of them, so raising it changes little — on a denser index it would change a lot.",
   "bar.advanced.on": "on",
   "bar.advanced.off": "off",
   "bar.advanced.auto": "auto",
