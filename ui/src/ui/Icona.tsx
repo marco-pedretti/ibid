@@ -156,6 +156,28 @@ export function Indice(p: PropsIcona) {
   );
 }
 
+/**
+ * «Che cos'e' questo»: la i in un cerchio (U-19).
+ *
+ * E' il glifo che il progetto ha gia' — il marchio e' `ib`·`i`·`d` con la i di
+ * mezzo in accento — e qui torna da solo. Un punto interrogativo avrebbe detto
+ * «aiuto», che e' un'altra cosa: quella pagina non spiega come si usa
+ * l'interfaccia, dice cos'e' il programma e cosa non e'.
+ *
+ * Il punto della i e' un segmento lungo un decimo di griglia: con le estremita'
+ * tonde diventa un disco, e resta un tratto come tutto il resto invece di essere
+ * l'unico riempimento del set.
+ */
+export function Informazioni(p: PropsIcona) {
+  return (
+    <Base {...p}>
+      <circle cx="8" cy="8" r="5.8" />
+      <path d="M8 4.6 L8 4.7" />
+      <path d="M8 7.4 L8 11.2" />
+    </Base>
+  );
+}
+
 /** Si apre fuori da qui: una freccia che esce dal riquadro (U-06). */
 export function Esterno(p: PropsIcona) {
   return (

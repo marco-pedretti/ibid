@@ -51,13 +51,14 @@ import type { ReactNode } from "react";
 
 import { usaEsploratore } from "../app/esploratore";
 import { usaLingua } from "../app/i18n";
+import { usaPresentazione } from "../app/presentazione";
 import { usaTema } from "../app/theme";
 import type { SceltaTema } from "../app/theme";
 import { LINGUE } from "../i18n/strings";
 import { DEPOSITO, griglia, leggi } from "./corsia";
 import { Cronologia, CronologiaCompatta, NuovaCompatta } from "./Cronologia";
 import { Etichetta } from "./Etichetta";
-import { Chiaro, Corpus, Corsia, Scuro, Sistema } from "./Icona";
+import { Chiaro, Corpus, Corsia, Informazioni, Scuro, Sistema } from "./Icona";
 import type { PropsIcona } from "./Icona";
 import { Marchio } from "./Marchio";
 import { SelettoreDataset } from "./SelettoreDataset";
@@ -148,9 +149,16 @@ function CorsiaAperta({ chiudi }: { chiudi: () => void }) {
 
       <Cronologia />
 
-      <div className="mt-auto flex gap-1.5 px-1">
-        <PastigliaLingua />
-        <PastigliaTema />
+      {/* Due righe e non una: le tre cose affiancate non ci stavano — misurate,
+          185 px dentro 175 — e la prima ha comunque un'aria diversa dalle altre
+          due. Lingua e tema sono due valori che si commutano; «Che cos'e'» apre
+          una schermata, come «Esplora il corpus», e ne porta la stessa forma. */}
+      <div className="mt-auto flex flex-col gap-1.5 px-1">
+        <BottoneInfo />
+        <div className="flex gap-1.5">
+          <PastigliaLingua />
+          <PastigliaTema />
+        </div>
       </div>
     </aside>
   );
@@ -191,6 +199,7 @@ function Striscia({ apri }: { apri: () => void }) {
       <CronologiaCompatta apri={apri} />
 
       <div className="mt-auto flex flex-col gap-1.5">
+        <BottoneInfo compatto />
         <PastigliaLingua compatta />
         <PastigliaTema compatta />
       </div>
@@ -280,6 +289,57 @@ function BottoneCorpus({ compatto = false }: { compatto?: boolean }) {
 const PASTIGLIA = "rounded-[5px] border border-line-2 text-muted";
 const PASTIGLIA_LARGA = `${PASTIGLIA} px-[7px] py-1 text-[10px]`;
 const PASTIGLIA_STRETTA = `${PASTIGLIA} px-1 text-[9px]`;
+
+/**
+ * «Che cos'e'»: la pagina che presenta il progetto (U-19).
+ *
+ * **Sta in fondo, sopra lingua e tema**, e quel gruppo non e' «le impostazioni»:
+ * e' cio' che riguarda l'applicazione invece della conversazione o del corpus.
+ * Sopra c'e' il dataset, che e' il corpus, e la cronologia, che e' la
+ * conversazione; una pagina che dice cosa fa il programma non appartiene a
+ * nessuno dei due.
+ *
+ * **Ha la forma di «Esplora il corpus» e non di una pastiglia**, perche' fa la
+ * stessa cosa: apre una schermata. Lingua e tema commutano un valore e restano
+ * dove sono — accanto a loro questo bottone sarebbe stato un terzo oggetto della
+ * stessa taglia con un comportamento diverso, e per giunta non ci stava: misurati,
+ * i tre affiancati chiedono 185 px dove la corsia ne ha 175.
+ *
+ * **La parola c'e' finche' c'e' posto.** Nella striscia resta il solo glifo, come
+ * per gli altri comandi, e il nome passa nell'`aria-label` e nella bolla.
+ */
+function BottoneInfo({ compatto = false }: { compatto?: boolean }) {
+  const { t } = usaLingua();
+  const { apri } = usaPresentazione();
+
+  if (compatto) {
+    return (
+      <Suggerimento testo={t("about.hint")} fuoco={false} className="block">
+        <button
+          type="button"
+          onClick={apri}
+          aria-label={t("about.action")}
+          className="flex h-[34px] w-full items-center justify-center rounded-lg border border-line-2 text-ink-2 transition-colors hover:border-accent-2 hover:text-ink"
+        >
+          <Informazioni size={14} />
+        </button>
+      </Suggerimento>
+    );
+  }
+
+  return (
+    <Suggerimento testo={t("about.hint")} fuoco={false} className="block">
+      <button
+        type="button"
+        onClick={apri}
+        className="flex w-full items-center gap-2 rounded-lg border border-line-2 px-2.5 py-[7px] text-[11.5px] text-ink-2 transition-colors hover:border-accent-2 hover:text-ink"
+      >
+        <Informazioni size={13} />
+        {t("about.action")}
+      </button>
+    </Suggerimento>
+  );
+}
 
 /**
  * `IT / EN` come nel mockup, e resta un bottone.
