@@ -39,6 +39,29 @@ import { Parametri } from "./Parametri";
 import { Suggerimento } from "./Suggerimento";
 import { Testo } from "./Testo";
 
+/**
+ * La misura di lettura della conversazione.
+ *
+ * **Le percentuali non sono una misura.** Un messaggio del modello era
+ * `max-w-[92%]` e uno dell'utente `max-w-[78%]`: numeri giusti dentro una
+ * colonna di ~460 px come quella del mockup, e senza senso dentro una da
+ * 2.100 — su uno schermo largo la risposta diventava una riga di quasi duemila
+ * pixel, cioe' ~300 caratteri, quattro volte cio' che un occhio segue senza
+ * perdere il capo riga. Le percentuali restano, e adesso sono percentuali **di
+ * questa**.
+ *
+ * 560 px sono ~80 caratteri al corpo di una risposta (13 px): il limite alto
+ * dell'intervallo leggibile, scelto in cima invece che in mezzo perche' qui
+ * dentro non c'e' solo prosa — ci sono le pastigliette dei marcatori, le righe
+ * dei verdetti, e ogni tanto una tabella. Sotto i 560 px non cambia niente: e'
+ * un tetto, e la colonna del mockup ci sta sotto.
+ *
+ * **Il campo di scrittura porta la stessa misura**, altrimenti si scriverebbe
+ * in una riga larga il doppio di quella in cui si legge la risposta — e le due
+ * cose sono la stessa colonna.
+ */
+const MISURA = "mx-auto w-full max-w-[560px]";
+
 export function Chat() {
   const { scambi } = usaChat();
   const { predefiniti } = usaBarra();
@@ -52,25 +75,31 @@ export function Chat() {
 
   return (
     <div className="flex h-full min-h-0 flex-col bg-paper">
-      <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto px-[22px] py-5">
-        {scambi.length === 0 ? (
-          <Vuoto />
-        ) : (
-          scambi.map((s, i) => (
-            <div key={s.id} className="flex flex-col gap-4">
-              {/* Sopra la domanda e non sotto la risposta: dice con cosa quella
+      {/* Il contenitore che scorre resta **largo quanto la colonna**: e' lui che
+          porta la barra di scorrimento, e una barra che compare in mezzo allo
+          schermo invece che al bordo e' il difetto classico di questa
+          impaginazione. La misura di lettura sta nel figlio. */}
+      <div className="flex min-h-0 flex-1 flex-col overflow-y-auto px-[22px] py-5">
+        <div className={`${MISURA} flex shrink-0 grow flex-col gap-4`}>
+          {scambi.length === 0 ? (
+            <Vuoto />
+          ) : (
+            scambi.map((s, i) => (
+              <div key={s.id} className="flex flex-col gap-4">
+                {/* Sopra la domanda e non sotto la risposta: dice con cosa quella
                   domanda e' stata eseguita, e leggerlo dopo averne letto
                   l'esito sarebbe scoprire le regole a partita finita. */}
-              <Parametri
-                config={configDi(s)}
-                precedente={configPrecedente(scambi, i)}
-                predefiniti={predefiniti}
-              />
-              <Turno scambio={s} />
-            </div>
-          ))
-        )}
-        <div ref={fondo} />
+                <Parametri
+                  config={configDi(s)}
+                  precedente={configPrecedente(scambi, i)}
+                  predefiniti={predefiniti}
+                />
+                <Turno scambio={s} />
+              </div>
+            ))
+          )}
+          <div ref={fondo} />
+        </div>
       </div>
       <Campo />
     </div>
@@ -444,68 +473,70 @@ function Campo() {
 
   return (
     <div className="border-t border-line bg-surface px-[22px] pt-3 pb-3.5">
-      {/* Sopra il campo, non sotto la barra: e' un'istruzione per il campo, e
+      <div className={MISURA}>
+        {/* Sopra il campo, non sotto la barra: e' un'istruzione per il campo, e
           sotto stava accanto a quattro comandi che decidono la risposta — due
           cose che non si somigliano. Sparisce quando il campo e' chiuso: dire
           come si manda una domanda che non si puo' mandare e' un invito a
           provare, e il segnaposto sta gia' spiegando perche' no. */}
-      {!bloccato && (
-        <p className="mb-2 text-right font-mono text-[10px] text-muted">{t("chat.hint.invio")}</p>
-      )}
-
-      <div className="flex items-end gap-3 rounded-[9px] border border-line-2 bg-paper px-3 py-2.5 focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-accent">
-        <textarea
-          ref={campo}
-          rows={1}
-          value={testo}
-          disabled={bloccato}
-          onChange={(e) => setTesto(e.target.value)}
-          onKeyDown={(e) => {
-            // Invio manda, Maiusc+Invio va a capo: e' la convenzione che chi
-            // arriva da qualsiasi altra chat ha gia' in mano.
-            if (e.key === "Enter" && !e.shiftKey) {
-              e.preventDefault();
-              spedisci();
-            }
-          }}
-          placeholder={segnaposto}
-          // `fuoco-delegato`: l'anello di fuoco lo disegna la cornice attorno,
-          // che reagisce a `focus-within`. Non si rinuncia al fuoco visibile,
-          // si sceglie dove disegnarlo.
-          // `leading-[1.5]` esplicito: senza, l'altezza di riga calcolata e'
-          // `normal` e la misura sopra dovrebbe indovinarla. Il massimo lo mette
-          // il JavaScript, quindi qui non c'e' `max-h`: due limiti che possono
-          // divergere sono un limite che prima o poi sbaglia.
-          //
-          // `py-[3.6px]` non e' un ritocco a occhio: la riga di testo e' alta
-          // 18,75 px (12,5 x 1,5) e il bottone 26, quindi con `items-end` il
-          // testo si allineava al **fondo** del bottone invece che al suo centro.
-          // 3,6 px per parte pareggiano le due altezze — e quando il campo
-          // cresce restano, perche' il bottone deve restare in basso.
-          className="fuoco-delegato min-h-[26px] flex-1 resize-none overflow-y-auto bg-transparent py-[3.6px] text-[12.5px] leading-[1.5] text-ink placeholder:text-muted disabled:cursor-not-allowed"
-        />
-
-        {occupato ? (
-          <button
-            type="button"
-            onClick={ferma}
-            className="grid h-[26px] shrink-0 place-items-center rounded-md border border-line-2 px-2.5 text-[11px] text-ink-2"
-          >
-            {t("chat.stop")}
-          </button>
-        ) : (
-          <button
-            type="button"
-            onClick={spedisci}
-            disabled={bloccato || testo.trim() === ""}
-            aria-label={t("chat.send")}
-            className="grid h-[26px] w-[26px] shrink-0 place-items-center rounded-md bg-accent text-accent-ink disabled:opacity-40"
-          >
-            <FrecciaSu size={14} />
-          </button>
+        {!bloccato && (
+          <p className="mb-2 text-right font-mono text-[10px] text-muted">{t("chat.hint.invio")}</p>
         )}
+
+        <div className="flex items-end gap-3 rounded-[9px] border border-line-2 bg-paper px-3 py-2.5 focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-accent">
+          <textarea
+            ref={campo}
+            rows={1}
+            value={testo}
+            disabled={bloccato}
+            onChange={(e) => setTesto(e.target.value)}
+            onKeyDown={(e) => {
+              // Invio manda, Maiusc+Invio va a capo: e' la convenzione che chi
+              // arriva da qualsiasi altra chat ha gia' in mano.
+              if (e.key === "Enter" && !e.shiftKey) {
+                e.preventDefault();
+                spedisci();
+              }
+            }}
+            placeholder={segnaposto}
+            // `fuoco-delegato`: l'anello di fuoco lo disegna la cornice attorno,
+            // che reagisce a `focus-within`. Non si rinuncia al fuoco visibile,
+            // si sceglie dove disegnarlo.
+            // `leading-[1.5]` esplicito: senza, l'altezza di riga calcolata e'
+            // `normal` e la misura sopra dovrebbe indovinarla. Il massimo lo mette
+            // il JavaScript, quindi qui non c'e' `max-h`: due limiti che possono
+            // divergere sono un limite che prima o poi sbaglia.
+            //
+            // `py-[3.6px]` non e' un ritocco a occhio: la riga di testo e' alta
+            // 18,75 px (12,5 x 1,5) e il bottone 26, quindi con `items-end` il
+            // testo si allineava al **fondo** del bottone invece che al suo centro.
+            // 3,6 px per parte pareggiano le due altezze — e quando il campo
+            // cresce restano, perche' il bottone deve restare in basso.
+            className="fuoco-delegato min-h-[26px] flex-1 resize-none overflow-y-auto bg-transparent py-[3.6px] text-[12.5px] leading-[1.5] text-ink placeholder:text-muted disabled:cursor-not-allowed"
+          />
+
+          {occupato ? (
+            <button
+              type="button"
+              onClick={ferma}
+              className="grid h-[26px] shrink-0 place-items-center rounded-md border border-line-2 px-2.5 text-[11px] text-ink-2"
+            >
+              {t("chat.stop")}
+            </button>
+          ) : (
+            <button
+              type="button"
+              onClick={spedisci}
+              disabled={bloccato || testo.trim() === ""}
+              aria-label={t("chat.send")}
+              className="grid h-[26px] w-[26px] shrink-0 place-items-center rounded-md bg-accent text-accent-ink disabled:opacity-40"
+            >
+              <FrecciaSu size={14} />
+            </button>
+          )}
+        </div>
+        <Barra />
       </div>
-      <Barra />
     </div>
   );
 }
