@@ -158,15 +158,28 @@ describe("dove va la scheda", () => {
     expect(dentro).toBeLessThanOrEqual(SCHEDA.larghezza * FUORI);
   });
 
-  it("una zona grande quanto la finestra non ha nemmeno un bordo: dentro, in basso", () => {
+  it("una zona grande quanto la finestra non ha nemmeno un bordo: dentro, in alto", () => {
     // Un bersaglio che riempie lo schermo: nessun lato ha spazio, nemmeno per
-    // meta' scheda. L'alone c'e', quindi la ragione di stare in basso vale.
+    // meta' scheda. E' il caso del telefono, dove la zona che finisce `dentro`
+    // e' la colonna di lavoro intera — e in fondo a quella c'e' il campo.
     const zona = { x: 0, y: 0, larghezza: FINESTRA.larghezza, altezza: FINESTRA.altezza };
     const p = collocaScheda(zona, SCHEDA, FINESTRA);
     expect(p.lato).toBe("dentro");
-    // In basso, non al centro: sopra c'e' cio' che l'alone sta indicando.
-    expect(p.y + SCHEDA.altezza).toBe(FINESTRA.altezza - MARGINE);
+    expect(p.y).toBe(zona.y + MARGINE);
     expect(sta(p, SCHEDA, FINESTRA)).toBe(true);
+  });
+
+  it("dentro un telefono la scheda non arriva mai sul campo in cui si scrive", () => {
+    // 390 px: la colonna di lavoro e' tutto lo schermo, nessun lato ha spazio e
+    // la scheda finisce per forza dentro la zona. Che non tocchi la meta' bassa
+    // e' cio' che rende ancora vero il criterio di U-20 — «non impedisce di fare
+    // la prima domanda» — sull'unico schermo su cui U-21 si misura.
+    const telefono: Misura = { larghezza: 390, altezza: 844 };
+    const zona = alone({ x: 0, y: 44, larghezza: 390, altezza: 700 }, telefono);
+    const p = collocaScheda(zona, SCHEDA, telefono);
+    expect(p.lato).toBe("dentro");
+    expect(p.y + SCHEDA.altezza).toBeLessThan(telefono.altezza / 2);
+    expect(sta(p, SCHEDA, telefono)).toBe(true);
   });
 
   it("senza bersaglio va in alto, dove non c'e' il campo in cui si scrive", () => {
