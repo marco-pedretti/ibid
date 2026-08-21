@@ -34,6 +34,7 @@ import {
   NonCitata,
   NonSostiene,
   NonVerificata,
+  Ritorno,
   Troncato,
 } from "./Icona";
 import { MISURA } from "./misura";
@@ -248,14 +249,23 @@ function Corpo({ scambio }: { scambio: Scambio }) {
 
       {r.errore !== null && <Avviso icona={<Avvertimento size={13} />}>{r.errore.message}</Avviso>}
 
+      {/* Stessa forma del comando di confronto qui sotto, che e' l'altro
+          bottone che puo' comparire in fondo a una risposta: bordo sottile,
+          glifo, testo attenuato. Prima era `accent-soft` col bordo e il testo
+          d'accento — la coppia di `.tg.on`, cioe' come questa palette dice «un
+          interruttore e' acceso» — e riprovare non e' uno stato acceso, e' un
+          comando. Nemmeno l'azione principale: quella e' piena d'accento, ed e'
+          scrivere una domanda. Il glifo e' lo stesso di «torna al predefinito»
+          nella barra, perche' e' lo stesso gesto: rifallo. */}
       {(r.fase === "errore" || r.fase === "interrotta") && (
         <div>
           <button
             type="button"
             disabled={occupato}
             onClick={() => invia(scambio.domanda)}
-            className="rounded-md border border-accent bg-accent-soft px-[9px] py-[5px] text-[11px] font-medium text-accent disabled:opacity-50"
+            className="flex items-center gap-1.5 rounded-md border border-line-2 px-[9px] py-[5px] text-[11px] text-ink-2 transition-colors hover:border-accent-2 hover:text-ink disabled:cursor-not-allowed disabled:opacity-45 disabled:hover:border-line-2 disabled:hover:text-ink-2"
           >
+            <Ritorno size={12} />
             {t("backend.retry")}
           </button>
         </div>

@@ -22,6 +22,7 @@ import { ProvvedeTema } from "./app/theme";
 import { Chat } from "./ui/Chat";
 import { Confronto } from "./ui/Confronto";
 import { Corpus } from "./ui/Corpus";
+import { Ritorno } from "./ui/Icona";
 import { PannelloFonti } from "./ui/PannelloFonti";
 import { Presentazione } from "./ui/Presentazione";
 import { Telaio } from "./ui/Telaio";
@@ -133,11 +134,17 @@ function Colonna() {
           <h2 className="text-sm font-semibold">{t("backend.down")}</h2>
           <p className="mt-1 text-xs text-ink-2">{t("backend.hint")}</p>
           <p className="mt-2 font-mono text-[11px] break-all text-muted">{backend.errore}</p>
+          {/* Neutro e non d'accento, come l'altro «Riprova» — quello in fondo a
+              una risposta interrotta. La stessa parola non puo' avere due vesti,
+              e `accent-soft` col bordo e il testo d'accento e' la coppia con cui
+              questa palette dice «un interruttore e' acceso». La superficie
+              propria serve a staccarlo dal fondo dell'avviso, che e' colorato. */}
           <button
             type="button"
             onClick={ricarica}
-            className="mt-3 rounded-md border border-accent bg-accent-soft px-3 py-1.5 text-xs font-medium text-accent"
+            className="mt-3 flex items-center gap-1.5 rounded-md border border-line-2 bg-surface px-3 py-1.5 text-xs text-ink-2 transition-colors hover:border-accent-2 hover:text-ink"
           >
+            <Ritorno size={12} />
             {t("backend.retry")}
           </button>
         </section>
