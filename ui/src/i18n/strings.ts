@@ -489,6 +489,13 @@ export const it = {
   // com'è configurata la demo e com'è configurata la valutazione.
   "about.not.exact":
     "Non è configurata esattamente come la valutazione, e la differenza è una: qui la ricerca nell'indice è esatta invece che approssimata. Su un indice fitto quella approssimata salta qualcosa, e una dimostrazione finirebbe per mostrare quel difetto credendo di mostrare il recupero.",
+
+  "about.who.title": "Chi l'ha fatto",
+  "about.who":
+    "Marco Pedretti ed Elia Dallanoce, in due sulla stessa parte. È il motivo per cui qui quasi ogni scelta ha accanto la ragione per cui è stata presa: erano in due a doverla accettare.",
+  "about.who.license":
+    "Il codice è aperto, licenza MIT. Insieme al codice ci sono il piano, le tabelle delle misure e le domande ancora senza risposta — comprese le misure andate male, che restano in tabella.",
+  "about.who.repo": "Il progetto su GitHub",
 } as const;
 
 export type Chiave = keyof typeof it;
@@ -808,6 +815,13 @@ export const en: Record<Chiave, string> = {
     "A single answer is not a measurement. The same model, with everything else identical, answers differently from one run to the next: the tables come from thousands of questions, not from the one you just asked.",
   "about.not.exact":
     "It is not configured exactly the way the evaluation is, and there is one difference: here the index is searched exactly rather than approximately. On a dense index the approximate search misses things, and a demonstration would end up showing that flaw while believing it was showing retrieval.",
+
+  "about.who.title": "Who made it",
+  "about.who":
+    "Marco Pedretti and Elia Dallanoce, two people on the same part. It is why almost every choice here has the reason for it written next to it: two people had to agree on it.",
+  "about.who.license":
+    "The code is open, MIT licensed. Alongside it are the plan, the measurement tables and the questions still without an answer — including the measurements that went badly, which stay in the table.",
+  "about.who.repo": "The project on GitHub",
 };
 
 export const LINGUE = ["it", "en"] as const;

@@ -28,6 +28,11 @@
  * pagina una pubblicita', che e' esattamente il contrario di cio' per cui il
  * progetto esiste.
  *
+ * **In fondo c'e' chi l'ha fatto.** Non e' cortesia: un banco di prova che
+ * pubblica misure negative chiede di essere creduto, e la firma e' meta' di cio'
+ * che lo rende credibile. Sta in fondo e non in cima perche' viene dopo il
+ * merito — prima cosa fa, cosa regge e cosa no, poi chi lo dice.
+ *
  * **Non e' una finestra sopra la chat, e' una schermata dentro il telaio.** Come
  * l'esploratore: si apre sopra cio' che c'era e chiudendola si torna li', perche'
  * leggere cosa fa il programma non deve costare la conversazione in corso. E come
@@ -44,7 +49,7 @@ import { usaPresentazione } from "../app/presentazione";
 import { scheda } from "../app/scheda";
 import type { Chiave } from "../i18n/strings";
 import { Etichetta } from "./Etichetta";
-import { InAttesa, Indietro, NonSostiene, Sostiene } from "./Icona";
+import { Esterno, InAttesa, Indietro, NonSostiene, Sostiene } from "./Icona";
 import type { PropsIcona } from "./Icona";
 import { MISURA } from "./misura";
 import { TONO } from "./Verdetto";
@@ -90,6 +95,10 @@ const AFFERMAZIONI: Affermazione[] = [
     tono: "wait",
   },
 ];
+
+/** Dove porta «il progetto su GitHub»: e' il remote di questo repository, e non
+ *  c'e' un secondo posto da cui leggerlo. */
+const REPO = "https://github.com/marco-pedretti/ibid";
 
 export function Presentazione() {
   const { t } = usaLingua();
@@ -154,6 +163,20 @@ export function Presentazione() {
                   effetti, quindi sta in questo elenco invece che in una nota. */}
               <Limite>{t("about.not.exact")}</Limite>
             </ul>
+          </Sezione>
+
+          <Sezione titolo={t("about.who.title")}>
+            <p className="text-[12.5px] leading-[1.65] text-ink">{t("about.who")}</p>
+            <p className="text-[12.5px] leading-[1.65] text-ink-2">{t("about.who.license")}</p>
+            <a
+              href={REPO}
+              target="_blank"
+              rel="noreferrer noopener"
+              className="flex items-center gap-1.5 self-start rounded-md border border-line-2 px-[9px] py-[5px] text-[11px] text-ink-2 transition-colors hover:border-accent-2 hover:text-ink"
+            >
+              <Esterno size={12} />
+              {t("about.who.repo")}
+            </a>
           </Sezione>
         </div>
       </div>
