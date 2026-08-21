@@ -112,6 +112,32 @@ export const it = {
   "chat.noModel": "Il modello configurato non è installato: scegline uno dalla barra qui sotto.",
   "chat.hint.invio": "Invio per mandare, Maiusc+Invio per andare a capo.",
 
+  // U-20: l'avvio guidato. Quattro passi, nell'ordine in cui le cose compaiono
+  // guardando una risposta nascere — non un elenco di funzionalità. La riga
+  // sotto dichiara le due cose che il criterio chiede di dichiarare: che si può
+  // chiedere mentre è aperta, e che la scelta di saltarla è locale a questo
+  // browser, come la cronologia.
+  "start.title": "Avvio guidato",
+  "start.step": "{n} di {tot}",
+  "start.next": "Avanti",
+  "start.done": "Ho capito",
+  "start.skip": "Salta",
+  "start.local":
+    "Puoi chiedere mentre è aperta. Saltata una volta non torna, e la scelta resta in questo browser come la cronologia.",
+
+  "start.sources.title": "Le fonti arrivano prima della risposta",
+  "start.sources":
+    "Il pannello a destra si riempie in un attimo, il testo comincia qualche secondo dopo: si vede da dove nasce la risposta mentre nasce.",
+  "start.verdicts.title": "Ogni frase porta un verdetto",
+  "start.verdicts":
+    "Un controllo rilegge ogni frase contro il pezzo che cita e dice se lo sostiene davvero: senza, una citazione ben scritta e una corretta si somigliano troppo.",
+  "start.corpus.title": "Sa solo quello che c'è nel corpus",
+  "start.corpus":
+    "Fuori dai documenti del dataset scelto si astiene invece di inventare, e la terza domanda d'esempio serve proprio a vederlo.",
+  "start.rest.title": "Il resto sta in «Che cos'è»",
+  "start.rest":
+    "Cosa dimostra il progetto, cosa regge e cosa no: in fondo alla corsia, e resta lì. Questa guida invece non torna.",
+
   // La nota a margine di U-15: si legge a malapena, come quella sopra il campo.
   // Non e' un messaggio della conversazione -- non l'ha detto nessuno.
   "params.start": "partita con",
@@ -549,6 +575,27 @@ export const en: Record<Chiave, string> = {
   "chat.noDataset": "Pick a dataset before asking.",
   "chat.noModel": "The configured model is not installed: pick one from the bar below.",
   "chat.hint.invio": "Enter to send, Shift+Enter for a new line.",
+
+  "start.title": "Guided start",
+  "start.step": "{n} of {tot}",
+  "start.next": "Next",
+  "start.done": "Got it",
+  "start.skip": "Skip",
+  "start.local":
+    "You can ask a question while this is open. Skipped once it does not come back, and that choice stays in this browser, like the history.",
+
+  "start.sources.title": "Sources arrive before the answer",
+  "start.sources":
+    "The panel on the right fills in an instant, the text starts a few seconds later: you watch where the answer comes from while it is being written.",
+  "start.verdicts.title": "Every sentence carries a verdict",
+  "start.verdicts":
+    "A check reads each sentence against the passage it cites and says whether it really supports it: without that, a well-formed citation and a correct one look too much alike.",
+  "start.corpus.title": "It only knows what is in the corpus",
+  "start.corpus":
+    "Outside the documents of the chosen dataset it abstains instead of inventing, and the third example question is there to show exactly that.",
+  "start.rest.title": "The rest is in «What this is»",
+  "start.rest":
+    "What the project sets out to prove, what holds and what does not: at the bottom of the sidebar, and it stays there. This guide does not come back.",
 
   "params.start": "started with",
   "params.default": "with the service defaults",
