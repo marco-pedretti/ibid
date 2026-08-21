@@ -1670,7 +1670,7 @@ typecheck verde, tipi TypeScript rigenerati.
 | U-17 | ✅ fatto (2026-08-20) | **Il testo indicizzato**: la colonna di mezzo dell'esploratore ha due viste dello stesso documento — la mappa dice quanto sono grandi i pezzi, il testo dice cosa c'era nel punto in cui uno è stato tagliato — con le cuciture visibili e la selezione condivisa. **51 test Vitest** in più (287). Dettaglio sotto. |
 | U-18 | ✅ fatto (2026-08-20) | **La corsia si comprime**: un comando accanto al marchio la riduce a una striscia di 48 px e la riporta larga, e la scelta vale al prossimo avvio. Nella striscia restano i due comandi e le tre tendine; la cronologia no, e il suo bottone riapre la corsia dicendo perché. **8 test Vitest** in più (295). Dettaglio sotto. |
 | U-19 | ✅ fatto (2026-08-21) | **La pagina «Che cos'è»**: cosa fa il progetto, le tre affermazioni del §0 col verdetto che hanno oggi, cosa la demo non è, e chi l'ha fatta. Raggiungibile dalla corsia in tutti e due gli stati, in IT/EN. **Nessuna metrica scritta a mano**: i numeri non ci sono, e la pagina dice dove sono. **2 test Vitest** in più (300). Dettaglio sotto. |
-| U-20 | ✅ fatto (2026-08-21) | **L'avvio guidato**: cinque passi, e ognuno **circonda con un alone la zona di cui parla** — le fonti, la colonna delle risposte, la barra sotto il campo, il dataset nella corsia, «Che cos'è». Il velo scurisce e sfoca il resto ma **non intercetta il puntatore**: si scrive e si manda con la guida aperta. Si salta con un comando, non torna, e il deposito ricorda il passo. **24 test Vitest** in più (324). Dettaglio sotto. |
+| U-20 | ✅ fatto (2026-08-21) | **L'avvio guidato**: cinque passi, e ognuno **circonda con un alone la zona di cui parla** — le fonti, la colonna delle risposte, la barra sotto il campo, il dataset nella corsia, «Che cos'è». Il velo scurisce e sfoca il resto ma **non intercetta il puntatore**: si scrive e si manda con la guida aperta, e la lingua si cambia dalla scheda. Si salta con un comando, non torna, e il deposito ricorda il passo. **25 test Vitest** in più (325). Dettaglio sotto. |
 
 ### U-00 — il contratto esiste in due linguaggi, e uno dei due si genera
 
@@ -3043,17 +3043,30 @@ invece che brutto — una scheda mezza fuori schermo, un alone attorno al vuoto.
 cui questo modulo **legge le due costanti** invece di ridichiararle: distanza fra
 una cosa e la sua spiegazione, margine oltre il quale si è fuori finestra.
 
-L'ordine dei lati è `destra, sinistra, sotto, sopra`, e vince il primo in cui la
-scheda ci sta **per intero**. Non «il lato con più spazio», che è la regola delle
-bolle: una bolla di tre parole sta quasi ovunque, una scheda con un titolo e due
-frasi no, e scegliere il meno stretto fra due lati stretti significa comunque
-sporgere. L'ordine porta i bersagli agli estremi a spiegarsi tutti sopra la
-colonna di mezzo: quelli della corsia col fianco destro libero, quello delle
-fonti ripiegando a sinistra perché a destra il posto non c'è.
+La regola vera è una sola — **non coprire ciò che si sta indicando** — e da lì
+vengono tre gradini.
 
-`dentro` non è un ripiego: è il caso della colonna di mezzo, che è alta quanto la
-finestra e non ha un «accanto». Lì la scheda va dentro l'alone, **in basso**,
-dove non copre ciò che l'alone sta indicando.
+Il primo: l'ordine dei lati è `destra, sinistra, sotto, sopra`, e vince il primo
+in cui la scheda ci sta **per intero**. Non «il lato con più spazio», che è la
+regola delle bolle: una bolla di tre parole sta quasi ovunque, una scheda con un
+titolo e due frasi no. L'ordine porta i bersagli agli estremi a spiegarsi tutti
+sopra la colonna di mezzo: quelli della corsia col fianco destro libero, quello
+delle fonti ripiegando a sinistra perché a destra il posto non c'è.
+
+Il secondo gradino **è arrivato dopo**, e da una cosa vista: al passo sulla
+colonna delle risposte la scheda copriva troppo di ciò che stava evidenziando.
+Quella zona cade fra i due casi previsti — è alta quanto la finestra, quindi
+sopra e sotto non c'è niente, e ai fianchi c'è meno di quanto la scheda chiede —
+e finiva `dentro`, cioè con la spiegazione appoggiata sopra la cosa spiegata. Ora
+in quel caso si prende il lato più capiente e la si **accosta al bordo**, purché
+ne resti fuori almeno la metà: sporge sulla zona di quello che manca, e copre un
+bordo invece del mezzo. Sotto quella soglia si torna dentro, perché una scheda
+accostata che copre comunque quasi tutta la zona la copre **in mezzo**, che è
+peggio che coprirla in fondo.
+
+Il terzo, `dentro`, resta per il caso in cui non c'è un bersaglio e la zona è la
+finestra intera: lì non c'è nemmeno un bordo. La scheda va in basso, dove non
+copre ciò che sta sopra.
 
 **Si converte al confine**, come sempre da quando esiste lo `zoom` sulla radice:
 `getBoundingClientRect` e `innerWidth` arrivano in px di finestra, `left` e `top`
@@ -3077,6 +3090,11 @@ tragitto: è dove si sta guardando quando finisce. Chi ha chiesto meno movimento
 ottiene comunque dalla regola globale `prefers-reduced-motion`, che azzera ogni
 durata.
 
+La scheda si rimisura anche **cambiando lingua**, e non è uno scrupolo: cambia
+il testo, quindi la sua altezza, quindi dove va messa — senza, passando a EN
+resterebbe ancorata all'angolo di prima e crescerebbe verso il basso, nel caso
+`dentro` uscendo dalla zona che spiega.
+
 La scheda scivola **solo dopo essere comparsa**: alla prima collocazione sta
 ancora a (0, 0) invisibile, e con la transizione già accesa il primo disegno
 sarebbe un volo in diagonale dall'angolo in alto a sinistra — il difetto classico
@@ -3095,6 +3113,21 @@ scorre, il pannello fonti che compare, la corsia che si comprime. L'ultima
 ciò che si è trovato smette di parlare proprio quando servirebbe. Un giro ogni
 100 ms che rilegge la zona e aggiorna lo stato solo se è cambiata costa una
 misura su un elemento, dura quanto la guida, e non lascia casi scoperti.
+
+**La lingua si cambia dalla scheda** (chiesto da Marco). Il selettore in corsia
+era già cliccabile — il velo lascia passare il puntatore — ma è scurito, sfocato
+e piccolo: è esattamente ciò che la guida sta dicendo di non guardare. Chi apre il
+programma e non legge l'italiano deve poter cambiare lingua *prima* di decidere se
+questa spiegazione gli interessa, non dopo averla saltata. Stessa grammatica della
+pastiglia in corsia — tutte e due le sigle visibili, quella viva in accento — ma
+non lo stesso componente: quello è dimensionato sulla griglia della corsia e ha già
+due varianti, e una terza lo farebbe servire un posto per cui non è stato fatto.
+Ciò che non può divergere è il modo di dire la stessa cosa, e sono tre righe.
+
+I tre bottoni del piede hanno un'**altezza dichiarata**: presa dal contenuto
+venivano fuori di 25, 26 e 24 px, e una differenza di un pixel non si legge come
+una gerarchia — si legge come un errore. È la lezione che la corsia ha già pagato
+in U-19.
 
 **Escape non salta la guida**, ed è una deroga alla regola che vale nel resto
 dell'interfaccia. Lì Escape chiude ciò che si è aperto sopra il contenuto — una
