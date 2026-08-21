@@ -131,9 +131,12 @@ export const it = {
   "start.verdicts.title": "Ogni frase porta un verdetto",
   "start.verdicts":
     "Un controllo rilegge ogni frase contro il pezzo che cita e dice se lo sostiene davvero: senza, una citazione ben scritta e una corretta si somigliano troppo.",
+  "start.bar.title": "Qui sotto si decide come nasce la risposta",
+  "start.bar":
+    "Fonti sì o no, ragionamento, modello e finestra di contesto: ogni pastiglia cambia la prossima domanda. Quella che ha girato resta scritta sopra ogni risposta, quindi si sa sempre con cosa è stata fatta.",
   "start.corpus.title": "Sa solo quello che c'è nel corpus",
   "start.corpus":
-    "Fuori dai documenti del dataset scelto si astiene invece di inventare, e la terza domanda d'esempio serve proprio a vederlo.",
+    "Fuori dai documenti del dataset scelto si astiene invece di inventare, e la terza domanda d'esempio serve a vederlo. Da qui si cambia corpus, e «Esplora» mostra come è stato spezzato.",
   "start.rest.title": "Il resto sta in «Che cos'è»",
   "start.rest":
     "Cosa dimostra il progetto, cosa regge e cosa no: in fondo alla corsia, e resta lì. Questa guida invece non torna.",
@@ -590,9 +593,12 @@ export const en: Record<Chiave, string> = {
   "start.verdicts.title": "Every sentence carries a verdict",
   "start.verdicts":
     "A check reads each sentence against the passage it cites and says whether it really supports it: without that, a well-formed citation and a correct one look too much alike.",
+  "start.bar.title": "Down here is how the answer gets made",
+  "start.bar":
+    "Sources on or off, reasoning, model and context window: each pill changes the next question. Whichever ones ran stay written above every answer, so you always know what made it.",
   "start.corpus.title": "It only knows what is in the corpus",
   "start.corpus":
-    "Outside the documents of the chosen dataset it abstains instead of inventing, and the third example question is there to show exactly that.",
+    "Outside the documents of the chosen dataset it abstains instead of inventing, and the third example question is there to show that. The corpus is changed from here, and «Explore» shows how it was split.",
   "start.rest.title": "The rest is in «What this is»",
   "start.rest":
     "What the project sets out to prove, what holds and what does not: at the bottom of the sidebar, and it stays there. This guide does not come back.",

@@ -1,21 +1,19 @@
 /**
  * L'avvio guidato: cosa dice, dove si e' arrivati, e quando non si mostra piu'.
  *
- * **Non e' una finestra modale, ed e' il criterio.** U-20 chiede che la guida
- * non impedisca di fare la prima domanda mentre e' aperta, e il modo di
- * ottenerlo non e' un velo che si lascia attraversare: e' non metterlo. La
- * guida e' una striscia in cima alla colonna di lavoro, il campo resta dove
- * era, e chi vuole ignorarla scrive e manda. Chi invece la legge la tiene
- * aperta **durante** la prima risposta, che e' il momento in cui i primi due
- * passi hanno qualcosa da mostrare: le fonti che arrivano prima del testo e i
- * verdetti che compaiono dopo.
- *
- * **Quattro passi, e ognuno indica una cosa che si vede.** Non un elenco di
- * funzionalita': l'ordine e' quello in cui le cose compaiono guardando una
- * risposta nascere. L'ultimo dice dove sta la spiegazione che **resta** — la
+ * **Ogni passo indica una zona che si vede**, e la indica davvero: l'alone e il
+ * velo stanno in `ui/Avvio.tsx`, qui ci sono i passi e la memoria. Non e' un
+ * elenco di funzionalita': l'ordine e' quello in cui le cose compaiono guardando
+ * una risposta nascere. L'ultimo dice dove sta la spiegazione che **resta** — la
  * pagina «Che cos'e'» di U-19 — ed e' il motivo per cui questa non torna: una
- * guida che si ripresenta a chi l'ha gia' letta e' un difetto, una pagina che
- * si apre quando si vuole no.
+ * guida che si ripresenta a chi l'ha gia' letta e' un difetto, una pagina che si
+ * apre quando si vuole no.
+ *
+ * **Si legge tenendola aperta.** Il criterio chiede che non impedisca di fare la
+ * prima domanda, e non e' una concessione: i primi due passi hanno qualcosa da
+ * mostrare solo **durante** una risposta — le fonti che arrivano prima del testo,
+ * i verdetti che compaiono dopo. Una guida che si chiudesse alla prima domanda si
+ * toglierebbe di mezzo nell'unico momento in cui serviva.
  *
  * **Si ricorda il passo, non solo che e' finita.** Costa lo stesso e paga due
  * volte: la guida sopravvive a un ricaricamento senza ricominciare da capo, e
@@ -35,21 +33,29 @@ import type { Chiave } from "../i18n/strings";
 /** Un passo: un titolo, una frase, e il glifo di cio' di cui parla — che sta in
  *  `Avvio.tsx`, perche' e' l'unica parte di questo modulo che e' un disegno. */
 export interface Passo {
-  id: "fonti" | "verdetti" | "corpus" | "resta";
+  id: "fonti" | "verdetti" | "barra" | "corpus" | "resta";
   titolo: Chiave;
   testo: Chiave;
 }
 
 /**
- * I quattro, nell'ordine in cui le cose compaiono sullo schermo.
+ * I cinque, nell'ordine in cui le cose compaiono sullo schermo.
  *
- * Il terzo e' il solo che non parla della risposta ma del corpus, e sta li'
- * perche' e' cio' che si scopre quando la domanda seguente esce dai documenti:
- * dopo le fonti e i verdetti, prima del rimando alla pagina che resta.
+ * Prima cio' che si vede mentre una risposta nasce — le fonti, poi i verdetti —
+ * e subito dopo **con che cosa e' nata**: la barra sotto il campo, che e' anche
+ * il solo posto da cui si cambia qualcosa. Poi il limite dentro cui vale tutto
+ * quanto, il corpus. Ultimo il rimando alla pagina che resta.
+ *
+ * Un passo in piu' costa un clic e vale il posto solo se indica qualcosa che si
+ * vede: e' la ragione per cui il confronto affiancato non ne ha uno. Quel
+ * comando compare **dentro una risposta**, e al primo avvio di risposte non ce
+ * n'e' nessuna: un alone attorno al vuoto, o attorno a una zona che comparira'
+ * dopo, sarebbe la guida che indica una cosa che non c'e'.
  */
 export const PASSI: readonly Passo[] = [
   { id: "fonti", titolo: "start.sources.title", testo: "start.sources" },
   { id: "verdetti", titolo: "start.verdicts.title", testo: "start.verdicts" },
+  { id: "barra", titolo: "start.bar.title", testo: "start.bar" },
   { id: "corpus", titolo: "start.corpus.title", testo: "start.corpus" },
   { id: "resta", titolo: "start.rest.title", testo: "start.rest" },
 ];

@@ -41,6 +41,7 @@ import {
 } from "../app/catalogo";
 import { avanzateToccate, modelloInstallato, ragionamentoDisponibile } from "../app/opzioni";
 import type { Opzioni } from "../app/opzioni";
+import { zona } from "./Avvio";
 import { Meno, Piu, Ritorno } from "./Icona";
 import { FORMA, MOSSA, PASTIGLIA, RIPOSO } from "./pastiglia";
 import { CaretTendina, Selettore } from "./Selettore";
@@ -69,7 +70,11 @@ export function Barra() {
           mentre si scrive la domanda seguente. */}
       {aperte && <PannelloAvanzate modalita={capacita?.retrieval_modes ?? []} />}
 
-      <div className="mt-[9px] flex flex-wrap items-center gap-1.5">
+      {/* La zona che l'avvio guidato indica: **la fila**, non il pannello
+          «Avanzate» che si apre sopra. Quello e' un ripiano che compare quando
+          lo si chiede, e un alone attorno a qualcosa che di solito non c'e'
+          spiegherebbe una cosa diversa a seconda del momento. */}
+      <div {...zona("barra")} className="mt-[9px] flex flex-wrap items-center gap-1.5">
         <Interruttore chiave="rag" etichetta={t("bar.rag")} suggerimento={t("bar.rag.hint")} />
 
         {/* Sparisce se il server non offre piu' i due capi dell'asse. Mostrarlo
