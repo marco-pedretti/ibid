@@ -55,17 +55,31 @@ import type { Passo } from "../app/avvio";
 import { leggiCronologia } from "../app/cronologia";
 import { usaLingua } from "../app/i18n";
 import type { Misura, Rettangolo } from "./collocazione";
-import { Astensione, Indice, Informazioni, Sostiene } from "./Icona";
+import { Astensione, FrecciaSu, Indice, Informazioni, Sostiene } from "./Icona";
 import type { PropsIcona } from "./Icona";
-import { alone, collocaScheda } from "./riflettore";
+import { alone, buco, collocaScheda } from "./riflettore";
 import type { PosaScheda } from "./riflettore";
 import { scala } from "./scala";
 
-/** Il disegno di ogni passo: il glifo della cosa di cui parla, mai un glifo
- *  nuovo — il quarto e' quello del bottone «Che cos'e'» che nomina. */
+/**
+ * Il disegno di ogni passo: il glifo della cosa di cui parla, mai un glifo
+ * nuovo — l'ultimo e' quello del bottone «Che cos'e'» che nomina.
+ *
+ * `barra` prende la **freccia dell'invio**, che e' il glifo del bottone
+ * immediatamente sopra quella fila: quei controlli non decidono la risposta che
+ * si sta leggendo, decidono come partira' la prossima. Disegnare un glifo nuovo
+ * — tre manopole, la forma con cui si dice «impostazioni» dappertutto — sarebbe
+ * stato piu' preciso e piu' rischioso: a 13 px una manopola e' un punto con un
+ * trattino, e le cinque regole in testa a `Icona.tsx` esistono perche' un simbolo
+ * nuovo che non regge alla sua misura si vede solo dopo averlo messo.
+ *
+ * `Record` esaustivo e non una mappa parziale: un passo aggiunto senza il suo
+ * glifo **non compila**, invece di disegnarsi senza.
+ */
 const GLIFO: Record<Passo["id"], (p: PropsIcona) => ReactNode> = {
   fonti: Indice,
   verdetti: Sostiene,
+  barra: FrecciaSu,
   corpus: Astensione,
   resta: Informazioni,
 };
@@ -95,6 +109,30 @@ const RILETTURA_MS = 100;
 /** La scheda: larga fissa, perche' e' una colonna di lettura corta e non deve
  *  cambiare forma spostandosi da una zona all'altra. */
 const LARGHEZZA = 360;
+
+/**
+ * Il movimento da una zona all'altra: alone, velo e scheda, tutti e tre.
+ *
+ * **Una durata sola per le tre cose**, e non tre valori accordati a occhio: si
+ * spostano insieme e sono una cosa sola: se il bordo arrivasse prima del velo si
+ * vedrebbe l'alone acceso su un fondo ancora scuro, che e' esattamente
+ * l'impressione di un programma che fatica.
+ *
+ * 360 ms sono lunghi per un'interfaccia — una tendina qui ne prende 150 — ed e'
+ * voluto: questo movimento non e' un controllo che risponde a un clic, e' un
+ * indicatore che **porta l'occhio** da una parte all'altra dello schermo, e a
+ * 150 ms non lo si segue, lo si ritrova gia' arrivato. La curva decelera fino
+ * quasi a fermarsi, cosi' l'ultimo terzo del tragitto e' la parte che si vede
+ * meglio: e' dove si sta guardando quando finisce.
+ *
+ * Chi ha chiesto meno movimento lo ottiene comunque dalla regola globale
+ * `prefers-reduced-motion` in `index.css`, che azzera ogni durata.
+ */
+const MOVIMENTO = "360ms cubic-bezier(0.32, 0.72, 0, 1)";
+
+/** La comparsa e la sparizione della scheda: breve, perche' non c'e' niente da
+ *  seguire — una cosa che c'e' o non c'e'. */
+const COMPARSA = "160ms ease-out";
 
 /** Quello che serve per disegnare la guida, e per sapere che c'e'. */
 export interface Guida {
@@ -282,6 +320,7 @@ const Strato = memo(function Strato({
   const { passo, salta, prosegui } = guida;
   const scheda = useRef<HTMLDivElement>(null);
   const [posa, setPosa] = useState<PosaScheda | null>(null);
+  const [posata, setPosata] = useState(false);
 
   useLayoutEffect(() => {
     const c = scheda.current?.getBoundingClientRect();
@@ -299,6 +338,15 @@ const Strato = memo(function Strato({
     );
   }, [contorno, finestra, id]);
 
+  // Un fotogramma dopo la prima collocazione, e non insieme: se la transizione
+  // fosse gia' accesa quando la posizione passa da (0, 0) a quella vera, il
+  // primo disegno sarebbe un volo in diagonale dall'angolo dello schermo.
+  useEffect(() => {
+    if (posa === null || posata) return;
+    const f = requestAnimationFrame(() => setPosata(true));
+    return () => cancelAnimationFrame(f);
+  }, [posa, posata]);
+
   if (passo === null) return null;
   const { titolo, testo } = PASSI[passo];
   const Glifo = GLIFO[id];
@@ -309,25 +357,38 @@ const Strato = memo(function Strato({
     // rifinitura. Solo la scheda lo riprende, perche' ha due bottoni.
     <div className="pointer-events-none fixed inset-0 z-50">
       {conAlone && (
-        <div
-          aria-hidden="true"
-          // Il velo e' l'**ombra** dell'alone, non un pannello a parte: cosi' il
-          // buco e il contorno sono lo stesso rettangolo e non possono
-          // scollarsi di un pixel. 9999px basta a coprire qualunque schermo.
-          style={{
-            left: contorno.x,
-            top: contorno.y,
-            width: contorno.larghezza,
-            height: contorno.altezza,
-            boxShadow: "0 0 0 9999px var(--velo)",
-          }}
-          // L'alone **scivola** da una zona all'altra invece di saltarci:
-          // e' l'unico movimento della guida, ed e' quello che rende
-          // leggibile il legame fra il passo di prima e quello dopo. Le
-          // quattro proprieta' per nome e non `all`: qui dentro c'e' anche
-          // un'ombra da 9999 px, e interpolarla non serve a nessuno.
-          className="absolute rounded-[10px] border-2 border-accent transition-[left,top,width,height] duration-200 ease-out"
-        />
+        <>
+          {/* Il velo: **uno strato solo**, fermo, ritagliato. Era l'ombra da
+              9999 px dell'alone — piu' semplice, e incompatibile con la
+              sfocatura: un'ombra scurisce, non sfoca, e per sfocare serve un
+              elemento che **stia sopra** cio' che deve sfocare. Quattro
+              rettangoli attorno alla zona lo farebbero, al prezzo di quattro
+              sfocature rifatte a ogni fotogramma mentre si muovono; cosi'
+              invece la sfocatura si calcola su uno strato che non si sposta
+              mai, e a muoversi e' solo la forma che lo ritaglia. */}
+          <div
+            aria-hidden="true"
+            style={{ clipPath: buco(contorno, finestra), transition: `clip-path ${MOVIMENTO}` }}
+            className="absolute inset-0 bg-velo backdrop-blur-[3px]"
+          />
+          {/* L'alone **scivola** da una zona all'altra invece di saltarci: e' il
+              movimento che rende leggibile il legame fra il passo di prima e
+              quello dopo, ed e' il motivo per cui il ritaglio ha sempre lo
+              stesso numero di vertici (vedi `buco`). Le quattro proprieta' per
+              nome e non `all`: `all` interpolerebbe anche il colore del bordo,
+              che non cambia mai. */}
+          <div
+            aria-hidden="true"
+            style={{
+              left: contorno.x,
+              top: contorno.y,
+              width: contorno.larghezza,
+              height: contorno.altezza,
+              transition: `left ${MOVIMENTO}, top ${MOVIMENTO}, width ${MOVIMENTO}, height ${MOVIMENTO}`,
+            }}
+            className="absolute rounded-[10px] border-2 border-accent"
+          />
+        </>
       )}
 
       <div
@@ -340,8 +401,16 @@ const Strato = memo(function Strato({
           width: LARGHEZZA,
           maxWidth: finestra.larghezza - 16,
           opacity: posa === null ? 0 : 1,
+          // **Scivola solo dopo essere comparsa.** Alla prima collocazione la
+          // scheda sta ancora a (0, 0) invisibile: con la transizione gia'
+          // accesa la si vedrebbe attraversare lo schermo in diagonale
+          // dall'angolo in alto a sinistra, che e' il difetto classico di
+          // qualunque cosa che si posiziona dopo essersi misurata.
+          transition: posata
+            ? `left ${MOVIMENTO}, top ${MOVIMENTO}, opacity ${COMPARSA}`
+            : `opacity ${COMPARSA}`,
         }}
-        className="pointer-events-auto absolute rounded-lg border border-line-2 bg-surface px-3.5 py-3 shadow-carta transition-opacity duration-150"
+        className="pointer-events-auto absolute rounded-lg border border-line-2 bg-surface px-3.5 py-3 shadow-carta"
       >
         {/* `aria-live`: cambiando passo cambia il testo di una regione gia'
             sullo schermo, e senza questo chi ascolta sentirebbe solo il proprio
@@ -356,10 +425,12 @@ const Strato = memo(function Strato({
               {t("start.step", { n: passo + 1, tot: PASSI.length })}
             </span>
           </div>
-          {/* Un'altezza minima di tre righe, che e' quanto occupa il passo piu'
-              lungo a questa larghezza: senza, la scheda si alza e si abbassa a
-              ogni «Avanti» e l'alone le balla accanto. */}
-          <p className="mt-1.5 min-h-[4.8em] text-[12px] leading-[1.6] text-ink-2">{t(testo)}</p>
+          {/* Un'altezza minima di **quattro righe**, che e' quanto occupa il
+              passo piu' lungo a questa larghezza. Senza, la scheda cambia
+              altezza a ogni «Avanti» — e cambiando altezza si ricolloca, quindi
+              scivolerebbe anche in verticale per una ragione che non ha niente
+              a che vedere con la zona che sta indicando. */}
+          <p className="mt-1.5 min-h-[6.4em] text-[12px] leading-[1.6] text-ink-2">{t(testo)}</p>
         </div>
 
         <div className="mt-2 flex items-end justify-between gap-3">

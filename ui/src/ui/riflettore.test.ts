@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import { DISTANZA, MARGINE } from "./collocazione";
 import type { Misura, Rettangolo } from "./collocazione";
-import { RESPIRO, alone, collocaScheda } from "./riflettore";
+import { RESPIRO, VERTICI, alone, buco, collocaScheda } from "./riflettore";
 
 /** Una finestra da portatile, quella su cui la demo si guarda. */
 const FINESTRA: Misura = { larghezza: 1440, altezza: 900 };
@@ -46,6 +46,68 @@ describe("l'alone", () => {
     const a = alone({ x: -400, y: -400, larghezza: 100, altezza: 100 }, FINESTRA);
     expect(a.larghezza).toBeGreaterThanOrEqual(0);
     expect(a.altezza).toBeGreaterThanOrEqual(0);
+  });
+});
+
+describe("il ritaglio del velo", () => {
+  /** I vertici del poligono, come coppie di numeri. */
+  function vertici(clip: string): [number, number][] {
+    const dentro = clip.slice(clip.indexOf("(") + 1, clip.lastIndexOf(")"));
+    return dentro
+      .split(",")
+      .slice(1) // la regola di riempimento, non un punto
+      .map((p) => {
+        const [x, y] = p.trim().split(/\s+/);
+        return [Number.parseFloat(x), Number.parseFloat(y)] as [number, number];
+      });
+  }
+
+  const CONTORNO: Rettangolo = { x: 200, y: 300, larghezza: 400, altezza: 120 };
+
+  it("e' la finestra intera meno la zona, con la regola che fa il buco", () => {
+    const clip = buco(CONTORNO, FINESTRA);
+    expect(clip.startsWith("polygon(evenodd,")).toBe(true);
+
+    const p = vertici(clip);
+    // Il perimetro esterno: i quattro angoli della finestra.
+    expect(p.slice(0, 4)).toEqual([
+      [0, 0],
+      [FINESTRA.larghezza, 0],
+      [FINESTRA.larghezza, FINESTRA.altezza],
+      [0, FINESTRA.altezza],
+    ]);
+    // Il buco: i quattro angoli della zona.
+    expect(p.slice(5, 9)).toEqual([
+      [200, 300],
+      [200, 420],
+      [600, 420],
+      [600, 300],
+    ]);
+  });
+
+  it("ha sempre lo stesso numero di vertici, ed e' cio' che rende il movimento continuo", () => {
+    // Una transizione su `clip-path` interpola solo fra poligoni con lo stesso
+    // numero di punti: se il ritaglio ne cambiasse toccando un bordo, il velo
+    // salterebbe proprio quando la zona attraversa lo schermo.
+    for (const zona of [
+      CONTORNO,
+      { x: 0, y: 0, larghezza: 200, altezza: 900 },
+      { x: 1168, y: 0, larghezza: 272, altezza: 900 },
+      { x: 0, y: 0, larghezza: FINESTRA.larghezza, altezza: FINESTRA.altezza },
+      { x: 700, y: 400, larghezza: 0, altezza: 0 },
+    ]) {
+      expect(vertici(buco(zona, FINESTRA)).length).toBe(VERTICI);
+    }
+  });
+
+  it("una zona che sporge viene ritagliata invece di portare i vertici fuori", () => {
+    const p = vertici(buco({ x: -100, y: -50, larghezza: 4000, altezza: 4000 }, FINESTRA));
+    for (const [x, y] of p) {
+      expect(x).toBeGreaterThanOrEqual(0);
+      expect(y).toBeGreaterThanOrEqual(0);
+      expect(x).toBeLessThanOrEqual(FINESTRA.larghezza);
+      expect(y).toBeLessThanOrEqual(FINESTRA.altezza);
+    }
   });
 });
 

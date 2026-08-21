@@ -72,6 +72,59 @@ export function alone(bersaglio: Rettangolo, finestra: Misura): Rettangolo {
   };
 }
 
+/** Quanti vertici ha il ritaglio del velo. Fisso, e la fissita' e' il punto:
+ *  vedi `buco`. */
+export const VERTICI = 10;
+
+/**
+ * Il `clip-path` del velo: la finestra intera **meno** la zona illuminata.
+ *
+ * Un velo solo, ritagliato, invece di quattro rettangoli attorno alla zona. La
+ * differenza si vede quando il velo sfoca: quattro rettangoli che cambiano
+ * misura obbligano il browser a rifare quattro sfocature a ogni fotogramma,
+ * mentre qui lo strato sfocato non si muove mai — cambia solo la forma con cui
+ * lo si ritaglia.
+ *
+ * **Dieci vertici, sempre.** Una transizione su `clip-path` interpola solo fra
+ * poligoni con lo stesso numero di punti: se il ritaglio ne avesse quattro
+ * quando la zona tocca un bordo e dieci quando non lo tocca, il velo
+ * **salterebbe** proprio nei passaggi in cui la zona attraversa lo schermo. Il
+ * perimetro esterno e il buco sono percio' sempre entrambi presenti, anche
+ * degeneri, ed e' cio' che rende il movimento continuo.
+ *
+ * `evenodd` e' la regola che rende il secondo anello un buco invece di una
+ * seconda macchia: senza, i due percorsi si sommerebbero e il velo coprirebbe
+ * tutto.
+ */
+export function buco(contorno: Rettangolo, finestra: Misura): string {
+  // Prende l'alone gia' calcolato — non il bersaglio — e lo ritaglia ancora, per
+  // difesa: un ritaglio che esce dalla finestra non sbaglia il disegno, ma
+  // sposta i vertici dove nessuno li vede e rende illeggibile il movimento.
+  const c = {
+    x: stringi(contorno.x, 0, finestra.larghezza),
+    y: stringi(contorno.y, 0, finestra.altezza),
+  };
+  const x2 = stringi(contorno.x + contorno.larghezza, c.x, finestra.larghezza);
+  const y2 = stringi(contorno.y + contorno.altezza, c.y, finestra.altezza);
+
+  const punti = [
+    // Il perimetro della finestra, chiuso tornando all'origine.
+    [0, 0],
+    [finestra.larghezza, 0],
+    [finestra.larghezza, finestra.altezza],
+    [0, finestra.altezza],
+    [0, 0],
+    // Il buco, chiuso allo stesso modo.
+    [c.x, c.y],
+    [c.x, y2],
+    [x2, y2],
+    [x2, c.y],
+    [c.x, c.y],
+  ];
+
+  return `polygon(evenodd, ${punti.map(([x, y]) => `${x}px ${y}px`).join(", ")})`;
+}
+
 /**
  * Dove va la scheda, dato l'alone che deve spiegare.
  *
