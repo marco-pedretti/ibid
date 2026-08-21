@@ -49,6 +49,7 @@ import { usaChat } from "../app/chat";
 import { titoloDi, vuota } from "../app/cronologia";
 import type { Conversazione } from "../app/cronologia";
 import { usaLingua } from "../app/i18n";
+import { usaChiudiCassetto } from "./cassetto";
 import { Etichetta } from "./Etichetta";
 import { Cestino, Orologio, Piu } from "./Icona";
 import { Suggerimento } from "./Suggerimento";
@@ -169,12 +170,18 @@ export function CronologiaCompatta({ apri }: { apri: () => void }) {
 function BottoneNuova() {
   const { t } = usaLingua();
   const { occupato, nuova } = usaChat();
+  // Porta in una conversazione vuota, quindi si porta via il cassetto della
+  // corsia dove ce n'e' uno: vedi `cassetto.ts`.
+  const chiudiCassetto = usaChiudiCassetto();
 
   return (
     <Attivabile
       bloccato={occupato}
       suggerimento={occupato ? t("history.busy") : null}
-      onClick={nuova}
+      onClick={() => {
+        nuova();
+        chiudiCassetto();
+      }}
       className={`flex h-[34px] w-full items-center gap-[7px] rounded-[7px] border border-accent bg-accent px-2.5 text-left text-[12px] font-medium text-accent-ink transition-colors ${
         occupato ? "" : "hover:border-accent-2 hover:bg-accent-2"
       }`}
@@ -263,13 +270,17 @@ function Testata() {
 function Voce({ conversazione, attiva }: { conversazione: Conversazione; attiva: boolean }) {
   const { t } = usaLingua();
   const { occupato, apri } = usaChat();
+  const chiudiCassetto = usaChiudiCassetto();
   const titolo = titoloDi(conversazione) ?? t("history.new");
 
   return (
     <Attivabile
       bloccato={occupato}
       suggerimento={occupato ? t("history.busy") : titolo}
-      onClick={() => apri(conversazione.id)}
+      onClick={() => {
+        apri(conversazione.id);
+        chiudiCassetto();
+      }}
       attiva={attiva}
       className={`w-full truncate rounded-md px-2 py-1.5 text-left text-[11.5px] transition-colors ${
         attiva

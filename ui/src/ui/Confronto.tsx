@@ -21,6 +21,14 @@
  * risposta: senza fonti non si puo' sapere se e' giusta — e' proprio quello il
  * punto. L'avviso dice cio' che si sa, cioe' che non c'e' niente da aprire.
  *
+ * **A colonna sola le due si impilano** (U-21), e non diventano due schede fra
+ * cui scegliere. Affiancate si leggono con un colpo d'occhio; impilate si
+ * leggono una dopo l'altra, che è meno — ma restano **la stessa pagina**, sotto
+ * la stessa domanda, e scorrere da una all'altra è un gesto che non chiede di
+ * decidere niente. Due linguette invece nascondono una delle due dietro un clic
+ * e la fanno tornare a essere una seconda risposta, cioè esattamente i «due
+ * messaggi consecutivi» che questa schermata esiste per non essere.
+ *
  * **Il prompt si sceglie qui dentro, e solo qui** (U-04). Col recupero acceso
  * non e' una scelta di nessuno — il prompt e' quello che impone il formato delle
  * citazioni, ed e' cio' che C-01 misura. Spento, i due prompt sono i bracci di
@@ -40,11 +48,13 @@ import { Avvertimento, Indietro } from "./Icona";
 import { FORMA, MOSSA, RIPOSO } from "./pastiglia";
 import { Schede } from "./PannelloFonti";
 import { Suggerimento } from "./Suggerimento";
+import { usaForma } from "./Telaio";
 import { Testo } from "./Testo";
 
 export function Confronto({ confronto }: { confronto: DueColonne }) {
   const { t } = usaLingua();
   const { chiudiConfronto, occupato } = usaChat();
+  const impilate = usaForma() === "stretta";
 
   // Da che parte va ciascuna e' deciso all'apertura e non si ricalcola: mentre
   // la colonna nuda si rifa' con l'altro prompt il suo `config` torna `null`, e
@@ -80,9 +90,24 @@ export function Confronto({ confronto }: { confronto: DueColonne }) {
           scorrimento del documento che portava via anche la corsia. Con la riga
           fissata all'altezza disponibile, ogni colonna scorre per conto suo e
           il telaio resta fermo. */}
-      <div className="grid min-h-0 flex-1 grid-cols-2 grid-rows-[minmax(0,1fr)] divide-x divide-line overflow-hidden">
-        <Colonna titolo={t("compare.withSources")} risposta={conFonti} fonti />
-        <Colonna titolo={t("compare.withoutSources")} risposta={senzaFonti} fonti={false} />
+      <div
+        className={
+          impilate
+            ? // Impilate, a scorrere e' **il contenitore** e non le due sezioni:
+              // due riquadri di scorrimento uno sopra l'altro dentro uno schermo
+              // alto quanto uno solo darebbero mezzo schermo a testa, ed e' la
+              // forma in cui nessuna delle due si legge.
+              "flex min-h-0 flex-1 flex-col divide-y divide-line overflow-y-auto"
+            : "grid min-h-0 flex-1 grid-cols-2 grid-rows-[minmax(0,1fr)] divide-x divide-line overflow-hidden"
+        }
+      >
+        <Colonna titolo={t("compare.withSources")} risposta={conFonti} fonti impilata={impilate} />
+        <Colonna
+          titolo={t("compare.withoutSources")}
+          risposta={senzaFonti}
+          fonti={false}
+          impilata={impilate}
+        />
       </div>
     </div>
   );
@@ -152,10 +177,12 @@ function Colonna({
   titolo,
   risposta,
   fonti,
+  impilata,
 }: {
   titolo: string;
   risposta: Risposta;
   fonti: boolean;
+  impilata: boolean;
 }) {
   const { t, lingua } = usaLingua();
 
@@ -166,7 +193,11 @@ function Colonna({
   const sostenute = risposta.citazioni.filter((c) => c.supported).length;
 
   return (
-    <section className="flex min-h-0 flex-col gap-[11px] overflow-y-auto px-[18px] py-4">
+    <section
+      className={`flex flex-col gap-[11px] px-[18px] py-4 ${
+        impilata ? "" : "min-h-0 overflow-y-auto"
+      }`}
+    >
       {/* A destra del titolo: di qua quanti verdetti reggono, di la' con quale
           prompt e' stata posta la domanda. Non e' una simmetria cercata — sono
           le due cose che si guardano per prime nelle rispettive colonne, e

@@ -139,6 +139,20 @@ export const FUORI = 0.5;
 const ORDINE: Lato[] = ["destra", "sinistra", "sotto", "sopra"];
 
 /**
+ * I lati su cui la scheda si puo' **accostare** quando non ci sta per intero:
+ * solo i due orizzontali.
+ *
+ * Sporgere di fianco vuol dire coprire un bordo della zona e, per il resto,
+ * stare sul margine dello schermo. Sporgere in verticale no: sopra e sotto la
+ * colonna di lavoro non c'e' margine, ci sono **la testata e il campo in cui si
+ * scrive**. Misurato su un telefono da 390 x 844, con la conversazione che
+ * finisce cento pixel sopra il fondo: accostarsi «sotto» dava alla scheda i
+ * settantotto pixel liberi piu' settantadue presi dal campo, cioe' la scheda
+ * finiva esattamente sul bordo che il criterio di U-20 protegge.
+ */
+const ACCOSTABILI: Lato[] = ["destra", "sinistra"];
+
+/**
  * Dove va la scheda, dato l'alone che deve spiegare.
  *
  * **La regola vera e' una sola: non coprire cio' che si sta indicando.** Da li'
@@ -147,10 +161,26 @@ const ORDINE: Lato[] = ["destra", "sinistra", "sotto", "sopra"];
  * 1. Il primo lato dell'ordine in cui la scheda **ci sta per intero**. Non «il
  *    lato con piu' spazio» come fa `colloca` per le bolle: una bolla di tre
  *    parole sta quasi ovunque, una scheda con un titolo e due frasi no.
- * 2. Se non ci sta da nessuna parte, **il lato piu' capiente, accostata al
+ * 2. Se non ci sta da nessuna parte, **il fianco piu' capiente, accostata al
  *    bordo**, purche' ne resti fuori almeno la meta'. Sporge sulla zona di
- *    quello che manca, e copre un bordo invece che il mezzo.
- * 3. Solo se nemmeno quello, `dentro`, in basso.
+ *    quello che manca, e copre un bordo invece che il mezzo. Solo un fianco:
+ *    vedi `ACCOSTABILI`.
+ * 3. Solo se nemmeno quello, `dentro`, **in alto**.
+ *
+ * Il terzo gradino diceva «in basso», e la ragione era che sopra c'e' cio' che
+ * l'alone sta indicando. Vale finche' la zona e' una colonna in mezzo a uno
+ * schermo largo; su un telefono no, perche' li' la zona che finisce `dentro` e'
+ * **la colonna di lavoro intera**, e in fondo alla colonna di lavoro c'e'
+ * sempre il campo in cui si scrive. Il criterio di U-20 dice che la prima
+ * domanda si deve poter fare con la guida aperta, e una scheda appoggiata sul
+ * campo lo impedisce tanto quanto un velo che intercetta il puntatore. Fra il
+ * coprire l'inizio di cio' che si indica e il coprire il campo, si copre
+ * l'inizio.
+ *
+ * **Senza bersaglio (`zona` a `null`) vale la stessa cosa**, e non e' un caso a
+ * parte: e' quando quel passo indica qualcosa che su questo schermo non c'e' —
+ * a colonna sola la corsia e' un cassetto, e due dei cinque passi parlano di
+ * roba che ci sta dentro.
  *
  * Il gradino 2 e' arrivato dopo, guardando il passo sulla colonna delle
  * risposte: quella zona e' alta quanto la finestra e larga quanto la misura di
@@ -159,7 +189,23 @@ const ORDINE: Lato[] = ["destra", "sinistra", "sotto", "sopra"];
  * `dentro`, cioe' con la spiegazione appoggiata sopra la cosa spiegata — che e'
  * il difetto che questo modulo esiste per non avere.
  */
-export function collocaScheda(zona: Rettangolo, scheda: Misura, finestra: Misura): PosaScheda {
+export function collocaScheda(
+  zona: Rettangolo | null,
+  scheda: Misura,
+  finestra: Misura,
+): PosaScheda {
+  if (zona === null) {
+    return {
+      x: stringi(
+        finestra.larghezza / 2 - scheda.larghezza / 2,
+        MARGINE,
+        finestra.larghezza - scheda.larghezza - MARGINE,
+      ),
+      y: MARGINE,
+      lato: "dentro",
+    };
+  }
+
   const centroX = stringi(
     zona.x + zona.larghezza / 2 - scheda.larghezza / 2,
     MARGINE,
@@ -190,7 +236,7 @@ export function collocaScheda(zona: Rettangolo, scheda: Misura, finestra: Misura
   };
 
   const intero = ORDINE.find((l) => spazio[l] >= chiesto[l]);
-  const capiente = ORDINE.reduce((a, b) =>
+  const capiente = ACCOSTABILI.reduce((a, b) =>
     spazio[b] / chiesto[b] > spazio[a] / chiesto[a] ? b : a,
   );
   const lato =
@@ -228,15 +274,11 @@ export function collocaScheda(zona: Rettangolo, scheda: Misura, finestra: Misura
         lato,
       };
     default:
-      // Dentro, in basso: sopra ci sta cio' che l'alone indica, e coprirlo con
-      // la spiegazione sarebbe indicare e nascondere nello stesso gesto.
+      // Dentro, in alto: vedi la nota qui sopra — in fondo alla colonna di
+      // lavoro c'e' il campo, e quello non si copre.
       return {
         x: centroX,
-        y: aBordo(
-          zona.y + zona.altezza - scheda.altezza - MARGINE,
-          scheda.altezza,
-          finestra.altezza,
-        ),
+        y: aBordo(zona.y + MARGINE, scheda.altezza, finestra.altezza),
         lato: "dentro",
       };
   }

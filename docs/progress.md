@@ -1671,6 +1671,7 @@ typecheck verde, tipi TypeScript rigenerati.
 | U-18 | ✅ fatto (2026-08-20) | **La corsia si comprime**: un comando accanto al marchio la riduce a una striscia di 48 px e la riporta larga, e la scelta vale al prossimo avvio. Nella striscia restano i due comandi e le tre tendine; la cronologia no, e il suo bottone riapre la corsia dicendo perché. **8 test Vitest** in più (295). Dettaglio sotto. |
 | U-19 | ✅ fatto (2026-08-21) | **La pagina «Che cos'è»**: cosa fa il progetto, le tre affermazioni del §0 col verdetto che hanno oggi, cosa la demo non è, e chi l'ha fatta. Raggiungibile dalla corsia in tutti e due gli stati, in IT/EN. **Nessuna metrica scritta a mano**: i numeri non ci sono, e la pagina dice dove sono. **2 test Vitest** in più (300). Dettaglio sotto. |
 | U-20 | ✅ fatto (2026-08-21) | **L'avvio guidato**: cinque passi, e ognuno **circonda con un alone la zona di cui parla** — le fonti, la colonna delle risposte, la barra sotto il campo, il dataset nella corsia, «Che cos'è». Il velo scurisce e sfoca il resto ma **non intercetta il puntatore**: si scrive e si manda con la guida aperta, e la lingua si cambia dalla scheda. Si salta con un comando, non torna, e il deposito ricorda il passo. **25 test Vitest** in più (325). Dettaglio sotto. |
+| U-21 | ✅ fatto (2026-08-21) | **Il telefono**: sotto una soglia **derivata dalle colonne** (200 di corsia + 390 di lavoro + 272 di fonti = 862 px) il telaio ha una colonna sola, e le due laterali diventano due strati che si aprono sopra il lavoro — la corsia da sinistra, le fonti da destra, con quante ne sono arrivate scritte sul comando. Il confronto si impila, l'esploratore diventa un affondo in due schermate, e la scheda della guida smette di finire sul campo in cui si scrive. **10 test Vitest** in più (335). Dettaglio sotto. |
 
 ### U-00 — il contratto esiste in due linguaggi, e uno dei due si genera
 
@@ -3180,3 +3181,160 @@ della cronologia di U-13: è una promessa sul dato, non una nota d'aiuto. Dice
 tutte e due le cose in una riga, perché sono la stessa promessa vista da due lati:
 *«Puoi chiedere mentre è aperta. Saltata una volta non torna, e la scelta resta in
 questo browser come la cronologia.»*
+
+### U-21 — una colonna sola, e le altre due a un gesto
+
+Il criterio: a **390 px** si fa una domanda, si legge la risposta coi verdetti e si
+apre una fonte, **senza scorrimento orizzontale**; e vale ancora quello di U-02 —
+la lista documenti resta **raggiungibile in ogni stato**, non necessariamente
+affiancata. Sono due parole diverse, ed è tutta lì la forma di questa tappa.
+
+**Il problema era una somma, non un'impressione.** Le due colonne laterali hanno
+una misura fissa — 200 px la corsia, 272 il pannello fonti — e la colonna di lavoro
+prende il resto. Dentro 390 px quelle due chiedono già 472, cioè più dello schermo:
+non è un'impaginazione stretta, è un'impaginazione impossibile.
+
+**La soglia si deriva, non si sceglie.** È la larghezza sotto la quale la colonna
+di lavoro riceverebbe meno di 390 px, cioè meno di quanto ne riceve sul telefono su
+cui il criterio si misura: `200 + 390 + 272 = 862`. Un numero tondo preso a occhio —
+768, 1024 — sarebbe la misura del dispositivo di qualcun altro; questa è la misura
+delle colonne che il progetto ha, e cambiandone una il numero si sposta da solo. Un
+test lo dice come invariante e non come cifra: *finché è larga, la colonna di lavoro
+non riceve meno di un telefono*.
+
+**Due forme e non tre.** Un gradino in mezzo — corsia affiancata, fonti no — si
+immagina facilmente, e costa un terzo posto in cui mettere il comando che apre le
+fonti e un terzo insieme di stati da tenere giusti. Le larghezze che riceverebbe
+sono proprio quelle in cui la colonna di lavoro è già stretta, ed è lì che darle
+tutto lo schermo conviene di più. Chi da `larga` in giù vuole più spazio ha già la
+corsia che si comprime (U-18).
+
+**La forma non dipende né dalla corsia chiusa né dalla schermata aperta**, e sono
+due deroghe rifiutate apposta. La corsia chiusa vale 152 px, abbastanza da far
+rientrare le fonti: legarci la soglia vorrebbe dire che comprimendo la corsia
+compare una colonna di fonti, cioè che un comando fa due cose diverse a seconda
+della finestra. E la soglia conta il pannello fonti anche dove non c'è —
+l'esploratore, «Che cos'è» — perché altrimenti la corsia si ritirerebbe in un
+cassetto aprendo una schermata e tornerebbe chiudendola. Il telaio è l'unica cosa
+di questa interfaccia che non deve muoversi.
+
+#### Raggiungibile, non affiancata
+
+A colonna sola le due laterali **non spariscono e non si nascondono**: escono dalla
+griglia e diventano due strati sopra il lavoro. La traccia non resta lì a larghezza
+zero — è lo stesso difetto che `corsia.ts` evitava chiudendo la corsia a 48 px
+invece che a 0 — e infatti `colonne()` a `stretta` restituisce una traccia sola.
+
+**La larghezza di uno strato è quella della colonna che sostituisce**, 200 e 272, e
+non una frazione dello schermo. Tutte le misure di quelle due colonne sono state
+accordate su quei numeri — i titoli di conversazione troncati a ~28 caratteri, il
+nome del documento in 272 px — e dargliene di diverse qui vorrebbe dire tenere due
+impaginazioni per lo stesso componente, di cui una non si guarda mai.
+
+**Il velo è un bottone.** Chiudere toccando fuori è un comando, e un comando ha un
+nome che si può leggere e un fuoco su cui si arriva col tasto di tabulazione. È lo
+stesso token dell'avvio guidato — e lì non intercettava il puntatore perché la guida
+non doveva impedire niente, mentre qui **deve**: sotto c'è roba coperta, e cliccare
+alla cieca aprirebbe cose che non si vedono.
+
+**Gli strati si animano, e U-18 aveva deciso il contrario.** Non è un
+ripensamento: là il costo era rifare l'impaginazione della conversazione a ogni
+fotogramma, perché a interpolare era una traccia della griglia. Qui uno strato sta
+*sopra* il lavoro, si sposta con una `transform`, e sotto non si rimpagina niente.
+Il movimento in più serve: da quale bordo arriva è l'unica cosa che dice dove torna
+quando si chiude. 220 ms, non i 360 della guida — quello è un indicatore da
+seguire, questo è un pannello che risponde a un dito e deve essere già arrivato.
+
+**Una testata compare solo qui**, e in tutta la Fase 8 non ce n'era mai stata una:
+nelle colonne non serve, perché il marchio sta in cima alla corsia e le fonti sono
+già sullo schermo. Porta tre cose e nient'altro — il comando che riapre la corsia,
+il marchio, e dove c'è una risposta di cui parlano le fonti. Non è il posto in cui
+accumulare i comandi della schermata sotto: una testata che cambia contenuto
+passando da una schermata all'altra sarebbe il difetto della corsia che cambia
+larghezza, un piano più su.
+
+**Sul comando delle fonti c'è il conteggio**, e non è un ornamento. Il pannello
+affiancato si riempie *mentre la risposta nasce* — misurato in U-02: 0,27 s contro
+3,01 s — ed è metà della ragione per cui U-02 lo voleva sempre visibile. Chiuso
+dentro un foglio quel riempirsi non si vede più, e le fonti tornerebbero a essere
+una funzione da andare a cercare. Il numero è la parte di quel segnale che sta in
+una testata.
+
+**Il cassetto si chiude su ciò che cambia schermata, e non su ciò che cambia
+un'impostazione.** Nuova conversazione, una voce di cronologia, l'esploratore, «Che
+cos'è»: quei quattro portano da un'altra parte, e lasciare il cassetto aperto sopra
+la cosa appena aperta è fare il gesto a metà. Dataset, lingua e tema no: si cambiano
+*per* guardare quello che c'è sotto, e chiudersi addosso costringerebbe a riaprire
+per cambiare la seconda cosa. A dichiararlo è chi naviga — `usaChiudiCassetto()` —
+che è la stessa forma di `zona()` in U-20. Il contesto sta in un file suo per non
+fare un anello: lo provvede il telaio, ma a leggerlo sono i comandi della corsia,
+che il telaio importa.
+
+E nel cassetto lo stesso bottone **non «comprime» la corsia: la chiude**. Dire
+altro sarebbe promettere una striscia di comandi che a colonna sola non esiste.
+
+#### Le altre due schermate
+
+**Il confronto si impila.** Affiancate le due risposte si leggono con un colpo
+d'occhio; impilate si leggono una dopo l'altra, che è meno — ma restano **la stessa
+pagina**, sotto la stessa domanda, e scorrere da una all'altra non chiede di
+decidere niente. Due linguette invece ne nascondono una dietro un clic e la fanno
+tornare a essere una seconda risposta in un filo: cioè esattamente i «due messaggi
+consecutivi» che quella schermata esiste per non essere. A scorrere è il
+contenitore e non le due sezioni, perché due riquadri di scorrimento dentro uno
+schermo alto quanto uno solo danno mezzo schermo a testa.
+
+**L'esploratore diventa un affondo di due schermate**, e non tre riquadri impilati.
+L'elenco dei documenti è una cosa che si interroga — 494 voci su `ledger` — e messo
+sopra la mappa costringerebbe a scorrerlo tutto ogni volta per tornare al documento
+che si sta già leggendo. Le altre due invece si impilano davvero, perché sono la
+stessa cosa vista da due distanze: la mappa dice dove sono caduti i tagli, il
+dettaglio dice cosa c'è dentro quello scelto, e sceglierne uno sulla mappa riempie
+il riquadro che gli sta appena sotto. I manici non ci sono, e non è una perdita:
+servivano a spartire una larghezza fra tre colonne. Il contesto guadagna
+`lascia()` — per risalire da un documento non basta sceglierne un altro — e accanto
+al comando che risale c'è il nome del documento, che è l'unica cosa che dice **da
+dove** si sta risalendo ora che l'elenco non è sullo schermo.
+
+#### Quello che U-20 non poteva sapere
+
+Due regole della guida portavano la scheda **esattamente sul campo in cui si
+scrive**, cioè rompevano il criterio di U-20 («non impedisce di fare la prima
+domanda») proprio sullo schermo su cui U-21 si misura.
+
+La prima: `dentro` significava «in basso», per non coprire ciò che l'alone sta
+indicando. Ragionamento giusto finché la zona è una colonna in mezzo a uno schermo
+largo; su un telefono la zona che finisce `dentro` è **la colonna di lavoro
+intera**, e in fondo a quella c'è sempre il campo. Fra il coprire l'inizio di ciò
+che si indica e il coprire il campo, si copre l'inizio.
+
+La seconda: il gradino «accostata al bordo» valeva su tutti e quattro i lati.
+Misurato su 390 × 844, con la conversazione che finisce cento pixel sopra il fondo,
+accostarsi «sotto» dava alla scheda i 78 px liberi più 72 presi dal campo. Ci si
+accosta **solo di fianco**, dove quel che sporge finisce sul margine dello schermo;
+sopra e sotto la colonna di lavoro non c'è margine, ci sono la testata e il campo.
+
+E `collocaScheda` riceve `null` quando quel passo non ha un bersaglio su questo
+schermo, invece di una finta zona grande quanto la finestra: a colonna sola due dei
+cinque passi parlano di cose che stanno nel cassetto, quindi il caso è diventato
+normale invece che raro — e passarlo com'è è ciò che permette alla funzione di
+distinguerlo.
+
+**Nessun passo nomina più una posizione.** «Il pannello a destra», «da qui si cambia
+corpus»: a dire dov'è la cosa c'è l'alone, che la circonda; il testo dice che cos'è.
+Una guida che indica il posto sbagliato è peggio di una che non indica.
+
+#### Cosa non è cambiato
+
+Il `zoom` a scalini di `index.css` non entra in questa storia, e si può provarlo:
+la soglia più alta è 862 px e il primo scalino sta a 1.400, quindi in tutta la
+banda in cui questa decisione si prende px di finestra e px di disegno sono la
+stessa cosa. La conversione si fa lo stesso — «si converte al confine» resta la
+regola — ma dimenticarla non potrebbe cambiare la forma del telaio.
+
+Restano scoperti i **suggerimenti**, che si aprono al passaggio del puntatore e su
+un dito non si aprono affatto: tutto ciò che spiegano sta anche altrove o è un
+dato che si legge, ma su un telefono qualche spiegazione in meno c'è. Non è un
+debito di U-21 — è la stessa cosa su ogni schermo senza mouse — e vale la pena
+scriverlo qui perché è l'unica parte dell'interfaccia che a 390 px *dice meno*
+invece di dire lo stesso in un'altra forma.
