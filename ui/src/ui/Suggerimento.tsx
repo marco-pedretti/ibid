@@ -48,6 +48,7 @@ import { createPortal } from "react-dom";
 import type { CSSProperties, ReactNode } from "react";
 
 import { colloca } from "./collocazione";
+import { scala } from "./scala";
 import type { Posa } from "./collocazione";
 
 /**
@@ -170,11 +171,17 @@ export function Suggerimento({
     const b = bersaglio.current?.getBoundingClientRect();
     const c = bolla.current?.getBoundingClientRect();
     if (!b || !c) return;
+    // **Si converte al confine**, e il confine e' qui: i rettangoli e la finestra
+    // arrivano in px di **finestra**, mentre `left` e `top` qui sotto si scrivono
+    // in px di **disegno**. Senza la divisione la bolla si allontanerebbe
+    // dall'origine esattamente del fattore di scala — a 1,45, una calcolata a
+    // 600 px finirebbe a 870. Vedi `scala.ts`, dove i due spazi sono in tabella.
+    const z = scala();
     setPosa(
       colloca(
-        { x: b.left, y: b.top, larghezza: b.width, altezza: b.height },
-        { larghezza: c.width, altezza: c.height },
-        { larghezza: window.innerWidth, altezza: window.innerHeight },
+        { x: b.left / z, y: b.top / z, larghezza: b.width / z, altezza: b.height / z },
+        { larghezza: c.width / z, altezza: c.height / z },
+        { larghezza: window.innerWidth / z, altezza: window.innerHeight / z },
       ),
     );
   }, [montato, posa]);
