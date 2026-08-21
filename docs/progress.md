@@ -1670,7 +1670,7 @@ typecheck verde, tipi TypeScript rigenerati.
 | U-17 | ✅ fatto (2026-08-20) | **Il testo indicizzato**: la colonna di mezzo dell'esploratore ha due viste dello stesso documento — la mappa dice quanto sono grandi i pezzi, il testo dice cosa c'era nel punto in cui uno è stato tagliato — con le cuciture visibili e la selezione condivisa. **51 test Vitest** in più (287). Dettaglio sotto. |
 | U-18 | ✅ fatto (2026-08-20) | **La corsia si comprime**: un comando accanto al marchio la riduce a una striscia di 48 px e la riporta larga, e la scelta vale al prossimo avvio. Nella striscia restano i due comandi e le tre tendine; la cronologia no, e il suo bottone riapre la corsia dicendo perché. **8 test Vitest** in più (295). Dettaglio sotto. |
 | U-19 | ✅ fatto (2026-08-21) | **La pagina «Che cos'è»**: cosa fa il progetto, le tre affermazioni del §0 col verdetto che hanno oggi, cosa la demo non è, e chi l'ha fatta. Raggiungibile dalla corsia in tutti e due gli stati, in IT/EN. **Nessuna metrica scritta a mano**: i numeri non ci sono, e la pagina dice dove sono. **2 test Vitest** in più (300). Dettaglio sotto. |
-| U-20 | ✅ fatto (2026-08-21) | **L'avvio guidato**: quattro passi, e ognuno **circonda con un alone la zona di cui parla** — le fonti, la colonna delle risposte, il dataset nella corsia, «Che cos'è». Il velo smorza il resto ma **non intercetta il puntatore**: si scrive e si manda con la guida aperta. Si salta con un comando, non torna, e il deposito ricorda il passo. **21 test Vitest** in più (321). Dettaglio sotto. |
+| U-20 | ✅ fatto (2026-08-21) | **L'avvio guidato**: cinque passi, e ognuno **circonda con un alone la zona di cui parla** — le fonti, la colonna delle risposte, la barra sotto il campo, il dataset nella corsia, «Che cos'è». Il velo scurisce e sfoca il resto ma **non intercetta il puntatore**: si scrive e si manda con la guida aperta. Si salta con un comando, non torna, e il deposito ricorda il passo. **24 test Vitest** in più (324). Dettaglio sotto. |
 
 ### U-00 — il contratto esiste in due linguaggi, e uno dei due si genera
 
@@ -2958,17 +2958,38 @@ dell'interfaccia». È la forma che l'avvio guidato ha adesso, e la richiesta er
 giusta: una striscia di testo dice *che* le fonti compaiono a destra; un alone
 attorno alla colonna delle fonti lo **mostra**, e la differenza è tutta lì.
 
-#### Il velo c'è, e non chiude niente
+#### Il velo c'è, scurisce e sfoca, e non chiude niente
 
 L'obiezione che aveva fatto scartare l'overlay è che di solito un overlay *è* il
 modo in cui una guida dice «adesso non puoi fare altro» — cioè esattamente ciò
 che il criterio vieta. La risposta è che il velo sia un peso visivo e non una
 porta: tutto lo strato è `pointer-events: none` tranne la scheda, che ha due
 bottoni. Si scrive nel campo, si manda, si clicca un esempio, si cambia dataset,
-con la guida aperta e l'alone acceso. Il token `--velo` è basso apposta (0,16 sul
-chiaro, 0,34 sul buio): abbastanza da portare l'occhio dentro l'alone, non
-abbastanza da sembrare una porta chiusa. Un velo che dicesse il contrario di ciò
-che il programma fa sarebbe una bugia disegnata.
+con la guida aperta e l'alone acceso. Un velo che dicesse il contrario di ciò che
+il programma fa sarebbe una bugia disegnata.
+
+Il primo velo scuriva soltanto, e piano (0,16 sul chiaro). Marco l'ha voluto più
+deciso, ed è diventato **due cose insieme**: lo scuro sale a 0,34 e 0,58, e si
+aggiunge una sfocatura di 3 px. Non è ridondanza — lo scuro abbassa il contrasto
+di ciò che sta intorno, la sfocatura gli toglie la **forma**, ed è la forma che
+porta l'occhio a leggere una parola invece di guardare dove gli si sta indicando.
+Con lo scuro da solo la conversazione accanto resta perfettamente leggibile, solo
+più spenta.
+
+Quella richiesta ha però cambiato il meccanismo. Il velo era l'**ombra** da 9999
+px dell'alone: elegante, un elemento solo, buco e contorno impossibili da
+scollare. E incompatibile con la sfocatura, perché un'ombra scurisce ciò che le
+sta sotto ma non lo sfoca — per sfocare serve un elemento che *stia sopra*. Con
+quattro rettangoli attorno alla zona si otterrebbe, al prezzo di quattro
+sfocature rifatte a ogni fotogramma mentre si spostano. Adesso è **uno strato
+fermo, ritagliato**: la sfocatura si calcola su qualcosa che non si muove mai, e
+a muoversi è solo la forma che lo ritaglia.
+
+Da cui `buco()`, e la ragione per cui ha **sempre dieci vertici**: `clip-path`
+interpola solo fra poligoni con lo stesso numero di punti, e un ritaglio che ne
+avesse quattro quando la zona tocca un bordo farebbe saltare il velo proprio nei
+passaggi in cui la zona attraversa lo schermo. Il perimetro esterno e il buco
+sono quindi sempre entrambi presenti, anche degeneri — ed è un test.
 
 #### Le quattro zone si dichiarano da sé
 
@@ -2984,12 +3005,34 @@ E se il nodo non è sullo schermo — schermata diversa, pannello assente —
 **l'alone non si disegna affatto** e la scheda si mette in basso al centro. La
 guida dice una cosa in meno, non una cosa falsa.
 
-Le quattro zone: il pannello fonti; la colonna in cui le risposte compaiono (non
+Le cinque zone: il pannello fonti; la colonna in cui le risposte compaiono (non
 il verdetto di una frase, che sarebbe più preciso e **impossibile al primo
-avvio**, quando di frasi non ce n'è nessuna); il blocco del dataset nella corsia,
-che è una zona sola nei due stati della corsia; e il bottone «Che cos'è», che il
-quarto passo nomina. Ogni passo porta anche il glifo della sua zona — il quarto è
-lo stesso glifo di quel bottone.
+avvio**, quando di frasi non ce n'è nessuna); la fila di pastiglie sotto il campo;
+il blocco del dataset nella corsia, che è una zona sola nei due stati della
+corsia; e il bottone «Che cos'è», che l'ultimo passo nomina. Ogni passo porta
+anche il glifo della sua zona.
+
+**Il passo sulla barra è arrivato dopo**, chiesto da Marco. Ogni pastiglia ha già
+il suo suggerimento a passaggio del puntatore; quello che mancava era dire che
+quella fila esiste e cosa decide — e che la configurazione che ha girato **resta
+scritta sopra ogni risposta**, che è U-15 e non si scopre da soli. La zona è la
+fila, non il pannello «Avanzate» che si apre sopra: quello è un ripiano che
+compare quando lo si chiede, e un alone attorno a qualcosa che di solito non c'è
+spiegherebbe una cosa diversa a seconda del momento.
+
+Il suo glifo è la freccia dell'invio, cioè il bottone immediatamente sopra quella
+fila: quei controlli non decidono la risposta che si sta leggendo, decidono come
+partirà la prossima. Un glifo nuovo — tre manopole, la forma con cui si dice
+«impostazioni» dappertutto — sarebbe stato più preciso e più rischioso: a 13 px
+una manopola è un punto con un trattino, e le cinque regole in testa a `Icona.tsx`
+esistono perché un simbolo che non regge alla sua misura si vede solo dopo averlo
+messo.
+
+**Il confronto affiancato non prende un passo**, ed è la stessa regola vista
+dall'altro lato: quel comando compare *dentro* una risposta, e al primo avvio di
+risposte non ce n'è nessuna. Un alone attorno al vuoto, o attorno a una zona che
+comparirà dopo, sarebbe la guida che indica una cosa che non c'è. Stesso motivo
+per la cronologia, che al primo avvio è un elenco vuoto.
 
 #### L'aritmetica sta fuori da React, come per le bolle
 
@@ -3017,6 +3060,31 @@ dove non copre ciò che l'alone sta indicando.
 si scrivono in px di disegno, e senza dividere per `scala()` l'alone si
 allontanerebbe dal bersaglio esattamente del fattore di zoom — il difetto già
 pagato una volta dalla bolla del suggerimento.
+
+#### Il movimento è lungo apposta
+
+360 ms per l'alone, il velo e la scheda — **una durata sola per le tre cose**, e
+non tre valori accordati a occhio: si spostano insieme e sono una cosa sola, e se
+il bordo arrivasse prima del velo si vedrebbe l'alone acceso su un fondo ancora
+scuro, che è l'impressione esatta di un programma che fatica.
+
+Sono lunghi per questa interfaccia, dove una tendina ne prende 150, ed è voluto:
+questo movimento non è un controllo che risponde a un clic, è un indicatore che
+**porta l'occhio** da una parte all'altra dello schermo, e a 150 ms non lo si
+segue — lo si ritrova già arrivato, che è come non averlo mosso. La curva decelera
+fino quasi a fermarsi, così la parte che si vede meglio è l'ultimo terzo del
+tragitto: è dove si sta guardando quando finisce. Chi ha chiesto meno movimento lo
+ottiene comunque dalla regola globale `prefers-reduced-motion`, che azzera ogni
+durata.
+
+La scheda scivola **solo dopo essere comparsa**: alla prima collocazione sta
+ancora a (0, 0) invisibile, e con la transizione già accesa il primo disegno
+sarebbe un volo in diagonale dall'angolo in alto a sinistra — il difetto classico
+di qualunque cosa che si posiziona dopo essersi misurata. E il suo testo ha
+un'altezza minima di quattro righe, quanto il passo più lungo: senza, la scheda
+cambierebbe altezza a ogni «Avanti», e cambiando altezza si ricolloca — quindi
+scivolerebbe anche in verticale per una ragione che non ha niente a che vedere con
+la zona che sta indicando.
 
 #### Due decisioni che si vedono solo se si sbagliano
 
