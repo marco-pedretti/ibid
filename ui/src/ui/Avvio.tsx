@@ -140,10 +140,13 @@ export function Avvio({ guida }: { guida: Guida }) {
               {t("start.step", { n: passo + 1, tot: PASSI.length })}
             </span>
           </div>
-          {/* Un'altezza minima per due righe: i quattro testi non sono lunghi
-              uguali, e senza questa la conversazione qui sotto salterebbe su e
-              giu' a ogni «Avanti». */}
-          <p className="mt-1 min-h-[2.6em] text-[12px] leading-[1.6] text-ink-2">{t(testo)}</p>
+          {/* Un'altezza minima di **tre righe**, che e' quanto occupa il passo
+              piu' lungo alla misura di lettura. Senza, la striscia si alza e si
+              abbassa di una riga a ogni «Avanti» e la conversazione qui sotto
+              salta con lei: un oggetto che cambia di misura mentre lo si legge
+              e' lo stesso difetto che vieta le transizioni sulla griglia del
+              telaio, solo piu' piccolo. */}
+          <p className="mt-1 min-h-[4.8em] text-[12px] leading-[1.6] text-ink-2">{t(testo)}</p>
           <p className="mt-1.5 text-[11px] leading-[1.5] text-muted">{t("start.local")}</p>
         </div>
 
