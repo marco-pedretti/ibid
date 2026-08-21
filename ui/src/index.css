@@ -147,9 +147,45 @@
    ritoccarne duecento significherebbe ridisegnare l'interfaccia per rimediare a
    una costante.
 
-   **Non si adatta alla larghezza della finestra, di proposito.** */
+   **Sale a scalini con la finestra, e l'anello non c'e'.** Legare lo zoom alla
+   larghezza sembra ricorsivo — se lo zoom cambiasse la larghezza vista dalle
+   media query, uno scalino cambierebbe lo zoom che cambierebbe lo scalino — ma
+   misurato in Chromium e in Firefox **una media query non risente dello zoom
+   della radice**: vede sempre la finestra vera. Nessuna oscillazione. (La stessa
+   misura sta in `scala.ts`, con la tabella delle due unita'.)
+
+   Gli scalini servono perche' una costante sola non puo' andar bene ovunque, e
+   la ragione e' che il problema e' **relativo**: la stessa riga di testo che in
+   una finestra da mille pixel riempie la colonna, in una da 2.560 galleggia. In
+   pratica gli scalini tengono la larghezza *di disegno* in una banda fra ~1.200
+   e ~1.800 px invece di lasciarla crescere all'infinito — cioe' fanno da soli
+   quello che uno fa a mano con Ctrl+rotella.
+
+   Sotto i 1.400 px non si scala affatto: li' ci sono i portatili e i telefoni,
+   dove la finestra e' gia' stretta e ingrandire toglie spazio invece di darne. E
+   lo zoom del browser e la scala del sistema operativo restano **sopra** questi
+   numeri e continuano a moltiplicare: qui si dice quanto e' grande il disegno,
+   non quanto grande lo vuole chi guarda. */
 :root {
-  zoom: 1.2;
+  zoom: 1;
+}
+
+@media (min-width: 1400px) {
+  :root {
+    zoom: 1.15;
+  }
+}
+
+@media (min-width: 1800px) {
+  :root {
+    zoom: 1.3;
+  }
+}
+
+@media (min-width: 2300px) {
+  :root {
+    zoom: 1.45;
+  }
 }
 
 /* **La pagina non scorre mai, e non e' un rimedio: e' che tipo di programma
