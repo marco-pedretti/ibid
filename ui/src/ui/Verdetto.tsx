@@ -26,9 +26,12 @@ import { Suggerimento } from "./Suggerimento";
 
 /** I tre toni semantici, tenuti separati dall'accento: un verdetto colorato con
  *  l'accento smette di essere un verdetto e diventa decorazione (§12). */
-type Tono = "ok" | "warn" | "wait";
+export type Tono = "ok" | "warn" | "wait";
 
-const TONO: Record<Tono, string> = {
+/** Esportata perche' la pagina «Che cos'e'» (U-19) giudica le tre affermazioni
+ *  del progetto con la stessa grammatica con cui questo file giudica una
+ *  citazione: un tono che diventa classi in due posti sarebbe due tabelle. */
+export const TONO: Record<Tono, string> = {
   ok: "border-ok bg-ok-soft text-ok",
   warn: "border-warn bg-warn-soft text-warn",
   // `line-2` e non `wait`: il bordo di uno stato che non afferma niente non deve
