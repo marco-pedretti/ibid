@@ -237,13 +237,22 @@ body {
    dettaglio di gusto: e' meta' del segnale «questo si puo' toccare», e l'altra
    meta' — il colore al passaggio — su alcuni mancava a sua volta.
 
-   Una regola sola invece di undici classi: un bottone e' un bottone, e la
-   deroga (`cursor-not-allowed` su cio' che e' spento) resta esplicita dove
-   serve. `:disabled` sta fuori perche' un comando che non fa niente non deve
-   invitare a premerlo. */
-button:not(:disabled),
-[role="button"]:not([aria-disabled="true"]) {
-  cursor: pointer;
+   Una regola sola invece di undici classi: un bottone e' un bottone. Cio' che
+   non fa niente resta fuori — un comando spento non deve invitare a premerlo —
+   e sono due casi, non uno: `:disabled` per chi lo e' davvero, e
+   `aria-disabled` per chi e' bloccato senza esserlo (il bottone «nuova
+   conversazione» mentre una risposta sta arrivando: deve restare raggiungibile
+   da tastiera per poter *dire* perche' non si puo' premere).
+
+   **Dentro `@layer base`**, che e' il posto giusto per un valore predefinito:
+   fuori dai layer questa regola batteva qualunque `cursor-*` scritto come
+   utility, cioe' l'esatto contrario di cio' che serve — il predefinito deve
+   perdere contro la deroga, non vincerla. */
+@layer base {
+  button:not(:disabled, [aria-disabled="true"]),
+  [role="button"]:not([aria-disabled="true"]) {
+    cursor: pointer;
+  }
 }
 
 /* Chi naviga da tastiera deve vedere dove si trova: il focus non si toglie. */
