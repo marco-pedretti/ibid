@@ -2,13 +2,17 @@ import { describe, expect, it } from "vitest";
 
 import { DISTANZA, MARGINE } from "./collocazione";
 import type { Misura, Rettangolo } from "./collocazione";
-import { RESPIRO, VERTICI, alone, buco, collocaScheda } from "./riflettore";
+import { FUORI, RESPIRO, VERTICI, alone, buco, collocaScheda } from "./riflettore";
 
 /** Una finestra da portatile, quella su cui la demo si guarda. */
 const FINESTRA: Misura = { larghezza: 1440, altezza: 900 };
 
 /** La scheda dell'avvio guidato: la misura che ha davvero. */
 const SCHEDA: Misura = { larghezza: 360, altezza: 150 };
+
+/** La stessa finestra con lo `zoom` della radice a 1,25: e' quella in cui la
+ *  colonna delle risposte non ha piu' spazio ai fianchi per una scheda intera. */
+const STRETTA: Misura = { larghezza: 1152, altezza: 720 };
 
 /** Dentro la finestra per intero, margine compreso. */
 function sta(posa: { x: number; y: number }, scheda: Misura, finestra: Misura): boolean {
@@ -137,15 +141,31 @@ describe("dove va la scheda", () => {
     expect(p.y).toBe(zona.y + zona.altezza + DISTANZA);
   });
 
-  it("la colonna di mezzo non ha un accanto: la scheda va dentro, in basso", () => {
-    // Alta quanto la finestra e larga quanto resta fra corsia e fonti: nessuno
-    // dei quattro lati la contiene, e insistere metterebbe la scheda in una
-    // striscia di venti pixel.
-    const zona = alone({ x: 200, y: 0, larghezza: 968, altezza: 900 }, FINESTRA);
+  it("la colonna delle risposte: si accosta al bordo invece di entrarci", () => {
+    // Alta quanto la finestra e larga quanto la misura di lettura: sopra e sotto
+    // non c'e' niente, e ai fianchi c'e' meno di quanto la scheda chiede. Prima
+    // finiva `dentro`, cioe' con la spiegazione appoggiata sopra la cosa
+    // spiegata — che e' il difetto che questo modulo esiste per non avere.
+    const zona = alone({ x: 260, y: 0, larghezza: 560, altezza: 900 }, STRETTA);
+    const p = collocaScheda(zona, SCHEDA, STRETTA);
+
+    expect(p.lato).toBe("destra");
+    // Accostata al bordo: e' li' che finisce quando non ci sta per intero.
+    expect(p.x).toBe(STRETTA.larghezza - SCHEDA.larghezza - MARGINE);
+    // E quel che copre della zona e' meno della meta' di se stessa: un bordo,
+    // non il mezzo.
+    const dentro = zona.x + zona.larghezza - p.x;
+    expect(dentro).toBeLessThanOrEqual(SCHEDA.larghezza * FUORI);
+  });
+
+  it("una zona grande quanto la finestra non ha nemmeno un bordo: dentro, in basso", () => {
+    // E' il caso senza bersaglio, dove la zona **e'** la finestra: nessun lato
+    // ha spazio, nemmeno per meta' scheda.
+    const zona = { x: 0, y: 0, larghezza: FINESTRA.larghezza, altezza: FINESTRA.altezza };
     const p = collocaScheda(zona, SCHEDA, FINESTRA);
     expect(p.lato).toBe("dentro");
     // In basso, non al centro: sopra c'e' cio' che l'alone sta indicando.
-    expect(p.y + SCHEDA.altezza).toBe(zona.y + zona.altezza - MARGINE);
+    expect(p.y + SCHEDA.altezza).toBe(FINESTRA.altezza - MARGINE);
     expect(sta(p, SCHEDA, FINESTRA)).toBe(true);
   });
 
@@ -164,11 +184,14 @@ describe("dove va la scheda", () => {
 
   it("in una finestra piu' piccola della scheda resta al margine invece di uscire dall'altro lato", () => {
     // `Math.max` dopo `Math.min`: l'errore che `collocazione.ts` aveva gia'
-    // pagato una volta, e che qui tornerebbe identico.
+    // pagato una volta, e che qui tornerebbe identico. Con una scheda piu' larga
+    // della finestra il massimo e' minore del minimo, e nell'ordine sbagliato la
+    // scheda uscirebbe a sinistra invece di restare dentro.
     const piccola: Misura = { larghezza: 320, altezza: 240 };
     const zona = alone({ x: 100, y: 100, larghezza: 40, altezza: 40 }, piccola);
     const p = collocaScheda(zona, SCHEDA, piccola);
     expect(p.x).toBe(MARGINE);
-    expect(p.y).toBe(MARGINE);
+    expect(p.y).toBeGreaterThanOrEqual(MARGINE);
+    expect(p.y + SCHEDA.altezza).toBeLessThanOrEqual(piccola.altezza - MARGINE);
   });
 });
