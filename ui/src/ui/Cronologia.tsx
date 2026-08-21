@@ -91,10 +91,10 @@ export function Cronologia() {
  * «Nuova conversazione» nella striscia (U-18): lo stesso comando, senza la
  * parola.
  *
- * Tiene l'accento e il riempimento al passaggio perche' resta **l'azione
- * principale** anche quando la corsia e' chiusa: fra sette glifi grigi uno
- * d'accento e' l'unico modo di dire quale si usa per primo. Il nome che il
- * bottone perde va nell'`aria-label` e nella bolla, cioe' non si perde.
+ * Tiene il pieno d'accento perche' resta **l'azione principale** anche quando la
+ * corsia e' chiusa: fra sette celle bordate una piena e' l'unico modo di dire
+ * quale si usa per prima. Il nome che il bottone perde va nell'`aria-label` e
+ * nella bolla, cioe' non si perde.
  */
 export function NuovaCompatta() {
   const { t } = usaLingua();
@@ -106,8 +106,8 @@ export function NuovaCompatta() {
       etichetta={t("history.new")}
       suggerimento={occupato ? t("history.busy") : t("history.new")}
       onClick={nuova}
-      className={`flex h-[34px] w-full items-center justify-center rounded-[7px] border border-accent bg-accent-soft text-accent transition-colors ${
-        occupato ? "" : "hover:bg-accent hover:text-accent-ink"
+      className={`flex h-[34px] w-full items-center justify-center rounded-[7px] border border-accent bg-accent text-accent-ink transition-colors ${
+        occupato ? "" : "hover:border-accent-2 hover:bg-accent-2"
       }`}
     >
       <Piu size={14} />
@@ -150,13 +150,21 @@ export function CronologiaCompatta({ apri }: { apri: () => void }) {
  * Le misure sono quelle di `.bottone-esplora` nel mockup: 12 px, raggio 7,
  * padding 8/10, e il glifo staccato di 7.
  *
- * **Al passaggio si riempie d'accento**, e il testo passa ad `accent-ink`: e' la
- * stessa coppia del bottone d'invio della chat, cioe' come questa palette dice
- * «azione principale». Prima non aveva nessuno stato al passaggio — la forma
- * diceva che era un comando, ma restava immobile sotto il puntatore, che e'
- * esattamente cio' che fa dubitare che sia cliccabile. Il resto della corsia lo
- * fa piu' piano (`hover:bg-surface-2`, `hover:border-line`) perche' il resto
- * della corsia non e' l'azione principale.
+ * **E' pieno d'accento da fermo**, con il testo in `accent-ink`: e' la coppia
+ * del bottone d'invio della chat, cioe' come questa palette dice «azione
+ * principale», e le due cose che *avviano* qualcosa si assomigliano.
+ *
+ * Prima era `accent-soft` col bordo e il testo d'accento, e si riempiva solo al
+ * passaggio. Ma quella e' la coppia di `.tg.on` — la stessa di «RAG» acceso e
+ * della lingua viva in fondo alla corsia — cioe' il modo in cui questa palette
+ * dice «questo interruttore e' su». Un comando vestito da interruttore acceso
+ * si legge come una delle impostazioni sotto il campo (segnalato da Marco), e
+ * per giunta prometteva un cambiamento al passaggio che era un cambiamento di
+ * ruolo, non di stato. Ora il passaggio schiarisce e basta — `accent-2`, come
+ * sull'invio — e il ruolo resta uno.
+ *
+ * Il resto della corsia si accende piu' piano (`hover:border-accent-2`) perche'
+ * il resto della corsia non e' l'azione principale.
  */
 function BottoneNuova() {
   const { t } = usaLingua();
@@ -167,8 +175,8 @@ function BottoneNuova() {
       bloccato={occupato}
       suggerimento={occupato ? t("history.busy") : null}
       onClick={nuova}
-      className={`flex h-[34px] w-full items-center gap-[7px] rounded-[7px] border border-accent bg-accent-soft px-2.5 text-left text-[12px] font-medium text-accent transition-colors ${
-        occupato ? "" : "hover:bg-accent hover:text-accent-ink"
+      className={`flex h-[34px] w-full items-center gap-[7px] rounded-[7px] border border-accent bg-accent px-2.5 text-left text-[12px] font-medium text-accent-ink transition-colors ${
+        occupato ? "" : "hover:border-accent-2 hover:bg-accent-2"
       }`}
     >
       <Piu size={12} />
