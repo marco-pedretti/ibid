@@ -60,7 +60,20 @@
      il rosso segnala che qualcosa non torna indietro, non che urge. */
   --danger: #a33028;
   --danger-soft: #f7e3e0;
+  /* Il velo dell'avvio guidato (U-20): cio' che resta fuori dall'alone si
+     scurisce **e si sfoca**, invece di sparire.
+
+     Le due cose insieme perche' fanno lavori diversi: lo scuro abbassa il
+     contrasto di quel che sta intorno, la sfocatura gli toglie la **forma** —
+     ed e' la forma, non la luminosita', a portare l'occhio a leggere una parola
+     invece di guardare dove gli si sta indicando. Con lo scuro da solo la
+     conversazione accanto resta perfettamente leggibile, solo piu' spenta.
+
+     Resta un velo che **non intercetta il puntatore**: il criterio chiede che la
+     prima domanda si possa fare mentre la guida e' aperta, e si puo'. E' un peso
+     visivo, non una porta chiusa. */
   --shadow: 0 1px 2px rgba(23, 24, 31, 0.06), 0 8px 24px -12px rgba(23, 24, 31, 0.18);
+  --velo: rgba(23, 24, 31, 0.34);
 }
 
 [data-theme="dark"] {
@@ -86,6 +99,7 @@
   --danger: #ee8d84;
   --danger-soft: #3a1a17;
   --shadow: 0 1px 2px rgba(0, 0, 0, 0.4), 0 8px 24px -12px rgba(0, 0, 0, 0.6);
+  --velo: rgba(0, 0, 0, 0.58);
 }
 
 /* `inline` perche' i valori sono `var(...)`: senza, Tailwind congelerebbe il
@@ -102,6 +116,7 @@
   --color-accent: var(--accent);
   --color-accent-2: var(--accent-2);
   --color-accent-soft: var(--accent-soft);
+  --color-velo: var(--velo);
   --color-accent-ink: var(--accent-ink);
   --color-marchio: var(--marchio);
   --color-ok: var(--ok);

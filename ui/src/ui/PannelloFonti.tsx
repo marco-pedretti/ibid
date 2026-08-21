@@ -35,6 +35,7 @@ import { spiegaPunteggio } from "../app/recupero";
 import { esitoDellaScheda, esitoNumericoDellaScheda } from "../app/verdetti";
 import type { Risposta } from "../app/conversazione";
 import type { ChunkView } from "../api/types";
+import { zona } from "./Avvio";
 import { Etichetta } from "./Etichetta";
 import { Suggerimento } from "./Suggerimento";
 import { Estratto, marcatoriCitati } from "./Testo";
@@ -50,7 +51,10 @@ export function PannelloFonti() {
   const r = scambi[scambi.length - 1]?.risposta ?? null;
 
   return (
-    <aside className="flex h-full min-h-0 flex-col gap-[11px] overflow-y-auto border-l border-line bg-surface px-3 py-3.5">
+    <aside
+      {...zona("fonti")}
+      className="flex h-full min-h-0 flex-col gap-[11px] overflow-y-auto border-l border-line bg-surface px-3 py-3.5"
+    >
       <div className="flex items-baseline justify-between">
         <Etichetta>{t("sources.title")}</Etichetta>
         {(r?.chunks.length ?? 0) > 0 && (
