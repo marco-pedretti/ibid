@@ -497,7 +497,7 @@ function Campo() {
             <button
               type="button"
               onClick={ferma}
-              className="grid h-[26px] shrink-0 place-items-center rounded-md border border-line-2 px-2.5 text-[11px] text-ink-2"
+              className="grid h-[26px] shrink-0 place-items-center rounded-md border border-line-2 px-2.5 text-[11px] text-ink-2 transition-colors hover:border-accent-2 hover:text-ink"
             >
               {t("chat.stop")}
             </button>
@@ -507,7 +507,11 @@ function Campo() {
               onClick={spedisci}
               disabled={bloccato || testo.trim() === ""}
               aria-label={t("chat.send")}
-              className="grid h-[26px] w-[26px] shrink-0 place-items-center rounded-md bg-accent text-accent-ink disabled:opacity-40"
+              // `enabled:` sull'accensione e non `hover:` liscio: un bottone
+              // disabilitato riceve comunque `:hover` — non ha `pointer-events:
+              // none` — quindi senza il guardiano si illuminerebbe proprio nel
+              // caso in cui non fa niente, cioe' a campo vuoto.
+              className="grid h-[26px] w-[26px] shrink-0 place-items-center rounded-md bg-accent text-accent-ink transition-colors enabled:hover:bg-accent-2 disabled:cursor-not-allowed disabled:opacity-40"
             >
               <FrecciaSu size={14} />
             </button>
