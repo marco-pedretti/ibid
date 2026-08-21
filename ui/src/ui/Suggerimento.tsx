@@ -37,6 +37,37 @@
  * da se': su un tocco `pointerleave` arriva **prima** del `click`, quindi al
  * momento del clic il puntatore c'e' solo se e' un mouse.
  *
+ * ## Il tocco, e i suoi due casi
+ *
+ * **Su un dato il tocco basta gia', e non serviva niente.** Un punteggio, un
+ * marcatore, un `chunk_id`: sotto non c'e' nessun comando, quindi il tocco non
+ * ha altro da significare e apre la bolla — e' la regola scritta qui sopra, che
+ * distingue il clic del mouse dal tocco guardando se al momento del clic il
+ * puntatore e' ancora sul bersaglio.
+ *
+ * **Dove sotto c'e' un comando, no**, ed e' l'altra meta': li' il tocco e' gia'
+ * preso — manda la domanda, cambia dataset, apre l'esploratore — e non puo'
+ * anche voler dire «spiegami». Con una sola cosa da fare e due da dire, quella
+ * che si perde e' sempre la spiegazione, che infatti su un telefono compariva un
+ * istante e poi spariva insieme alla schermata che l'aveva aperta.
+ *
+ * Quindi li' la domanda si fa **tenendo premuto**, che e' il gesto con cui un
+ * telefono chiede «cos'e' questo» da sempre. Non e' una modalita' che si accende
+ * sotto una certa larghezza: si guarda `pointerType`, cioe' **il gesto**, non lo
+ * schermo. Un portatile con lo schermo a tocco non ha un passaggio sopra nemmeno
+ * a 1.600 px, e un mouse in una finestra stretta ce l'ha eccome.
+ *
+ * La distinzione fra i due casi e' `fuoco`, che gia' esiste e gia' dice
+ * esattamente questo: `fuoco={false}` significa «dentro c'e' qualcosa che prende
+ * il fuoco», cioe' un comando. Non e' un secondo interruttore da tenere
+ * d'accordo col primo.
+ *
+ * **Alzando il dito la bolla resta.** Un `pointerleave` arriva subito dopo il
+ * `pointerup`, e chiuderla li' vorrebbe dire non averla mai mostrata: se ne va
+ * al tocco successivo, ovunque esso cada, o con Escape. E il clic che chiude la
+ * pressione **non arriva al comando** — chi ha tenuto premuto stava chiedendo,
+ * non premendo.
+ *
  * **Il testo e' leggibile anche senza la bolla.** `aria-describedby` punta a uno
  * `<span>` sempre presente e visivamente nascosto: la bolla e' `aria-hidden` e
  * puramente visiva. Legarla agli assistivi significherebbe che un'informazione
@@ -75,6 +106,19 @@ import type { Posa } from "./collocazione";
  */
 const ATTESA_DATO_MS = 140;
 const ATTESA_COMANDO_MS = 1500;
+
+/**
+ * Quanto si tiene premuto perche' diventi una domanda.
+ *
+ * 450 ms e' la soglia che iOS e Android usano per la pressione lunga, e vale la
+ * pena prendere la loro invece di sceglierne una: il gesto o e' quello che chi
+ * tocca ha gia' in mano, o non e' niente — non c'e' modo di insegnarlo.
+ *
+ * Piu' corta si scontrerebbe con un tocco fermo (un dito si posa e si alza in
+ * ~150 ms, ma non tutti); piu' lunga arriverebbe dopo che il browser ha gia'
+ * cominciato la propria selezione.
+ */
+const PRESSIONE_MS = 450;
 
 /** Rete di sicurezza per lo smontaggio: se la transizione non parte affatto
  *  (scheda in secondo piano) `transitionend` non arriva mai. Come nella tendina. */
@@ -130,12 +174,22 @@ export function Suggerimento({
    *  distingue un clic dato col mouse da un tocco su un telefono. */
   const dentro = useRef(false);
   const uscita = useRef<ReturnType<typeof setTimeout> | null>(null);
+  /** La pressione in corso, finche' non e' abbastanza lunga da contare. */
+  const pressione = useRef<ReturnType<typeof setTimeout> | null>(null);
+  /** La bolla e' li' perche' si e' tenuto premuto. Cambia due cose: non si
+   *  chiude quando il dito si alza, e il clic che segue non arriva al comando. */
+  const daPressione = useRef(false);
 
   const fermaTimer = () => {
     if (attesa.current !== null) clearTimeout(attesa.current);
     if (uscita.current !== null) clearTimeout(uscita.current);
     attesa.current = null;
     uscita.current = null;
+  };
+
+  const fermaPressione = () => {
+    if (pressione.current !== null) clearTimeout(pressione.current);
+    pressione.current = null;
   };
 
   const apri = (subito = false) => {
@@ -155,12 +209,20 @@ export function Suggerimento({
   };
 
   const chiudi = () => {
+    daPressione.current = false;
     fermaTimer();
+    fermaPressione();
     setAperto(false);
     uscita.current = setTimeout(() => setMontato(false), USCITA_MAX_MS);
   };
 
-  useEffect(() => fermaTimer, []);
+  useEffect(
+    () => () => {
+      fermaTimer();
+      fermaPressione();
+    },
+    [],
+  );
 
   // Due passate, e servono entrambe: la bolla si monta invisibile per **essere
   // misurata** — la sua altezza dipende da dove il testo va a capo, che nessuno
@@ -207,6 +269,21 @@ export function Suggerimento({
     };
   }, [montato]);
 
+  // Una bolla aperta tenendo premuto non ha un «via di qui»: il dito si e' gia'
+  // alzato, e il bersaglio non prende il fuoco (e' un comando ad averlo). Se ne
+  // va al tocco seguente, dovunque cada — anche sul bersaglio stesso, dove
+  // ricomincia una pressione nuova.
+  useEffect(() => {
+    if (!montato) return;
+    const altrove = (e: PointerEvent) => {
+      if (!daPressione.current) return;
+      if (bersaglio.current?.contains(e.target as Node)) return;
+      chiudi();
+    };
+    document.addEventListener("pointerdown", altrove, true);
+    return () => document.removeEventListener("pointerdown", altrove, true);
+  }, [montato]);
+
   useEffect(() => {
     if (!montato) return;
     const daTastiera = (e: KeyboardEvent) => {
@@ -234,7 +311,36 @@ export function Suggerimento({
         }}
         onPointerLeave={() => {
           dentro.current = false;
+          fermaPressione();
+          // Alzando il dito arriva un `pointerleave` subito dopo il `pointerup`:
+          // chiudere qui vorrebbe dire non aver mai mostrato la bolla che si e'
+          // appena chiesta tenendo premuto.
+          if (daPressione.current) return;
           chiudi();
+        }}
+        // **Tenere premuto e' la domanda, dove il tocco e' gia' preso.** Solo
+        // col dito (`pointerType`) e solo dove dentro c'e' un comando
+        // (`fuoco === false`): su un dato il tocco basta gia' da se', e chiedere
+        // di tenere premuto sarebbe una regola in piu' per la stessa cosa.
+        onPointerDown={(e) => {
+          if (fuoco || e.pointerType !== "touch") return;
+          daPressione.current = false;
+          fermaPressione();
+          pressione.current = setTimeout(() => {
+            daPressione.current = true;
+            apri(true);
+          }, PRESSIONE_MS);
+        }}
+        onPointerUp={fermaPressione}
+        // Il browser si e' preso il gesto per scorrere: non era una pressione.
+        onPointerCancel={fermaPressione}
+        // In cattura, cioe' **prima** del comando che sta dentro: chi ha tenuto
+        // premuto stava chiedendo, non premendo, e il clic che chiude la
+        // pressione non deve mandare una domanda o cambiare schermata.
+        onClickCapture={(e) => {
+          if (!daPressione.current) return;
+          e.preventDefault();
+          e.stopPropagation();
         }}
         // **Un clic col puntatore non e' una domanda: e' un'interazione col
         // controllo, e l'attesa ricomincia.** Il tocco non ha un «passaggio
@@ -263,7 +369,11 @@ export function Suggerimento({
         // gia' un significato preso: la frase che non cita nessuna fonte.
         // Da tastiera il segnale c'e' e non e' questo: e' l'anello di fuoco
         // globale di `index.css`.
-        className={`${fuoco ? "cursor-help" : ""} ${className}`}
+        // `select-none` solo dove dentro c'e' un comando: e' li' che si tiene
+        // premuto, ed e' li' che senza questo il telefono risponderebbe alla
+        // pressione lunga con le maniglie di selezione sull'etichetta di un
+        // bottone — cioe' con la sua risposta invece della nostra.
+        className={`${fuoco ? "cursor-help" : "select-none"} ${className}`}
       >
         {children}
       </span>
