@@ -23,6 +23,7 @@ import { usaLingua } from "../app/i18n";
 import { configDi, configPrecedente } from "../app/parametri";
 import { riepilogo } from "../app/verdetti";
 import type { Riepilogo } from "../app/verdetti";
+import { Avvio, usaAvvio } from "./Avvio";
 import { Barra } from "./Barra";
 import {
   Astensione,
@@ -45,6 +46,7 @@ import { Testo } from "./Testo";
 export function Chat() {
   const { scambi } = usaChat();
   const { predefiniti } = usaBarra();
+  const guida = usaAvvio();
   const fondo = useRef<HTMLDivElement>(null);
 
   // Segue il testo mentre arriva. Senza, i token scorrono sotto il bordo e chi
@@ -55,6 +57,12 @@ export function Chat() {
 
   return (
     <div className="flex h-full min-h-0 flex-col bg-paper">
+      {/* L'avvio guidato sta **sopra** il contenitore che scorre e non dentro:
+          li' se ne andrebbe da solo dopo tre frasi di risposta, e una guida che
+          si porta via da sola non e' una guida che si e' saltata. Sopra il campo
+          e non davanti a niente: U-20 chiede che la prima domanda si possa fare
+          mentre e' aperta. */}
+      <Avvio guida={guida} />
       {/* Il contenitore che scorre resta **largo quanto la colonna**: e' lui che
           porta la barra di scorrimento, e una barra che compare in mezzo allo
           schermo invece che al bordo e' il difetto classico di questa
@@ -62,7 +70,7 @@ export function Chat() {
       <div className="flex min-h-0 flex-1 flex-col overflow-y-auto px-[22px] py-5">
         <div className={`${MISURA} flex shrink-0 grow flex-col gap-4`}>
           {scambi.length === 0 ? (
-            <Vuoto />
+            <Vuoto conGuida={guida.passo !== null} />
           ) : (
             scambi.map((s, i) => (
               <div key={s.id} className="flex flex-col gap-4">
@@ -88,7 +96,7 @@ export function Chat() {
 
 /* --- lo stato iniziale --------------------------------------------------- */
 
-function Vuoto() {
+function Vuoto({ conGuida }: { conGuida: boolean }) {
   const { t, lingua } = usaLingua();
   const { scelto } = usaDataset();
   const { invia } = usaChat();
@@ -99,10 +107,26 @@ function Vuoto() {
 
   return (
     <div className="my-auto py-2">
-      <h2 className="mb-1.5 font-serif text-[21px] font-semibold tracking-[-0.01em]">
+      {/* Lo stacco sotto il titolo e' quello della riga che di solito lo segue:
+          togliendola, il margine deve passare al titolo, altrimenti gli esempi
+          gli finiscono addosso. Una classe o l'altra, mai le due nella stessa
+          stringa -- fra classi in conflitto non vince l'ordine in cui sono
+          scritte, vince l'ordine del foglio. */}
+      <h2
+        className={`font-serif text-[21px] font-semibold tracking-[-0.01em] ${
+          conGuida ? "mb-[18px]" : "mb-1.5"
+        }`}
+      >
         {t("chat.empty.title")}
       </h2>
-      <p className="mb-[18px] max-w-[62ch] text-[12.5px] text-muted">{t("chat.empty.hint")}</p>
+      {/* Finche' la guida e' aperta questa riga tace: e' la versione in una
+          frase di cio' che i suoi primi due passi dicono per esteso, e due
+          copie della stessa cosa a cinque righe di distanza -- sulla primissima
+          schermata -- sono il difetto che la guida dovrebbe evitare, non
+          introdurre. Il titolo resta: e' un invito, non una spiegazione. */}
+      {!conGuida && (
+        <p className="mb-[18px] max-w-[62ch] text-[12.5px] text-muted">{t("chat.empty.hint")}</p>
+      )}
 
       <div className="flex flex-col gap-2">
         {esempi.map((e, i) => (
