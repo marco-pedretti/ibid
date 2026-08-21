@@ -132,6 +132,31 @@
   --font-mono: ui-monospace, "SF Mono", "Cascadia Mono", Consolas, monospace;
 }
 
+/* **La scala dell'interfaccia: una costante sola, e sta qui.**
+
+   Le misure di questa UI vengono dal mockup, e il mockup e' stato disegnato in
+   un riquadro stretto: 12,5 px di testo, 9,5 px di etichetta, 200 px di corsia.
+   Numeri giusti fra loro e piccoli in assoluto -- su un 27" QHD a 100% un
+   carattere di 13 px arriva all'occhio come 11,4, cioe' il 71% della misura
+   predefinita del web. Il rapporto fra le parti e' quello voluto; e' l'unita' a
+   essere piccola.
+
+   `zoom` sulla radice cambia **l'unita'**, non i rapporti: e' l'equivalente
+   esatto dello zoom del browser, quindi ogni misura del progetto resta quella
+   scritta nel codice e nessuna va ritoccata a mano -- che e' il punto, perche'
+   ritoccarne duecento significherebbe ridisegnare l'interfaccia per rimediare a
+   una costante.
+
+   **Non si adatta alla larghezza della finestra, di proposito.** Legare lo zoom
+   a `vw` e' un anello: `zoom` sulla radice cambia quanto vale `100vw`, che
+   ricalcola lo zoom. E soprattutto lo zoom del browser e la scala del sistema
+   operativo sono la risposta che chi guarda ha **gia' dato** alla domanda «quanto
+   grandi le voglio»: questa costante dice quanto e' grande il disegno, la loro
+   resta sopra e continua a moltiplicare. */
+:root {
+  zoom: 1.2;
+}
+
 /* **La pagina non scorre mai, e non e' un rimedio: e' che tipo di programma
    e' questo.** Il telaio dichiara `h-dvh` e ogni area che scorre lo fa per
    conto suo -- la cronologia nella corsia, le colonne del confronto, il
