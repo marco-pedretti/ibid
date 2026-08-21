@@ -229,6 +229,23 @@ body {
   -webkit-font-smoothing: antialiased;
 }
 
+/* Un comando si annuncia col puntatore, e qui non lo faceva quasi nessuno.
+   Il reset di Tailwind v4 mette `cursor: default` su ogni `button`, e finora
+   l'unico che si era ripreso il `pointer` era il selettore — misurati, undici
+   controlli su tredici della schermata principale arrivavano col cursore della
+   pagina, comprese le domande d'esempio e i comandi della corsia. Non e' un
+   dettaglio di gusto: e' meta' del segnale «questo si puo' toccare», e l'altra
+   meta' — il colore al passaggio — su alcuni mancava a sua volta.
+
+   Una regola sola invece di undici classi: un bottone e' un bottone, e la
+   deroga (`cursor-not-allowed` su cio' che e' spento) resta esplicita dove
+   serve. `:disabled` sta fuori perche' un comando che non fa niente non deve
+   invitare a premerlo. */
+button:not(:disabled),
+[role="button"]:not([aria-disabled="true"]) {
+  cursor: pointer;
+}
+
 /* Chi naviga da tastiera deve vedere dove si trova: il focus non si toglie. */
 :focus-visible {
   outline: 2px solid var(--accent);
