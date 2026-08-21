@@ -41,14 +41,26 @@ import { Suggerimento } from "./Suggerimento";
 import { Estratto, marcatoriCitati } from "./Testo";
 import { Verdetto, VerdettoNumerico } from "./Verdetto";
 
+/**
+ * La risposta di cui le fonti parlano: sempre l'ultima.
+ *
+ * Le fonti riguardano la risposta che si sta guardando, e quella e' sempre
+ * l'ultima. Una cronologia di pannelli sarebbe una seconda navigazione dentro
+ * la stessa colonna.
+ *
+ * E' un hook esportato perche' da U-21 la stessa domanda se la fa anche la
+ * testata a colonna sola, che sul proprio comando mostra **quante** fonti sono
+ * arrivate. Due volte «l'ultimo scambio» scritto a mano sono due posti che
+ * divergono il giorno in cui l'ultimo non e' piu' quello giusto.
+ */
+export function usaUltimaRisposta(): Risposta | null {
+  const { scambi } = usaChat();
+  return scambi[scambi.length - 1]?.risposta ?? null;
+}
+
 export function PannelloFonti() {
   const { t } = usaLingua();
-  const { scambi } = usaChat();
-
-  // L'ultimo scambio: le fonti riguardano la risposta che si sta guardando, e
-  // quella e' sempre l'ultima. Una cronologia di pannelli sarebbe una seconda
-  // navigazione dentro la stessa colonna.
-  const r = scambi[scambi.length - 1]?.risposta ?? null;
+  const r = usaUltimaRisposta();
 
   return (
     <aside

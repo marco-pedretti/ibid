@@ -304,6 +304,53 @@ body {
   padding-block: 2px;
 }
 
+/* **Gli strati del telefono (U-21) entrano dal bordo da cui vengono.**
+
+   U-18 aveva deciso che la corsia **non** si anima, e la ragione stava nel
+   costo: interpolare una traccia della griglia da 200 a 48 px vuol dire rifare
+   l'impaginazione della conversazione a ogni fotogramma. Qui il costo non c'e' —
+   uno strato sta sopra il lavoro e non dentro la griglia, quindi si sposta con
+   una `transform` e sotto non si rimpagina niente — e il movimento serve: da
+   quale bordo arriva è l'unica cosa che dice da dove viene, e quindi anche dove
+   torna quando si chiude.
+
+   220 ms e non i 360 dell'avvio guidato: quello è un indicatore che porta
+   l'occhio da una parte all'altra dello schermo e va seguito, questo è un
+   pannello che risponde a un dito e deve essere già arrivato. La curva è la
+   stessa, e decelera quasi fino a fermarsi.
+
+   Chi ha chiesto meno movimento non lo vede: la regola qui sotto azzera ogni
+   durata. */
+@keyframes entra-da-sinistra {
+  from {
+    transform: translateX(-100%);
+  }
+}
+
+@keyframes entra-da-destra {
+  from {
+    transform: translateX(100%);
+  }
+}
+
+@keyframes appare {
+  from {
+    opacity: 0;
+  }
+}
+
+.entra-da-sinistra {
+  animation: entra-da-sinistra 220ms cubic-bezier(0.32, 0.72, 0, 1);
+}
+
+.entra-da-destra {
+  animation: entra-da-destra 220ms cubic-bezier(0.32, 0.72, 0, 1);
+}
+
+.appare {
+  animation: appare 220ms ease-out;
+}
+
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,

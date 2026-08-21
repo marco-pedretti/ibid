@@ -45,8 +45,32 @@
  * **La scelta si ricorda**, come le larghezze dell'esploratore (U-17) e per la
  * stessa ragione: e' una preferenza — «lo schermo che ho, lo voglio cosi'» — e
  * vale anche domani.
+ *
+ * ## Il telefono (U-21)
+ *
+ * Sotto la soglia di `schermo.ts` il telaio ha **una colonna sola**, e le due
+ * laterali non spariscono: escono dalla griglia e diventano due strati che si
+ * aprono sopra il lavoro — la corsia da sinistra, le fonti da destra. Il
+ * criterio di U-02 dice «raggiungibile in ogni stato, non necessariamente
+ * affiancata», ed e' esattamente questa la differenza fra le due parole.
+ *
+ * **Una testata compare solo qui.** Nelle colonne non serve — il marchio sta in
+ * cima alla corsia e le fonti sono gia' sullo schermo — e infatti in tutta la
+ * Fase 8 non ce n'e' mai stata una. Stretta serve: e' l'unico posto dove
+ * possono stare i due comandi che riaprono cio' che e' uscito dalla griglia, e
+ * il marchio ci torna perche' altrimenti il programma non direbbe piu' il
+ * proprio nome da nessuna parte.
+ *
+ * **Il cassetto si chiude su cio' che cambia schermata, e non su cio' che
+ * cambia un'impostazione.** Nuova conversazione, una voce di cronologia,
+ * l'esploratore, «Che cos'e'»: quei quattro portano da un'altra parte, e
+ * lasciare il cassetto aperto sopra la cosa appena aperta sarebbe fare il gesto
+ * a meta'. Dataset, lingua e tema no: si cambiano **per** guardare quello che
+ * c'e' sotto, e chiudersi addosso costringerebbe a riaprire per cambiare la
+ * seconda. Chi naviga si dichiara — `usaChiudiCassetto()` — che e' la stessa
+ * forma con cui in U-20 una zona si dichiara bersaglio della guida.
  */
-import { useEffect, useState } from "react";
+import { createContext, useCallback, useContext, useEffect, useState } from "react";
 import type { ReactNode } from "react";
 
 import { usaEsploratore } from "../app/esploratore";
@@ -56,17 +80,67 @@ import { usaTema } from "../app/theme";
 import type { SceltaTema } from "../app/theme";
 import { LINGUE } from "../i18n/strings";
 import { zona } from "./Avvio";
-import { DEPOSITO, griglia, leggi } from "./corsia";
+import { Chiusura, usaChiudiCassetto } from "./cassetto";
+import { APERTA, DEPOSITO, FIANCO, leggi } from "./corsia";
 import { Cronologia, CronologiaCompatta, NuovaCompatta } from "./Cronologia";
 import { Etichetta } from "./Etichetta";
-import { Chiaro, Corpus, Corsia, Informazioni, Scuro, Sistema } from "./Icona";
+import { Chiaro, Corpus, Corsia, Indice, Informazioni, Scuro, Sistema } from "./Icona";
 import type { PropsIcona } from "./Icona";
 import { Marchio } from "./Marchio";
+import { usaUltimaRisposta } from "./PannelloFonti";
+import { colonne, forma } from "./schermo";
+import type { Forma } from "./schermo";
+import { scala } from "./scala";
 import { SelettoreDataset } from "./SelettoreDataset";
 import { Selettore } from "./Selettore";
 import { Suggerimento } from "./Suggerimento";
 
+/**
+ * La forma del telaio, per chi ci sta dentro.
+ *
+ * Un contesto e non un hook per ciascuno: la larghezza della finestra e' una
+ * cosa sola, e tre componenti che la misurano per conto proprio sono tre
+ * ascoltatori e — quel che conta di piu' — tre posti in cui la soglia puo'
+ * divergere. Il telaio e' anche l'unico che la puo' provvedere senza aggiungere
+ * un provider in `App`: avvolge gia' tutte e quattro le schermate.
+ */
+const Contesto = createContext<Forma>("larga");
+
+export function usaForma(): Forma {
+  return useContext(Contesto);
+}
+
+/**
+ * La forma che la finestra impone, adesso.
+ *
+ * **Si converte al confine**, come vuole `scala.ts`: `innerWidth` arriva in px
+ * di finestra e la soglia e' scritta in px di disegno. Sotto i 1.400 px le due
+ * coincidono — lo prova un test in `schermo.test.ts` — ma dividere e' la regola
+ * della casa, e una regola che si applica solo dove serve non e' una regola.
+ *
+ * `resize` e non una media query: la soglia e' un numero derivato dalle colonne
+ * (`schermo.ts`), e riscriverlo in CSS lo renderebbe un secondo posto da tenere
+ * d'accordo. Ed e' comunque la **struttura** a cambiare, non solo lo stile.
+ */
+function usaFormaDellaFinestra(): Forma {
+  const [f, setF] = useState<Forma>(() => forma(window.innerWidth / scala()));
+
+  useEffect(() => {
+    const misura = () => setF(forma(window.innerWidth / scala()));
+    misura();
+    window.addEventListener("resize", misura, { passive: true });
+    return () => window.removeEventListener("resize", misura);
+  }, []);
+
+  return f;
+}
+
 export function Telaio({ children, fianco }: { children: ReactNode; fianco?: ReactNode }) {
+  const { t } = usaLingua();
+  const f = usaFormaDellaFinestra();
+  const conFonti = fianco !== undefined;
+  const [cassetto, setCassetto] = useState(false);
+  const [foglio, setFoglio] = useState(false);
   const [chiusa, setChiusa] = useState(() => {
     try {
       return leggi(localStorage.getItem(DEPOSITO));
@@ -86,38 +160,222 @@ export function Telaio({ children, fianco }: { children: ReactNode; fianco?: Rea
     }
   }, [chiusa]);
 
-  return (
-    // `h-full` e non `h-dvh`: le due sarebbero equivalenti — `html` e `body`
-    // sono al 100% in `index.css` — se non fosse per lo `zoom` della radice.
-    // Misurato in Chromium e in Firefox: un'unita' di viewport si risolve nel
-    // viewport **non scalato** e poi viene moltiplicata per lo zoom, quindi
-    // `100dvh` valeva 960 px in una finestra da 800 e la barra sotto il campo
-    // finiva fuori. Una percentuale no: risolve dentro lo spazio gia' scalato e
-    // torna esatta. Resta un'altezza fissa e non minima — da qui in poi le
-    // colonne scorrono per conto loro, e con `min-h-` scorrerebbe la pagina
-    // intera portandosi via la corsia e il campo di scrittura.
-    <div
-      // Le colonne sono uno stile in linea e non una classe: sono una misura
-      // calcolata, e `corsia.ts` la calcola dove si puo' provarla.
-      style={{ gridTemplateColumns: griglia(chiusa, fianco !== undefined) }}
-      // `grid-rows-[minmax(0,1fr)]`: senza una riga dichiarata quella
-      // implicita e' `auto`, cioe' alta quanto il contenuto -- e una colonna
-      // piu' alta dello schermo la faceva crescere oltre l'altezza piena invece di
-      // scorrere dentro di se'. E' lo stesso difetto delle due colonne del
-      // confronto, un piano piu' su.
-      className="grid h-full grid-rows-[minmax(0,1fr)] overflow-hidden bg-paper text-ink"
-    >
-      {chiusa ? (
-        <Striscia apri={() => setChiusa(false)} />
-      ) : (
-        <CorsiaAperta chiudi={() => setChiusa(true)} />
-      )}
+  // Tornando alle colonne, cio' che era stato tirato fuori rientra: uno strato
+  // rimasto aperto starebbe sopra la colonna che disegna la stessa cosa.
+  useEffect(() => {
+    if (f === "larga") {
+      setCassetto(false);
+      setFoglio(false);
+    }
+  }, [f]);
 
-      {/* `overflow-hidden` qui e' la rete: se una schermata futura sbaglia
-          i propri vincoli, deborda dentro il suo riquadro invece di
-          allungare la pagina e portarsi via la corsia. */}
-      <main className="h-full min-h-0 min-w-0 overflow-hidden">{children}</main>
-      {fianco}
+  // Le fonti se ne vanno con la schermata che le ha: aperto il foglio su una
+  // risposta e poi l'esploratore, resterebbe un pannello che parla di una
+  // risposta che non e' piu' sullo schermo.
+  useEffect(() => {
+    if (!conFonti) setFoglio(false);
+  }, [conFonti]);
+
+  const chiudiCassetto = useCallback(() => setCassetto(false), []);
+
+  // Escape chiude cio' che si e' aperto sopra il contenuto, come dappertutto
+  // qui dentro. `defaultPrevented` perche' dentro il cassetto ci sono tendine
+  // che Escape chiude per prime: senza, un Escape ne chiuderebbe due.
+  useEffect(() => {
+    if (!cassetto && !foglio) return;
+    const tasto = (e: KeyboardEvent) => {
+      if (e.key !== "Escape" || e.defaultPrevented) return;
+      setCassetto(false);
+      setFoglio(false);
+    };
+    window.addEventListener("keydown", tasto);
+    return () => window.removeEventListener("keydown", tasto);
+  }, [cassetto, foglio]);
+
+  return (
+    <Contesto.Provider value={f}>
+      <Chiusura.Provider value={chiudiCassetto}>
+        {/* `h-full` e non `h-dvh`: le due sarebbero equivalenti — `html` e
+            `body` sono al 100% in `index.css` — se non fosse per lo `zoom`
+            della radice. Misurato in Chromium e in Firefox: un'unita' di
+            viewport si risolve nel viewport **non scalato** e poi viene
+            moltiplicata per lo zoom, quindi `100dvh` valeva 960 px in una
+            finestra da 800 e la barra sotto il campo finiva fuori. Una
+            percentuale no: risolve dentro lo spazio gia' scalato e torna
+            esatta. Resta un'altezza fissa e non minima — da qui in poi le
+            colonne scorrono per conto loro, e con `min-h-` scorrerebbe la
+            pagina intera portandosi via la corsia e il campo di scrittura. */}
+        <div className="flex h-full flex-col overflow-hidden bg-paper text-ink">
+          {f === "stretta" && (
+            <Testata
+              apriCorsia={() => setCassetto(true)}
+              apriFonti={conFonti ? () => setFoglio(true) : null}
+            />
+          )}
+
+          <div
+            // Le colonne sono uno stile in linea e non una classe: sono una
+            // misura calcolata, e `schermo.ts` la calcola dove si puo' provarla.
+            style={{ gridTemplateColumns: colonne(f, chiusa, conFonti) }}
+            // `grid-rows-[minmax(0,1fr)]`: senza una riga dichiarata quella
+            // implicita e' `auto`, cioe' alta quanto il contenuto -- e una
+            // colonna piu' alta dello schermo la faceva crescere oltre
+            // l'altezza piena invece di scorrere dentro di se'. E' lo stesso
+            // difetto delle due colonne del confronto, un piano piu' su.
+            className="grid min-h-0 flex-1 grid-rows-[minmax(0,1fr)] overflow-hidden"
+          >
+            {f === "larga" &&
+              (chiusa ? (
+                <Striscia apri={() => setChiusa(false)} />
+              ) : (
+                <CorsiaAperta chiudi={() => setChiusa(true)} />
+              ))}
+
+            {/* `overflow-hidden` qui e' la rete: se una schermata futura sbaglia
+                i propri vincoli, deborda dentro il suo riquadro invece di
+                allungare la pagina e portarsi via la corsia. */}
+            <main className="h-full min-h-0 min-w-0 overflow-hidden">{children}</main>
+            {f === "larga" && fianco}
+          </div>
+        </div>
+
+        {f === "stretta" && cassetto && (
+          <Strato lato="sinistra" larghezza={APERTA} chiudi={chiudiCassetto} nome={t("rail.close")}>
+            <CorsiaAperta chiudi={chiudiCassetto} />
+          </Strato>
+        )}
+
+        {f === "stretta" && foglio && conFonti && (
+          <Strato
+            lato="destra"
+            larghezza={FIANCO}
+            chiudi={() => setFoglio(false)}
+            nome={t("sources.close")}
+          >
+            {fianco}
+          </Strato>
+        )}
+      </Chiusura.Provider>
+    </Contesto.Provider>
+  );
+}
+
+/**
+ * La testata che compare solo a colonna sola.
+ *
+ * Tre cose e nient'altro: il comando che riapre la corsia, il marchio, e — dove
+ * c'e' una risposta di cui parlano — le fonti. Non e' il posto in cui accumulare
+ * i comandi della schermata sotto: quelli stanno dove sono sempre stati, e una
+ * testata che cambia contenuto passando da una schermata all'altra sarebbe lo
+ * stesso difetto della corsia che cambia larghezza.
+ *
+ * Il marchio e' **piu' piccolo** che nella corsia (17 contro 19 px), e qui e'
+ * giusto: nella striscia di U-18 non rimpiccioliva perche' li' era l'unica cosa
+ * rimasta a dire il nome del programma, mentre una testata e' una riga di
+ * comandi e un marchio della stessa misura di un titolo direbbe di essere il
+ * titolo della pagina.
+ */
+function Testata({
+  apriCorsia,
+  apriFonti,
+}: {
+  apriCorsia: () => void;
+  apriFonti: (() => void) | null;
+}) {
+  return (
+    <header className="flex shrink-0 items-center gap-2 border-b border-line bg-surface px-2.5 py-1.5">
+      <BottoneCorsia chiusa cambia={apriCorsia} className="h-[34px] w-[34px]" />
+      <Marchio className="text-[17px]" />
+      {apriFonti !== null && <BottoneFonti apri={apriFonti} />}
+    </header>
+  );
+}
+
+/**
+ * Le fonti, da una colonna sola: il comando, e **quante ne sono arrivate**.
+ *
+ * Il numero non e' un ornamento. Nelle colonne il pannello e' sempre sullo
+ * schermo e si riempie mentre la risposta nasce — e' la ragione per cui U-02 lo
+ * voleva affiancato; chiuso dentro un foglio, quel riempirsi non si vedrebbe
+ * piu' e le fonti tornerebbero a essere una funzione da andare a cercare. Il
+ * conteggio e' la parte di quel segnale che sta in una testata.
+ *
+ * `zona("fonti")` sta qui perche' a colonna sola **questo** e' il posto delle
+ * fonti. Il pannello dentro il foglio porta lo stesso attributo, ma e' nel DOM
+ * dopo di noi e solo mentre il foglio e' aperto: la guida trova prima questo, e
+ * indica il comando invece di una colonna che non c'e'.
+ */
+function BottoneFonti({ apri }: { apri: () => void }) {
+  const { t } = usaLingua();
+  const risposta = usaUltimaRisposta();
+  const quante = risposta?.chunks.length ?? 0;
+
+  return (
+    <Suggerimento testo={t("sources.open.hint")} fuoco={false} className="ml-auto">
+      <button
+        {...zona("fonti")}
+        type="button"
+        onClick={apri}
+        className="flex h-[34px] items-center gap-1.5 rounded-[7px] border border-line-2 px-2.5 text-[11.5px] text-ink-2 transition-colors hover:border-accent-2 hover:text-ink"
+      >
+        <Indice size={13} />
+        {t("sources.title")}
+        {quante > 0 && (
+          <span className="rounded bg-accent px-[5px] py-px font-mono text-[10px] font-semibold text-accent-ink tabular-nums">
+            {quante}
+          </span>
+        )}
+      </button>
+    </Suggerimento>
+  );
+}
+
+/**
+ * Uno strato che entra da un bordo, col resto dello schermo velato dietro.
+ *
+ * **La larghezza e' quella della colonna che sostituisce** — 200 px la corsia,
+ * 272 le fonti — e non una frazione dello schermo. Tutte le misure di quelle due
+ * colonne sono state accordate su quei numeri (i titoli di conversazione
+ * troncati a ~28 caratteri, il nome del documento in 272 px): darne di diverse
+ * qui vorrebbe dire avere due impaginazioni per lo stesso componente, e la prima
+ * che si rompe e' quella che non si guarda mai. Il tetto in percentuale e' per
+ * gli schermi piu' stretti del telefono del criterio, dove uno strato pieno
+ * lascerebbe il velo largo un dito e non si capirebbe piu' che si chiude.
+ *
+ * **Il velo e' un bottone**, non un `div` con un `onClick`: chiudere toccando
+ * fuori e' un comando, e un comando ha un nome che si puo' leggere e un fuoco su
+ * cui si puo' arrivare col tasto di tabulazione. Il velo e' lo stesso token
+ * dell'avvio guidato (U-20) — e li' non intercettava il puntatore perche' la
+ * guida non doveva impedire niente; qui **deve**, perche' cio' che ci sta sotto
+ * e' coperto e cliccare alla cieca aprirebbe cose che non si vedono.
+ */
+function Strato({
+  lato,
+  larghezza,
+  chiudi,
+  nome,
+  children,
+}: {
+  lato: "sinistra" | "destra";
+  larghezza: number;
+  chiudi: () => void;
+  nome: string;
+  children: ReactNode;
+}) {
+  return (
+    <div className={`fixed inset-0 z-40 flex ${lato === "destra" ? "flex-row-reverse" : ""}`}>
+      <div
+        style={{ width: larghezza }}
+        className={`h-full max-w-[86%] shrink-0 ${lato === "destra" ? "entra-da-destra" : "entra-da-sinistra"}`}
+      >
+        {children}
+      </div>
+      <button
+        type="button"
+        onClick={chiudi}
+        aria-label={nome}
+        className="appare h-full flex-1 bg-velo backdrop-blur-[2px]"
+      />
     </div>
   );
 }
@@ -131,7 +389,7 @@ function CorsiaAperta({ chiudi }: { chiudi: () => void }) {
     // cio' che esce dai suoi bordi, e la tendina del dataset -- che e'
     // posizionata in assoluto -- ne veniva tagliata. Lo scorrimento sta dentro
     // la cronologia, sull'elenco, che e' la sola parte che cresce.
-    <aside className="flex flex-col gap-4 border-r border-line bg-surface px-3 py-3.5">
+    <aside className="flex h-full flex-col gap-4 border-r border-line bg-surface px-3 py-3.5">
       {/* Il comando sta accanto al marchio e non in fondo: e' l'unica cosa qui
           che riguarda la corsia stessa invece di cio' che ci sta dentro, e la
           riga del marchio e' il bordo di questa colonna. */}
@@ -268,13 +526,19 @@ function BottoneCorsia({
 function BottoneCorpus({ compatto = false }: { compatto?: boolean }) {
   const { t } = usaLingua();
   const { apri } = usaEsploratore();
+  // Cambia schermata, quindi si porta via il cassetto: vedi `cassetto.ts`.
+  const chiudiCassetto = usaChiudiCassetto();
+  const vai = () => {
+    apri();
+    chiudiCassetto();
+  };
 
   if (compatto) {
     return (
       <Suggerimento testo={t("corpus.open.action")} fuoco={false} className="block">
         <button
           type="button"
-          onClick={() => apri()}
+          onClick={vai}
           aria-label={t("corpus.open.action")}
           className="flex h-[34px] w-full items-center justify-center rounded-[7px] border border-line-2 text-ink-2 transition-colors hover:border-accent-2 hover:text-ink"
         >
@@ -287,7 +551,7 @@ function BottoneCorpus({ compatto = false }: { compatto?: boolean }) {
   return (
     <button
       type="button"
-      onClick={() => apri()}
+      onClick={vai}
       className="mt-1.5 flex h-[34px] w-full items-center gap-2 rounded-[7px] border border-line-2 px-2.5 text-[11.5px] text-ink-2 transition-colors hover:border-accent-2 hover:text-ink"
     >
       <Corpus size={13} />
@@ -335,6 +599,11 @@ const PASTIGLIA_STRETTA = `${PASTIGLIA} h-[34px] px-1 text-[9px]`;
 function BottoneInfo({ compatto = false }: { compatto?: boolean }) {
   const { t } = usaLingua();
   const { apri } = usaPresentazione();
+  const chiudiCassetto = usaChiudiCassetto();
+  const vai = () => {
+    apri();
+    chiudiCassetto();
+  };
 
   // Il `div` esiste per la guida e non per l'impaginazione: `Suggerimento` non
   // inoltra attributi, e la zona va dichiarata su qualcosa che sta nel DOM.
@@ -345,7 +614,7 @@ function BottoneInfo({ compatto = false }: { compatto?: boolean }) {
         <Suggerimento testo={t("about.hint")} fuoco={false} className="block">
           <button
             type="button"
-            onClick={apri}
+            onClick={vai}
             aria-label={t("about.action")}
             className="flex h-[34px] w-full items-center justify-center rounded-[7px] border border-line-2 text-ink-2 transition-colors hover:border-accent-2 hover:text-ink"
           >
@@ -361,7 +630,7 @@ function BottoneInfo({ compatto = false }: { compatto?: boolean }) {
       <Suggerimento testo={t("about.hint")} fuoco={false} className="block">
         <button
           type="button"
-          onClick={apri}
+          onClick={vai}
           className="flex h-[34px] w-full items-center gap-2 rounded-[7px] border border-line-2 px-2.5 text-[11.5px] text-ink-2 transition-colors hover:border-accent-2 hover:text-ink"
         >
           <Informazioni size={13} />

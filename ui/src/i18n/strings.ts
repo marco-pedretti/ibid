@@ -78,6 +78,15 @@ export const it = {
   "rail.history.hint":
     "Un titolo troncato a una striscia non è un titolo: il clic riapre la corsia.",
 
+  // U-21: a colonna sola la corsia e le fonti diventano due strati che si aprono
+  // sopra il lavoro. Il nome dice **cosa si chiude** e non «chiudi»: il velo è un
+  // bersaglio grande e senza forma, e chi ci arriva da tastiera lo sente
+  // annunciare prima di premerlo.
+  "rail.close": "Chiudi la corsia",
+  "sources.close": "Chiudi le fonti",
+  "sources.open.hint":
+    "Le fonti di questa risposta, coi verdetti. Si apre di lato, e si chiude toccando fuori.",
+
   // Il criterio di U-13 chiede che la cronologia **dichiari** di essere locale, e
   // la parola sta nel nome della sezione. Prima la frase intera stava sotto
   // l'elenco: vera, e scollegata da ciò di cui parlava. Qui «locale» ha un
@@ -557,6 +566,11 @@ export const en: Record<Chiave, string> = {
   "rail.expand": "Open the sidebar",
   "rail.expand.hint": "It comes back wide, with conversation titles and the dataset name.",
   "rail.history.hint": "A title cut down to a strip is not a title: the click reopens the sidebar.",
+
+  "rail.close": "Close the sidebar",
+  "sources.close": "Close sources",
+  "sources.open.hint":
+    "The sources behind this answer, with their verdicts. It opens at the side; tap outside to close.",
 
   "history.title": "Local history",
   "history.hint":
