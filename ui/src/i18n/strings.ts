@@ -399,11 +399,17 @@ export const it = {
     "Il testo non è ancora definitivo: questo marcatore può essere corretto, o scartato se punta a una fonte che non c'è.",
   "verdict.marker.score":
     "Cita la fonte {marker}. Il controllo dice: {verdetto}, {punteggio} su 1.",
-  // La soglia (0,50) non è scritta qui di proposito: è una costante del backend,
-  // e U-00 vieta al frontend di portarsele dietro. Per mostrarla servirebbe un
-  // campo nel contratto, come `GateView.threshold` ce l'ha per il gate.
+  "verdict.marker.score.threshold":
+    "Cita la fonte {marker}. Il controllo dice: {verdetto}, {punteggio} contro una soglia di {soglia}.",
+  // La soglia arriva dal contratto (`CitationView.threshold`, D-7) e non è
+  // scritta qui: U-00 vieta al frontend di portarsi dietro le costanti del
+  // backend, e una soglia copiata a mano resterebbe giusta finché qualcuno non
+  // cambia quella vera. È lo stesso campo che `GateView` ha sempre avuto.
   "verdict.score":
     "Quanto il controllo è convinto che questa fonte dica ciò che la frase afferma, da 0 a 1. Il verdetto è quel numero contro una soglia.",
+  // Senza `{soglia}` per le risposte salvate prima di D-7, che non la portano.
+  "verdict.score.threshold":
+    "Quanto il controllo è convinto che questa fonte dica ciò che la frase afferma, da 0 a 1. Sostiene se arriva a {soglia}.",
   "verdict.score.many":
     "Più frasi citano questa fonte: questo è il numero della più debole, non una media.",
   "verdict.count": "Quante frasi della risposta citano questa fonte.",
@@ -783,8 +789,12 @@ export const en: Record<Chiave, string> = {
     "The text is not final yet: this marker can still be fixed, or dropped if it points at a source that is not there.",
   "verdict.marker.score":
     "Cites source {marker}. The checker says: {verdetto}, {punteggio} out of 1.",
+  "verdict.marker.score.threshold":
+    "Cites source {marker}. The checker says: {verdetto}, {punteggio} against a threshold of {soglia}.",
   "verdict.score":
     "How convinced the checker is that this source says what the sentence claims, from 0 to 1. The verdict is that number against a threshold.",
+  "verdict.score.threshold":
+    "How convinced the checker is that this source says what the sentence claims, from 0 to 1. It supports if it reaches {soglia}.",
   "verdict.score.many":
     "Several sentences cite this source: this is the weakest one’s number, not an average.",
   "verdict.count": "How many sentences of the answer cite this source.",

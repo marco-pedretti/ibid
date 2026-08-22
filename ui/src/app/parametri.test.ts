@@ -18,6 +18,7 @@ const CONFIG: ConfigView = {
   rag: true,
   baseline_prompt: "strict",
   verify: true,
+  entailment_threshold: 0.5,
 };
 
 const scambio = (config: ConfigView | null, chiesto: ConfigView | null = null) => ({

@@ -19,7 +19,7 @@ import type { ReactNode } from "react";
 
 import { usaLingua } from "../app/i18n";
 import type { Esito, EsitoNumerico, EsitoScheda, Marcato } from "../app/verdetti";
-import type { Chiave } from "../i18n/strings";
+import type { Chiave, Lingua } from "../i18n/strings";
 import { InAttesa, NonCitata, NonSostiene, NonVerificata, Sostiene } from "./Icona";
 import type { PropsIcona } from "./Icona";
 import { Suggerimento } from "./Suggerimento";
@@ -141,6 +141,7 @@ export function Marcatore({ marcato }: { marcato: Marcato }) {
   const Glifo = GLIFO[marcato.esito];
   const parola = t(PAROLA[marcato.esito]);
   const punteggio = marcato.citazione?.score;
+  const soglia = marcato.citazione?.threshold;
 
   // Il glifo e il colore non arrivano a chi ascolta, e il numero da solo non dice
   // niente: qui la parola non e' un extra, e' l'unica cosa che resta. Il
@@ -159,14 +160,18 @@ export function Marcatore({ marcato }: { marcato: Marcato }) {
       ? t("verdict.marker.inert")
       : punteggio === undefined
         ? t("verdict.marker", { marker: marcato.marker, verdetto: parola })
-        : t("verdict.marker.score", {
-            marker: marcato.marker,
-            verdetto: parola,
-            punteggio: punteggio.toLocaleString(lingua === "it" ? "it-IT" : "en-US", {
-              minimumFractionDigits: 3,
-              maximumFractionDigits: 3,
-            }),
-          });
+        : soglia === undefined
+          ? t("verdict.marker.score", {
+              marker: marcato.marker,
+              verdetto: parola,
+              punteggio: numero(punteggio, lingua, 3),
+            })
+          : t("verdict.marker.score.threshold", {
+              marker: marcato.marker,
+              verdetto: parola,
+              punteggio: numero(punteggio, lingua, 3),
+              soglia: numero(soglia, lingua, 2),
+            });
 
   return (
     <Suggerimento
@@ -209,21 +214,40 @@ export function parolaDelVerdetto(
  */
 function dettaglioDi(
   esito: EsitoScheda,
-  locale: string,
-  t: (c: Chiave) => string,
+  lingua: Lingua,
+  t: (c: Chiave, v?: Record<string, string | number>) => string,
 ): { punteggio: string; perche: string; quante: string | null } | null {
   if (esito.tipo !== "sostiene" && esito.tipo !== "nonSostiene") return null;
   return {
-    punteggio: esito.punteggio.toLocaleString(locale, {
-      minimumFractionDigits: 3,
-      maximumFractionDigits: 3,
-    }),
+    punteggio: numero(esito.punteggio, lingua, 3),
     // Il punteggio mostrato e' quello della citazione piu' vicina alla linea, e
     // con piu' di una frase questo va detto: altrimenti si legge come se
     // riguardasse tutte allo stesso modo.
-    perche: t(esito.su > 1 ? "verdict.score.many" : "verdict.score"),
+    // **La soglia si scrive con due decimali e il punteggio con tre**, e non e'
+    // una svista: il punteggio e' una misura e i suoi millesimi distinguono un
+    // 0,499 da un 0,502, mentre la soglia e' una decisione presa a numero
+    // tondo. Dare tre cifre anche a lei suggerirebbe una precisione che non ha.
+    //
+    // **Senza soglia si torna alla frase di prima**, che diceva «contro una
+    // soglia» senza nominarla ed era vera lo stesso. Succede sulle risposte
+    // salvate in cronologia prima di D-7: dire «sostiene se arriva a 0,00»
+    // sarebbe una scala falsa, e una scala falsa e' peggio di nessuna scala.
+    perche:
+      esito.su > 1
+        ? t("verdict.score.many")
+        : esito.soglia === undefined
+          ? t("verdict.score")
+          : t("verdict.score.threshold", { soglia: numero(esito.soglia, lingua, 2) }),
     quante: esito.su > 1 ? `×${esito.su}` : null,
   };
+}
+
+/** Un numero come lo scrive la lingua scelta, con le cifre che merita. */
+function numero(n: number, lingua: Lingua, cifre: number): string {
+  return n.toLocaleString(lingua === "it" ? "it-IT" : "en-US", {
+    minimumFractionDigits: cifre,
+    maximumFractionDigits: cifre,
+  });
 }
 
 const PASTIGLIA =
@@ -263,7 +287,7 @@ export function VerdettoNumerico({ esito }: { esito: EsitoNumerico }) {
 export function Verdetto({ esito }: { esito: EsitoScheda }) {
   const { t, lingua } = usaLingua();
   const { glifo: Glifo, perche, tono } = FORMA[esito.tipo];
-  const dettaglio = dettaglioDi(esito, lingua === "it" ? "it-IT" : "en-US", t);
+  const dettaglio = dettaglioDi(esito, lingua, t);
 
   return (
     <span className={`${PASTIGLIA} ${TONO[tono]}`}>
