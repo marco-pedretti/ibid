@@ -138,114 +138,134 @@ le due generic, ~780 MB di snapshot.
 
 ---
 
-## Prefill e decode, e le due manopole di Ollama (2026-08-22)
+## Dove va il tempo di una risposta (2026-08-22)
 
 **Perché è stato misurato.** Prima di valutare uno spostamento su Linux/ROCm per
-far correre le run che restano (D-3, il punto 12B dell'affermazione 3) serviva
-sapere *dove* va il tempo di una risposta. Se va nel decode, è banda di memoria e
-non la sposta nessun backend; se va nel prefill, è calcolo e un backend migliore
-si vede. La sonda è `scripts/probe_prefill.py`.
+far correre le run che restano serviva sapere *dove* va il tempo. Se va nel
+decode è banda di memoria e non la sposta nessun backend; se va nel prefill è
+calcolo, e un backend migliore si vede. La sonda è `scripts/probe_prefill.py`.
 
 **Condizioni:** `gemma4:latest` Q4_K_M, `num_ctx` 32768, `think: false`,
-temperatura 0. Cinque domande vere di `ledger`, ricostruite dai dump di
-generazione con lo stesso `build_user_message` della pipeline — prompt mediano
-**8.208 token**, cioè un contesto da cinque chunk come in valutazione. La prima
-chiamata è di riscaldamento e non si conta. Mediane.
+temperatura 0, `OLLAMA_NUM_PARALLEL=1`. Cinque domande vere di `ledger`
+ricostruite dai dump con lo stesso `build_user_message` della pipeline — prompt
+mediano **8.208 token**, cioè cinque chunk come in valutazione. Prima chiamata di
+riscaldamento, scartata. Mediane. Ogni condizione parte da un Ollama riavviato
+con **zero runner orfani** e il modello a 43/43 strati: sotto si spiega perché
+quella riga del protocollo vale quanto la misura.
 
-| condizione | prefill | decode | totale | quota prefill |
-|---|---|---|---|---|
-| flash attention **off**, `num_parallel` default | 835 tok/s | 72,3 tok/s | 12,73 s | 77% |
-| flash attention **off**, `num_parallel` 1 | **916 tok/s** | **77,8 tok/s** | 13,24 s | 67% |
-| flash attention **on**, `num_parallel` 1 | **34–48 tok/s** | — | ~293 s | — |
+### La risposta è per due terzi prefill, e per un terzo nemmeno GPU
 
-### Il prefill è tre quarti del costo
-
-È la premessa che serviva, ed è più netta di quanto la nota di portabilità
-stimasse: il decode sta a **72–78 tok/s** con varianza quasi nulla su tutte e
-cinque le domande — è il tetto di banda della 6750 XT, e nessun backend lo
-regala. Il prefill invece scala col prompt (da 5.015 token: 6,4 s; da 10.052:
-10,5 s) ed è la voce su cui un backend diverso può fare la differenza.
-
-Restano **~2 s non contabilizzati** per risposta (13,24 totali contro 9,7 di
-prefill+decode): tokenizzazione, HTTP, scheduling. Non li sposta nessun backend,
-e vanno tolti da qualunque stima di guadagno — sono il pavimento.
-
-### `OLLAMA_FLASH_ATTENTION` su Vulkan: **da tenere spenta**
-
-Era indicata come «leva gratuita da provare». Non lo è: accesa, il prompt
-processing va **da 916 a 34–48 tok/s**, e una domanda da 10k token passa da
-10,5 s a **293,5 s**. Ventitré volte più lenta.
-
-E non è un fattore costante, è una curva che peggiora: 240 tok/s a 1.536 token,
-121 a 2.560, 62 a 5.120, 34 a 10.048. Il costo per token cresce con la
-posizione, che è il profilo di un'attenzione quadratica senza kernel dedicato —
-cioè il percorso flash del backend Vulkan che ripiega su qualcosa di ingenuo.
-Su un prompt corto non si nota; su uno da cinque chunk è tutto il tempo speso.
-
-**Questo rende il confronto con ROCm più interessante, non meno**: la stessa
-manopola su un percorso HIP è la strada battuta, mentre qui è la strada rotta.
-Ma resta da misurare, non da dedurre.
-
-### `OLLAMA_NUM_PARALLEL=1`: piccolo guadagno, nessun costo qui
-
-+10% di prefill e +8% di decode, perché il contesto allocato è
-`num_ctx × num_parallel` e con una sola sessione il KV cache smette di
-riservare spazio per sessioni che non esistono. **Non costa niente a questo
-progetto**: la valutazione è sequenziale per costruzione, e la schermata di
-confronto genera **una** risposta sola — l'altra è quella già data, riletta
-(`chat.tsx`, `confronta`). Non c'è nessun punto in cui il repo chieda due
-generazioni insieme.
-
-### `num_batch`: il default di Ollama vince già
-
-Il log del prefill avanza a blocchi da 512 token, e alzare la dimensione del
-blocco è la leva classica per saturare una GPU. Qui non paga: **non c'è niente
-da saturare che non sia già saturo.**
-
-| `num_batch` | prefill | decode |
+| voce | tempo | quota |
 |---|---|---|
-| default (512) | **916 tok/s** | **77,8 tok/s** |
-| 1024 | 871 tok/s | 73,6 tok/s |
-| 2048 | 877 tok/s | 70,6 tok/s |
+| prefill (8.208 token) | **8,2 s** | ~63% |
+| decode (~40 token) | **0,7 s** | ~5% |
+| resto del motore | ~2,1 s | ~16% |
+| fuori dal motore (HTTP, JSON, coda) | ~2,1 s | ~16% |
+| **totale a orologio** | **~13,0 s** | |
 
-1024 e 2048 sono indistinguibili fra loro e tutti e due **peggiori** del
-predefinito di circa il 5%. La lettura è che il collo di bottiglia non è il
-numero di token per blocco, e che blocchi più grandi si pagano solo in memoria
-di lavoro. Si lascia stare: `probe_prefill.py` passa `num_batch` **solo** se lo
-si chiede sulla riga di comando, così il default resta quello che Ollama decide
-e non un valore nostro che invecchia.
+Il decode è inchiodato a **72–78 tok/s** in ogni condizione provata, con varianza
+quasi nulla fra le domande: è il tetto di banda della 6750 XT, e non lo regala
+nessun backend. Il prefill scala col prompt (5.015 token: 6,3 s; 10.052: 9,2 s)
+ed è l'unica voce su cui un backend diverso possa fare qualcosa.
 
-> **Il 5% è vicino al rumore di questa sonda**, che è cinque domande e una
-> mediana. Basta a dire «non guadagna», non basterebbe a dire «peggiora»: per
-> quello servirebbero più ripetizioni, e non ne vale la pena per una manopola
-> che si sta per lasciare al suo posto. Il 23× della flash attention, invece, non
-> ha questo problema.
+**Un terzo del tempo non è calcolo GPU.** `total_duration` di Ollama non copre
+tutto, e quel che resta fuori — più i ~2 s che il motore spende in tokenizzazione
+e contabilità — fa ~4 s su 13. Nessun backend li tocca. È il pavimento di
+qualunque stima di guadagno, e va sottratto prima di moltiplicare.
 
-**Con questo le leve gratuite su Windows sono finite.** Flash attention spenta,
-`num_parallel` a 1, `num_batch` al default: una risposta su cinque chunk costa
-~13 s, di cui ~9 di prefill. Quel che resta da provare non è una manopola, è un
-backend — ed è lavoro di U-12/D-10, non di oggi.
+### Le manopole: muovono il motore, non l'orologio
 
-### Due avvertenze per chi legge questi numeri
+| condizione | prefill | decode | totale a orologio |
+|---|---|---|---|
+| flash attention **on**, `num_batch` default | 835 / 836 tok/s | 72,3 / 72,7 | 12,73 / 12,72 s |
+| flash attention **off**, `num_batch` default | 916 / 920 tok/s | 77,8 / 77,9 | 13,24 / 13,18 s |
+| flash attention off, `num_batch` **1024** | **1064 / 1050 tok/s** | 77,3 | 13,01 / 13,02 s |
+| flash attention off, `num_batch` 2048 | 937 tok/s | 74,7 | 13,13 s |
 
-**La configurazione del motore cambia il testo generato, a temperatura 0.** Fra
-le due righe con flash attention spenta la stessa domanda (`SHW_dividends_paid_2017`)
-ha prodotto 22 token in un caso e 29 nell'altro: batching e layout del KV cache
-spostano l'aritmetica quel tanto che basta. Ne segue che **cambiare backend non
-è gratis per le misure**: i numeri di citazione dell'affermazione 1 sono stati
-presi su Vulkan, e rifarne una parte altrove sarebbe misurare due cose insieme
-(§15). `EvalRun` per giunta non ha un campo per il motore — registra `model`,
-`quantization`, `context_window`, `temperature` — quindi due run fatte su
-backend diversi sono oggi **indistinguibili nell'artefatto**.
+Due colonne per condizione dove ci sono due ripetizioni: servono a dire che il
+ritmo del motore è **riproducibile a tre cifre** (835,0 e 835,9; 916,3 e 920,1),
+quindi le differenze fra le righe sono reali e non rumore.
 
-**Una misura del genere si lascia confondere in silenzio.** Il primo tentativo
-di questa tabella ha prodotto 365 tok/s di prefill e 10,5 di decode, che
-sembravano un numero e invece erano un guasto: tre runner `llama-server` orfani,
-rimasti da altrettanti riavvii di Ollama, tenevano ~6 GB di VRAM, e il modello
-era entrato per **31 strati su 43** — il resto sulla CPU. La risposta arriva lo
-stesso, solo lenta. Per questo `probe_prefill.py` ora confronta `size` e
-`size_vram` di `/api/ps` dopo il riscaldamento e **si ferma** se il modello non è
-tutto in VRAM.
+**E nonostante questo il totale a orologio non si muove**: 12,7–13,2 s in tutte e
+quattro le condizioni, mentre il ritmo di prefill fra la peggiore e la migliore
+cambia del **27%**. I ~4 s di fuori-motore assorbono il guadagno.
+
+Ne segue la sola raccomandazione che questi numeri sostengono: **nessuna di
+queste manopole vale un cambio di configurazione.** `num_batch` a 1024 è la
+migliore per ritmo di prefill ed è quella da provare per prima se un giorno il
+fuori-motore verrà ridotto; oggi non cambia la durata di una run.
+
+### Cosa è stato misurato e cosa no
+
+`OLLAMA_NUM_PARALLEL` **non è stato misurato.** Era già a 1 prima della prima
+misura della giornata, quindi tutte le righe qui sopra la condividono e nessuna
+la isola. Resta plausibile che conti — il contesto allocato è
+`num_ctx × num_parallel`, e con quattro sessioni il KV cache quadruplica su una
+scheda da 12 GB — ma plausibile non è misurato, e in questa pagina la differenza
+è tutta.
+
+Non costa comunque niente tenerla a 1: la valutazione è sequenziale per
+costruzione, e la schermata di confronto genera **una** risposta sola — l'altra è
+quella già data, riletta (`chat.tsx`, `confronta`). Nessun punto del repo chiede
+due generazioni insieme.
+
+### Il confonditore, che ha falsificato due letture su quattro
+
+Le prime versioni di questa pagina davano la flash attention accesa a **34–48
+tok/s** contro 916 spenta, cioè un fattore 23, e la conclusione era «tenerla
+spenta». **Era falso.** Accesa fa 835 tok/s, il 10% meno che spenta, e la misura
+si riproduce a tre cifre.
+
+La causa dei 34–48 erano **runner `llama-server` orfani**: fermando `ollama.exe`
+per riavviarlo col nuovo ambiente, il processo figlio sopravvive e continua a
+tenere la sua VRAM. Con tre riavvii c'erano tre orfani e ~6 GB occupati. Il
+sintomo non è un errore: la risposta arriva lo stesso, solo lenta.
+
+**Ed è un confonditore che si presenta in due forme diverse**, il che è la
+ragione per cui è riuscito a passare due volte:
+
+1. **Il modello entra a metà.** 31 strati su 43, il resto sulla CPU: 365 tok/s di
+   prefill e 10,5 di decode. Questa la sonda ora la **ferma**, confrontando
+   `size` e `size_vram` di `/api/ps` dopo il riscaldamento.
+2. **Il modello entra tutto e va lo stesso piano.** 43 strati su 43, e 34–48
+   tok/s con un ritmo che **peggiora col crescere del contesto** — 240 tok/s a
+   1.536 token, 121 a 2.560, 62 a 5.120, 34 a 10.048. È il profilo di un KV cache
+   che non sta dove dovrebbe. **Questa la sonda non la rileva**: dal suo punto di
+   vista il modello è interamente in VRAM, ed è vero.
+
+Contro la seconda non c'è un campo dell'API da leggere, quindi vale una riga di
+protocollo invece di un controllo: **prima di ogni condizione, riavviare Ollama e
+verificare che i runner siano zero.**
+
+```powershell
+Get-Process llama-server,ollama,"ollama app" -ErrorAction SilentlyContinue | Stop-Process -Force
+Start-Sleep -Seconds 3
+Start-Process "$env:LOCALAPPDATA\Programs\Ollama\ollama app.exe"
+Start-Sleep -Seconds 7
+"orfani: $((Get-Process llama-server -ErrorAction SilentlyContinue | Measure-Object).Count)"
+```
+
+> **La lezione generale, che vale oltre questa pagina.** Le due letture false
+> erano *plausibili*: un fattore 23 sulla flash attention ha una spiegazione
+> pronta («il percorso Vulkan ripiega su un'attenzione ingenua»), e quella
+> spiegazione è stata scritta prima di verificare che le due condizioni
+> differissero solo per la manopola. La verifica che le ha smontate non è stata
+> una misura in più ma la **rilettura dei log del motore**, che dicevano
+> `flash_attn = enabled` anche nella riga chiamata «off». Quando una manopola dà
+> un fattore 20, la prima ipotesi da scartare è che si stia misurando altro.
+
+### Cosa questo dice su ROCm
+
+Rafforza poco e indebolisce parecchio. Il prefill resta la voce grossa — ~63% —
+e quella un backend la tocca. Ma il decode è al muro di banda, e i **~4 s di
+fuori-motore su 13 non li tocca nessuno**: anche raddoppiando il ritmo di
+prefill, una risposta passerebbe da 13,0 a ~8,9 s, cioè un guadagno del 32% e non
+un dimezzamento. Sulle ~6 ore che restano fra D-3, D-4 e l'affermazione 3 fanno
+meno di due ore, contro una giornata di sistema da mettere in piedi.
+
+La misura vera ROCm-contro-Vulkan si fa in **U-12/D-10**, dove Linux va
+affrontato comunque e nessuna misura è in ballo. La sonda ci gira sopra tale e
+quale: `/api/ps` e `/api/chat` sono gli stessi su ogni sistema.
 
 > **I numeri di T-02 in cima a questa pagina non sono confrontabili con questi**,
 > e la differenza non va letta come un miglioramento: là il prompt era corto e il

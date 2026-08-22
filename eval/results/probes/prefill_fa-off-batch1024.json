@@ -1,0 +1,69 @@
+{
+  "etichetta": "fa-off-batch1024",
+  "model": "gemma4:latest",
+  "num_ctx": 32768,
+  "num_batch": 1024,
+  "collection": "ledger",
+  "n": 5,
+  "quota_vram": 1.0,
+  "prompt_tok_mediana": 8208,
+  "prefill_s_mediana": 8.19,
+  "prefill_tok_s_mediana": 1050.15,
+  "decode_tok_s_mediana": 77.26,
+  "totale_s_mediana": 13.02,
+  "quota_prefill_mediana": 0.65,
+  "carico_s_mediana": 0.01,
+  "fuori_s_mediana": 2.05,
+  "misure": [
+    {
+      "query_id": "SHW_capex_2017",
+      "prompt_tok": 10052,
+      "prefill_s": 9.209264,
+      "decode_tok": 29,
+      "decode_s": 0.376587,
+      "carico_s": 0.0046903,
+      "motore_s": 11.0588978,
+      "totale_s": 13.13
+    },
+    {
+      "query_id": "SHW_cash_and_equivalents_2017",
+      "prompt_tok": 8208,
+      "prefill_s": 7.816042,
+      "decode_tok": 54,
+      "decode_s": 0.698916,
+      "carico_s": 0.005133,
+      "motore_s": 10.0065351,
+      "totale_s": 12.05
+    },
+    {
+      "query_id": "SHW_cost_of_revenue_2017",
+      "prompt_tok": 9961,
+      "prefill_s": 9.219298,
+      "decode_tok": 31,
+      "decode_s": 0.405505,
+      "carico_s": 0.0050006,
+      "motore_s": 11.1255775,
+      "totale_s": 13.18
+    },
+    {
+      "query_id": "SHW_depreciation_amortization_2017",
+      "prompt_tok": 7368,
+      "prefill_s": 8.187852,
+      "decode_tok": 98,
+      "decode_s": 1.261905,
+      "carico_s": 0.0053777,
+      "motore_s": 10.9654247,
+      "totale_s": 13.02
+    },
+    {
+      "query_id": "SHW_dividends_paid_2017",
+      "prompt_tok": 5015,
+      "prefill_s": 6.333238,
+      "decode_tok": 31,
+      "decode_s": 0.380842,
+      "carico_s": 0.0041659,
+      "motore_s": 8.2261607,
+      "totale_s": 10.29
+    }
+  ]
+}

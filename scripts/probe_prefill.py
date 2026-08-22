@@ -7,10 +7,14 @@ riguarda il *prefill* (attenzione, backend) vale il triplo.  Questa sonda misura
 i due pezzi separatamente, cosi' che una modifica al motore si giudichi su un
 numero invece che su un'impressione.
 
-**Il primo uso e' `OLLAMA_FLASH_ATTENTION`**, oggi a `false`: si misura prima,
-si accende, si rimisura.  Il secondo uso possibile e' Vulkan contro ROCm, che e'
-lo stesso confronto su una macchina diversa -- ed e' il motivo per cui l'uscita
-si scrive su file: due condizioni non si confrontano a memoria.
+**Ogni condizione parte da un Ollama riavviato e da zero runner orfani**, ed e'
+una riga di protocollo che vale quanto il codice: senza, questa sonda ha gia'
+prodotto due letture false in un pomeriggio.  Vedi `quota_vram` per la meta' che
+il codice riesce a difendere, e `docs/hardware.md` per quella che non riesce.
+
+L'uscita si scrive su file perche' due condizioni non si confrontano a memoria --
+ed e' anche il motivo per cui esiste `--etichetta`: una misura senza il nome
+della condizione che l'ha prodotta e' un numero orfano.
 
 **Passa dall'API nativa di Ollama e non da `/v1`**, ed e' l'unico punto in cui
 questo repo lo fa oltre a `catalog.py`.  Non e' una deroga alla regola
@@ -29,6 +33,11 @@ lunghezza era quella giusta.
 **La prima chiamata si butta.**  Contiene il caricamento del modello (~9 GB da
 disco a VRAM), che non e' latenza di risposta ed e' l'unica cosa in grado di
 spostare la mediana di un fattore.
+
+**Il totale a orologio non e' la somma di prefill e decode**, e la differenza non
+e' un errore di misura: su ~13 s ce ne sono ~4 fra tokenizzazione, HTTP, JSON e
+coda.  Si riportano separati (`fuori_s`) perche' nessun backend li tocca, e
+spalmarli sui due tempi confrontati fa sparire i guadagni veri dentro una media.
 
 Uso:
 
@@ -79,6 +88,8 @@ class Misura:
     prefill_s: float
     decode_tok: int
     decode_s: float
+    carico_s: float
+    motore_s: float
     totale_s: float
 
     @property
@@ -93,6 +104,18 @@ class Misura:
     def quota_prefill(self) -> float:
         """La frazione del tempo speso a leggere invece che a scrivere."""
         return self.prefill_s / self.totale_s if self.totale_s else 0.0
+
+    @property
+    def fuori_s(self) -> float:
+        """Il tempo che non e' del motore: HTTP, JSON, coda, contabilita'.
+
+        **E' la voce che ha reso illeggibili le prime misure di questa sonda.**
+        Sul totale a orologio si vedeva un guadagno sparire, e la ragione e' che
+        `total_duration` di Ollama non copre tutto: quel che resta fuori non lo
+        tocca nessun backend, quindi va tenuto separato invece di essere spalmato
+        sui due tempi che si stanno confrontando.
+        """
+        return max(0.0, self.totale_s - self.motore_s)
 
 
 def chiedi(
@@ -152,6 +175,13 @@ def quota_vram(base: str, model: str) -> float | None:
     `size` e `size_vram` di `/api/ps` bastano a dirlo, e sono due campi
     dell'API, non righe di log da riconoscere -- quindi la verifica sopravvive
     al cambio di sistema operativo, che e' il caso per cui questa sonda esiste.
+
+    **Copre una forma del guasto su due, e va detto.**  Un orfano puo' anche
+    lasciar entrare il modello per intero e rallentarlo lo stesso: 43 strati su
+    43, e un ritmo che peggiora col crescere del contesto perche' il KV cache non
+    sta dove dovrebbe.  Li' `size_vram` dice il vero e non c'e' niente da
+    rilevare -- resta il riavvio pulito prima di ogni condizione, che e'
+    protocollo e non codice.  La storia completa e' in `docs/hardware.md`.
     """
     try:
         with urllib.request.urlopen(f"{base}/api/ps", timeout=10) as resp:
@@ -258,6 +288,8 @@ def main() -> None:
             prefill_s=d.get("prompt_eval_duration", 0) / 1e9,
             decode_tok=int(d.get("eval_count", 0)),
             decode_s=d.get("eval_duration", 0) / 1e9,
+            carico_s=d.get("load_duration", 0) / 1e9,
+            motore_s=d.get("total_duration", 0) / 1e9,
             totale_s=round(time.time() - t0, 2),
         )
         misure.append(m)
@@ -285,6 +317,8 @@ def main() -> None:
         "decode_tok_s_mediana": med(lambda m: m.decode_tok_s),
         "totale_s_mediana": med(lambda m: m.totale_s),
         "quota_prefill_mediana": med(lambda m: m.quota_prefill),
+        "carico_s_mediana": med(lambda m: m.carico_s),
+        "fuori_s_mediana": med(lambda m: m.fuori_s),
         "misure": [asdict(m) for m in misure],
     }
 
@@ -297,6 +331,8 @@ def main() -> None:
     print(f"  decode              {riassunto['decode_tok_s_mediana']:.1f} tok/s")
     print(f"  totale              {riassunto['totale_s_mediana']:.2f} s")
     print(f"  quota del prefill   {riassunto['quota_prefill_mediana'] * 100:.0f}%")
+    print(f"  carico modello      {riassunto['carico_s_mediana']:.2f} s")
+    print(f"  fuori dal motore    {riassunto['fuori_s_mediana']:.2f} s")
 
     USCITA.mkdir(parents=True, exist_ok=True)
     nome = args.etichetta or time.strftime("%Y%m%d_%H%M%S")
