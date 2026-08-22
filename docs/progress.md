@@ -3450,3 +3450,92 @@ domanda. La differenza non viene da una manopola: viene dal fatto che le run del
 sappiamo riconoscere — vedi `docs/hardware.md`, «il confonditore». Le stime di
 costo delle run che restano (D-4, l'affermazione 3) vanno riviste al ribasso in
 proporzione, ma **solo dopo averlo verificato su una di esse**, non per analogia.
+
+
+### D-19 — un rifiuto con parole proprie è un'astensione, ma solo dove ci sono le guardie
+
+Il prompt chiede la stringa esatta `Insufficient information.`; su `ledger` tre o
+quattro risposte per run rifiutano a modo loro — *«The provided context does not
+contain the operating income figure for Barnwell Industries, Inc. for the year
+2017.»* — e finivano contate come `no_citation`. Erano **l'intero divario** fra
+0,9730 e 0,9931.
+
+Le due letture erano tutt'e due difendibili: il modello ha disobbedito a
+un'istruzione esatta, oppure ha rifiutato e basta. Ha vinto la seconda, per un
+motivo che riguarda cosa la metrica dice di misurare: **una citazione mancante in
+un rifiuto non è un difetto di citazione.** Contarla tale fa sì che
+`citation_precision` misuri l'obbedienza al formato, che è un'altra affermazione
+e ha già la sua metrica.
+
+#### Il presupposto del debito era sbagliato, e la misura l'ha corretto
+
+Il debito diceva: *«`ABSTENTION_PHRASES` è lo stesso elenco di E-04/E-05, quindi
+allargarlo sposta anche quelle»*. Sposta molto meno di così, perché la lista è
+una ma **i rilevatori sono due, con guardie diverse**:
+
+| | dove | condizioni |
+|---|---|---|
+| `citation_format.is_abstention` | C-01, **e anche E-04/E-05** | frase **+ nessun marcatore + ≤200 caratteri** |
+| `generation_harness.is_abstained` | baseline di generazione | **solo la frase** |
+
+E-04/E-05 passa dal rilevatore **guardato**, non da quello nudo. Misurato sui
+suoi dump: allargare la lista condivisa avrebbe cambiato **zero** risposte —
+40/95 e 49/95 invariati — perché tutte e dieci quelle che contengono una frase
+nuova **portano anche un marcatore**: il modello rifiuta *e* cita i chunk che ha
+guardato. La sola guardia sui marcatori le esclude tutte.
+
+L'unico effetto fuori dal percorso di citazione sarebbe stato sui baseline di
+generazione: **una risposta su 250**, e per giunta un **falso positivo** — una
+risposta lunga che risponde davvero e che nomina di sfuggita ciò che il contesto
+non contiene.
+
+#### Cosa è stato fatto
+
+Una tupla separata, `SELF_WORDED_REFUSALS`, in `citation_format.py` e **non** in
+`baseline_prompts.py`. La legge `has_abstention_phrase`, quindi arriva a
+`is_abstention` e alle sue due guardie; non arriva a `is_abstained`, che non ne
+ha. Le due liste differiscono perché i due rilevatori chiedono cose diverse — non
+perché una sia rimasta indietro.
+
+**Le frasi da sole sarebbero troppo larghe**, ed è esattamente il punto: «does
+not contain» compare in molte risposte che rispondono. Sono usabili solo dietro
+le guardie, e il test che fissa il caso è quello di Hain Celestial — risponde,
+cita, e *poi* dice cosa manca per un altro anno.
+
+#### I numeri, ricalcolati senza GPU
+
+`rescore_citations.py` rilegge i dump e non riscrive mai un `EvalRun`
+archiviato: i file in `eval/results/` restano ciò che fu misurato con lo
+strumento del giorno, e la differenza è una correzione dichiarata invece di una
+riscrittura silenziosa.
+
+| run | registrata | ricalcolata | esito |
+|---|---|---|---|
+| `20260822_083237_ledger` | 0,9796 | **1,0000** | FAIL → **PASS** |
+| `20260822_100304_ledger` | 0,9730 | **0,9931** | FAIL → **PASS** |
+| `20260822_075435_open_ragbench` | 0,9255 | 0,9305 | FAIL |
+| `20260822_092232_open_ragbench` | 0,9149 | 0,9198 | FAIL |
+
+`ledger` passa la soglia di C-01 in tutt'e due i bracci. `open_ragbench` no, e
+non la passava neanche prima: va detto ogni volta che si cita quel numero.
+
+#### D-3 non cambia conclusione, e si può dimostrare invece che sperarlo
+
+D-19 cambia lo strumento con cui D-3 era stato misurato poche ore prima. Rifatto
+il confronto appaiato con la regola nuova:
+
+| | vecchio | con D-19 |
+|---|---|---|
+| `open_ragbench` | A 0,9255 → B 0,9149, discordanti 6v4, p=0,7539 | A 0,9305 → B 0,9198, discordanti **6v4**, p=**0,7539** |
+| `ledger` | A 0,9793 → B 0,9862, discordanti 1v2, p=1,0000 | A 1,0000 → B 0,9930, discordanti 1v0, p=**1,0000** |
+
+La ragione strutturale è che McNemar legge **solo le coppie discordanti**, e una
+risposta riclassificata come astensione era non conforme in tutt'e due i bracci,
+cioè concordante: toglierla sposta i tassi e non il test. Su `ledger` una lo era
+davvero — i discordanti passano da 1v2 a 1v0 — e il p resta 1,0000.
+
+Il delta di `ledger` cambia segno, da +0,0069 a −0,0070. Vale la pena notarlo
+perché è la miglior illustrazione di cosa significhi un nullo: **la direzione di
+una differenza non distinguibile dal rumore non è un'informazione**, e chi la
+citasse come «il prompt nuovo è leggermente meglio/peggio» starebbe leggendo il
+rumore.

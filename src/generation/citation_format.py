@@ -63,10 +63,13 @@ _PATTERNS: tuple[tuple[str, re.Pattern[str]], ...] = (
     # [1] [2] — markers separated by whitespace instead of contiguous
     ("spaced_markers", re.compile(r"\[\d+\][ \t]+\[\d+\]")),
     # [Chunk 2] / [Source 2] / [Doc 2] / (Chunk 2) — a marker that carries a word
-    ("named_marker", re.compile(
-        r"[\[(]\s*(?:chunk|source|doc|document|fonte|ref|reference)\s*\.?\s*:?\s*\d+\s*[\])]",
-        re.IGNORECASE,
-    )),
+    (
+        "named_marker",
+        re.compile(
+            r"[\[(]\s*(?:chunk|source|doc|document|fonte|ref|reference)\s*\.?\s*:?\s*\d+\s*[\])]",
+            re.IGNORECASE,
+        ),
+    ),
 )
 
 _MARKER = re.compile(r"\[(\d+)\]")
@@ -112,6 +115,36 @@ class FormatReport:
         return {v.kind for v in self.violations}
 
 
+#: Refusals the model writes in its own words instead of the fixed string.
+#:
+#: **These live here and not in `ABSTENTION_PHRASES`, and the split is the whole
+#: point of D-19.**  That list is read by two detectors with different guards:
+#: `is_abstention` below requires no markers and a short answer, while
+#: `generation_harness.is_abstained` takes phrase presence alone.  A phrase this
+#: generic is safe only under the guards -- measured on the dumps of 2026-08-22,
+#: adding it to the shared list would have changed exactly one baseline answer
+#: out of 250, and that one was a **false positive**: a long answer that
+#: answers, mentions what the context lacks, and never refuses.
+#:
+#: So the two lists differ because the two detectors ask different questions,
+#: not because one of them is behind.  Widening the shared one to keep them
+#: identical would buy symmetry and pay for it in wrong labels.
+#:
+#: What they catch is real: on `ledger` three or four answers per run refuse in
+#: these words, carry no markers, and were being scored `no_citation` -- the
+#: entire gap between 0,9730 and 0,9931 on the run of 2026-08-22.  The model
+#: disobeyed an exact instruction, and that is worth knowing; but a refusal
+#: counted as a citation failure makes `citation_precision` measure obedience
+#: instead of citation, and those are two different claims.
+SELF_WORDED_REFUSALS: tuple[str, ...] = (
+    "does not contain",
+    "do not contain",
+    "does not provide information",
+    "do not provide information",
+    "non contiene",
+    "non contengono",
+)
+
 #: An abstention is the fixed refusal string the prompt asks for (22 characters).
 #: Anything an order of magnitude longer that merely *contains* one of the
 #: phrases is prose — e.g. "the paper gives insufficient information on the
@@ -123,14 +156,18 @@ _MAX_ABSTENTION_CHARS = 200
 
 
 def has_abstention_phrase(text: str) -> bool:
-    """True when the text contains one of the E-04/E-05 refusal phrases.
+    """True when the text refuses, in the fixed string or in its own words.
 
-    Same phrase list as the generation baselines, so "abstained" means the same
-    thing in a citation run as it does there.  Phrase presence alone is not
-    enough to call an answer an abstention — see `is_abstention`.
+    Two lists: `ABSTENTION_PHRASES`, shared with the generation baselines so
+    that "abstained" means the same thing there as here, and
+    `SELF_WORDED_REFUSALS`, which is local because it is only safe behind the
+    guards of `is_abstention`.  Phrase presence alone is never enough to call an
+    answer an abstention — see `is_abstention`.
     """
     lower = text.lower()
-    return any(p in lower for p in ABSTENTION_PHRASES)
+    return any(p in lower for p in ABSTENTION_PHRASES) or any(
+        p in lower for p in SELF_WORDED_REFUSALS
+    )
 
 
 def is_abstention(text: str) -> bool:
@@ -139,6 +176,13 @@ def is_abstention(text: str) -> bool:
     Three conditions, all necessary: the refusal phrase, no citation markers,
     and a short answer.  An answer that cites is an answer whatever else it
     says, and a long one that merely mentions missing information is prose.
+
+    **The two guards carry the phrases of `SELF_WORDED_REFUSALS`**, which alone
+    would be far too broad: "does not contain" appears in plenty of answers that
+    answer.  Measured on the gate dumps of E-04/E-05, every response containing
+    one of them also carried a marker -- the model refuses *and* cites what it
+    looked at -- so the marker guard alone removed all ten.  The guards are not
+    belt and braces here, they are the reason the phrases can be used at all.
     """
     return (
         has_abstention_phrase(text)
@@ -252,7 +296,9 @@ def summarize(reports: list[FormatReport]) -> ComplianceSummary:
     n_compliant = sum(1 for r in scored if r.compliant)
 
     kind_rates = {
-        kind: (sum(1 for r in scored if kind in r.kinds) / n_scored if n_scored else 0.0)
+        kind: (
+            sum(1 for r in scored if kind in r.kinds) / n_scored if n_scored else 0.0
+        )
         for kind in VIOLATION_KINDS
     }
     return ComplianceSummary(
