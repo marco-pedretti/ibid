@@ -126,6 +126,7 @@ describe("la verifica", () => {
               claim: "Il valore è 0.0226.",
               supported: true,
               score: 0.94,
+              threshold: 0.5,
               numeric: "ok",
             },
           ],

@@ -217,8 +217,8 @@ export type EsitoScheda =
   | { tipo: "nonCitata" }
   | { tipo: "attesa" }
   | { tipo: "nonVerificata" }
-  | { tipo: "sostiene"; punteggio: number; su: number }
-  | { tipo: "nonSostiene"; punteggio: number; su: number }
+  | { tipo: "sostiene"; punteggio: number; soglia: number; su: number }
+  | { tipo: "nonSostiene"; punteggio: number; soglia: number; su: number }
   | { tipo: "misto"; nonSostengono: number; su: number };
 
 export function esitoDellaScheda(r: Risposta, marker: number): EsitoScheda {
@@ -229,7 +229,16 @@ export function esitoDellaScheda(r: Risposta, marker: number): EsitoScheda {
 
   const verdetti = marcati.map((m) => m.citazione).filter((c): c is CitationView => c !== null);
   if (verdetti.length === 0) return { tipo: "nonVerificata" };
-  return riassumi(verdetti.map((c) => ({ sostenuta: c.supported, punteggio: c.score })));
+  return riassumi(
+    verdetti.map((c) => ({
+      sostenuta: c.supported,
+      punteggio: c.score,
+      // La soglia viene dalla citazione e non da una costante di qui: e' il
+      // backend a decidere dove passa la linea, e il frontend che se la
+      // scrivesse direbbe la propria invece della sua (D-7, U-00).
+      soglia: c.threshold,
+    })),
+  );
 }
 
 /**
@@ -242,15 +251,16 @@ export function esitoDellaScheda(r: Risposta, marker: number): EsitoScheda {
  * dice qualcosa; una media di verdetti opposti non direbbe niente.
  */
 function riassumi(
-  coppie: readonly { sostenuta: boolean; punteggio: number }[],
+  coppie: readonly { sostenuta: boolean; punteggio: number; soglia: number }[],
 ):
-  | { tipo: "sostiene" | "nonSostiene"; punteggio: number; su: number }
+  | { tipo: "sostiene" | "nonSostiene"; punteggio: number; soglia: number; su: number }
   | { tipo: "misto"; nonSostengono: number; su: number } {
   const contrarie = coppie.filter((c) => !c.sostenuta);
   if (contrarie.length === 0) {
     return {
       tipo: "sostiene",
       punteggio: Math.min(...coppie.map((c) => c.punteggio)),
+      soglia: coppie[0].soglia,
       su: coppie.length,
     };
   }
@@ -258,6 +268,7 @@ function riassumi(
     return {
       tipo: "nonSostiene",
       punteggio: Math.max(...coppie.map((c) => c.punteggio)),
+      soglia: coppie[0].soglia,
       su: coppie.length,
     };
   }
@@ -302,10 +313,11 @@ export function esitoNumericoDellaScheda(r: Risposta, marker: number): EsitoNume
   if (giudizi.length === 0) return null;
 
   const riassunto = riassumi(
-    giudizi.map((c) => ({ sostenuta: c.numeric === "supported", punteggio: 0 })),
+    giudizi.map((c) => ({ sostenuta: c.numeric === "supported", punteggio: 0, soglia: 0 })),
   );
-  // Il verificatore numerico non produce un punteggio: e' un confronto fra
-  // numeri, non una probabilita'. Portarlo a 0 e mostrarlo direbbe il falso.
+  // Il verificatore numerico non produce un punteggio, e quindi non ha una
+  // soglia: e' un confronto fra numeri, non una probabilita'. Portarli a 0 e
+  // mostrarli direbbe il falso -- infatti la riga sotto li lascia cadere.
   return riassunto.tipo === "misto" ? riassunto : { tipo: riassunto.tipo, su: riassunto.su };
 }
 

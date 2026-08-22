@@ -29,6 +29,7 @@ const CONFIG: ConfigView = {
   rag: true,
   baseline_prompt: SEVERO,
   verify: true,
+  entailment_threshold: 0.5,
 };
 
 const conclusa = (config: ConfigView, testo: string): Risposta => ({

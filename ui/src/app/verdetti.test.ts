@@ -20,8 +20,9 @@ function cit(
   supported: boolean,
   score = 0.5,
   numeric = "not_applicable",
+  threshold = 0.5,
 ): CitationView {
-  return { marker, chunk_id: `d:${marker}`, claim, supported, score, numeric };
+  return { marker, chunk_id: `d:${marker}`, claim, supported, score, threshold, numeric };
 }
 
 /** Una risposta a testo definitivo e verifica conclusa: il caso di U-07. */
@@ -193,7 +194,26 @@ describe("esitoDellaScheda", () => {
 
   it("una sola citazione mostra il proprio punteggio", () => {
     const r = verificata(testo, [cit(2, "Il minimo e' 12ms.", false, 0.212)]);
-    expect(esitoDellaScheda(r, 2)).toEqual({ tipo: "nonSostiene", punteggio: 0.212, su: 1 });
+    expect(esitoDellaScheda(r, 2)).toEqual({
+      tipo: "nonSostiene",
+      punteggio: 0.212,
+      soglia: 0.5,
+      su: 1,
+    });
+  });
+
+  it("la soglia arriva dalla citazione, non da una costante di qui", () => {
+    // D-7: e' il backend a decidere dove passa la linea. Un frontend che se la
+    // scrivesse resterebbe giusto finche' qualcuno non cambia quella vera --
+    // ed e' il divieto di U-00, non una preferenza di stile. Il test usa una
+    // soglia diversa da 0,5 proprio per distinguere le due cose.
+    const r = verificata(testo, [cit(2, "Il minimo e' 12ms.", true, 0.9, "not_applicable", 0.75)]);
+    expect(esitoDellaScheda(r, 2)).toEqual({
+      tipo: "sostiene",
+      punteggio: 0.9,
+      soglia: 0.75,
+      su: 1,
+    });
   });
 
   it("fra due sostenute mostra la piu' vicina alla linea", () => {
@@ -201,7 +221,12 @@ describe("esitoDellaScheda", () => {
       cit(1, "Il valore massimo e' 400ms.", true, 0.91),
       cit(1, "Il minimo e' 12ms.", true, 0.62),
     ]);
-    expect(esitoDellaScheda(r, 1)).toEqual({ tipo: "sostiene", punteggio: 0.62, su: 2 });
+    expect(esitoDellaScheda(r, 1)).toEqual({
+      tipo: "sostiene",
+      punteggio: 0.62,
+      soglia: 0.5,
+      su: 2,
+    });
   });
 
   it("fra due contrarie mostra quella che quasi ce la faceva", () => {
@@ -209,7 +234,12 @@ describe("esitoDellaScheda", () => {
       cit(1, "Il valore massimo e' 400ms.", false, 0.11),
       cit(1, "Il minimo e' 12ms.", false, 0.34),
     ]);
-    expect(esitoDellaScheda(r, 1)).toEqual({ tipo: "nonSostiene", punteggio: 0.34, su: 2 });
+    expect(esitoDellaScheda(r, 1)).toEqual({
+      tipo: "nonSostiene",
+      punteggio: 0.34,
+      soglia: 0.5,
+      su: 2,
+    });
   });
 
   it("verdetti in disaccordo sono «misto», non una media", () => {
@@ -315,7 +345,12 @@ describe("il verificatore numerico di C-09, accanto e non al posto dell'altro", 
 
   it("dice «la tabella conferma» dove l'NLI dice «non sostiene»", () => {
     const r = verificata(testo, [cit(5, claim, false, 0.208, "supported")]);
-    expect(esitoDellaScheda(r, 5)).toEqual({ tipo: "nonSostiene", punteggio: 0.208, su: 1 });
+    expect(esitoDellaScheda(r, 5)).toEqual({
+      tipo: "nonSostiene",
+      punteggio: 0.208,
+      soglia: 0.5,
+      su: 1,
+    });
     expect(esitoNumericoDellaScheda(r, 5)).toEqual({ tipo: "sostiene", su: 1 });
   });
 
