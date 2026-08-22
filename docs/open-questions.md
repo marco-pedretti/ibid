@@ -584,7 +584,11 @@ E la variabile che decide è ancora una volta il **genere del documento**. Su `o
 
 ---
 
-## OQ-08 — 498 chunk di LEDGER non hanno niente da leggere, e nessuno li pesca
+## OQ-08 — 498 chunk di LEDGER non hanno niente da leggere, e li pesca quasi nessuno
+
+**Chiusa il 2026-08-22 dal passo 1 del protocollo.** Il titolo originale diceva
+«e nessuno li pesca», ed era troppo generoso: qualcuno li pesca. La conclusione
+però non cambia — vedi «L'esito» in fondo.
 
 **Nuova (2026-08-20), e per metà già risolta dai dati su disco.** Osservata costruendo la mappa dell'esploratore (U-06). Riproducibile con `scripts/probe_chunk_vuoti.py`, che non tocca la GPU.
 
@@ -628,6 +632,47 @@ Che togliere quei 498 punti non cambi nessuna metrica e serva solo a non tenere 
 1. **Cercarli nei dump di recupero** invece che in quelli di generazione, a profondità 10 e su tutte le query disponibili. Nessuna GPU: sono `chunk_id` contro un insieme.
 2. Se non compaiono nemmeno lì, la questione è chiusa come igiene: si toglie il filtro all'ingestione — una riga nel loader di `ledger` — e si ri-ingesta **quando c'è un'altra ragione per farlo**, non prima. Cancellarli dall'indice vivo si può (`delete` con filtro), ma cambierebbe il numero di punti sotto misure già registrate.
 3. Se invece compaiono, la domanda diventa un'altra e più interessante: quanto costa a `doc_R@5` avere 498 nodi morti in un indice la cui banda di similarità è larga 0,0085.
+
+### L'esito (2026-08-22) — compaiono, e non costa quasi niente
+
+Passo 1 eseguito su `20260813_155520_ledger_generic_dense.jsonl`: **10.000 query
+a profondità 10**, cioè il golden set intero alla profondità con cui si valuta.
+Riproducibile con `python scripts/probe_chunk_vuoti.py`.
+
+| | |
+|---|---|
+| risultati restituiti | 100.000 |
+| **senza contenuto** | **46 (0,046%)**, in 29 query |
+| di questi, **dentro il top-5** | **16**, in 13 query |
+| rango del più alto | **1** |
+| query che guadagnerebbero un chunk d'oro togliendoli | **1** su 10.000 |
+
+**La domanda si divide in due, e le due risposte sono diverse.** «Non vengono mai
+recuperati» è **falso**: uno arriva primo, e sedici entrano nella profondità che
+va al modello. «Toglierli non cambia nessuna metrica» è **vero**, e ora è
+misurato invece che sperato: simulando la rimozione — si tolgono dalla lista, si
+riprende il top-5 — entra un chunk d'oro che prima non c'era in **una** query su
+diecimila. È 0,01 punti di `R@5`, cioè sotto qualunque soglia di rumore che
+questo progetto abbia mai usato.
+
+I due dubbi che il protocollo elencava sono quindi risolti nel modo meno
+drammatico: il primo (*potrebbero comparire in fondo a un top-10*) era fondato —
+30 dei 46 stanno fra il rango 6 e il 10 — e irrilevante, perché lì non li legge
+nessuno. Il secondo (*498 nodi morti in una banda di 0,0085*) resta senza
+risposta diretta e senza urgenza: se il grafo ne soffrisse, si vedrebbe come
+risultati peggiori, e i risultati sono quelli di sempre.
+
+**Sono concentrati, ed è la parte che vale la pena ricordare.** Dei 16 in top-5,
+**dieci vengono da un solo documento** — `NASDAQ_USEG_2017` — e gli altri sei da
+tre. Non è spazzatura sparsa uniformemente sul corpus: sono pochi PDF il cui OCR
+ha prodotto molte pagine di servizio, e le loro query ne pagano il prezzo tutte
+insieme. Un rimedio mirato a quei documenti varrebbe quanto uno globale, e
+costerebbe meno.
+
+**La decisione resta quella del passo 2**: è igiene. Si toglie il filtro
+all'ingestione — una riga nel loader di `ledger` — e si ri-ingesta **quando ci
+sarà un'altra ragione per farlo**. Cancellarli dall'indice vivo cambierebbe il
+numero di punti sotto misure già registrate, e comprerebbe un centesimo di punto.
 
 ### Trappole
 
