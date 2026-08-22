@@ -232,6 +232,24 @@ export function Ritorno(p: PropsIcona) {
   );
 }
 
+/**
+ * Chiude uno strato che si e' aperto sopra il lavoro (D-5).
+ *
+ * **Non e' `Indietro`**, ed e' la stessa distinzione che quel commento fa: una
+ * freccia dice «torna da dove sei arrivato», cioe' promette una navigazione. Un
+ * foglio non porta da nessuna parte -- si toglie di mezzo, e sotto c'e' quel
+ * che c'era gia'. La croce e' la parola per «via», ed e' l'unica cosa che nella
+ * grammatica delle icone non voglia dire nient'altro.
+ */
+export function Chiudi(p: PropsIcona) {
+  return (
+    <Base {...p}>
+      <path d="M4.2 4.2 L11.8 11.8" />
+      <path d="M11.8 4.2 L4.2 11.8" />
+    </Base>
+  );
+}
+
 /** Torna da dove si era arrivati. Sul confronto, che e' l'unica schermata da
  *  cui si esce invece di cambiare pagina. */
 export function Indietro(p: PropsIcona) {

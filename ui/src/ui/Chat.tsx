@@ -32,16 +32,24 @@ import {
   DueColonne,
   Ferma,
   FrecciaSu,
+  Indice,
   NonCitata,
   NonSostiene,
   NonVerificata,
   Ritorno,
   Troncato,
 } from "./Icona";
+import { DettagliRun } from "./DettagliRun";
 import { MISURA } from "./misura";
 import { Parametri } from "./Parametri";
 import { Suggerimento } from "./Suggerimento";
 import { Testo } from "./Testo";
+
+/** I comandi sotto una risposta conclusa. Stessa veste per tutti: sono
+ *  alternative fra pari, e una diversa dall'altra direbbe che una conta
+ *  di piu'. */
+const COMANDO_RISPOSTA =
+  "flex items-center gap-1.5 rounded-md border border-line-2 px-[9px] py-[5px] text-[11px] text-ink-2 transition-colors hover:border-accent-2 hover:text-ink aria-disabled:opacity-45 aria-disabled:hover:border-line-2 aria-disabled:hover:text-ink-2";
 
 export function Chat() {
   const { scambi } = usaChat();
@@ -249,6 +257,10 @@ function Puntino({ stato }: { stato: "vivo" | "fermo" | "guasto" }) {
 function Corpo({ scambio }: { scambio: Scambio }) {
   const { t } = usaLingua();
   const { invia, occupato, confronta } = usaChat();
+  // Sta qui e non nel telaio: il foglio parla di **questa** risposta, e uno
+  // stato piu' in alto costringerebbe a portarsi dietro quale scambio lo ha
+  // aperto. `Strato` e' `fixed`, quindi esce dall'impaginazione da solo.
+  const [dettagli, setDettagli] = useState(false);
   const r = scambio.risposta;
   const astensione = chiSiEAstenuto(r);
 
@@ -304,7 +316,7 @@ function Corpo({ scambio }: { scambio: Scambio }) {
           due bracci si sta partendo — una colonna intitolata a caso e' peggio di
           un comando assente. */}
       {r.fase === "conclusa" && r.config !== null && (
-        <div>
+        <div className="flex flex-wrap items-center gap-1.5">
           <Suggerimento
             testo={occupato ? t("compare.busy") : t("compare.action.hint")}
             fuoco={false}
@@ -313,12 +325,31 @@ function Corpo({ scambio }: { scambio: Scambio }) {
               type="button"
               aria-disabled={occupato}
               onClick={() => !occupato && confronta(scambio.id)}
-              className="flex items-center gap-1.5 rounded-md border border-line-2 px-[9px] py-[5px] text-[11px] text-ink-2 transition-colors hover:border-accent-2 hover:text-ink aria-disabled:opacity-45 aria-disabled:hover:border-line-2 aria-disabled:hover:text-ink-2"
+              className={COMANDO_RISPOSTA}
             >
               <DueColonne size={12} />
               {r.config.rag ? t("compare.action.bare") : t("compare.action.sourced")}
             </button>
           </Suggerimento>
+
+          {/* **Non e' disabilitato mentre il sistema lavora**, al contrario di
+              «Confronta»: quello lancia una generazione e due insieme non si
+              possono, questo apre un foglio di sola lettura su una risposta
+              gia' conclusa. Spegnerlo sarebbe copiare il vincolo del vicino
+              invece del proprio. */}
+          <Suggerimento testo={t("run.action.hint")} fuoco={false}>
+            <button
+              type="button"
+              onClick={() => setDettagli(true)}
+              aria-expanded={dettagli}
+              className={COMANDO_RISPOSTA}
+            >
+              <Indice size={12} />
+              {t("run.action")}
+            </button>
+          </Suggerimento>
+
+          {dettagli && <DettagliRun risposta={r} chiudi={() => setDettagli(false)} />}
         </div>
       )}
     </>
