@@ -1,0 +1,55 @@
+{
+  "etichetta": "flash-off",
+  "model": "gemma4:latest",
+  "num_ctx": 32768,
+  "collection": "ledger",
+  "n": 5,
+  "prompt_tok_mediana": 8208,
+  "prefill_s_mediana": 9.84,
+  "prefill_tok_s_mediana": 834.56,
+  "decode_tok_s_mediana": 72.35,
+  "totale_s_mediana": 12.73,
+  "quota_prefill_mediana": 0.77,
+  "misure": [
+    {
+      "query_id": "SHW_capex_2017",
+      "prompt_tok": 10052,
+      "prefill_s": 12.808012,
+      "decode_tok": 29,
+      "decode_s": 0.400823,
+      "totale_s": 15.59
+    },
+    {
+      "query_id": "SHW_cash_and_equivalents_2017",
+      "prompt_tok": 8208,
+      "prefill_s": 9.835103,
+      "decode_tok": 54,
+      "decode_s": 0.740735,
+      "totale_s": 12.73
+    },
+    {
+      "query_id": "SHW_cost_of_revenue_2017",
+      "prompt_tok": 9961,
+      "prefill_s": 12.60961,
+      "decode_tok": 31,
+      "decode_s": 0.430576,
+      "totale_s": 15.18
+    },
+    {
+      "query_id": "SHW_depreciation_amortization_2017",
+      "prompt_tok": 7368,
+      "prefill_s": 8.568843,
+      "decode_tok": 98,
+      "decode_s": 1.360398,
+      "totale_s": 12.08
+    },
+    {
+      "query_id": "SHW_dividends_paid_2017",
+      "prompt_tok": 5015,
+      "prefill_s": 5.341997,
+      "decode_tok": 22,
+      "decode_s": 0.289197,
+      "totale_s": 7.78
+    }
+  ]
+}
