@@ -644,11 +644,26 @@ Il criterio di U-11 chiede che **ognuna** compaia col proprio tavolo di misure. 
 
 - **1 — la precisione di citazione è misurabile.** Regge, e dal 2026-08-21 i numeri valgono per il prompt in vigore: **0,9255** grezzo e **0,9628** dopo il parser su `open_ragbench`, **0,9664** e **0,9732** su `ledger` (D-1 e D-2). Resta **D-3**, che non aggiunge numeri ma dice se il prompt di U-14 ne è la causa.
 - **2 — il routing batte la pipeline generica.** **Non sostenuta, e adesso si sa di quanto.** Con **ricerca esatta** — l'unico confronto legittimo fra due indici di densità diversa, §15 — il routing guadagna **+1,06 punti** di `doc_R@5` su `open_ragbench` e ne **perde 13,72** su `ledger`. Gli otto punti che separano quel −13,72 dal −21,71 che si leggeva prima **erano il richiamo dell'indice, non il routing** (R-11). Nel README va così, per dataset e mai aggregata: *il valore del routing dipende dal genere, e sul genere tabellare la pipeline scritta a mano per lui peggiora il recupero.* È un risultato negativo per l'affermazione, ed è il reperto più interessante del progetto — il §7 dice che i risultati negativi restano in tabella.
-- **3 — la taglia conta meno del previsto.** **Non determinata**, due punti su tre. Il terzo costa **6,7 ore** e non 13,3, perché su `ledger` non va fatto: E4B è già a `1,0000` e il 12B non ha margine (C-06 lo aveva già scritto). Restano 100 query di `open_ragbench` a 240 s.
+- **3 — la taglia conta meno del previsto.** **Non determinata**, due punti su tre. Il terzo va fatto solo su `open_ragbench`: su `ledger` E4B è già a `1,0000` e il 12B non ha margine (C-06 lo aveva già scritto). Restano 100 query.
 
-> **E si può dimezzare.** Girando il 12B sulle **prime 50** di quelle 100 query, i punti E2B ed E4B si ricalcolano **sulle stesse 50** dai dump già a disco — costo zero, ed è precisamente ciò che Q-02 ha comprato (`rescore_citations.py` ricalcola dai dump; gli serve solo un filtro sulle query). Il confronto resta **appaiato sulle stesse domande**, con barre d'errore più larghe: **3,3 ore**, di giorno.
+> **Il prezzo era sbagliato di cinque volte, e la decisione del 2026-08-20 è caduta con lui.** I 240 s a domanda venivano da T-02, misurati col *thinking* acceso e con il 12B probabilmente non tutto in VRAM. Rimisurato il 2026-08-22 con lo strumento vero — `eval_citations.py --model gemma4:12b --limit 6`, embedding e recupero inclusi — sono **43,5 s**: p50 35,6 s, p90 86 s, 261 s per sei domande. Dettaglio in [`docs/hardware.md`](docs/hardware.md).
 >
-> **Deciso il 2026-08-20: si fanno le 50.** Tre ore e mezza di giorno sono spendibili, tredici no — la macchina sta in camera da letto e la run notturna non esiste. Il confronto resta appaiato sulle stesse domande; le barre d'errore più larghe si dichiarano insieme al risultato, che è l'unico modo in cui un campione piccolo resta onesto.
+> **Quindi le 100 costano ~1 h 15**, non 6,7 ore, e le 50 ne costerebbero 40 minuti. **Deciso il 2026-08-22: si fanno le 100**, che era il piano originale. Trentacinque minuti in più comprano barre d'errore strette invece che larghe, cioè tolgono il caveat che avrebbe dovuto accompagnare il risultato — e **fanno sparire un lavoro**: il filtro sulle query di `rescore_citations.py` serviva solo perché il 12B girava su un sottoinsieme. A 100 non serve.
+
+#### Pronto a partire (verificato il 2026-08-22)
+
+Tre cose sono state controllate perché la run non vada rifatta:
+
+1. **Le query sono le stesse.** I dump E2B (`20260812_163452`) ed E4B (`20260812_170338`) sono le stesse 100 domande, nello stesso ordine, e coincidono con le prime 100 rispondibili del golden set. `--limit 100` sul 12B dà lo stesso insieme senza filtrare niente.
+2. **Il recupero riproduce.** I `chunk_ids` mandati in contesto il 12 agosto sono **100 su 100 identici**, stesso ordine, a quelli che il recupero dà oggi. R-08, R-11 e la reindicizzazione stanno in mezzo e non hanno spostato `open_ragbench`.
+3. **I due punti sono stati riscoiati con il rilevatore di D-19**, perché i tre punti vanno misurati con lo stesso strumento: E2B passa da 0,8211 a **0,8478**, E4B resta **0,9263**. Senza il rescore il salto E2B→E4B sarebbe sembrato più largo di 2,7 punti.
+
+Resta una variabile sola, il prompt: quei dump usano `3a50ef63`, il codice in vigore `53a5e756`. **Si tiene ferma girando il 12B col prompt vecchio**, così la run ha una sola differenza — il modello. La curva parla di taglia, e il prompt è disturbo; che i due siano indistinguibili lo dice D-3, con la linea di rumore accanto.
+
+```
+python scripts/eval_citations.py --dataset open_ragbench --model gemma4:12b --limit 100 \
+    --system-prompt-file eval/results/generations/20260812_170338_open_ragbench.prompt.txt
+```
 
 
 ### Le due collection instradate: si tengono, e si rendono confutabili
