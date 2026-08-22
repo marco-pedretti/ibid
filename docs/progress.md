@@ -3539,3 +3539,70 @@ perché è la miglior illustrazione di cosa significhi un nullo: **la direzione 
 una differenza non distinguibile dal rumore non è un'informazione**, e chi la
 citasse come «il prompt nuovo è leggermente meglio/peggio» starebbe leggendo il
 rumore.
+
+
+### D-7 — un numero senza la sua scala non è un dato
+
+La pastiglia mostrava `0,717`. Il verdetto in parole c'era già accanto
+(«sostiene»), quindi non era illeggibile — ma il numero, che è la parte che
+dice *quanto*, non aveva niente contro cui essere letto. Il precedente era in
+casa da sempre: `GateView` spedisce `threshold` accanto al proprio `score`.
+
+**Due campi, perché sono due domande diverse.** `CitationView.threshold` sta
+accanto al punteggio perché chi disegna la pastiglia non deve cercare la scala
+in un altro oggetto; `ConfigView.entailment_threshold` sta nel registro della
+run perché quel valore fa parte di cosa è girato, e `ConfigView` esiste per dire
+esattamente quello.
+
+**Non viene da `RequestConfig`, e la differenza è il punto.** Ogni altro campo
+di `ConfigView` è ciò che la richiesta ha chiesto o ciò che il servizio ha
+deciso al posto suo; questo è una costante del modulo, e `ConfigView.of` lo
+dichiara con `_NON_DALLA_RICHIESTA` invece di lasciarlo dedurre al `getattr` che
+riempie gli altri.
+
+#### L'assenza è protetta, e il test guarda la cosa giusta
+
+Una soglia scelta da chi chiama si potrebbe tarare **sulla stessa risposta che
+deve giudicare**, ed è il modo esatto in cui `citation_precision` smette di
+significare qualcosa. Quindi `QueryRequest` non la accetta, e un test lo fissa.
+
+Il test guarda i **campi dichiarati**, non un errore di validazione: il modello
+ignora gli extra invece di rifiutarli, quindi oggi una soglia inviata cade da
+sola. Ciò che va impedito è che qualcuno la aggiunga domani, e solo la lista dei
+campi lo vede.
+
+Sul lato frontend la stessa assenza aveva un guardiano già esistente da non
+rompere: `stessaConfigurazione` copia **tutti** i campi di `ConfigView` in un
+rilancio di confronto, e un test conta le chiavi — un campo che non venisse
+copiato uscirebbe dal confronto in silenzio, cioè diventerebbe la seconda
+variabile che il §15 vieta. La soglia non si può copiare, quindi la rete
+avrebbe dovuto rompersi. Invece di allentarla c'è ora `NON_RICHIEDIBILI`: la
+sottrazione è dichiarata, il conteggio resta esatto, e **non copiarla è sicuro
+per la ragione precisa per cui non è richiedibile** — è una costante, quindi
+vale identica nei due bracci per costruzione, e il §15 parla di ciò che varia.
+
+#### La scala entra nelle parole, non in un secondo numero
+
+La pastiglia è un chip monospazio da 10 px che porta già glifo, verdetto,
+punteggio e a volte un conteggio. Un altro numero lì dentro sarebbe una cosa da
+decifrare, ed è l'errore già pagato una volta col conteggio `n/m` — due valori
+diversi nello stesso posto senza etichetta. La spiegazione invece è **già
+attaccata al punteggio**, in due modi insieme: la bolla per chi guarda,
+`aria-describedby` per chi ascolta. È lì che una scala serve.
+
+> «...il controllo dice: sostiene, 0,717 contro una soglia di 0,50.»
+> «Sostiene se arriva a 0,50.»
+
+**Due decimali per la soglia e tre per il punteggio.** Il punteggio è una misura
+e i suoi millesimi distinguono un 0,499 da un 0,502; la soglia è una decisione
+presa a numero tondo, e darle tre cifre suggerirebbe una precisione che non ha.
+
+**La soglia viaggia dalla citazione fino a `EsitoScheda`** invece di essere una
+costante del frontend. È il divieto di U-00: una copia scritta qui resterebbe
+giusta finché qualcuno non cambia quella vera, e allora l'interfaccia direbbe la
+propria al posto della sua. Un test la mette a **0,75** apposta, perché con 0,5
+da tutte e due le parti le due implementazioni sarebbero indistinguibili.
+
+E la nota che stava in `strings.ts` — *«la soglia non è scritta qui di
+proposito: servirebbe un campo nel contratto, come `GateView.threshold`»* — se
+n'è andata, che è il modo in cui un debito dichiarato si chiude.
