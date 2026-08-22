@@ -40,13 +40,17 @@ from tests.test_service_stream import fake_stream
 
 def risposta(pezzi=("Risposta ", "[1]."), scores=None, verifier=None, **config_kwargs):
     """Una `AnswerResponse` completa, senza indice e senza LLM."""
-    eventi = list(answer_stream(
-        AnswerRequest(query="domanda", config=RequestConfig.from_defaults(**config_kwargs)),
-        client=object(),
-        retrieve=fake_retrieve(HIGH if scores is None else scores),
-        generate=fake_stream(*pezzi),
-        verify=fake_verify() if verifier is None else verifier,
-    ))
+    eventi = list(
+        answer_stream(
+            AnswerRequest(
+                query="domanda", config=RequestConfig.from_defaults(**config_kwargs)
+            ),
+            client=object(),
+            retrieve=fake_retrieve(HIGH if scores is None else scores),
+            generate=fake_stream(*pezzi),
+            verify=fake_verify() if verifier is None else verifier,
+        )
+    )
     return AnswerResponse.of(eventi[-1].answer), eventi
 
 
@@ -67,8 +71,10 @@ class TestU01SelettoreDataset:
     def test_i_dataset_si_leggono_dall_api(self):
         v = DatasetView.of(DatasetInfo("ledger", "ledger", True, 47110))
         assert v.model_dump() == {
-            "dataset_id": "ledger", "collection": "ledger",
-            "ready": True, "n_chunks": 47110,
+            "dataset_id": "ledger",
+            "collection": "ledger",
+            "ready": True,
+            "n_chunks": 47110,
         }
 
     def test_vuoto_e_assente_restano_distinti(self):
@@ -180,11 +186,21 @@ class TestU06LinkProfondi:
         assert "bbox" in ChunkView.model_fields
 
     def test_un_chunk_letto_per_id_dice_di_non_venire_da_un_recupero(self):
-        v = ChunkView.of_chunk(Chunk(
-            chunk_id="ledger:X:1", dataset_id="ledger", doc_id="X", doc_genre="table_heavy",
-            pipeline="pipeline_table_heavy", section_path="Note 1", page=7, bbox=None,
-            content_type="table", text="t", source_uri="u",
-        ))
+        v = ChunkView.of_chunk(
+            Chunk(
+                chunk_id="ledger:X:1",
+                dataset_id="ledger",
+                doc_id="X",
+                doc_genre="table_heavy",
+                pipeline="pipeline_table_heavy",
+                section_path="Note 1",
+                page=7,
+                bbox=None,
+                content_type="table",
+                text="t",
+                source_uri="u",
+            )
+        )
         assert (v.marker, v.score) == (0, 0.0)
 
 
@@ -202,8 +218,10 @@ class TestU07Verdetti:
     def test_le_bocciate_non_spariscono(self):
         """Toglierle porterebbe la precisione apparente al 100% per
         costruzione, nel punto in cui il progetto vuole essere misurato."""
-        r, _ = risposta(pezzi=(f"{CLAIM} ", "[1]."),
-                        verifier=fake_verify(supported=False, score=0.02))
+        r, _ = risposta(
+            pezzi=(f"{CLAIM} ", "[1]."),
+            verifier=fake_verify(supported=False, score=0.02),
+        )
         assert len(r.citations) == 1 and not r.citations[0].supported
 
     def test_una_citazione_si_lega_al_suo_chunk(self):
@@ -211,6 +229,36 @@ class TestU07Verdetti:
         r, _ = risposta(pezzi=(f"{CLAIM} ", "[1]."))
         chunk_ids = {c.chunk_id for c in r.chunks}
         assert r.citations[0].chunk_id in chunk_ids
+
+    def test_il_punteggio_arriva_con_la_sua_scala(self):
+        """D-7: `0,717` da solo non dice se e' buono.
+
+        La soglia sta accanto al punteggio per la stessa ragione per cui
+        `GateView` porta la propria: un numero senza la sua scala non e' un
+        dato.
+        """
+        r, _ = risposta(pezzi=(f"{CLAIM} ", "[1]."))
+        assert r.citations[0].threshold == cfg.ENTAILMENT_THRESHOLD
+        assert r.config.entailment_threshold == cfg.ENTAILMENT_THRESHOLD
+
+    def test_la_soglia_non_si_puo_chiedere(self):
+        """**E' un'assenza protetta, non una dimenticanza** (D-7).
+
+        Una soglia scelta da chi chiama si potrebbe tarare sulla stessa
+        risposta che deve giudicare, ed e' il modo esatto in cui
+        `citation_precision` smette di significare qualcosa. Il contratto la
+        rimanda indietro e non la accetta.
+
+        Il test guarda i **campi dichiarati** e non un errore di validazione:
+        `QueryRequest` ignora gli extra invece di rifiutarli, quindi oggi una
+        soglia inviata cade da sola. Cio' che va impedito e' che qualcuno la
+        aggiunga domani, e quello si vede solo qui.
+        """
+        for nome in ("entailment_threshold", "threshold"):
+            assert nome not in QueryRequest.model_fields
+        # E finche' non c'e', mandarla non la fa arrivare da nessuna parte.
+        chiesta = QueryRequest(query="x", entailment_threshold=0.99)
+        assert "entailment_threshold" not in chiesta.model_dump()
 
 
 # ---------------------------------------------------------------------------
@@ -247,10 +295,15 @@ class TestStatiObbligatori:
         assert r.chunks == []
 
     def test_la_risposta_e_stata_tagliata(self):
-        eventi = list(answer_stream(
-            AnswerRequest(query="q"), client=object(), retrieve=fake_retrieve(HIGH),
-            generate=fake_stream("mezza", finish_reason="length"), verify=fake_verify(),
-        ))
+        eventi = list(
+            answer_stream(
+                AnswerRequest(query="q"),
+                client=object(),
+                retrieve=fake_retrieve(HIGH),
+                generate=fake_stream("mezza", finish_reason="length"),
+                verify=fake_verify(),
+            )
+        )
         assert payload(eventi, "answer")["truncated"] is True
 
     def test_il_testo_verra_sostituito_e_il_contratto_lo_dice(self):
@@ -267,7 +320,9 @@ class TestStatiObbligatori:
         """Quando lo stream e' cominciato, un 500 non e' piu' spedibile: gli
         header sono partiti. Un errore a meta' risposta puo' solo essere un
         evento."""
-        nome, p = to_wire(ErrorEvent(message="Qdrant irraggiungibile", stage="retrieval"))
+        nome, p = to_wire(
+            ErrorEvent(message="Qdrant irraggiungibile", stage="retrieval")
+        )
         assert nome == "error" and p["stage"] == "retrieval"
 
 
@@ -296,9 +351,14 @@ class TestConfine:
     def test_non_si_possono_toccare_le_soglie_calibrate(self):
         """Derivate da misure, non preferenze: chi chiama non deve poter tarare
         la soglia sulla stessa risposta che quella soglia deve giudicare."""
-        assert not {
-            "entailment_threshold", "abstention_thresholds", "abstention_budget",
-        } & self.NOMI
+        assert (
+            not {
+                "entailment_threshold",
+                "abstention_thresholds",
+                "abstention_budget",
+            }
+            & self.NOMI
+        )
 
     def test_i_campi_non_dati_restano_ai_default(self):
         """`None` significa «non ho un'opinione», che e' diverso da un valore:
@@ -319,8 +379,13 @@ class TestA07Ragionamento:
     """Il toggle «Ragionamento» (A-07): si poteva vedere, non scegliere."""
 
     def test_la_richiesta_lo_accetta(self):
-        assert QueryRequest(query="q", reasoning_effort="none").config().reasoning_effort == "none"
-        assert QueryRequest(query="q", reasoning_effort="high").config().reasoning_enabled
+        assert (
+            QueryRequest(query="q", reasoning_effort="none").config().reasoning_effort
+            == "none"
+        )
+        assert (
+            QueryRequest(query="q", reasoning_effort="high").config().reasoning_enabled
+        )
 
     def test_un_livello_inventato_e_rifiutato_qui_non_dal_modello(self):
         """Ollama risponde 400 a un valore fuori elenco: rimbalzato, sarebbe un

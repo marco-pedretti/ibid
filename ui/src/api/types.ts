@@ -64,6 +64,7 @@ export interface ConfigView {
   rag: boolean;
   baseline_prompt: string;
   verify: boolean;
+  entailment_threshold: number;
 }
 
 /** Un chunk recuperato, con tutto cio' che serve per mostrarlo e aprirlo. */
@@ -90,6 +91,7 @@ export interface CitationView {
   claim: string;
   supported: boolean;
   score: number;
+  threshold: number;
   numeric: string;
 }
 
