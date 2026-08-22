@@ -106,7 +106,7 @@ L'associazione fra `#1` e il run corrispondente e risolta col colore: la tabella
 | C-03 | ✅ fatto (2026-08-10) | `citation_precision` **0,657 su open_ragbench, 0,366 su ledger** — e i due non si leggono allo stesso modo. Sospeso e riaperto in giornata: il verificatore di STACK.md è stato misurato prima di costruirci sopra, non reggeva, ed è stato sostituito. Vedi sotto. |
 | C-04 | ✅ fatto (2026-08-11) | **Astensione corretta 100% su E-02 per entrambi i dataset**, e il gate non causa **nessuna** falsa astensione. Ma il criterio era già al 100% col solo modello: il gate è una garanzia, non una correzione. Vedi sotto. |
 | C-05 | ✅ fatto (2026-08-10) | **Criterio soddisfatto senza toccare il prompt.** L'istruzione c'era dal T-0x e non era mai stata verificata: 14/14 risposte nella lingua della domanda, 0 miste. `prompt_hash` invariato. |
-| C-06 | ✅ fatto **a due punti** (2026-08-13) | E2B ed E4B su entrambi i dataset. **12B scartato**: 240 s/query misurati, 13,3 ore. **L'affermazione 3 del §0 resta non determinata** — con due punti il divario c'è ed è grande, ma se la curva si appiattisca era proprio ciò che il terzo punto doveva dire. Vedi sotto. |
+| C-06 | ✅ **completo a tre punti** (2026-08-22) | E2B ed E4B su entrambi i dataset (2026-08-13); **12B su open_ragbench** col prompt del 12 agosto, così che fra i punti cambi solo il modello. Dopo il parser di C-02, sulle 91 query che tutti e tre hanno risposto: **0,8681 → 0,9670 → 0,9670**. Il salto c'è una volta sola — E2B→E4B **+9,9 punti, 9 query a 0, p=0,0039** — e poi la curva è **piatta**: E4B→12B **+0,0000**, una query per parte, **p=1,0000**, al doppio della latenza (19,2 s contro 9,4). **L'affermazione 3 del §0 è sostenuta**, e nella forma forte: fra 8B e 11,9B la taglia non conta affatto. I 240 s/query che avevano fatto scartare il 12B erano sbagliati di quindici volte (25,5 misurati). Vedi sotto. |
 | C-07 | ✅ fatto (2026-08-12) | **Risultato negativo, e resta in tabella.** Il ragionamento esteso guadagna +4,4 punti di conformità *grezza* su open_ragbench (p=0,0386) e **+0,6 dopo il parser di C-02** (p=1,0000), perché tutto il guadagno è nella variante `[1] [2]` che il parser ripara gratis. Su ledger nessun effetto. Costo: **9,5× i token**, e l'astensione su ledger da 0,280 a 0,450. Vedi sotto. |
 | C-08 | ✅ fatto (2026-08-12) | **Risultato negativo: il markup non era la causa.** Rendere le tabelle OCR in righe leggibili porta `citation_precision` su LEDGER da 0,3656 a 0,3263 — 35 citazioni perse contro 22 guadagnate, **p = 0,1112**. Il verificatore è indifferente alla forma della tabella. Flag lasciato spento. La diagnosi che resta è in `open-questions.md`, OQ-05. |
 | C-09 | ✅ fatto (2026-08-12) | **`numeric_citation_precision` 0,7328 su LEDGER**, contro lo 0,2374 che l'NLI dà sulle stesse coppie. Copertura 39,6%; su open_ragbench 0,2% — lo strumento si rifiuta di giudicare la prosa invece di indovinare. Vedi sotto. |
@@ -622,7 +622,29 @@ Nell'altra direzione **2 casi soli**, ed entrambi rivelano un limite del numeric
 
 **Un prerequisito più grande del previsto.** Serviva espandere le celle unite nel parser: il **75%** delle tabelle citate usa `colspan≥2` e il **72%** `rowspan≥2`, quasi sempre le stesse. Senza espanderle l'indice di colonna di una riga dati non corrisponde a quello della sua intestazione, e non si può dire a quale anno appartiene un numero. Scrivendo il probe ho riportato **due volte** una limitazione del mio parser come se fosse un difetto del generatore, e le ho corrette entrambe misurando — la seconda volta il campione utile è passato da 12 a 98 casi.
 
-### C-06 — la curva di scaling, a due punti su tre
+### C-06 — la curva di scaling, e il punto in cui smette di salire
+
+> **Il terzo punto è stato misurato il 2026-08-22, e la curva si appiattisce.**
+> Cento domande di `open_ragbench` col 12B, **col prompt vecchio** letto dal
+> sidecar del 12 agosto, così che fra i tre punti cambi solo il modello. Sulle 91
+> query che tutti e tre hanno risposto, dopo il parser di C-02:
+>
+> | | `format_compliance` | astensioni | token | latenza p50 |
+> |---|---|---|---|---|
+> | E2B (5,1B) | 0,8681 | 5 | 74 | 7,6 s |
+> | E4B (8,0B) | **0,9670** | 5 | 83 | 9,4 s |
+> | 12B (11,9B) | **0,9670** | 9 | 68 | **19,2 s** |
+>
+> McNemar esatto sulle stesse query: **E2B → E4B +9,9 punti, 9 a 0, p=0,0039**;
+> **E4B → 12B +0,0000, una query per parte, p=1,0000**. Non è «un guadagno
+> piccolo»: è zero a quattro decimali, e costa il doppio del tempo.
+>
+> **L'affermazione 3 è sostenuta**, e il resoconto sta in fondo alla sezione. Quel
+> che segue è la lettura a due punti, che resta perché diceva una cosa giusta —
+> *«se la curva si appiattisca fra 8B e 12B era precisamente ciò che il terzo
+> punto doveva dire»* — e perché il modo in cui il 12B era stato scartato è un
+> reperto suo.
+
 
 **I numeri** (100 query per dataset, `MAX_NEW_TOKENS=1024`, `REASONING_EFFORT=none`, dense top_k=5):
 
@@ -653,7 +675,7 @@ Il conto tornava dalla tabella di T-02 — prefill 33,8 tok/s su ~5.000 token di
 
 #### Cosa questo lascia aperto
 
-**L'affermazione 3 del §0 non è determinata.** Dice *«con un retrieval buono la taglia del modello conta molto meno di quanto si creda»*. Su due punti:
+**L'affermazione 3 del §0 non è determinata** — *lettura del 2026-08-13, superata dal riquadro in cima*. Dice *«con un retrieval buono la taglia del modello conta molto meno di quanto si creda»*. Su due punti:
 
 - passare da 5,1B a 8,0B — **1,57× i parametri, 1,7× la VRAM** — compra **+10,5 punti** di conformità su ORB e **+21,9** di precisione numerica su LEDGER;
 - non è un effetto piccolo, quindi **questi dati non sostengono l'affermazione 3**;
@@ -674,6 +696,77 @@ python scripts/eval_citations.py --dataset open_ragbench --model gemma4:12b --li
 ```
 
 **6,7 ore.** Su LEDGER non ne vale la pena: E4B è già a 1,0000 e il 12B non ha margine per migliorare. Restano validi i vincoli della parte 1 — nessuna variabile d'ambiente, e niente modifiche a `src/` o agli indici rispetto ai numeri qui sopra.
+
+#### Il terzo punto, misurato il 2026-08-22
+
+Il comando è quello previsto qui sopra, con un'aggiunta che non c'era e che è tutto
+il punto: **`--system-prompt-file`**, per girare col prompt del 12 agosto invece che
+con quello in vigore. Senza, fra il secondo e il terzo punto sarebbero cambiate due
+cose — il modello e il prompt — e la curva avrebbe parlato di tutt'e due (§15).
+
+```bash
+python scripts/eval_citations.py --dataset open_ragbench --model gemma4:12b --limit 100     --system-prompt-file eval/results/generations/20260812_170338_open_ragbench.prompt.txt
+```
+
+**2.554 secondi, 25,5 s a domanda.** Non 6,7 ore: il prezzo era sbagliato di
+quindici volte, ed è la seconda volta in questa sezione. Il conto e le due
+manopole che lo spiegano stanno in [`hardware.md`](hardware.md); qui basta la
+regola che ne esce, perché è la stessa già scritta sopra con un termine in più:
+**una stima di durata non è una misura finché non è stata cronometrata sullo
+strumento vero, nello stato in cui girerà.**
+
+##### La curva
+
+Il confronto è sulle **91 query che nessuno dei tre ha rifiutato**. Le altre nove
+escono da tutt'e tre i bracci insieme, non da uno solo: un test appaiato su una
+popolazione decisa dal braccio che si astiene di più non è appaiato.
+
+| | grezzo | **dopo il parser** | Δ dal precedente |
+|---|---|---|---|
+| E2B (5,1B) | 0,8462 | 0,8681 | |
+| E4B (8,0B) | 0,9341 | **0,9670** | **+9,9** — 9 query a 0, p=0,0039 |
+| 12B (11,9B) | 0,8901 | **0,9670** | **+0,0000** — 1 a 1, **p=1,0000** |
+
+**Il salto c'è una volta sola.** Da 5,1B a 8,0B nove query passano da non
+conformi a conformi e **nessuna** va nell'altro verso: un'unanimità, non una
+maggioranza. Da 8,0B a 11,9B una query migliora, una peggiora, e i due tassi sono
+lo stesso numero a quattro decimali.
+
+Sul grezzo il 12B sembra addirittura **peggiore** di E4B (0,8901 contro 0,9341,
+7 a 3, p=0,3438): indistinguibile dal caso, e comunque **il parser di C-02 lo
+assorbe interamente**. È la stessa lezione di C-07 — la conformità grezza misura
+in parte quanto il modello indovina una convenzione tipografica, e quella parte è
+proprio ciò che il parser esiste per non far contare.
+
+##### Due differenze che non sono conformità, e vanno guardate a parte
+
+**Il 12B si astiene di più**: 9 volte su 100 contro 5. C-01 aveva indicato la
+disponibilità a dire *«non lo so»* come la cosa che ci si aspetta degradi con la
+taglia; qui va **nell'altro verso**, e sono numeri troppo piccoli per dire di più
+(9 contro 5 su 100 non è un test).
+
+**E scrive di meno**: 68 token in mediana contro 83. Che è anche il modo in cui
+si scopre un'altra cosa — le prove a sei domande fatte quel pomeriggio **col
+prompt in vigore** davano 244 e 283 token. Lo stesso modello, sullo stesso corpus,
+scrive quattro volte tanto col prompt di U-14. È un effetto del prompt, non della
+taglia, e appartiene a D-3.
+
+##### Cosa la curva sostiene, e cosa no
+
+**Sostiene l'affermazione 3 nella sua forma forte.** Non «la taglia conta meno del
+previsto»: fra 8,0B e 11,9B, con questo retrieval, **non conta affatto** — a
+parità di tutto il resto, e pagando il doppio della latenza.
+
+**Non dice che valga per ogni metrica.** La curva misurata è la conformità di
+formato. `citation_precision`, `citation_recall` e `numeric_citation_precision`
+sul 12B **non sono state misurate**: richiedono il verificatore NLI su ogni coppia
+e sono un'altra run. Il secondo punto della curva le aveva, il terzo no, e
+scriverlo è meno costoso che scoprirlo leggendo il README.
+
+**Non dice niente su LEDGER**, dove non è stata fatta e dove non aveva margine:
+E4B è già a 1,0000. Il che, per l'affermazione 3, è un modo diverso di dire la
+stessa cosa — se il modello piccolo è già al soffitto, quello grande non ha dove
+salire.
 
 ## Fase 5 — Correttezza delle misure
 
