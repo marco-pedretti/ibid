@@ -151,6 +151,37 @@ class TestRunCitationEval:
         with pytest.raises(ValueError):
             _run(p, [])
 
+    def test_lembedder_viene_scaricato_prima_di_generare(self, golden):
+        """L'ordine e' tutto il punto: dopo il recupero, prima della generazione.
+
+        Scaricarlo dopo non servirebbe a niente -- la memoria serve *mentre* il
+        modello genera -- e scaricarlo prima del recupero lo farebbe ricaricare
+        subito. Il test guarda la sequenza, non che la chiamata esista.
+        """
+        ordine: list[str] = []
+        cands = [Candidates(
+            chunk_ids=[_payload(i)["chunk_id"] for i in (1, 2)],
+            scores=[0.9, 0.8],
+            payloads=[_payload(1), _payload(2)],
+        ) for _ in range(3)]
+
+        def recupera(*a, **k):
+            ordine.append("recupero")
+            return cands
+
+        def genera(*a, **k):
+            ordine.append("generazione")
+            return _completion("Vero [1].", "stop")
+
+        with patch("src.eval.citation_harness.get_client"),              patch("src.eval.citation_harness.RETRIEVERS", {"dense": recupera}),              patch("src.eval.citation_harness.embed.unload",
+                   side_effect=lambda: ordine.append("scarico")),              patch("src.eval.citation_harness.generate_detailed", side_effect=genera):
+            run_citation_eval(
+                dataset_id="open_ragbench", golden_path=golden, top_k=2
+            )
+
+        assert ordine[:3] == ["recupero", "scarico", "generazione"]
+        assert ordine.count("scarico") == 1
+
     def test_latency_recorded_per_answer(self, golden):
         _, records = _run(golden, ["Vero [1]."] * 3)
         assert all(r.latency_s >= 0 for r in records)

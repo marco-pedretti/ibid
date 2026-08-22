@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import pytest
 
+from src.index import embed
 from src.index.embed import encode, encode_sparse, encode_sparse_query
 
 # These tests download ONNX models on first run (~500 MB for dense, ~1 MB for sparse).
@@ -203,3 +204,39 @@ class TestEncodeSparseQuery:
         a = encode_sparse_query([TEXTS[0]], SPARSE_MODEL)[0]
         b = encode_sparse_query([TEXTS[0]], SPARSE_MODEL)[0]
         assert set(a.indices) == set(b.indices)
+
+
+# ---------------------------------------------------------------------------
+# unload()
+# ---------------------------------------------------------------------------
+
+class TestUnload:
+    """La sessione ONNX si puo' buttare, e ributtarla non rompe niente.
+
+    Serve agli harness di valutazione: embeddano tutte le query all'inizio e poi
+    parlano solo col modello, ma la sessione densa tiene ~2,3 GB per tutta la
+    run. Su una scheda da 12 GB e' la differenza fra il 12B che ci sta e il
+    driver che ne sposta quattro nella memoria condivisa (2026-08-22).
+    """
+
+    def test_svuota_le_cache(self):
+        encode(TEXTS[:1], DENSE_MODEL)
+        encode_sparse(TEXTS[:1], SPARSE_MODEL)
+        assert embed._dense_cache and embed._sparse_cache
+        embed.unload()
+        assert not embed._dense_cache
+        assert not embed._sparse_cache
+
+    def test_dopo_lo_scarico_si_ricarica_da_solo(self):
+        # E' la ragione per cui `unload()` e' sicura da chiamare: le cache sono
+        # pigre, quindi il peggio che puo' succedere e' pagare due volte il
+        # caricamento, mai una risposta sbagliata.
+        prima = encode(TEXTS, DENSE_MODEL)
+        embed.unload()
+        dopo = encode(TEXTS, DENSE_MODEL)
+        assert dopo == prima
+
+    def test_scaricare_due_volte_non_solleva(self):
+        embed.unload()
+        embed.unload()
+        assert not embed._dense_cache

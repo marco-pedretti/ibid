@@ -12,6 +12,8 @@ Sparse model: Qdrant/bm25 (statistical, multilingual, Apache 2.0, ~1 MB)
 
 from __future__ import annotations
 
+import gc
+
 import src.config as cfg
 from fastembed import SparseTextEmbedding, TextEmbedding
 from qdrant_client.models import SparseVector
@@ -33,6 +35,38 @@ def _sparse_model(name: str) -> SparseTextEmbedding:
     if name not in _sparse_cache:
         _sparse_cache[name] = SparseTextEmbedding(model_name=name, cache_dir=cfg.FASTEMBED_CACHE)
     return _sparse_cache[name]
+
+
+def unload() -> None:
+    """Drop the cached ONNX sessions, releasing whatever device memory they hold.
+
+    **This exists because of an accelerator, not because of memory hygiene.**
+    The eval harnesses embed every query up front and then spend the rest of the
+    run talking to the LLM over HTTP: on a 12 GB card the dense session keeps
+    ~2.3 GB that nothing will read again, and that is the difference between the
+    12B fitting in dedicated memory and the driver spilling ~4 GB into shared
+    (system) memory.  When that happens the copy engine saturates, the compute
+    engines idle, and decode drops from 33 tok/s to 4.7 -- a seven-fold cost
+    paid to hold a session that has already done its job.
+
+    **Safe by construction, because the caches are lazy.**  Anything that asks
+    for a model after this simply builds it again; the worst case is paying the
+    load twice, never a wrong answer.  That is why this is a plain function and
+    not a context manager: the callers are linear (embed everything, then
+    generate), and a `with` block around half a harness would suggest a
+    lifetime that the code does not actually have.
+
+    Not called from `encode()` itself: ingestion embeds in batches for tens of
+    minutes, and dropping the session between them would reload it every time.
+    Who is finished is the caller's knowledge, not this module's.
+    """
+    _dense_cache.clear()
+    _sparse_cache.clear()
+    # Le sessioni ONNX liberano la memoria del dispositivo quando l'oggetto
+    # viene distrutto, non quando perde l'ultimo riferimento: senza questa
+    # riga il rilascio arriva a discrezione del GC, cioe' magari dopo che il
+    # modello grande ha gia' provato a entrare.
+    gc.collect()
 
 
 def encode(texts: list[str], model_name: str, batch_size: int = 32) -> list[list[float]]:
