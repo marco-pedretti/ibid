@@ -195,6 +195,58 @@ queste manopole vale un cambio di configurazione.** `num_batch` a 1024 è la
 migliore per ritmo di prefill ed è quella da provare per prima se un giorno il
 fuori-motore verrà ridotto; oggi non cambia la durata di una run.
 
+#### La stessa manopola sul 12B vale un fattore quattro (2026-08-22, sera)
+
+La frase qui sopra è vera per **E4B** ed è **falsa per il 12B**. I numeri non
+cambiano: cambia la loro portata, e va scritto perché sono stati usati per
+decidere il costo dell'affermazione 3.
+
+Misurato appaiato **sui token**, stesso modello, stessi prompt, stessa macchina,
+a poche ore di distanza:
+
+| prompt | FA spenta | FA accesa | |
+|---|---|---|---|
+| 4.068 token | 88,9 tok/s | **377,8** | **4,25×** |
+| 4.143 token | 114,5 tok/s | **375,5** | **3,28×** |
+| decode, qualunque prompt | 37,4 tok/s | 33,0 | **−12%** |
+
+I due prompt sono gli stessi al token, quindi non è un confronto fra medie: è la
+stessa domanda misurata due volte. E la firma è netta — **la manopola sposta il
+prefill e non tocca il decode**, che è quello che ci si aspetta da
+un'attenzione che materializza una matrice `n × n`: a 4.000 token conta, a uno
+per volta no.
+
+**Perché su E4B non si vedeva.** Non perché la manopola facesse meno, ma perché
+là il prefill costava 8,2 s su 13 di orologio e i ~4 s di fuori-motore ne
+assorbivano la differenza. Sul 12B un prompt da 4.000 token a 100 tok/s costa
+**40 secondi**, e non esiste nessun pavimento che assorba quaranta secondi. La
+regola dell'orologio — *«le manopole muovono il motore, non l'orologio»* — **non
+sopravvive a un cambio di taglia**: il fuori-motore è una costante, il prefill
+no, e più il modello è grande più la quota che la manopola tocca è grande.
+
+Effetto su una run vera (`eval_citations.py --limit 6`, 12B, `open_ragbench`):
+
+| | a domanda | proiezione su 100 |
+|---|---|---|
+| FA accesa, embedder in memoria | 43,5 s | 1 h 15 |
+| FA spenta, embedder in memoria | 63,5 s | 1 h 45 |
+| **FA accesa, embedder scaricato** | **21,8 s** | **~37 min** |
+
+Le due manopole sono indipendenti e colpiscono fasi diverse — la flash attention
+il prefill, la memoria dell'embedder il decode — ed è la ragione per cui per
+mezza giornata sono sembrate una sola. Il decode crolla a 4,7 tok/s quando il
+driver sposta ~4 GB nella memoria condivisa, e allora **il motore di copia sale
+all'82% mentre quelli di calcolo restano a zero**: è il sintomo che si vede nel
+pannello GPU di Windows e che né `/api/ps` né i contatori per processo mostrano,
+perché `size_vram` conta i pesi e non la contesa.
+
+> **Il default resta spento, e questa non è una raccomandazione di accenderlo
+> ovunque.** È una riga di protocollo: **la configurazione del motore va
+> dichiarata insieme alla taglia del modello**, perché una misura fatta su E4B
+> non si estende al 12B — e questa pagina lo ha appena fatto per mezza giornata.
+> Il campo non esiste in `EvalRun`, che registra `model` e `quantization` ma
+> niente del motore: è la stessa lacuna di **D-20**, un piano più in là.
+
 ### Cosa è stato misurato e cosa no
 
 `OLLAMA_NUM_PARALLEL` **non è stato misurato.** Era già a 1 prima della prima
@@ -277,6 +329,16 @@ in mediana contro i ~40 dell'E4B su `ledger` — e su una domanda lunga arriva a
 domande del piano originale costano 1 h 15 invece di 6 h 40. La decisione del
 2026-08-20 di fare 50 invece di 100 era presa su un prezzo che non esiste, e va
 ripresa.
+
+> **Aggiornamento della stessa sera: 21,8 s, non 43,5.** Lo stesso comando a sei
+> domande, dopo aver scaricato l'embedder al termine del recupero, ha impiegato
+> **131 s** contro i 261 di questa riga. I 43,5 s erano misurati con ~2,1 GB di
+> sessione ONNX ferma in VRAM per tutta la generazione — il che non era un
+> difetto della misura (l'harness faceva davvero così) ma di ciò che l'harness
+> faceva. **Le 100 domande costano ~37 minuti.** Il numero qui sopra resta perché
+> descrive il codice di allora, e perché la sequenza 240 → 43,5 → 21,8 dice una
+> cosa che nessuno dei tre da solo direbbe: due volte su tre il preventivo era
+> alto perché la macchina stava facendo qualcosa che nessuno aveva chiesto.
 
 **Perché T-02 era così lontano** non è dimostrato, ma le due cause candidate sono
 entrambe scritte in questa pagina: il *thinking* era acceso (la nota di T-02 lo
