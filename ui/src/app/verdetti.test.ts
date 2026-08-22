@@ -216,6 +216,28 @@ describe("esitoDellaScheda", () => {
     });
   });
 
+  it("una citazione salvata prima di D-7 non porta la soglia, e non fa cadere niente", () => {
+    // La cronologia salva le risposte **intere** e le rilegge come
+    // `{ ...inizio(), ...salvata }`: una conversazione registrata prima che il
+    // contratto avesse `threshold` non ce l'ha, e il tipo non la raggiunge.
+    // Prima di questa correzione l'interfaccia spariva -- `undefined.toLocaleString()`
+    // durante la fase di verifica, e React smontava l'albero.
+    //
+    // La soglia resta `undefined` invece di diventare 0: una scala inventata e'
+    // peggio di nessuna scala, e chi la mostra ha una frase per il caso.
+    const vecchia = {
+      marker: 2,
+      chunk_id: "d:2",
+      claim: "Il minimo e' 12ms.",
+      supported: true,
+      score: 0.9,
+      numeric: "not_applicable",
+    } as CitationView;
+    const r = verificata(testo, [vecchia]);
+    const esito = esitoDellaScheda(r, 2);
+    expect(esito).toEqual({ tipo: "sostiene", punteggio: 0.9, soglia: undefined, su: 1 });
+  });
+
   it("fra due sostenute mostra la piu' vicina alla linea", () => {
     const r = verificata(testo, [
       cit(1, "Il valore massimo e' 400ms.", true, 0.91),

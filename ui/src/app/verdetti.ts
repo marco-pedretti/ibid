@@ -217,8 +217,8 @@ export type EsitoScheda =
   | { tipo: "nonCitata" }
   | { tipo: "attesa" }
   | { tipo: "nonVerificata" }
-  | { tipo: "sostiene"; punteggio: number; soglia: number; su: number }
-  | { tipo: "nonSostiene"; punteggio: number; soglia: number; su: number }
+  | { tipo: "sostiene"; punteggio: number; soglia?: number; su: number }
+  | { tipo: "nonSostiene"; punteggio: number; soglia?: number; su: number }
   | { tipo: "misto"; nonSostengono: number; su: number };
 
 export function esitoDellaScheda(r: Risposta, marker: number): EsitoScheda {
@@ -236,6 +236,14 @@ export function esitoDellaScheda(r: Risposta, marker: number): EsitoScheda {
       // La soglia viene dalla citazione e non da una costante di qui: e' il
       // backend a decidere dove passa la linea, e il frontend che se la
       // scrivesse direbbe la propria invece della sua (D-7, U-00).
+      //
+      // **E' facoltativa a runtime anche se il contratto la dichiara.** Le
+      // risposte in cronologia sono salvate intere e rilette come
+      // `{ ...inizio(), ...salvata }`: quelle registrate prima di D-7 non hanno
+      // il campo, e il tipo non le raggiunge. E' la regola che `cronologia.ts`
+      // scrive gia' -- «un campo aggiunto dopo prende il suo default» -- e qui
+      // il default e' «non si sa», non uno zero: una soglia inventata
+      // mostrerebbe una scala falsa, che e' peggio di nessuna scala.
       soglia: c.threshold,
     })),
   );
@@ -251,9 +259,9 @@ export function esitoDellaScheda(r: Risposta, marker: number): EsitoScheda {
  * dice qualcosa; una media di verdetti opposti non direbbe niente.
  */
 function riassumi(
-  coppie: readonly { sostenuta: boolean; punteggio: number; soglia: number }[],
+  coppie: readonly { sostenuta: boolean; punteggio: number; soglia?: number }[],
 ):
-  | { tipo: "sostiene" | "nonSostiene"; punteggio: number; soglia: number; su: number }
+  | { tipo: "sostiene" | "nonSostiene"; punteggio: number; soglia?: number; su: number }
   | { tipo: "misto"; nonSostengono: number; su: number } {
   const contrarie = coppie.filter((c) => !c.sostenuta);
   if (contrarie.length === 0) {
@@ -313,11 +321,12 @@ export function esitoNumericoDellaScheda(r: Risposta, marker: number): EsitoNume
   if (giudizi.length === 0) return null;
 
   const riassunto = riassumi(
-    giudizi.map((c) => ({ sostenuta: c.numeric === "supported", punteggio: 0, soglia: 0 })),
+    giudizi.map((c) => ({ sostenuta: c.numeric === "supported", punteggio: 0 })),
   );
   // Il verificatore numerico non produce un punteggio, e quindi non ha una
-  // soglia: e' un confronto fra numeri, non una probabilita'. Portarli a 0 e
-  // mostrarli direbbe il falso -- infatti la riga sotto li lascia cadere.
+  // soglia: e' un confronto fra numeri, non una probabilita'. Portare il
+  // punteggio a 0 e mostrarlo direbbe il falso -- infatti la riga sotto lo
+  // lascia cadere, e la soglia non viene proprio passata.
   return riassunto.tipo === "misto" ? riassunto : { tipo: riassunto.tipo, su: riassunto.su };
 }
 

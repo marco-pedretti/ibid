@@ -160,12 +160,18 @@ export function Marcatore({ marcato }: { marcato: Marcato }) {
       ? t("verdict.marker.inert")
       : punteggio === undefined
         ? t("verdict.marker", { marker: marcato.marker, verdetto: parola })
-        : t("verdict.marker.score", {
-            marker: marcato.marker,
-            verdetto: parola,
-            punteggio: numero(punteggio, lingua, 3),
-            soglia: numero(soglia ?? 0, lingua, 2),
-          });
+        : soglia === undefined
+          ? t("verdict.marker.score", {
+              marker: marcato.marker,
+              verdetto: parola,
+              punteggio: numero(punteggio, lingua, 3),
+            })
+          : t("verdict.marker.score.threshold", {
+              marker: marcato.marker,
+              verdetto: parola,
+              punteggio: numero(punteggio, lingua, 3),
+              soglia: numero(soglia, lingua, 2),
+            });
 
   return (
     <Suggerimento
@@ -218,13 +224,20 @@ function dettaglioDi(
     // con piu' di una frase questo va detto: altrimenti si legge come se
     // riguardasse tutte allo stesso modo.
     // **La soglia si scrive con due decimali e il punteggio con tre**, e non e'
-    // una svista: il punteggio e' una misura e i suoi millesimi
-    // distinguono un 0,499 da un 0,502, mentre la soglia e' una
-    // decisione presa a numero tondo. Dare tre cifre anche a lei
-    // suggerirebbe una precisione che non ha.
-    perche: t(esito.su > 1 ? "verdict.score.many" : "verdict.score", {
-      soglia: numero(esito.soglia, lingua, 2),
-    }),
+    // una svista: il punteggio e' una misura e i suoi millesimi distinguono un
+    // 0,499 da un 0,502, mentre la soglia e' una decisione presa a numero
+    // tondo. Dare tre cifre anche a lei suggerirebbe una precisione che non ha.
+    //
+    // **Senza soglia si torna alla frase di prima**, che diceva «contro una
+    // soglia» senza nominarla ed era vera lo stesso. Succede sulle risposte
+    // salvate in cronologia prima di D-7: dire «sostiene se arriva a 0,00»
+    // sarebbe una scala falsa, e una scala falsa e' peggio di nessuna scala.
+    perche:
+      esito.su > 1
+        ? t("verdict.score.many")
+        : esito.soglia === undefined
+          ? t("verdict.score")
+          : t("verdict.score.threshold", { soglia: numero(esito.soglia, lingua, 2) }),
     quante: esito.su > 1 ? `×${esito.su}` : null,
   };
 }
