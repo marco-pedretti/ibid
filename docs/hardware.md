@@ -196,6 +196,36 @@ confronto genera **una** risposta sola — l'altra è quella già data, riletta
 (`chat.tsx`, `confronta`). Non c'è nessun punto in cui il repo chieda due
 generazioni insieme.
 
+### `num_batch`: il default di Ollama vince già
+
+Il log del prefill avanza a blocchi da 512 token, e alzare la dimensione del
+blocco è la leva classica per saturare una GPU. Qui non paga: **non c'è niente
+da saturare che non sia già saturo.**
+
+| `num_batch` | prefill | decode |
+|---|---|---|
+| default (512) | **916 tok/s** | **77,8 tok/s** |
+| 1024 | 871 tok/s | 73,6 tok/s |
+| 2048 | 877 tok/s | 70,6 tok/s |
+
+1024 e 2048 sono indistinguibili fra loro e tutti e due **peggiori** del
+predefinito di circa il 5%. La lettura è che il collo di bottiglia non è il
+numero di token per blocco, e che blocchi più grandi si pagano solo in memoria
+di lavoro. Si lascia stare: `probe_prefill.py` passa `num_batch` **solo** se lo
+si chiede sulla riga di comando, così il default resta quello che Ollama decide
+e non un valore nostro che invecchia.
+
+> **Il 5% è vicino al rumore di questa sonda**, che è cinque domande e una
+> mediana. Basta a dire «non guadagna», non basterebbe a dire «peggiora»: per
+> quello servirebbero più ripetizioni, e non ne vale la pena per una manopola
+> che si sta per lasciare al suo posto. Il 23× della flash attention, invece, non
+> ha questo problema.
+
+**Con questo le leve gratuite su Windows sono finite.** Flash attention spenta,
+`num_parallel` a 1, `num_batch` al default: una risposta su cinque chunk costa
+~13 s, di cui ~9 di prefill. Quel che resta da provare non è una manopola, è un
+backend — ed è lavoro di U-12/D-10, non di oggi.
+
 ### Due avvertenze per chi legge questi numeri
 
 **La configurazione del motore cambia il testo generato, a temperatura 0.** Fra

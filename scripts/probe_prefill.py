@@ -95,7 +95,25 @@ class Misura:
         return self.prefill_s / self.totale_s if self.totale_s else 0.0
 
 
-def chiedi(base: str, model: str, system: str, user: str, num_ctx: int) -> dict:
+def chiedi(
+    base: str,
+    model: str,
+    system: str,
+    user: str,
+    num_ctx: int,
+    num_batch: int | None = None,
+) -> dict:
+    opzioni: dict = {
+        "temperature": cfg.TEMPERATURE,
+        "num_ctx": num_ctx,
+        "num_predict": cfg.MAX_NEW_TOKENS,
+    }
+    # `num_batch` si passa solo se chiesto: il valore predefinito lo decide
+    # Ollama, e scriverlo qui vorrebbe dire fissare oggi una scelta che domani
+    # cambia da sola -- cioe' misurare una condizione credendo di misurarne
+    # un'altra.
+    if num_batch is not None:
+        opzioni["num_batch"] = num_batch
     payload = {
         "model": model,
         "messages": [
@@ -104,11 +122,7 @@ def chiedi(base: str, model: str, system: str, user: str, num_ctx: int) -> dict:
         ],
         "stream": False,
         "think": False,
-        "options": {
-            "temperature": cfg.TEMPERATURE,
-            "num_ctx": num_ctx,
-            "num_predict": cfg.MAX_NEW_TOKENS,
-        },
+        "options": opzioni,
     }
     req = urllib.request.Request(
         f"{base}/api/chat",
@@ -172,6 +186,12 @@ def main() -> None:
     )
     ap.add_argument("--model", default=cfg.LLM_MODEL)
     ap.add_argument("--num-ctx", type=int, default=cfg.CONTEXT_WINDOW)
+    ap.add_argument(
+        "--num-batch",
+        type=int,
+        default=None,
+        help="token per blocco di prefill; senza, decide Ollama",
+    )
     ap.add_argument("--etichetta", default="", help="come si chiama questa condizione")
     ap.add_argument(
         "--comunque",
@@ -188,7 +208,9 @@ def main() -> None:
 
     print(f"dump       {args.dump}")
     print(f"collection {collection}")
-    print(f"modello    {args.model}  num_ctx {args.num_ctx}")
+    print(
+        f"modello    {args.model}  num_ctx {args.num_ctx}  num_batch {args.num_batch or '(default)'}"
+    )
     print()
 
     prompts: list[tuple[str, str]] = []
@@ -207,7 +229,7 @@ def main() -> None:
         f"riscaldamento ({prompts[0][0]}) — carica il modello, non si conta...",
         flush=True,
     )
-    chiedi(base, args.model, SYSTEM, prompts[0][1], args.num_ctx)
+    chiedi(base, args.model, SYSTEM, prompts[0][1], args.num_ctx, args.num_batch)
 
     vram = quota_vram(base, args.model)
     if vram is None:
@@ -229,7 +251,7 @@ def main() -> None:
     misure: list[Misura] = []
     for qid, user in prompts[1:]:
         t0 = time.time()
-        d = chiedi(base, args.model, SYSTEM, user, args.num_ctx)
+        d = chiedi(base, args.model, SYSTEM, user, args.num_ctx, args.num_batch)
         m = Misura(
             query_id=qid,
             prompt_tok=int(d.get("prompt_eval_count", 0)),
@@ -253,6 +275,7 @@ def main() -> None:
         "etichetta": args.etichetta,
         "model": args.model,
         "num_ctx": args.num_ctx,
+        "num_batch": args.num_batch,
         "collection": collection,
         "n": len(misure),
         "quota_vram": vram,
