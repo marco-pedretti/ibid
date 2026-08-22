@@ -254,6 +254,38 @@ Start-Sleep -Seconds 7
 > `flash_attn = enabled` anche nella riga chiamata «off». Quando una manopola dà
 > un fattore 20, la prima ipotesi da scartare è che si stia misurando altro.
 
+### Il 12B, e la stima dell'affermazione 3 che era sbagliata di cinque volte
+
+Misurato il 2026-08-22 con la stessa sonda, su prompt veri di `open_ragbench`
+(mediana 3.815 token) e a motore pulito — `quota_vram 1.0`, cioè modello
+interamente in VRAM.
+
+| | T-02 (2026-08-04) | oggi |
+|---|---|---|
+| prefill | 33,8 tok/s | **379 tok/s** |
+| decode | 2,4 tok/s | **33,2 tok/s** |
+| per risposta | ~240 s (derivato) | **43,5 s** (misurato end-to-end) |
+
+I 43,5 s vengono dallo strumento vero e non dalla sonda: `eval_citations.py
+--model gemma4:12b --limit 6 --no-write` ha impiegato **261 s per sei domande**,
+embedding e recupero inclusi, con latenza p50 35,6 s e p90 86 s. La sonda da sola
+dava 18,6 s, e la differenza è reale: il 12B è prolisso — 276 token di risposta
+in mediana contro i ~40 dell'E4B su `ledger` — e su una domanda lunga arriva a
+86 s.
+
+**Ne segue che l'affermazione 3 costa 40 minuti e non 3 ore e mezza**, e le 100
+domande del piano originale costano 1 h 15 invece di 6 h 40. La decisione del
+2026-08-20 di fare 50 invece di 100 era presa su un prezzo che non esiste, e va
+ripresa.
+
+**Perché T-02 era così lontano** non è dimostrato, ma le due cause candidate sono
+entrambe scritte in questa pagina: il *thinking* era acceso (la nota di T-02 lo
+dichiara) e il 12B occupava 8,1 GB su una scheda da 12 — con un contesto grande è
+esattamente la condizione in cui il modello entra a metà, che è il confonditore
+descritto più sopra. Non si può verificare a posteriori: quelle misure non
+registrarono né `think` né la quota in VRAM. È il motivo per cui `probe_prefill.py`
+adesso registra tutte e due.
+
 ### Cosa questo dice su ROCm
 
 Rafforza poco e indebolisce parecchio. Il prefill resta la voce grossa — ~63% —
