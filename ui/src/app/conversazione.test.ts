@@ -51,7 +51,9 @@ const answer = (
     ...over,
   },
 });
-const done = (over: Partial<{ abstention: string; verified: boolean }> = {}): SseEvent => ({
+const done = (
+  over: Partial<{ abstention: string; verified: boolean; collection: string }> = {},
+): SseEvent => ({
   event: "done",
   data: {
     abstained: false,
@@ -59,6 +61,7 @@ const done = (over: Partial<{ abstention: string; verified: boolean }> = {}): Ss
     verified: true,
     timings: { retrieval: 0.02, generation: 11.4, verification: 0.83 },
     config: CONFIG,
+    collection: "open_ragbench",
     ...over,
   },
 });
@@ -178,6 +181,21 @@ describe("le due astensioni", () => {
       done({ abstention: ABSTENTION.modello }),
     ]);
     expect(chiSiEAstenuto(r)).toBe("modello");
+  });
+
+  it("la risposta dice su quale indice ha cercato", () => {
+    // D-5: `Answer.collection` esiste da sempre e lo stream la lasciava cadere,
+    // quindi il frontend poteva solo dedurla dal dataset. E' una deduzione
+    // giusta oggi e sbagliata appena una collection instradata diventa
+    // scegliibile (D-18).
+    const r = applica(inizio(), done({ collection: "ledger_routed" }));
+    expect(r.collection).toBe("ledger_routed");
+  });
+
+  it("prima della fine non si sa su quale indice si sta cercando", () => {
+    // `""` e non il dataset: il default e' «non si sa», e le risposte salvate
+    // prima di D-5 rileggono esattamente lo stesso valore.
+    expect(inizio().collection).toBe("");
   });
 
   it("una risposta normale non è un'astensione", () => {
