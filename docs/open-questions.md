@@ -37,6 +37,8 @@ Misura definitiva (2026-08-07, golden set **completi**, profondità 10 — i num
 
 (Tassi sul criterio binario *"almeno un documento rilevante nei primi 5"*, non `doc_R@5`, che è una frazione quando una query ha più documenti rilevanti. Riproducibile con `scripts/compare_runs.py`.)
 
+> **La riga `ledger` è in ricerca approssimata e non si riproduce più** (OQ-09). In esatta vale 0,8962 → 0,7590, cioè −13,72 punti invece di −17,03 — R-11 lo aveva già misurato, e questa tabella è rimasta com'era perché è il fatto da spiegare così com'era stato osservato.
+
 La domanda è solo la seconda riga. Su LEDGER il routing sbaglia **1797 query su 10000** che la pipeline generica azzeccava, e ne recupera 94: non è rumore né un effetto di soglia, è un regresso sistematico. In `progress.md` la causa era annotata come *"sub-chunking aggressivo → chunk troppo piccoli, IDF diluito"*. È una congettura scritta senza misura: va verificata o sostituita.
 
 ### Cosa è stato misurato finora
