@@ -3606,3 +3606,85 @@ da tutte e due le parti le due implementazioni sarebbero indistinguibili.
 E la nota che stava in `strings.ts` — *«la soglia non è scritta qui di
 proposito: servirebbe un campo nel contratto, come `GateView.threshold`»* — se
 n'è andata, che è il modo in cui un debito dichiarato si chiude.
+
+
+### D-5 — la configurazione che ha girato smette di essere un mistero
+
+Il §12 lo prometteva — *«restano sempre leggibili in "Dettagli della run", così
+la configurazione che ha girato non è mai un mistero»* — e U-03 lo chiedeva come
+criterio. Non esisteva: i quattro dati dell'indice erano usciti di scena quando
+la chat ha preso la colonna centrale, e i parametri di «Avanzate» non
+ricomparivano da nessuna parte.
+
+**È per risposta, non per sessione**, ed è la decisione che ha determinato la
+forma. Modello e opzioni si cambiano fra una domanda e l'altra, quindi «cosa ha
+girato» è una proprietà dello **scambio**: il comando sta sotto la sua risposta,
+accanto a «Confronta». Un pannello sempre presente avrebbe mostrato solo
+l'ultima, e i parametri di uno scambio più vecchio non si sarebbero più potuti
+rileggere — che è il difetto che il debito descriveva, spostato di un metro.
+
+**È uno strato in tutte e due le forme del telaio**, e non una quarta colonna.
+U-21 usa gli strati a colonna sola perché lì *sostituiscono* qualcosa; questo non
+sostituisce niente. È un riferimento che si consulta e si chiude, e una colonna
+permanente per qualcosa che si guarda due volte a sessione toglierebbe spazio
+alla conversazione tutte le altre volte.
+
+#### Un campo che mancava sul filo, e perché era il momento di accorgersene
+
+`Answer.collection` esiste da sempre, con scritto accanto perché: *«la soglia di
+astensione è calibrata per collection, non per dataset; riportarla è ciò che
+rende il risultato ricostruibile.»* Lo stream però la lasciava cadere, e il
+frontend poteva solo dedurla dal `dataset_id`.
+
+È una deduzione **giusta oggi e sbagliata domani**: appena una collection
+instradata diventa scegliibile (**D-18**), lo stesso dataset avrà due indici, e
+«su cosa hai cercato» avrebbe dato la stessa risposta a due run diverse. Il
+default è `""` e non il dataset — vale prima che la risposta finisca e sulle
+risposte già in cronologia, che sono lo stesso caso: **non si sa**. Metterci il
+dataset avrebbe indovinato giusto quasi sempre, che è il modo in cui un difetto
+del genere sopravvive.
+
+#### Quali campi si mostrano è una decisione, e sta fuori dal componente
+
+`dettagli.ts` non disegna niente: dice quali campi, in che gruppi e in che
+ordine. Sta lì perché è la parte che si può sbagliare **senza che si veda**: un
+campo dimenticato non lascia un buco sullo schermo, lascia un'interfaccia che
+sembra completa.
+
+La rete è un test che conta — *ogni campo di `ConfigView` compare esattamente una
+volta* — ed è lo stesso meccanismo di `stessaConfigurazione` per il confronto:
+aggiungere un campo al contratto **rompe il test** invece di sparire in silenzio.
+Per la stessa ragione l'elenco è esplicito e non `Object.keys(config)`: un ciclo
+sulle chiavi darebbe righe nuove da solo, con l'etichetta mancante e il valore
+grezzo, cioè inventerebbe interfaccia.
+
+I gruppi sono le tre domande che uno si fa guardando una risposta e non
+fidandosi: **dove** ha cercato, **come** ha cercato, **chi** ha scritto. La
+verifica sta col resto della generazione perché è l'ultimo passo di quel
+percorso, non un quarto argomento.
+
+#### Le due bugie possibili erano tacere
+
+`hnsw_ef` vale `null` quando lascia decidere Qdrant e `filter_content_type` vale
+`""` quando non filtra niente: sono **scelte**, e una cella vuota si legge come
+il contrario, cioè come un dato che manca. Si scrivono «predefinito», che copre
+tutti e due i casi perché sul filo sono diversi e qui significano la stessa cosa.
+
+E quando la risposta non dice su quale indice ha cercato, la sezione dell'indice
+**non si disegna vuota**: una collection scritta senza i suoi numeri sembrerebbe
+un indice vuoto, che è un'affermazione e falsa. Si dichiara assente, con la
+ragione — salvata prima che il dato esistesse, oppure quella collection non c'è
+più — perché tacere sarebbe corretto ma muto: chi guarda vedrebbe due sezioni
+invece di tre senza sapere perché.
+
+#### Due cose piccole, per il verbale
+
+`Strato` è uscito da `Telaio.tsx` in un commit suo, **senza toccare niente
+d'altro**: 338 test prima, 338 dopo, che è il controllo che dice che era davvero
+un refactor. U-21 lo aveva scritto per la corsia e le fonti; D-5 lo riusa, e il
+componente non è cambiato perché non doveva — sa entrare da un bordo e lasciarsi
+chiudere, e quale dei casi stia servendo non è affar suo.
+
+C'è un'**icona nuova**, `Chiudi`, e non è `Indietro`: una freccia dice «torna da
+dove sei arrivato», cioè promette una navigazione. Un foglio non porta da nessuna
+parte — si toglie di mezzo, e sotto c'è quel che c'era già.
