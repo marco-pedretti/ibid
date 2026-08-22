@@ -1,0 +1,49 @@
+{
+  "etichetta": "12b-open-ragbench",
+  "model": "gemma4:12b",
+  "num_ctx": 32768,
+  "num_batch": null,
+  "collection": "open_ragbench",
+  "n": 3,
+  "quota_vram": 1.0,
+  "prompt_tok_mediana": 3815,
+  "prefill_s_mediana": 10.06,
+  "prefill_tok_s_mediana": 379.37,
+  "decode_tok_s_mediana": 33.17,
+  "totale_s_mediana": 18.59,
+  "quota_prefill_mediana": 0.55,
+  "carico_s_mediana": 0.01,
+  "fuori_s_mediana": 2.06,
+  "misure": [
+    {
+      "query_id": "9199173b-3ed1-4118-88cd-1713fc5fa8a7",
+      "prompt_tok": 4692,
+      "prefill_s": 12.776013,
+      "decode_tok": 244,
+      "decode_s": 7.37488,
+      "carico_s": 0.0055376,
+      "motore_s": 20.4064561,
+      "totale_s": 22.47
+    },
+    {
+      "query_id": "1d585069-a446-47fa-a74d-0387316ea330",
+      "prompt_tok": 2757,
+      "prefill_s": 7.079542,
+      "decode_tok": 119,
+      "decode_s": 3.575065,
+      "carico_s": 0.0062702,
+      "motore_s": 10.9025443,
+      "totale_s": 12.94
+    },
+    {
+      "query_id": "dc064d11-cd18-4866-8a99-f16b0abec9c6",
+      "prompt_tok": 3815,
+      "prefill_s": 10.056052,
+      "decode_tok": 207,
+      "decode_s": 6.240252,
+      "carico_s": 0.004643,
+      "motore_s": 16.5326839,
+      "totale_s": 18.59
+    }
+  ]
+}

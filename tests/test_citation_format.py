@@ -139,9 +139,44 @@ class TestAbstention:
         assert not is_abstention("The paper gives insufficient information [2].")
 
     def test_long_prose_containing_a_phrase_is_not_an_abstention(self):
-        text = ("Il documento non ho informazioni sufficienti su questo punto, "
-                "ma discute in dettaglio molti altri aspetti del problema. " * 4)
+        text = (
+            "Il documento non ho informazioni sufficienti su questo punto, "
+            "ma discute in dettaglio molti altri aspetti del problema. " * 4
+        )
         assert not is_abstention(text)
+
+    def test_self_worded_refusal_is_an_abstention(self):
+        # D-19: il prompt chiede una stringa esatta, il modello rifiuta a modo
+        # suo. Su `ledger` erano tre o quattro risposte per run, contate come
+        # `no_citation` -- cioe' `citation_precision` misurava l'obbedienza al
+        # formato invece della citazione.
+        assert is_abstention(
+            "The provided context does not contain the operating income figure "
+            "for Barnwell Industries, Inc. for the year 2017."
+        )
+
+    def test_self_worded_refusal_that_cites_is_not_an_abstention(self):
+        # E' il caso per cui le frasi di `SELF_WORDED_REFUSALS` stanno dietro
+        # alle guardie invece che nella lista condivisa: qui il modello risponde,
+        # cita, e *poi* dice cosa manca per un altro anno. Misurato sui dump del
+        # gate: ognuna delle dieci risposte che contenevano una di quelle frasi
+        # portava anche un marcatore.
+        assert not is_abstention(
+            "The depreciation and amortization expense for The Hain Celestial "
+            "Group was $49,569 thousand in 2021 [5], but the provided context "
+            "does not contain the figure for the fiscal year ended June 30, 2022 [5]."
+        )
+
+    def test_self_worded_refusal_stays_out_of_the_shared_list(self):
+        # La lista condivisa la legge anche `generation_harness.is_abstained`,
+        # che non ha guardie: una frase generica li' dentro etichetterebbe come
+        # astensione delle risposte che rispondono. Il test fissa la
+        # separazione, che e' la decisione di D-19 e non un dettaglio.
+        from src.generation.baseline_prompts import ABSTENTION_PHRASES
+        from src.generation.citation_format import SELF_WORDED_REFUSALS
+
+        assert not set(ABSTENTION_PHRASES) & set(SELF_WORDED_REFUSALS)
+        assert "does not contain" not in ABSTENTION_PHRASES
 
     def test_abstention_report_is_neither_compliant_nor_violating(self):
         r = check_format("Insufficient information.", 5)
@@ -160,7 +195,9 @@ class TestSummarize:
     def _reports(n_ok, n_bad, n_abstained):
         out = [check_format("Vero [1].", 5) for _ in range(n_ok)]
         out += [check_format("Vero [1,2].", 5) for _ in range(n_bad)]
-        out += [check_format("Insufficient information.", 5) for _ in range(n_abstained)]
+        out += [
+            check_format("Insufficient information.", 5) for _ in range(n_abstained)
+        ]
         return out
 
     def test_rate_is_over_scored_answers_only(self):
@@ -253,12 +290,13 @@ class TestWilsonLower:
         """
         s = summarize([check_format("Vero [1].", 5) for _ in range(20)])
         assert s.rate == 1.0
-        assert s.rate_lower95 < COMPLIANCE_TARGET   # the bound would fail it
-        assert s.meets_target                       # the criterion does not
+        assert s.rate_lower95 < COMPLIANCE_TARGET  # the bound would fail it
+        assert s.meets_target  # the criterion does not
 
     def test_below_target_fails(self):
-        reports = ([check_format("Vero [1].", 5) for _ in range(9)]
-                   + [check_format("Vero [1,2].", 5)])
+        reports = [check_format("Vero [1].", 5) for _ in range(9)] + [
+            check_format("Vero [1,2].", 5)
+        ]
         assert summarize(reports).rate == 0.9
         assert not summarize(reports).meets_target
 
@@ -275,7 +313,10 @@ class TestMathIsNotACitation:
         assert check_format(text, 5).compliant
 
     def test_bare_zero_marker_is_not_out_of_range(self):
-        assert "out_of_range" not in check_format("Il dominio è [0] per costruzione [1].", 5).kinds
+        assert (
+            "out_of_range"
+            not in check_format("Il dominio è [0] per costruzione [1].", 5).kinds
+        )
 
     def test_zero_range_is_not_a_range_violation(self):
         assert check_format(r"su $[0-1]$ vale la stima [1].", 5).compliant

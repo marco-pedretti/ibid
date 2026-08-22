@@ -19,6 +19,7 @@ function config(sopra: Partial<ConfigView>): ConfigView {
     rag: true,
     baseline_prompt: "",
     verify: true,
+    entailment_threshold: 0.5,
     ...sopra,
   };
 }

@@ -576,6 +576,95 @@ Se è vero, è una classe di errore che **nessuna delle due metriche di citazion
 
 **Contare il bacino come se fosse l'errore.** I 43 casi sono quanti *potrebbero* esserlo, non quanti lo sono. Il passo 1 esiste per questo, e va fatto prima di citare un numero.
 
+### L'esito del passo 1 (2026-08-22) — 4 trapianti su 13, non 43
+
+Riproducibile con `python scripts/probe_sign_convention.py --righe`, che risale
+dalla cella citata alla sua etichetta di riga.
+
+**Prima cosa, e non è un dettaglio: i casi distinti sono 13, non 43.** Il conto
+originale sommava le stesse domande viste in nove run. Il bacino era gonfiato di
+**3,3 volte**, e la trappola «contare il bacino come se fosse l'errore» aveva una
+seconda forma che non avevo previsto — non solo *quanti di questi lo sono*, ma
+*quanti di questi sono lo stesso*.
+
+**Il criterio della classificazione è nell'etichetta di riga**, e si legge nei
+dati senza interpretazione: un'etichetta che nomina una **grandezza** («Capital
+expenditures», «Cash dividends -- $3.40 per share») rende le parentesi notazione
+del prospetto; una che nomina una **quantità con segno** («Net financing cash»,
+«Basic net loss per share», «Net income (loss)») rende il negativo
+l'informazione.
+
+| caso | riga citata | verdetto |
+|---|---|---|
+| `SHW_capex_2017` (222.8) | Capital expenditures | **trapianto** |
+| `SHW_capex_2017` (251.0) | Capital expenditures | **trapianto**, e per giunta l'anno sbagliato |
+| `SHW_dividends_paid_2017` (319.0) | Cash dividends -- $3.40 per share | **trapianto** |
+| `SHW_dividends_paid_2018` (322.9) | Cash dividends -- $3.44 per share | **trapianto** |
+| `SHW_financing_cash_flow_2018` (1.746,7) | Net financing cash | negativo vero |
+| `SHW_financing_cash_flow_2018` (1.846,4) | Net financing cash | negativo vero |
+| `SHW_eps_basic_2017` (0.69) | Basic earnings (loss) per share | negativo vero |
+| `AMTX_eps_basic_2022` (3.12) | Basic (net loss per share) | negativo vero |
+| `AMTX_eps_diluted_2022` (1.54) | Basic (net loss per share) | negativo vero |
+| `AMTX_income_tax_expense_2021` (1.54) | Basic (net loss per share) | negativo vero |
+| `BRN_eps_diluted_2018` (0.21) | Basic net loss per share | negativo vero |
+| `CBT_eps_basic_2020` (4.21) | Net income (loss) attributable to Cabot | negativo vero |
+| `CBT_eps_diluted_2020` (4.21) | Net income (loss) attributable to Cabot | negativo vero |
+
+**4 trapianti, 9 negativi veri.** L'ipotesi è confermata come *fenomeno* e
+smentita come *prevalenza*: il trapianto esiste ed è esattamente quello descritto
+— una grandezza positiva che si porta dietro la notazione del rendiconto — ma è
+la minoranza dei casi, e i nove negativi veri sono risposte corrette in cui le
+parentesi ci vogliono.
+
+**I quattro trapianti hanno una firma stretta**: stessa società, e due sole
+etichette di riga — spese in conto capitale e dividendi pagati. Sono le due voci
+in cui un rendiconto scrive un esborso come negativo mentre la domanda chiede
+«quanto avete speso», che è una grandezza. Non è una proprietà di `ledger` nel
+suo insieme: è una proprietà di quel tipo di riga.
+
+#### Il passo 2 non si fa, e il protocollo lo prevedeva
+
+Il passo 2 era condizionato — *«se i trapianti prevalgono, misurare l'accordo fra
+i due verificatori su quel sottoinsieme»*. Non prevalgono, e quattro casi non
+reggono un test appaiato: qualunque differenza di accordo su quattro elementi
+sarebbe indistinguibile da qualsiasi cosa. La condizione era scritta prima di
+conoscere il numero, ed è servita a non spendere una misura che non poteva dire
+niente.
+
+#### Un reperto che non stavo cercando
+
+`SHW_capex_2017` compare **due volte con due numeri diversi**: `(222.8)` in una
+run e `(251.0)` in un'altra. Non sono due letture della stessa cella — sono due
+**colonne** diverse. Il chunk citato nel primo caso ha l'intestazione
+2019/2018/2017 e la riga `(328.9) (251.0) (222.8)`, quindi 222,8 è il 2017 ed è
+giusto; il chunk del secondo ha 2020/2019/2018 con `(303.8) (328.9) (251.0)`,
+quindi 251,0 è il **2018**, e la domanda chiedeva il 2017.
+
+È l'errore che il caveat di OQ-05 dichiarava — *«`1.234` può stare nella riga
+sbagliata o nell'anno sbagliato»* — colto qui in flagrante, e con una condizione
+aggravante: **la stessa grandezza esiste in due chunk con intestazioni di anno
+sfalsate**, quindi la colonna giusta dipende da quale chunk il recupero ha
+pescato. Non è una cosa che il prompt possa risolvere.
+
+#### Cosa cambia per il rimedio
+
+Le due direzioni del passo 3 restano tutt'e due aperte, ma con pesi diversi da
+quelli che avrei dato prima:
+
+- **Dirlo al modello** («riporta la grandezza, non la notazione del prospetto»)
+  costerebbe una riga di prompt e vale per 4 casi su ~900 risposte, cioè meno di
+  mezzo punto percentuale. E D-3 ha appena mostrato che una modifica al prompt si
+  misura contro una linea di rumore di ~1 punto: **non sarebbe misurabile**.
+- **Insegnarlo al controllo numerico** — le parentesi in una cella sono un segno,
+  riportarle in prosa afferma un negativo — resta la direzione sensata, perché
+  non tocca la generazione e non ha una linea di rumore da superare. Ma non è
+  urgente: quattro casi.
+
+La cosa che questo passo ha davvero comprato non è il rimedio, è il **numero**.
+«Il 4-7% delle risposte porta un numero fra parentesi» era vero e fuorviante;
+«quattro risposte su novecento affermano un negativo che il prospetto non
+affermava» è la stessa osservazione detta in modo che si possa decidere.
+
 ### Perché conta
 
 Perché è il limite onesto di «citazione verificata», che è l'**affermazione 1 del §0**: una frase può citare perfettamente — chunk giusto, riga giusta, anno giusto — ed essere sbagliata lo stesso, e qui nessuna delle due metriche se ne accorge. Non è un difetto di uno dei due verificatori: è una cosa che nessuno dei due sta guardando.
@@ -584,7 +673,11 @@ E la variabile che decide è ancora una volta il **genere del documento**. Su `o
 
 ---
 
-## OQ-08 — 498 chunk di LEDGER non hanno niente da leggere, e nessuno li pesca
+## OQ-08 — 498 chunk di LEDGER non hanno niente da leggere, e li pesca quasi nessuno
+
+**Chiusa il 2026-08-22 dal passo 1 del protocollo.** Il titolo originale diceva
+«e nessuno li pesca», ed era troppo generoso: qualcuno li pesca. La conclusione
+però non cambia — vedi «L'esito» in fondo.
 
 **Nuova (2026-08-20), e per metà già risolta dai dati su disco.** Osservata costruendo la mappa dell'esploratore (U-06). Riproducibile con `scripts/probe_chunk_vuoti.py`, che non tocca la GPU.
 
@@ -628,6 +721,47 @@ Che togliere quei 498 punti non cambi nessuna metrica e serva solo a non tenere 
 1. **Cercarli nei dump di recupero** invece che in quelli di generazione, a profondità 10 e su tutte le query disponibili. Nessuna GPU: sono `chunk_id` contro un insieme.
 2. Se non compaiono nemmeno lì, la questione è chiusa come igiene: si toglie il filtro all'ingestione — una riga nel loader di `ledger` — e si ri-ingesta **quando c'è un'altra ragione per farlo**, non prima. Cancellarli dall'indice vivo si può (`delete` con filtro), ma cambierebbe il numero di punti sotto misure già registrate.
 3. Se invece compaiono, la domanda diventa un'altra e più interessante: quanto costa a `doc_R@5` avere 498 nodi morti in un indice la cui banda di similarità è larga 0,0085.
+
+### L'esito (2026-08-22) — compaiono, e non costa quasi niente
+
+Passo 1 eseguito su `20260813_155520_ledger_generic_dense.jsonl`: **10.000 query
+a profondità 10**, cioè il golden set intero alla profondità con cui si valuta.
+Riproducibile con `python scripts/probe_chunk_vuoti.py`.
+
+| | |
+|---|---|
+| risultati restituiti | 100.000 |
+| **senza contenuto** | **46 (0,046%)**, in 29 query |
+| di questi, **dentro il top-5** | **16**, in 13 query |
+| rango del più alto | **1** |
+| query che guadagnerebbero un chunk d'oro togliendoli | **1** su 10.000 |
+
+**La domanda si divide in due, e le due risposte sono diverse.** «Non vengono mai
+recuperati» è **falso**: uno arriva primo, e sedici entrano nella profondità che
+va al modello. «Toglierli non cambia nessuna metrica» è **vero**, e ora è
+misurato invece che sperato: simulando la rimozione — si tolgono dalla lista, si
+riprende il top-5 — entra un chunk d'oro che prima non c'era in **una** query su
+diecimila. È 0,01 punti di `R@5`, cioè sotto qualunque soglia di rumore che
+questo progetto abbia mai usato.
+
+I due dubbi che il protocollo elencava sono quindi risolti nel modo meno
+drammatico: il primo (*potrebbero comparire in fondo a un top-10*) era fondato —
+30 dei 46 stanno fra il rango 6 e il 10 — e irrilevante, perché lì non li legge
+nessuno. Il secondo (*498 nodi morti in una banda di 0,0085*) resta senza
+risposta diretta e senza urgenza: se il grafo ne soffrisse, si vedrebbe come
+risultati peggiori, e i risultati sono quelli di sempre.
+
+**Sono concentrati, ed è la parte che vale la pena ricordare.** Dei 16 in top-5,
+**dieci vengono da un solo documento** — `NASDAQ_USEG_2017` — e gli altri sei da
+tre. Non è spazzatura sparsa uniformemente sul corpus: sono pochi PDF il cui OCR
+ha prodotto molte pagine di servizio, e le loro query ne pagano il prezzo tutte
+insieme. Un rimedio mirato a quei documenti varrebbe quanto uno globale, e
+costerebbe meno.
+
+**La decisione resta quella del passo 2**: è igiene. Si toglie il filtro
+all'ingestione — una riga nel loader di `ledger` — e si ri-ingesta **quando ci
+sarà un'altra ragione per farlo**. Cancellarli dall'indice vivo cambierebbe il
+numero di punti sotto misure già registrate, e comprerebbe un centesimo di punto.
 
 ### Trappole
 

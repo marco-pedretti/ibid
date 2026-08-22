@@ -200,11 +200,30 @@ export function configChiesta(o: Opzioni, predefiniti: ConfigView): ConfigView {
  * RAG» mostrando l'effetto di tre cose. Qui si copia tutto e si inverte una cosa
  * sola, che e' la definizione dell'esperimento.
  *
- * Copia **tutti** i campi di `ConfigView`, e un test lo verifica contando le
- * chiavi: un campo aggiunto al contratto e non aggiunto qui uscirebbe dal
- * confronto in silenzio, cioe' diventerebbe la seconda variabile che questa
- * funzione esiste per impedire.
+ * Copia tutti i campi di `ConfigView` **tranne quelli di `NON_RICHIEDIBILI`**, e
+ * un test lo verifica contando le chiavi: un campo aggiunto al contratto e non
+ * aggiunto qui uscirebbe dal confronto in silenzio, cioe' diventerebbe la
+ * seconda variabile che questa funzione esiste per impedire.
  */
+
+/**
+ * I campi di `ConfigView` che una richiesta **non puo' portare**, e che quindi
+ * il confronto non copia.
+ *
+ * Oggi ce n'e' uno, `entailment_threshold` (D-7), e non copiarlo e' sicuro per
+ * la ragione precisa per cui non e' richiedibile: e' una costante del backend,
+ * quindi vale identica nei due bracci del confronto **per costruzione**. Non e'
+ * un'eccezione alla regola del §15 — e' un campo che non puo' variare, e la
+ * regola parla di cio' che varia.
+ *
+ * Sta qui come elenco e non come `omit` scritto a mano dentro la funzione
+ * perche' il test lo legge: cosi' aggiungere un campo non richiedibile domani
+ * chiede di dichiararlo qui, invece di far passare in silenzio la rete che
+ * conta le chiavi.
+ */
+export const NON_RICHIEDIBILI = [
+  "entailment_threshold",
+] as const satisfies readonly (keyof ConfigView)[];
 export function stessaConfigurazione(c: ConfigView): Partial<QueryRequest> {
   return {
     top_k: c.top_k,

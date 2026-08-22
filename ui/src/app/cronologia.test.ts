@@ -51,6 +51,7 @@ function conclusa(testo = "Il valore è 0.0226 [1]."): Risposta {
         claim: testo,
         supported: true,
         score: 0.9,
+        threshold: 0.5,
         numeric: "not_applicable",
       },
     ],
@@ -70,6 +71,7 @@ function conclusa(testo = "Il valore è 0.0226 [1]."): Risposta {
       rag: true,
       baseline_prompt: "strict",
       verify: true,
+      entailment_threshold: 0.5,
     },
   };
 }

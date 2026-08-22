@@ -1,7 +1,8 @@
 import { describe, expect, it } from "vitest";
 
-import type { ConfigView } from "../api/types";
+import type { ConfigView, QueryRequest } from "../api/types";
 import {
+  NON_RICHIEDIBILI,
   SFORZO,
   avanzateToccate,
   campiRichiesta,
@@ -31,6 +32,7 @@ const CONFIG: ConfigView = {
   rag: true,
   baseline_prompt: "strict",
   verify: true,
+  entailment_threshold: 0.5,
 };
 
 describe("i controlli si aprono su cio' che e' in vigore", () => {
@@ -137,15 +139,36 @@ describe("il confronto riparte da cio' che ha girato", () => {
     // E' la rete: un campo aggiunto a `ConfigView` e non aggiunto li' uscirebbe
     // dal confronto **in silenzio**, cioe' diventerebbe la seconda variabile che
     // `stessaConfigurazione` esiste per impedire (§15).
-    expect(Object.keys(stessaConfigurazione(CONFIG)).sort()).toEqual(Object.keys(CONFIG).sort());
-    expect(stessaConfigurazione(CONFIG)).toEqual(CONFIG);
+    //
+    // I campi non richiedibili sono l'unica sottrazione ammessa, e vanno
+    // dichiarati in `NON_RICHIEDIBILI` invece che dimenticati: non copiarli e'
+    // sicuro perche' non possono variare fra i due bracci, non perche' non
+    // contano.
+    const copiabili = Object.keys(CONFIG).filter(
+      (k) => !(NON_RICHIEDIBILI as readonly string[]).includes(k),
+    );
+    expect(Object.keys(stessaConfigurazione(CONFIG)).sort()).toEqual(copiabili.sort());
+    for (const k of copiabili) {
+      expect(stessaConfigurazione(CONFIG)[k as keyof QueryRequest]).toEqual(
+        CONFIG[k as keyof ConfigView],
+      );
+    }
   });
 
   it("invertire il RAG cambia una cosa sola", () => {
-    const rilancio = { ...stessaConfigurazione(CONFIG), rag: !CONFIG.rag };
-    const diversi = Object.keys(CONFIG).filter(
-      (k) => rilancio[k as keyof ConfigView] !== CONFIG[k as keyof ConfigView],
-    );
+    const rilancio: Partial<QueryRequest> = { ...stessaConfigurazione(CONFIG), rag: !CONFIG.rag };
+    const diversi = Object.keys(CONFIG)
+      .filter((k) => !(NON_RICHIEDIBILI as readonly string[]).includes(k))
+      .filter((k) => rilancio[k as keyof QueryRequest] !== CONFIG[k as keyof ConfigView]);
     expect(diversi).toEqual(["rag"]);
+  });
+
+  it("la soglia dei verdetti non viene rimessa nella richiesta", () => {
+    // D-7: e' l'assenza protetta, vista dal lato del frontend. Una soglia
+    // rimandata indietro e poi rispedita diventerebbe una soglia **chiesta**,
+    // che e' esattamente cio' che il contratto vieta -- si potrebbe tarare
+    // sulla stessa risposta che deve giudicare.
+    expect(CONFIG).toHaveProperty("entailment_threshold");
+    expect(stessaConfigurazione(CONFIG)).not.toHaveProperty("entailment_threshold");
   });
 });

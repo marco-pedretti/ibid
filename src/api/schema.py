@@ -28,6 +28,7 @@ from dataclasses import dataclass
 from pydantic import BaseModel, Field, field_validator
 from src.config import (
     BASELINE_PROMPTS,
+    ENTAILMENT_THRESHOLD,
     REASONING_EFFORTS,
     RETRIEVAL_MODES,
     RequestConfig,
@@ -65,7 +66,9 @@ def _fra(valore: str | None, ammessi: tuple[str, ...], campo: str) -> str | None
     diventa leggibile.
     """
     if valore is not None and valore not in ammessi:
-        raise ValueError(f"{campo} sconosciuto: {valore!r} (ammessi: {', '.join(ammessi)})")
+        raise ValueError(
+            f"{campo} sconosciuto: {valore!r} (ammessi: {', '.join(ammessi)})"
+        )
     return valore
 
 
@@ -134,9 +137,11 @@ class QueryRequest(BaseModel):
         client che manda `{"query": "..."}` non sta chiedendo `top_k=0`.
         """
         override = {
-            k: v for k, v in self.model_dump(
+            k: v
+            for k, v in self.model_dump(
                 exclude={"query", "dataset_id", "collection"}
-            ).items() if v is not None
+            ).items()
+            if v is not None
         }
         return RequestConfig.from_defaults(**override)
 
@@ -185,9 +190,11 @@ class RetrieveRequestBody(BaseModel):
 
     def config(self) -> RequestConfig:
         override = {
-            k: v for k, v in self.model_dump(
+            k: v
+            for k, v in self.model_dump(
                 exclude={"queries", "dataset_id", "collection"}
-            ).items() if v is not None
+            ).items()
+            if v is not None
         }
         return RequestConfig.from_defaults(**override)
 
@@ -198,6 +205,14 @@ class RetrieveRequestBody(BaseModel):
             collection=self.collection,
             config=self.config(),
         )
+
+
+#: I campi di `ConfigView` che **non** vengono da `RequestConfig`.
+#:
+#: Elencarli invece di prenderli tutti con `getattr` non e' un'eccezione da
+#: nascondere: e' la dichiarazione che quel valore ha un'altra provenienza, e
+#: quindi che nessuna richiesta puo' cambiarlo.
+_NON_DALLA_RICHIESTA: tuple[str, ...] = ("entailment_threshold",)
 
 
 class ConfigView(BaseModel):
@@ -222,10 +237,25 @@ class ConfigView(BaseModel):
     rag: bool
     baseline_prompt: str
     verify: bool
+    #: La soglia oltre la quale il verificatore NLI dice «sostiene» (D-7).
+    #:
+    #: **Non viene da `RequestConfig`, e la differenza e' il punto.** Tutti gli
+    #: altri campi qui sono cio' che la richiesta ha chiesto o cio' che il
+    #: servizio ha deciso al posto suo; questo e' una costante del modulo, e
+    #: `QueryRequest` non lo accetta ne' mai dovra'. Una soglia scelta da chi
+    #: chiama si potrebbe tarare sulla stessa risposta che deve giudicare, che
+    #: e' il modo esatto in cui `citation_precision` smette di significare
+    #: qualcosa. Va **letta**, non chiesta.
+    entailment_threshold: float
 
     @classmethod
     def of(cls, config: RequestConfig) -> "ConfigView":
-        return cls(**{campo: getattr(config, campo) for campo in cls.model_fields})
+        dalla_richiesta = {
+            campo: getattr(config, campo)
+            for campo in cls.model_fields
+            if campo not in _NON_DALLA_RICHIESTA
+        }
+        return cls(**dalla_richiesta, entailment_threshold=ENTAILMENT_THRESHOLD)
 
 
 class ChunkView(BaseModel):
@@ -258,11 +288,19 @@ class ChunkView(BaseModel):
     def of(cls, item: RetrievedChunk) -> "ChunkView":
         c = item.chunk
         return cls(
-            marker=item.marker, score=item.score,
-            chunk_id=c.chunk_id, dataset_id=c.dataset_id, doc_id=c.doc_id,
-            doc_genre=c.doc_genre, pipeline=c.pipeline, section_path=c.section_path,
-            page=c.page, bbox=c.bbox, content_type=c.content_type,
-            text=c.text, source_uri=c.source_uri,
+            marker=item.marker,
+            score=item.score,
+            chunk_id=c.chunk_id,
+            dataset_id=c.dataset_id,
+            doc_id=c.doc_id,
+            doc_genre=c.doc_genre,
+            pipeline=c.pipeline,
+            section_path=c.section_path,
+            page=c.page,
+            bbox=c.bbox,
+            content_type=c.content_type,
+            text=c.text,
+            source_uri=c.source_uri,
         )
 
     @classmethod
@@ -270,11 +308,19 @@ class ChunkView(BaseModel):
         """Un chunk letto per id (`/chunk/{chunk_id}`): nessun ordinamento, nessun
         punteggio. `marker=0` e `score=0.0` dicono «non viene da un recupero»."""
         return cls(
-            marker=0, score=0.0,
-            chunk_id=c.chunk_id, dataset_id=c.dataset_id, doc_id=c.doc_id,
-            doc_genre=c.doc_genre, pipeline=c.pipeline, section_path=c.section_path,
-            page=c.page, bbox=c.bbox, content_type=c.content_type,
-            text=c.text, source_uri=c.source_uri,
+            marker=0,
+            score=0.0,
+            chunk_id=c.chunk_id,
+            dataset_id=c.dataset_id,
+            doc_id=c.doc_id,
+            doc_genre=c.doc_genre,
+            pipeline=c.pipeline,
+            section_path=c.section_path,
+            page=c.page,
+            bbox=c.bbox,
+            content_type=c.content_type,
+            text=c.text,
+            source_uri=c.source_uri,
         )
 
 
@@ -291,14 +337,27 @@ class CitationView(BaseModel):
     claim: str
     supported: bool
     score: float
+    #: La soglia contro cui `score` e' stato confrontato per produrre
+    #: `supported`. Sta **accanto al punteggio** e non solo in `ConfigView` per
+    #: la stessa ragione per cui `GateView` porta la propria: un numero senza la
+    #: sua scala non e' un dato, e chi disegna la pastiglia non deve andare a
+    #: cercarla in un altro oggetto per poterla leggere.
+    threshold: float
     #: Esito del verificatore numerico di C-09, o "" se non interrogato.
     #: Additivo: non sostituisce `supported`, che resta il verdetto dell'NLI.
     numeric: str
 
     @classmethod
     def of(cls, c: Citation) -> "CitationView":
-        return cls(marker=c.marker, chunk_id=c.chunk_id, claim=c.claim,
-                   supported=c.supported, score=c.score, numeric=c.numeric)
+        return cls(
+            marker=c.marker,
+            chunk_id=c.chunk_id,
+            claim=c.claim,
+            supported=c.supported,
+            score=c.score,
+            threshold=ENTAILMENT_THRESHOLD,
+            numeric=c.numeric,
+        )
 
 
 class GateView(BaseModel):
@@ -370,8 +429,10 @@ class AnswerResponse(BaseModel):
             uncited_claims=risposta.uncited_claims,
             verified=risposta.verified,
             gate=GateView(
-                active=risposta.gate.active, abstain=risposta.gate.abstain,
-                score=risposta.gate.score, threshold=risposta.gate.threshold,
+                active=risposta.gate.active,
+                abstain=risposta.gate.abstain,
+                score=risposta.gate.score,
+                threshold=risposta.gate.threshold,
             ),
             timings=risposta.timings,
         )
@@ -406,8 +467,12 @@ class CollectionView(BaseModel):
 
     @classmethod
     def of(cls, info: CollectionInfo) -> "CollectionView":
-        return cls(name=info.name, points=info.points,
-                   dense_size=info.dense_size, has_sparse=info.has_sparse)
+        return cls(
+            name=info.name,
+            points=info.points,
+            dense_size=info.dense_size,
+            has_sparse=info.has_sparse,
+        )
 
 
 class DocumentView(BaseModel):
@@ -468,8 +533,12 @@ class DatasetView(BaseModel):
 
     @classmethod
     def of(cls, info: DatasetInfo) -> "DatasetView":
-        return cls(dataset_id=info.dataset_id, collection=info.collection,
-                   ready=info.ready, n_chunks=info.n_chunks)
+        return cls(
+            dataset_id=info.dataset_id,
+            collection=info.collection,
+            ready=info.ready,
+            n_chunks=info.n_chunks,
+        )
 
 
 # ---------------------------------------------------------------------------
@@ -519,7 +588,9 @@ def to_wire(event: Event | ErrorEvent) -> tuple[str, dict]:
     """
     match event:
         case ChunksEvent():
-            return "chunks", {"chunks": [ChunkView.of(c).model_dump() for c in event.chunks]}
+            return "chunks", {
+                "chunks": [ChunkView.of(c).model_dump() for c in event.chunks]
+            }
         case TokenEvent():
             return "token", {"text": event.text}
         case AnswerEvent():
@@ -543,6 +614,15 @@ def to_wire(event: Event | ErrorEvent) -> tuple[str, dict]:
                 "abstention": event.answer.abstention,
                 "verified": event.answer.verified,
                 "timings": event.answer.timings,
+                # **Quale indice ha risposto** (D-5). `Answer.collection` lo
+                # porta gia' e dice perche' -- «riportarla e' cio' che rende il
+                # risultato ricostruibile» -- ma lo stream lo lasciava cadere,
+                # quindi il frontend poteva solo dedurlo dal dataset. E' una
+                # deduzione giusta oggi e sbagliata appena una collection
+                # instradata diventa scegliibile (D-18): due dataset_id uguali
+                # con due indici diversi darebbero la stessa risposta a «su cosa
+                # hai cercato».
+                "collection": event.answer.collection,
                 "config": ConfigView.of(event.answer.config).model_dump(),
             }
         case ErrorEvent():
