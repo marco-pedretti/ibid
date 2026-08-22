@@ -64,14 +64,20 @@ export function DettagliRun({ risposta, chiudi }: { risposta: Risposta; chiudi: 
 
   return (
     <Strato lato="destra" larghezza={LARGHEZZA} chiudi={chiudi} nome={t("run.close")}>
-      <div className="flex h-full flex-col border-l border-line bg-carta">
+      {/* **`bg-surface` e non un token inventato.** La prima versione diceva
+          `bg-carta`, che non esiste: Tailwind non genera la classe e non
+          protesta, quindi il foglio e' uscito **trasparente** con le fonti che
+          si leggevano attraverso. Uno strato sta sopra del contenuto vivo e
+          deve coprirlo per intero -- e' la stessa ragione per cui il velo di
+          `Strato` intercetta il puntatore invece di lasciarlo passare. */}
+      <div className="flex h-full flex-col border-l border-line bg-surface">
         <header className="flex shrink-0 items-center justify-between border-b border-line px-3 py-2">
           <h2 className="text-[12px] font-medium text-ink">{t("run.title")}</h2>
           <button
             type="button"
             onClick={chiudi}
             aria-label={t("run.close")}
-            className="rounded p-1 text-muted transition-colors hover:bg-wait-soft hover:text-ink"
+            className="rounded p-1 text-muted transition-colors hover:bg-surface-2 hover:text-ink"
           >
             <Chiudi size={13} />
           </button>
