@@ -51,6 +51,9 @@ from pathlib import Path
 ROOT = Path(__file__).parent.parent
 sys.path.insert(0, str(ROOT))
 
+import src.config as cfg  # noqa: E402
+from src.index.store import get_by_chunk_id, get_client  # noqa: E402
+
 MMD = ROOT / "data" / "ledger" / "eval" / "mmd"
 GENERAZIONI = ROOT / "eval" / "results" / "generations"
 
@@ -164,8 +167,74 @@ def risposte(mostra: int) -> None:
     print(f"\n   {len(campioni)} casi in tutto. I primi {min(mostra, len(campioni))}:")
     for frase in campioni[:mostra]:
         print(f"      … {frase}")
-    print("\n   Quanti di questi siano trapianti e quanti negativi veri e' il passo 1")
-    print("   del protocollo di OQ-07, e chiede di leggere la riga del chunk citato.")
+    print("\n   Quanti di questi siano trapianti e quanti negativi veri lo dice")
+    print("   `--righe`, che risale alla riga del chunk citato (passo 1).")
+
+
+_TR = re.compile(r"<tr>(.*?)</tr>", re.S)
+_TD = re.compile(r"<td[^>]*>(.*?)</td>", re.S)
+
+
+def _senza_tag(cella: str) -> str:
+    return re.sub(r"<[^>]+>", "", cella).strip()
+
+
+def righe(mostra: int) -> None:
+    """Il passo 1: per ogni caso, l'etichetta di riga della cella citata.
+
+    **Deduplicare e' meta' del risultato.**  Il conto grezzo dice 43 casi, ma
+    sono le stesse domande viste in sei run: per `(query_id, numero)` distinti
+    sono **13**.  Un bacino contato con le ripetizioni dentro fa sembrare la
+    classe tre volte piu' grande di com'e', ed e' l'errore che la trappola
+    «contare il bacino come se fosse l'errore» prevedeva in una forma sola --
+    qui ne aveva due.
+
+    **La classificazione non la fa questo codice, e non e' pigrizia.**  La
+    distinzione fra trapianto e negativo vero sta nella semantica
+    dell'etichetta: «Capital expenditures» nomina una **grandezza**, e le
+    parentesi attorno al numero sono la notazione del prospetto; «Net financing
+    cash» e «Basic net loss per share» nominano una **quantita' con segno**, e
+    li' il negativo e' l'informazione.  Distinguerle con una regex su `Net|loss`
+    darebbe una risposta che sembra misurata e non lo e'.  Il codice porta
+    quindi le prove -- etichetta, cella, celle vicine -- e il verdetto sta
+    scritto in `docs/open-questions.md`, dove si puo' contestare riga per riga.
+    """
+    dump = sorted(GENERAZIONI.glob("*ledger*.jsonl"))
+    casi: dict[tuple[str, str], tuple[list[str], list[int]]] = {}
+    for f in dump:
+        for riga in f.read_text(encoding="utf-8").splitlines():
+            if not riga.strip():
+                continue
+            d = json.loads(riga)
+            if d.get("abstained"):
+                continue
+            for num in re.findall(
+                r"\(\s*\$?\s*([\d,]+\.\d+)\s*\)", d.get("answer") or ""
+            ):
+                casi.setdefault(
+                    (d["query_id"], num), (d["chunk_ids"], d.get("markers") or [])
+                )
+
+    print("\n== la riga del chunk citato, per ogni caso distinto (passo 1)")
+    print(f"   {len(casi)} coppie (domanda, numero) distinte, dalle {len(dump)} run")
+
+    cliente = get_client(cfg.QDRANT_URL)
+    for (q, n), (cids, mk) in casi.items():
+        trovate = []
+        for m in mk or [1]:
+            if m - 1 >= len(cids):
+                continue
+            payload = get_by_chunk_id(cliente, "ledger", cids[m - 1])
+            if payload is None:
+                continue
+            for tr in _TR.findall(payload.get("text", "")):
+                celle = [_senza_tag(c) for c in _TD.findall(tr)]
+                nudo = n.replace(",", "")
+                if any(nudo in c.replace(",", "") for c in celle[1:]):
+                    vicine = [c for c in celle[1:] if c][:4]
+                    trovate.append(f"[{m}] {celle[0][:58]!r} -> {vicine}")
+                    break
+        print(f"   {q:32s} ({n:>9s})  " + ("; ".join(trovate) or "riga non trovata"))
 
 
 def main() -> None:
@@ -173,17 +242,22 @@ def main() -> None:
     ap.add_argument("--corpus", action="store_true", help="solo la misura sul corpus")
     ap.add_argument("--risposte", action="store_true", help="solo la misura sui dump")
     ap.add_argument(
+        "--righe", action="store_true", help="solo il passo 1: le etichette"
+    )
+    ap.add_argument(
         "--documenti", type=int, default=120, help="quanti documenti campionare"
     )
     ap.add_argument("--seme", type=int, default=0, help="il seme del campione")
     ap.add_argument("--mostra", type=int, default=8, help="quante frasi stampare")
     a = ap.parse_args()
 
-    entrambe = not (a.corpus or a.risposte)
+    entrambe = not (a.corpus or a.risposte or a.righe)
     if a.corpus or entrambe:
         corpus(a.documenti, a.seme)
     if a.risposte or entrambe:
         risposte(a.mostra)
+    if a.righe or entrambe:
+        righe(a.mostra)
 
 
 if __name__ == "__main__":

@@ -576,6 +576,95 @@ Se è vero, è una classe di errore che **nessuna delle due metriche di citazion
 
 **Contare il bacino come se fosse l'errore.** I 43 casi sono quanti *potrebbero* esserlo, non quanti lo sono. Il passo 1 esiste per questo, e va fatto prima di citare un numero.
 
+### L'esito del passo 1 (2026-08-22) — 4 trapianti su 13, non 43
+
+Riproducibile con `python scripts/probe_sign_convention.py --righe`, che risale
+dalla cella citata alla sua etichetta di riga.
+
+**Prima cosa, e non è un dettaglio: i casi distinti sono 13, non 43.** Il conto
+originale sommava le stesse domande viste in nove run. Il bacino era gonfiato di
+**3,3 volte**, e la trappola «contare il bacino come se fosse l'errore» aveva una
+seconda forma che non avevo previsto — non solo *quanti di questi lo sono*, ma
+*quanti di questi sono lo stesso*.
+
+**Il criterio della classificazione è nell'etichetta di riga**, e si legge nei
+dati senza interpretazione: un'etichetta che nomina una **grandezza** («Capital
+expenditures», «Cash dividends -- $3.40 per share») rende le parentesi notazione
+del prospetto; una che nomina una **quantità con segno** («Net financing cash»,
+«Basic net loss per share», «Net income (loss)») rende il negativo
+l'informazione.
+
+| caso | riga citata | verdetto |
+|---|---|---|
+| `SHW_capex_2017` (222.8) | Capital expenditures | **trapianto** |
+| `SHW_capex_2017` (251.0) | Capital expenditures | **trapianto**, e per giunta l'anno sbagliato |
+| `SHW_dividends_paid_2017` (319.0) | Cash dividends -- $3.40 per share | **trapianto** |
+| `SHW_dividends_paid_2018` (322.9) | Cash dividends -- $3.44 per share | **trapianto** |
+| `SHW_financing_cash_flow_2018` (1.746,7) | Net financing cash | negativo vero |
+| `SHW_financing_cash_flow_2018` (1.846,4) | Net financing cash | negativo vero |
+| `SHW_eps_basic_2017` (0.69) | Basic earnings (loss) per share | negativo vero |
+| `AMTX_eps_basic_2022` (3.12) | Basic (net loss per share) | negativo vero |
+| `AMTX_eps_diluted_2022` (1.54) | Basic (net loss per share) | negativo vero |
+| `AMTX_income_tax_expense_2021` (1.54) | Basic (net loss per share) | negativo vero |
+| `BRN_eps_diluted_2018` (0.21) | Basic net loss per share | negativo vero |
+| `CBT_eps_basic_2020` (4.21) | Net income (loss) attributable to Cabot | negativo vero |
+| `CBT_eps_diluted_2020` (4.21) | Net income (loss) attributable to Cabot | negativo vero |
+
+**4 trapianti, 9 negativi veri.** L'ipotesi è confermata come *fenomeno* e
+smentita come *prevalenza*: il trapianto esiste ed è esattamente quello descritto
+— una grandezza positiva che si porta dietro la notazione del rendiconto — ma è
+la minoranza dei casi, e i nove negativi veri sono risposte corrette in cui le
+parentesi ci vogliono.
+
+**I quattro trapianti hanno una firma stretta**: stessa società, e due sole
+etichette di riga — spese in conto capitale e dividendi pagati. Sono le due voci
+in cui un rendiconto scrive un esborso come negativo mentre la domanda chiede
+«quanto avete speso», che è una grandezza. Non è una proprietà di `ledger` nel
+suo insieme: è una proprietà di quel tipo di riga.
+
+#### Il passo 2 non si fa, e il protocollo lo prevedeva
+
+Il passo 2 era condizionato — *«se i trapianti prevalgono, misurare l'accordo fra
+i due verificatori su quel sottoinsieme»*. Non prevalgono, e quattro casi non
+reggono un test appaiato: qualunque differenza di accordo su quattro elementi
+sarebbe indistinguibile da qualsiasi cosa. La condizione era scritta prima di
+conoscere il numero, ed è servita a non spendere una misura che non poteva dire
+niente.
+
+#### Un reperto che non stavo cercando
+
+`SHW_capex_2017` compare **due volte con due numeri diversi**: `(222.8)` in una
+run e `(251.0)` in un'altra. Non sono due letture della stessa cella — sono due
+**colonne** diverse. Il chunk citato nel primo caso ha l'intestazione
+2019/2018/2017 e la riga `(328.9) (251.0) (222.8)`, quindi 222,8 è il 2017 ed è
+giusto; il chunk del secondo ha 2020/2019/2018 con `(303.8) (328.9) (251.0)`,
+quindi 251,0 è il **2018**, e la domanda chiedeva il 2017.
+
+È l'errore che il caveat di OQ-05 dichiarava — *«`1.234` può stare nella riga
+sbagliata o nell'anno sbagliato»* — colto qui in flagrante, e con una condizione
+aggravante: **la stessa grandezza esiste in due chunk con intestazioni di anno
+sfalsate**, quindi la colonna giusta dipende da quale chunk il recupero ha
+pescato. Non è una cosa che il prompt possa risolvere.
+
+#### Cosa cambia per il rimedio
+
+Le due direzioni del passo 3 restano tutt'e due aperte, ma con pesi diversi da
+quelli che avrei dato prima:
+
+- **Dirlo al modello** («riporta la grandezza, non la notazione del prospetto»)
+  costerebbe una riga di prompt e vale per 4 casi su ~900 risposte, cioè meno di
+  mezzo punto percentuale. E D-3 ha appena mostrato che una modifica al prompt si
+  misura contro una linea di rumore di ~1 punto: **non sarebbe misurabile**.
+- **Insegnarlo al controllo numerico** — le parentesi in una cella sono un segno,
+  riportarle in prosa afferma un negativo — resta la direzione sensata, perché
+  non tocca la generazione e non ha una linea di rumore da superare. Ma non è
+  urgente: quattro casi.
+
+La cosa che questo passo ha davvero comprato non è il rimedio, è il **numero**.
+«Il 4-7% delle risposte porta un numero fra parentesi» era vero e fuorviante;
+«quattro risposte su novecento affermano un negativo che il prospetto non
+affermava» è la stessa osservazione detta in modo che si possa decidere.
+
 ### Perché conta
 
 Perché è il limite onesto di «citazione verificata», che è l'**affermazione 1 del §0**: una frase può citare perfettamente — chunk giusto, riga giusta, anno giusto — ed essere sbagliata lo stesso, e qui nessuna delle due metriche se ne accorge. Non è un difetto di uno dei due verificatori: è una cosa che nessuno dei due sta guardando.
