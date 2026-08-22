@@ -85,6 +85,46 @@ export const it = {
   "rail.close": "Chiudi la corsia",
   "rail.close.hint": "Torna alla conversazione. Si riapre dal comando in alto a sinistra.",
   "sources.close": "Chiudi le fonti",
+  // «Dettagli della run» (D-5). I nomi dei campi sono **quelli del contratto
+  // tradotti**, non i loro identificatori: chi legge questo foglio vuole sapere
+  // cosa ha girato, non come si chiama in `ConfigView`. L'unico che resta in
+  // inglese e' `top_k`, perche' e' il nome con cui quel parametro esiste in
+  // letteratura e tradurlo lo renderebbe irriconoscibile.
+  "run.action": "Dettagli",
+  "run.action.hint":
+    "Su quale indice ha cercato questa risposta, con quali parametri, e con quale modello.",
+  "run.title": "Dettagli della run",
+  "run.close": "Chiudi i dettagli",
+  "run.gruppo.indice": "Indice",
+  "run.gruppo.recupero": "Recupero",
+  "run.gruppo.generazione": "Generazione",
+  "run.campo.collection": "Collection",
+  "run.campo.points": "Punti",
+  "run.campo.dense_size": "Dimensione densa",
+  "run.campo.has_sparse": "Vettori sparsi",
+  "run.campo.retrieval_mode": "Modalità",
+  "run.campo.top_k": "top_k",
+  "run.campo.rerank": "Riordino",
+  "run.campo.query_rewrite": "Riscrittura query",
+  "run.campo.filter_content_type": "Filtro contenuto",
+  "run.campo.search_exact": "Ricerca esatta",
+  "run.campo.hnsw_ef": "Ampiezza HNSW",
+  "run.campo.model": "Modello",
+  "run.campo.rag": "Con fonti",
+  "run.campo.baseline_prompt": "Prompt senza fonti",
+  "run.campo.reasoning_effort": "Ragionamento",
+  "run.campo.temperature": "Temperatura",
+  "run.campo.max_new_tokens": "Token massimi",
+  "run.campo.verify": "Verifica",
+  "run.campo.entailment_threshold": "Soglia dei verdetti",
+  "run.valore.si": "sì",
+  "run.valore.no": "no",
+  // Copre due casi che sul filo sono diversi — `null` e `""` — e che qui
+  // significano la stessa cosa: nessuno l'ha scelto, quindi vale quello che il
+  // server decide. Una cella vuota si leggerebbe come un dato mancante.
+  "run.valore.predefinito": "predefinito",
+  "run.indice.assente":
+    "Questa risposta non dice su quale indice ha cercato: è stata salvata prima che il dato esistesse, oppure quella collection non c'è più.",
   "sources.open.hint":
     "Le fonti di questa risposta, coi verdetti. Si apre di lato, e si chiude toccando fuori.",
 
@@ -582,6 +622,38 @@ export const en: Record<Chiave, string> = {
   "rail.close": "Close the sidebar",
   "rail.close.hint": "Back to the conversation. It reopens from the control at the top left.",
   "sources.close": "Close sources",
+  "run.action": "Details",
+  "run.action.hint":
+    "Which index this answer searched, with which parameters, and with which model.",
+  "run.title": "Run details",
+  "run.close": "Close details",
+  "run.gruppo.indice": "Index",
+  "run.gruppo.recupero": "Retrieval",
+  "run.gruppo.generazione": "Generation",
+  "run.campo.collection": "Collection",
+  "run.campo.points": "Points",
+  "run.campo.dense_size": "Dense size",
+  "run.campo.has_sparse": "Sparse vectors",
+  "run.campo.retrieval_mode": "Mode",
+  "run.campo.top_k": "top_k",
+  "run.campo.rerank": "Rerank",
+  "run.campo.query_rewrite": "Query rewrite",
+  "run.campo.filter_content_type": "Content filter",
+  "run.campo.search_exact": "Exact search",
+  "run.campo.hnsw_ef": "HNSW ef",
+  "run.campo.model": "Model",
+  "run.campo.rag": "With sources",
+  "run.campo.baseline_prompt": "Prompt without sources",
+  "run.campo.reasoning_effort": "Reasoning",
+  "run.campo.temperature": "Temperature",
+  "run.campo.max_new_tokens": "Max tokens",
+  "run.campo.verify": "Verification",
+  "run.campo.entailment_threshold": "Verdict threshold",
+  "run.valore.si": "yes",
+  "run.valore.no": "no",
+  "run.valore.predefinito": "default",
+  "run.indice.assente":
+    "This answer does not say which index it searched: it was saved before that field existed, or that collection is gone.",
   "sources.open.hint":
     "The sources behind this answer, with their verdicts. It opens at the side; tap outside to close.",
 

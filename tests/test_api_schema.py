@@ -230,6 +230,15 @@ class TestU07Verdetti:
         chunk_ids = {c.chunk_id for c in r.chunks}
         assert r.citations[0].chunk_id in chunk_ids
 
+    def test_lo_stream_dice_su_quale_indice_ha_cercato(self):
+        """D-5: `Answer.collection` esisteva e il filo la lasciava cadere.
+
+        Dedurla dal `dataset_id` e' giusto finche' un dataset ha un indice solo,
+        e sbagliato appena una collection instradata diventa scegliibile (D-18).
+        """
+        _, eventi = risposta(pezzi=(f"{CLAIM} ", "[1]."))
+        assert payload(eventi, "done")["collection"] == "open_ragbench"
+
     def test_il_punteggio_arriva_con_la_sua_scala(self):
         """D-7: `0,717` da solo non dice se e' buono.
 

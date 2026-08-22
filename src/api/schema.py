@@ -614,6 +614,15 @@ def to_wire(event: Event | ErrorEvent) -> tuple[str, dict]:
                 "abstention": event.answer.abstention,
                 "verified": event.answer.verified,
                 "timings": event.answer.timings,
+                # **Quale indice ha risposto** (D-5). `Answer.collection` lo
+                # porta gia' e dice perche' -- «riportarla e' cio' che rende il
+                # risultato ricostruibile» -- ma lo stream lo lasciava cadere,
+                # quindi il frontend poteva solo dedurlo dal dataset. E' una
+                # deduzione giusta oggi e sbagliata appena una collection
+                # instradata diventa scegliibile (D-18): due dataset_id uguali
+                # con due indici diversi darebbero la stessa risposta a «su cosa
+                # hai cercato».
+                "collection": event.answer.collection,
                 "config": ConfigView.of(event.answer.config).model_dump(),
             }
         case ErrorEvent():

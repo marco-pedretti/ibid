@@ -220,6 +220,7 @@ export interface DonePayload {
   abstention: string;
   verified: boolean;
   timings: Record<string, number>;
+  collection: string;
   config: ConfigView;
 }
 

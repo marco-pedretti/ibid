@@ -61,6 +61,9 @@ export interface Risposta {
   verificate: boolean;
   tempi: Record<string, number>;
   config: ConfigView | null;
+  /** Su quale indice ha cercato. `""` finche' la risposta non e' conclusa, e
+   *  sulle risposte salvate prima di D-5 -- che e' la stessa cosa: non si sa. */
+  collection: string;
   errore: { message: string; stage: string } | null;
 }
 
@@ -105,6 +108,7 @@ export function inizio(): Risposta {
     verificate: false,
     tempi: {},
     config: null,
+    collection: "",
     errore: null,
   };
 }
@@ -150,6 +154,7 @@ export function applica(r: Risposta, e: SseEvent): Risposta {
         verificaInCorso: false,
         tempi: e.data.timings,
         config: e.data.config,
+        collection: e.data.collection,
       };
 
     case "error":
