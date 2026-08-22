@@ -2874,8 +2874,8 @@ cita.
 
 **Il confronto non è appaiato**, e questo è il limite che lo governa: codice
 diverso, numerosità diversa, prompt diverso. Tre differenze dentro una misura
-sola, ed è esattamente perché D-3 esiste e resta aperto. Queste due run dicono
-**dove si sta**, non perché.
+sola, ed è esattamente perché D-3 esiste. Queste due run dicono **dove si sta**,
+non perché. → **D-3 lo ha chiuso il 2026-08-22**, sezione in fondo.
 
 #### Il calo di `ledger` non è ciò che la previsione diceva
 
@@ -3368,3 +3368,85 @@ qualcosa, esattamente come sul desktop nessun segno dice che fermandosi sopra si
 ottiene qualcosa — `cursor-help` è tutto, e su un dito non c'è un cursore. È il
 prezzo di una spiegazione che non occupa posto quando non serve, ed è lo stesso
 prezzo che il `title` nativo fa pagare da trent'anni.
+
+
+### D-3 — il prompt di U-14 non costa conformità, e adesso c'è il metro per dirlo
+
+Il debito chiedeva una cosa che D-1 e D-2 non potevano dare: non i numeri di
+oggi, ma il confronto **appaiato** fra i due prompt sulle stesse domande. Quattro
+run da 200 domande, due per corpus, stesso codice, stesso giorno, stesso stato
+del motore; `--limit` prende le prime N rispondibili in ordine di golden set e il
+golden set non si tocca da E-02, quindi fra i due bracci cambia il **prompt e
+basta**. Il vecchio si rilegge dal sidecar del 12 agosto e torna a `3a50ef63`,
+l'hash registrato allora: stessi byte, stesso `prompt_hash`.
+
+**McNemar esatto**, sulle query che entrambi i bracci hanno risposto — solo le
+discordanti portano informazione:
+
+| dataset | | delta | discordanti | p |
+|---|---|---|---|---|
+| **open_ragbench** | grezzo | −0,0106 | 6 vs 4 su 188 | 0,75 |
+| | dopo `parse()` | −0,0106 | 2 vs 0 | 0,50 |
+| **ledger** | grezzo | +0,0069 | 1 vs 2 su 145 | 1,00 |
+| | dopo `parse()` | +0,0138 | 0 vs 2 | 0,50 |
+
+Nessuna differenza significativa, e **i segni non concordano fra i due corpus**:
+il prompt nuovo perde un punto su `open_ragbench` e ne guadagna uno su `ledger`.
+Due direzioni opposte della stessa dimensione sono il modo in cui il rumore si
+presenta quando lo si guarda due volte.
+
+#### La linea di rumore, che è la parte nuova
+
+Il §15 vieta di dichiarare un miglioramento senza confrontarlo con la linea di
+rumore, e per la generazione quella linea **va misurata**, non assunta zero: il
+modello campiona, quindi la stessa configurazione girata due volte non si
+riproduce domanda per domanda. Finora D-3 non ce l'aveva. Ora sì, perché il
+braccio col prompt in vigore esiste in due copie — il 21 e il 22 agosto:
+
+| dataset | replica dello stesso prompt | delta | discordanti |
+|---|---|---|---|
+| **open_ragbench** | 0,9149 → 0,9255 | **+0,0106** | 0 vs 2 su 188 |
+| **ledger** | 0,9730 → 0,9662 | **−0,0068** | 1 vs 0 su 148 |
+
+**L'effetto attribuito al prompt è grande esattamente quanto l'effetto di rifare
+la stessa run**: 1,06 punti contro 1,06 su `open_ragbench`, 0,69 contro 0,68 su
+`ledger`. Non è una coincidenza fortunata, è cosa vuol dire «non distinguibile»
+quando lo si misura invece di dedurlo da un p-value.
+
+#### I due nulli non sono lo stesso nullo, e la differenza conta
+
+La replica cambia **2 risposte su 188**; il prompt ne cambia **10**, cinque volte
+tante. La generazione a temperatura 0 è quasi deterministica anche fra giorni e
+stati del motore diversi — più di quanto si potesse dire prima di avere la
+replica — quindi quelle 10 sono davvero del prompt.
+
+Ma le cambia **in due direzioni**: 6 peggiorano e 4 migliorano. Il prompt di U-14
+non è inerte: sposta **quali** risposte sono conformi, non **quante**. Dire che
+il formato nuovo non fa niente sarebbe falso; dire che non costa conformità è
+ciò che i numeri sostengono, ed è l'unica delle due frasi che va nel README.
+
+#### La previsione, e come va scritta adesso
+
+L'argomento registrato prima di U-14 diceva che il markdown pieno avrebbe reso le
+risposte *«più belle e meno verificate»* — celle senza citazione, e tabelle che
+**fondono** numeri presi da chunk diversi in una struttura inventata dal modello,
+cioè nascondono proprio il punto in cui la tracciabilità si perde. Quella
+previsione **non si è avverata**, ed era già rimasta senza il suo meccanismo: D-1
+e D-2 avevano trovato **zero tabelle generate** su 337 risposte valutate.
+
+Va detto per intero, però: non è stata confutata l'idea che una tabella generata
+sia meno verificabile di una frase — quella resta vera, e la verifica di C-03 è
+ancora a livello di frase. È stata confutata la previsione che **questo prompt**,
+su **questi due corpus**, avrebbe prodotto quelle tabelle. Il §7 tiene i
+risultati negativi in tabella, e questo è un risultato negativo per una
+previsione che avevo ragione di prendere sul serio.
+
+#### Cosa è costato, e cosa si è imparato sul costo
+
+Il ROADMAP stimava **2 h 30** per i due corpus a 22 s a domanda. Il tempo vero è
+stato **50 minuti** per il primo giro e ~1 h per il secondo, a 8,6–10 s a
+domanda. La differenza non viene da una manopola: viene dal fatto che le run del
+21 agosto giravano a 21 s a domanda con il motore in uno stato che oggi
+sappiamo riconoscere — vedi `docs/hardware.md`, «il confonditore». Le stime di
+costo delle run che restano (D-4, l'affermazione 3) vanno riviste al ribasso in
+proporzione, ma **solo dopo averlo verificato su una di esse**, non per analogia.
