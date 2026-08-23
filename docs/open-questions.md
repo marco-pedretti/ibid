@@ -911,3 +911,94 @@ deciso il contrario, e per ragioni che reggono: l'esatta è O(n), e a 47k punti
 costa 2,5 ms contro 1,4 ma a dieci milioni il conto è un altro. Quello che questo
 episodio aggiunge non è *«accendetela»*, è *«un numero in ANN è riproducibile solo
 finché nessuno tocca la collection, e niente registra che qualcuno l'ha toccata»*.
+
+---
+
+## OQ-10 — Il gate d'astensione non è mai stato calibrato contro una domanda *plausibile*
+
+**Nuova (2026-08-23), osservata scegliendo gli esempi di D-17.** Il fatto è
+misurato su un campione piccolo e dichiarato tale; quanto sia generale, no.
+
+### Il fatto
+
+Su `ledger`, quattro domande della forma **«stessa azienda, un anno che il corpus
+non ha»** passano tutte il gate:
+
+| domanda | punteggio | soglia |
+|---|---|---|
+| capital expenditure di Sherwin-Williams nel **2022** | 0,8458 | 0,8289 |
+| dividendi di Sherwin-Williams nel **2023** | 0,8405 | 0,8289 |
+| margine operativo di Sherwin-Williams nel **2024** | 0,8417 | 0,8289 |
+| dipendenti a tempo pieno di Sherwin-Williams a fine **2019** | 0,8368 | 0,8289 |
+
+Il corpus contiene Sherwin-Williams per 2017, 2018 e 2019. Le prime tre domandano
+anni che non ci sono e il gate le lascia passare tutte; la quarta chiede un dato
+che quei bilanci non riportano in quella forma.
+
+**Cambiare azienda invece funziona**: Microsoft (0,8160) e Tesla (0,8269) chiudono
+il gate, Walmart (0,8193 in ANN, 0,8321 in esatta) lo chiude **in una ricerca
+sola**, Apple (0,8349) non lo chiude. Il segnale c'è ed è debole, e non è ordinato
+come si vorrebbe: sono tutte e quattro assenti allo stesso modo.
+
+### L'ipotesi, e perché è più che plausibile
+
+**La soglia è stata calibrata su domande che non somigliano a queste.** Le 35
+query non rispondibili di E-02 sono costruite **incrociando i corpus**: quelle di
+`ledger` sono domande accademiche, quelle di `open_ragbench` sono domande di
+bilancio. Sono lontane nello spazio degli embedding — e infatti su `ledger` il
+gate le chiude su 34 su 35.
+
+Il caso vero della demo, e di chiunque usi il sistema, è l'altro: una domanda
+**del dominio giusto** su un fatto che il corpus non ha. Lì il recupero trova
+cinque chunk che parlano proprio di quello — stessa azienda, stessa voce di
+bilancio, anno sbagliato — e il punteggio non ha ragione di scendere.
+
+> Il numero che serve non è «quanto separa le rispondibili dalle non
+> rispondibili» — quello è 0,9995 di AUC su `ledger` (C-04) e sembra ottimo. È
+> **su quale popolazione di non rispondibili** è stato calcolato.
+
+### Perché conta più di quanto sembri
+
+1. **Tocca una decisione dichiarata in codice.** Il §15 dice che l'astensione la
+   decide la soglia, non il modello. Se la soglia lascia passare il caso
+   realistico, a decidere è il modello — che è D-19, e che il progetto ha scelto
+   di non lasciar decidere.
+2. **Tocca l'affermazione 1.** Una risposta costruita su cinque chunk della
+   azienda giusta e dell'anno sbagliato è la condizione ideale per una citazione
+   formalmente perfetta e **sostanzialmente falsa**: i marcatori puntano a chunk
+   che esistono e che parlano dell'argomento.
+3. **Tocca la demo.** D-17 ha dovuto scegliere l'esempio «fuori corpus» fra quelli
+   che il gate chiude davvero, e l'insieme di quelli è più piccolo e più ovvio di
+   quanto si vorrebbe.
+
+### Protocollo
+
+**Passo 1 — costruire la popolazione che manca. Zero GPU per la costruzione.**
+Da `eval/golden/ledger.jsonl`, generare domande *plausibili e assenti* per
+sostituzione meccanica sulle query d'oro esistenti: stessa azienda e stessa voce,
+**anno fuori intervallo**; e stessa voce e stesso anno, **azienda fuori corpus**.
+Sono due famiglie con due difficoltà diverse e vanno tenute separate, perché il
+fatto qui sopra suggerisce che il gate le tratti in modo diverso.
+
+**Passo 2 — misurare, ~2 minuti di recupero.** Il tasso di chiusura del gate su
+ognuna delle due famiglie, contro il 97% che ottiene sulla popolazione
+cross-corpus di E-02. Il confronto fra i tre numeri **è** il risultato.
+
+**Passo 3 — solo se il passo 2 conferma.** Non ricalibrare subito: una soglia più
+alta comprerebbe astensioni sui casi plausibili e ne pagherebbe sulle
+rispondibili, e il bilancio va guardato prima di sceglierlo. C-04 ha lo strumento
+(`calibrate_abstention.py`); quello che manca è il set su cui farlo girare, ed è
+il passo 1.
+
+### Trappole
+
+**Chiamarlo un difetto della calibrazione.** Non lo è: C-04 ha calibrato
+correttamente sulla popolazione che aveva, e quella popolazione è quella che E-02
+ha costruito. Il difetto, se c'è, sta un piano più su — nella **definizione** di
+«non rispondibile» adottata dal golden set, che è una scelta di costruzione del
+dataset e non un errore di misura.
+
+**Estenderlo a `open_ragbench` senza guardare.** Là il fenomeno potrebbe non
+esistere o avere un'altra forma: i paper non hanno una struttura ripetuta come i
+bilanci, e la vicinanza fra «lo stesso paper, un risultato che non contiene» non
+ha nessuna ragione di somigliare a quella fra due bilanci della stessa azienda.
