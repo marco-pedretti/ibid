@@ -348,6 +348,105 @@ descritto più sopra. Non si può verificare a posteriori: quelle misure non
 registrarono né `think` né la quota in VRAM. È il motivo per cui `probe_prefill.py`
 adesso registra tutte e due.
 
+### Il budget di una scheda da 12 GB (2026-08-23)
+
+Questa pagina ha passato una giornata a chiedersi perché il 12B fosse lento, e la
+risposta non era mai nel modello. **Su 12 GB il vincolo non è «il modello ci
+sta»: è «che altro è residente».** Il modello ci stava sempre — `49/49 layers`,
+`size_vram == size` — e girava a un settimo del suo ritmo.
+
+#### Il conto, con i numeri misurati di questo progetto
+
+| voce | quanto | dove si legge |
+|---|---|---|
+| pesi `gemma4:12b` Q4_K_M | **8,6 GB** | `ollama ps`, campo `size` |
+| KV cache a 32k, flash attention **accesa** | **0,97 GB** | log llama.cpp, `llama_kv_cache: size` (512 + 480 MiB) |
+| KV cache a 32k, flash attention **spenta** | **1,72 GB** | idem: la V viene **paddata a 2048** (1.280 + 480 MiB) |
+| sessione ONNX dell'embedder (`multilingual-e5-large`) | **2,10 GB** | contatore per processo |
+| sessione ONNX del reranker (`bge-reranker-base`), in aggiunta | **1,04 GB** | idem |
+| desktop: `dwm`, sfondo animato, browser, editor | **1,1–1,3 GB** | idem |
+
+Il totale disponibile è **12,0 GB**, meno ~46 MB riservati all'hardware. Non è
+molto sopra la somma di due righe qualsiasi di quella tabella.
+
+#### Le tre configurazioni che questo progetto usa davvero
+
+| | conto | |
+|---|---|---|
+| generazione col 12B, **peggiore** (FA spenta, embedder residente) | 8,6 + 1,72 + 2,10 + 1,2 = **13,6 GB** | sfora di 1,6 |
+| generazione col 12B, **migliore** (FA accesa, embedder scaricato) | 8,6 + 0,97 + 1,2 = **10,8 GB** | ci sta, 1,2 di margine |
+| recupero con rerank, nessun LLM (D-4) | 3,2 + 1,2 = **4,4 GB** | non tocca il muro |
+
+La riga di mezzo è quella in cui girano le misure di oggi, e ha **1,2 GB** di
+margine. Non c'è spazio per una quarta cosa: il server API acceso ne prende 3,5 e
+riporta la macchina nella prima riga.
+
+#### Il sintomo non è un errore, ed è per questo che costa mezza giornata
+
+Lo sforamento non fallisce. La risposta arriva, ed è **giusta**: solo lenta. Il
+driver sposta la differenza nella memoria di sistema, e la scheda continua a
+rispondere passando i dati sul PCIe a ogni token.
+
+| strumento | cosa dice | cosa **non** dice |
+|---|---|---|
+| `ollama ps`, `size_vram` contro `size` | se i **pesi** sono in VRAM | niente della contesa — diceva `8,6 di 8,6` con 4 GB fuori |
+| log di llama.cpp, `offloaded 49/49 layers` | idem, ed è vero | idem |
+| **pannello GPU di Windows** | **memoria condivisa > 0**, motore **Copy** alto, **Compute** a zero | — |
+| contatore `GPU Process Memory`, `Local Usage` e `Non Local Usage` | lo stesso dato, **per processo e interrogabile da script** | — |
+
+Le prime due righe sono i due strumenti che questa pagina interrogava, e sono
+esattamente i due che non possono vederlo: guardano i **pesi**, non la contesa.
+Il motore di **copia** saturo con quelli di calcolo fermi è la firma — una GPU
+che trasferisce invece di calcolare.
+
+#### La diagnosi sta in una riga: quale delle due fasi è lenta
+
+| fase | a cosa è legata | manopola |
+|---|---|---|
+| **prefill** | calcolo — l'attenzione materializza una matrice `n × n` | **flash attention** |
+| **decode** | banda di memoria — quindi **dove** sta la memoria | **cosa altro è residente** |
+
+> **Decode lento col modello «tutto in VRAM» è un problema di collocazione.
+> Prefill lento col decode sano è un problema di kernel.** Guardare il totale a
+> orologio li confonde, ed è il motivo per cui per mezza giornata sono sembrati
+> un difetto solo.
+
+#### Tre regole operative
+
+1. **Contare prima, non sperare.** I numeri della prima tabella si leggono tutti
+   in meno di un minuto, e la somma dice già se si sforerà.
+2. **Liberare batte ridurre.** Nessuna manopola del modello è stata toccata — né
+   la quantizzazione né `n_ctx`, che il §3 fissa a 32768 e non è negoziabile.
+   Bastava non tenere 2,1 GB di sessione ONNX che aveva finito il suo lavoro.
+3. **Cronometrare i primi minuti** di una run lunga, sullo strumento vero e nello
+   stato in cui girerà. È la stessa regola che C-06 aveva già scritto dopo lo
+   smoke test da 3 query, e che questa giornata ha ripetuto due volte.
+
+#### Il controllo, in una riga
+
+```powershell
+$d=(Get-Counter "\GPU Process Memory(*)\Local Usage").CounterSamples
+$n=(Get-Counter "\GPU Process Memory(*)\Non Local Usage").CounterSamples
+"dedicata {0:N0} MB / condivisa {1:N0} MB" -f (($d|Measure-Object CookedValue -Sum).Sum/1MB),(($n|Measure-Object CookedValue -Sum).Sum/1MB)
+$d|?{$_.CookedValue -gt 200MB}|Sort CookedValue -Desc|%{ $p=Get-Process -Id (($_.InstanceName -split '_')[1]) -EA SilentlyContinue; "{0,-16} {1,8:N0} MB" -f $(if($p){$p.ProcessName}else{"(morto)"}),($_.CookedValue/1MB) }
+```
+
+**La riga da guardare è la condivisa.** Sopra lo zero — al netto di qualche
+centinaio di MB di sfondi e browser — vuol dire che qualcosa viaggia sul PCIe a
+ogni token.
+
+#### Cosa non è stato provato, e va detto
+
+- **Quantizzare il KV cache** (`OLLAMA_KV_CACHE_TYPE=q8_0`) dimezzerebbe la voce
+  da 0,97 GB. Non provato, e non è gratis: cambia i numeri che il modello genera,
+  quindi è una decisione da prendere **prima** di una campagna di misure, non
+  durante.
+- **`OLLAMA_NUM_PARALLEL`** resta a 1 e resta non misurata, per la ragione già
+  scritta più sopra.
+- **I modelli a contesto ridotto** (`gemma4:12b-8k` e simili, presenti nel
+  catalogo locale) libererebbero KV, ma il §3 fissa la finestra a 32768 per ogni
+  misura: sono fuori discussione qui, non in assoluto.
+
 ### Cosa questo dice su ROCm
 
 Rafforza poco e indebolisce parecchio. Il prefill resta la voce grossa — ~63% —
