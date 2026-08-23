@@ -3797,6 +3797,128 @@ C'è un'**icona nuova**, `Chiudi`, e non è `Indietro`: una freccia dice «torna
 dove sei arrivato», cioè promette una navigazione. Un foglio non porta da nessuna
 parte — si toglie di mezzo, e sotto c'è quel che c'era già.
 
+### D-4 — la sessione di fine fase, e il reranker che fa una cosa sola
+
+Otto configurazioni, due corpus, golden set completi — 3.045 query per
+`open_ragbench`, 10.000 per `ledger` — **tutte in ricerca esatta**, per la ragione
+scritta nella coda qui sopra. `top_k` 5, profondità 10, `pipeline_mode: generic`.
+
+Le sei senza rerank sono girate il 22 agosto (8 minuti in tutto), le due col
+rerank il 23 (**6 h 04**). Stesso percorso di recupero: fra i due giorni l'unica
+differenza in `src/retrieval`, `src/index`, `harness.py`, `metrics.py` e
+`config.py` è una funzione **aggiunta** a `embed.py` che nessuno di quei percorsi
+chiama — verificato col diff prima di spendere le sei ore, perché otto
+configurazioni misurate su codice diverso non sono otto configurazioni.
+
+#### I numeri
+
+| `open_ragbench` | nDCG@10 | Success@1 | RR@10 | R@5 | `doc_R@5` |
+|---|---|---|---|---|---|
+| dense | 0,7184 | 0,5448 | 0,6655 | 0,8279 | 0,9681 |
+| sparse | 0,7855 | 0,6263 | 0,7370 | 0,8837 | 0,9882 |
+| hybrid | 0,8004 | 0,6345 | 0,7450 | **0,9044** | **0,9954** |
+| dense+rerank | 0,7873 | 0,6548 | 0,7469 | 0,8716 | 0,9829 |
+| **hybrid+rerank** | **0,8053** | **0,6594** | **0,7593** | 0,8939 | 0,9915 |
+
+| `ledger` | nDCG@10 | Success@1 | RR@10 | R@5 | `doc_R@5` |
+|---|---|---|---|---|---|
+| dense | 0,2465 | 0,2647 | 0,3833 | 0,2112 | 0,8962 |
+| sparse | 0,0272 | 0,0291 | 0,0517 | 0,0214 | 0,8837 |
+| hybrid | 0,1564 | 0,0986 | 0,2254 | 0,1287 | **0,9129** |
+| **dense+rerank** | **0,2792** | **0,3110** | **0,4342** | **0,2473** | 0,8911 |
+| hybrid+rerank | 0,2570 | 0,3056 | 0,4170 | 0,2274 | 0,9023 |
+
+**La configurazione migliore dipende dal genere, ed è la quarta volta in questo
+progetto.** Su `open_ragbench` vince `hybrid+rerank`, su `ledger` vince
+`dense+rerank` — e su `ledger` la fusione, che sul corpus accademico è la scelta
+più forte, è la **peggiore** delle due strade col rerank. Un'unica riga nel README
+non esiste.
+
+#### Il reranker fa una cosa sola, e la fa sempre
+
+Test appaiati sulle stesse query, McNemar esatto (`compare_retrieved.py`).
+
+**Success@1 — il chunk giusto al primo posto. Migliora ovunque:**
+
+| | senza → con rerank | discordanti | |
+|---|---|---|---|
+| ORB dense | 0,5458 → **0,6542** | 534 a 204 | p < 0,0001 |
+| ORB hybrid | 0,6207 → **0,6588** | 401 a 285 | p < 0,0001 |
+| LED dense | 0,2642 → **0,3107** | 1615 a 1150 | p < 0,0001 |
+| LED hybrid | 0,1421 → **0,3052** | **2201 a 570** | p < 0,0001 |
+
+Quattro casi su quattro, e la riga più grande è **+16,3 punti**. Non c'è
+ambiguità: mettere il candidato giusto in cima è precisamente ciò che un
+cross-encoder sa fare, e lo fa su tutti e due i generi.
+
+**`doc_R@5` — il documento giusto fra i primi cinque. Peggiora dove il recupero
+era già buono:**
+
+| | senza → con rerank | discordanti | |
+|---|---|---|---|
+| ORB dense | 0,9642 → **0,9806** | 63 a 13 | p < 0,0001, **vince il rerank** |
+| ORB hybrid | 0,9924 → 0,9898 | 15 a 23 | p = 0,2559, **indistinguibile** |
+| LED dense | 0,9398 → 0,9335 | 157 a 220 | p = 0,0014, **vince senza** |
+| LED hybrid | 0,9566 → 0,9424 | 118 a 260 | p < 0,0001, **vince senza** |
+
+La regola che le quattro righe disegnano: **dove c'era margine il reranker lo
+prende, dove non ce n'era può solo rimescolare** — e rimescolando perde. Su ORB
+dense partiva da 0,9642 e guadagna; su ORB hybrid partiva da 0,9924 e il
+movimento sparisce nel rumore; su `ledger`, dove il documento giusto c'era già nel
+94–96% dei casi, toglie mezzo punto e un punto e mezzo, e tutte e due le volte è
+reale.
+
+#### È lo specchio esatto di OQ-06
+
+Quella domanda aperta descrive l'IDF su `ledger`: **porta al documento giusto e
+allontana dal chunk giusto** (doc@5 +27,85, chunk@5 −1,31). Il reranker sullo
+stesso corpus fa **l'opposto**: chunk@5 da +5,74 a +15,34, doc@5 da −0,63 a −1,42.
+
+Due meccanismi diversi, lo stesso corpus, le stesse due metriche, e il segno
+scambiato. Il che dice una cosa che nessuno dei due direbbe da solo: su `ledger`
+**`doc_R@5` e la precisione a livello di chunk non sono due misure della stessa
+cosa, sono due obiettivi in tensione.** Una domanda nomina un'azienda e un anno; i
+documenti candidati sono tutti bilanci di quell'azienda; scegliere *quale pagina*
+risponde è un problema diverso dallo scegliere *quale documento*, e migliorare il
+secondo non implica migliorare il primo.
+
+Per la generazione conta il chunk — è quello che finisce in contesto — quindi la
+scelta è `dense+rerank`. Ma il prezzo va scritto accanto, non nascosto in una
+media.
+
+#### Il rerank salva la fusione su `ledger`, e questo dice cos'era rotto
+
+`hybrid` su `ledger` senza rerank ha Success@1 a **0,0986**: praticamente non
+mette mai il chunk giusto per primo. Col rerank va a **0,3056**, tre volte tanto,
+e più di qualunque altra configurazione tranne `dense+rerank`.
+
+Eppure `hybrid` senza rerank ha il **miglior `doc_R@10` non-rerank del corpus**
+(0,9335). I due fatti insieme dicono che RRF su `ledger` produce un **insieme**
+di candidati buono e un **ordinamento** pessimo: il chunk giusto è lì dentro, in
+posizione sbagliata. È esattamente il difetto che un cross-encoder ripara, ed è la
+ragione per cui il guadagno più grande delle otto configurazioni sta lì.
+
+#### Il costo, e cosa la regola dei primi minuti ha e non ha comprato
+
+| | query | durata |
+|---|---|---|
+| ORB dense+rerank | 3.045 | 40 min 43 s |
+| LED dense+rerank | 10.000 | 2 h 13 min |
+| ORB hybrid+rerank | 3.045 | 41 min 59 s |
+| LED hybrid+rerank | 10.000 | 2 h 27 min |
+| | | **6 h 04** |
+
+Lo smoke da 200 query sulla combinazione più cara, fatto prima di lanciare, aveva
+dato **0,69 s a query**; la media vera è **0,89**. Il preventivo era corto del
+21%.
+
+**Ed è comunque servito**, perché è la seconda cifra che conta: la stessa regola,
+non applicata, aveva prodotto in questo progetto un preventivo sbagliato di
+quindici volte (il 12B) e uno di cinque (T-02). Cronometrare i primi minuti compra
+**l'ordine di grandezza, non il 20%** — e va scritto così, perché una regola che
+promette più di quel che dà si smette di usare la prima volta che delude.
+
+
 ### D-4 (coda) — i numeri di LEDGER si riscrivono in ricerca esatta
 
 D-4 doveva essere una sessione di misura e ha trovato un reperto: **l'indice
@@ -3889,10 +4011,12 @@ che i due bracci non erano confrontabili.
 
 #### Cosa questa coda non riscrive
 
-**Le due configurazioni col rerank**: non esistono ancora. Il ramo `D-4` resta
-aperto finché non girano — 0,69 s a query misurati, ~5 h sui due corpus — perché
-le otto configurazioni devono stare sullo stesso commit o non sono confrontabili
-fra loro. Fino ad allora nessuna riga del recupero si tocca.
+**Le due configurazioni col rerank**: sono girate il 23 agosto e stanno nella
+sezione qui sopra. Il vincolo che teneva aperto il ramo — le otto configurazioni
+sullo stesso percorso di recupero — è stato verificato col diff invece che
+assunto: fra il commit delle sei e quello delle due, `src/retrieval`, `src/index`,
+`harness.py`, `metrics.py` e `config.py` differiscono per una funzione **aggiunta**
+a `embed.py` che nessuno di quei percorsi chiama.
 
 **I numeri di `open_ragbench`**: non c'era niente da riscrivere. ANN ed esatta
 danno le stesse sei cifre, che è il motivo per cui il reperto è di `ledger` e non
