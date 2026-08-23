@@ -61,7 +61,7 @@ Tracciamento dei task di `ROADMAP.md` man mano che vengono completati. Non sosti
 | R-04 | ✅ fatto (2026-08-06) | Filtri metadata in `src/retrieval/metadata_filter.py`: `build_content_type_filter()` (Qdrant Filter su campo `content_type`) + `infer_content_type()` (keyword heuristic: "table"/"figure"/"graph" → filtro "table", altrimenti nessun filtro). `src/index/store.py`: `search()` accetta `query_filter`; `search_batch()` accetta `filters: list[Filter\|None] \| None` (per-query, gestione batch-aware). `src/eval/harness.py`: parametro `filter_content_type` ("text"\|"table"\|"auto"\|None); in modalità "auto" calcola il filtro per ogni query con `infer_content_type()`; include `filter_content_type` in `_config_hash()`. CLI `scripts/eval.py`: `--filter-content-type text\|table\|mixed\|auto`. 30 nuovi test in `tests/test_retrieval_metadata_filter.py`. **463 test totali.** **Delta misurato (smoke test, 50 query open_ragbench, filtro "text"):** nDCG@10 0.6784→0.6507 (−4.1%), Success@1 0.5400→0.5200 (−3.7%), RR@10 0.6380→0.6140 (−3.8%), R@5 0.8000→0.7600 (−5.0%) — **risultato negativo**. Causa: in open_ragbench i chunk rilevanti sono spesso `content_type="mixed"` (sezioni con testo + tabelle nei paper scientifici); il filtro "text" li esclude. Il flag resta disponibile per ablation su dataset table-heavy (LEDGER) o in modalità "auto" su query che chiedono esplicitamente di tabelle/figure. |
 | R-05 | ✅ fatto (2026-08-06) | Aggregazione documento in `src/retrieval/doc_aggregation.py`: `DocResult` + `doc_id_from_chunk_id()` + `aggregate_to_docs(chunk_scores, strategy="max"\|"sum")`. Obiettivo distinto: i chunk servono per il contesto LLM (passaggi esatti), i documenti aggregati per la lista file UI (sorgenti deduplicate). Helper privati in `src/eval/harness.py`: `_build_doc_qrels()` (qrel chunk→doc, max relevance) + `_build_doc_run()` (ScoredDoc chunk→doc via max-pooling per query). Parametro `doc_aggregate: bool = False` su `run_retrieval_eval()`: se True aggiunge `doc_R@5` e `doc_R@10` al dict metrics. CLI `scripts/eval.py`: `--doc-aggregate`. 33 nuovi test in `tests/test_retrieval_doc_aggregation.py`. **496 test totali.** **Delta misurato (smoke test, 50 query open_ragbench, top_k=5):** Chunk R@5=0.8000 vs Doc R@5=**0.9600** (+20%). La lista file trova il documento giusto in 48/50 query, contro 40/50 per il chunk esatto. Le 8 query in più sono casi dove un chunk diverso dallo stesso documento è in top-5 — abbastanza per la lista file, non ottimale come contesto LLM. **Risultato positivo** che valida l'obiettivo distinto. |
 | R-06 | ✅ fatto (2026-08-06) | Router in `src/ingestion/router.py`: `route_sections(sections, genre, ...)` per dati strutturati (open_ragbench) → `structured_hierarchical` per `academic_pdf`, `continuous_text` per gli altri (le tabelle in ORB sono Markdown, non HTML — `table_heavy` pipeline non applicabile); `route_text(text, genre, ...)` per dati pagina (ledger) → `table_heavy` per `table_heavy` (atomicità HTML garantita), `continuous_text` altrove. `PIPELINE_FOR_GENRE` dict per tagging. `iter_chunks_routed()` aggiunto a entrambi i loader; ledger accumula `seq_offset` tra le pagine. `scripts/ingest.py`: flag `--pipeline-mode original\|routed` (default `original` per backwards compat). 31 nuovi test in `tests/test_ingestion_router.py`. **527 test totali.** Nessun smoke test di retrieval richiesto: la routing logic è verificata dai test unitari, il delta misurato arriva con R-07. |
-| R-07 | ✅ fatto (2026-08-06), **misura definitiva (2026-08-07)** | Infrastruttura ablation: `scripts/ingest.py --collection-suffix routed` crea `open_ragbench_routed` / `ledger_routed` senza toccare le collection originali; `scripts/eval.py --collection NAME --pipeline-mode routed` valuta su una collection alternativa. `src/eval/harness.py`: parametro `collection` in `run_retrieval_eval()` e `_config_hash()`. 15 test in `tests/test_retrieval_routing_ablation.py`. Re-ingestion completata (618 min GPU, 98.312 chunk ORB + 228.331 chunk LEDGER). **I numeri riportati inizialmente (+4% / −20%, 50 query, profondità 5) erano affetti da due difetti corretti il 2026-08-07** — vedi `eval/results/archive/README.md`. **Misura definitiva sui golden set completi** (dense, profondità 10, `doc_R@5`): open_ragbench 3045 query, generic 0.9681 → routed **0.9757**; ledger 10000 query, generic 0.8916 → routed **0.6744**. Test appaiato di McNemar sul criterio binario *"almeno un documento rilevante nei primi 5 documenti"*, stesse query, `scripts/compare_runs.py`: **open_ragbench +0.76 punti** (71 query a favore di routed contro 48, **p=0.043** — reale ma marginale); **ledger −17.03 punti** (1797 a favore di generic contro 94, **p<0.0001** — schiacciante). **Conclusione: l'affermazione 2 del §0 non è sostenuta.** Il routing non batte la pipeline generica: la migliora in modo trascurabile su un genere (+0.76 punti, appena sopra la soglia di significatività su 3045 query) e la peggiora gravemente sull'altro. Ciò che il progetto dimostra davvero è la necessità della misura **per dataset**: un routing di progettazione plausibile è risultato molto sbagliato su un genere, e una media aritmetica (−8 punti) avrebbe nascosto sia il segno opposto sia il fatto che le due metà hanno forza statistica incomparabile. **Risultato negativo, resta in tabella** (§7). Cause del regresso LEDGER: ipotesi non ancora verificate, protocollo in [`docs/open-questions.md`](open-questions.md) (OQ-01).
+| R-07 | ✅ fatto (2026-08-06), **misura definitiva (2026-08-07)** | Infrastruttura ablation: `scripts/ingest.py --collection-suffix routed` crea `open_ragbench_routed` / `ledger_routed` senza toccare le collection originali; `scripts/eval.py --collection NAME --pipeline-mode routed` valuta su una collection alternativa. `src/eval/harness.py`: parametro `collection` in `run_retrieval_eval()` e `_config_hash()`. 15 test in `tests/test_retrieval_routing_ablation.py`. Re-ingestion completata (618 min GPU, 98.312 chunk ORB + 228.331 chunk LEDGER). **I numeri riportati inizialmente (+4% / −20%, 50 query, profondità 5) erano affetti da due difetti corretti il 2026-08-07** — vedi `eval/results/archive/README.md`. **Misura definitiva sui golden set completi** (dense, profondità 10, `doc_R@5`): open_ragbench 3045 query, generic 0.9681 → routed **0.9757**; ledger 10000 query, generic 0.8916 → routed **0.6744**. Test appaiato di McNemar sul criterio binario *"almeno un documento rilevante nei primi 5 documenti"*, stesse query, `scripts/compare_runs.py`: **open_ragbench +0.76 punti** (71 query a favore di routed contro 48, **p=0.043** — reale ma marginale); **ledger −17.03 punti** (1797 a favore di generic contro 94, **p<0.0001** — schiacciante). **Conclusione: l'affermazione 2 del §0 non è sostenuta.** Il routing non batte la pipeline generica: la migliora in modo trascurabile su un genere (+0.76 punti, appena sopra la soglia di significatività su 3045 query) e la peggiora gravemente sull'altro. Ciò che il progetto dimostra davvero è la necessità della misura **per dataset**: un routing di progettazione plausibile è risultato molto sbagliato su un genere, e una media aritmetica (−8 punti) avrebbe nascosto sia il segno opposto sia il fatto che le due metà hanno forza statistica incomparabile. **Risultato negativo, resta in tabella** (§7). Cause del regresso LEDGER: ipotesi non ancora verificate, protocollo in [`docs/open-questions.md`](open-questions.md) (OQ-01). **In ricerca esatta — l'unico confronto legittimo fra due indici di densità diversa, R-11 — i due numeri sono 0.8962 → 0.7590 e il divario è −13.72**, non −21.71: otto punti erano il richiamo dell'indice. I due numeri qui sopra sono in ricerca approssimata e **non si riproducono più** (OQ-09): rieseguendoli oggi il primo dà 0,7705.
 
 ### Dashboard — riscrittura (2026-08-07)
 
@@ -997,6 +997,8 @@ Costo: **2,5 ms/query contro 1,4**. Su queste dimensioni la ricerca esatta costa
 | ledger | 47.110 | 0,8915 → 0,8962 | +0,0046 |
 | **ledger_routed** | **228.331** | **0,6744 → 0,7590** | **+0,0846** |
 
+> **Il +0,0046 di `ledger` è del 13 agosto e oggi vale +0,1257** (OQ-09): il termine di sinistra è sceso a 0,7705, quello di destra non si è mosso di un decimale. La conclusione del paragrafo regge — il guadagno segue il richiamo, non la taglia — ma questa riga è una fotografia datata di un richiamo che nel frattempo è cambiato.
+
 98.312 punti rendono quasi zero, 228.331 ne rendono otto e mezzo: **la taglia da sola non lo spiega**. E nemmeno la densità da sola — `ledger` e `ledger_routed` hanno praticamente la stessa pendenza (caduta dal 1° al 5° di 0,0085 e 0,0075) e guadagni che differiscono di venti volte.
 
 #### Quello che lo predice si misura senza golden set
@@ -1012,6 +1014,8 @@ Il **richiamo dell'indice**: quanta parte del *vero* top-5 la ricerca approssima
 
 Su `ledger_routed` **più di una query su tre riceve un top-5 sbagliato**, e il 15% del vero top-5 non viene mai restituito.
 
+> **Lo 0,9892 di `ledger` è del 13 agosto: il 22 vale 0,8356** (OQ-09). Questa colonna misura il richiamo del grafo, ed è esattamente la grandezza che si è mossa — non una proprietà stabile della collection.
+
 #### La conseguenza vera: R-07 confrontava anche gli indici
 
 R-07 e OQ-01 confrontano `ledger` (47k punti) con `ledger_routed` (228k). Con ricerca approssimata quel confronto **non misura solo la pipeline**: misura anche quanto richiamo l'indice perde, e ne perde molto di più su quello denso.
@@ -1020,6 +1024,8 @@ R-07 e OQ-01 confrontano `ledger` (47k punti) con `ledger_routed` (228k). Con ri
 |---|---|---|---|
 | ricerca approssimata | 0,8915 | 0,6744 | **−21,71** |
 | ricerca esatta | 0,8962 | 0,7590 | **−13,72** |
+
+> **La riga «ricerca approssimata» non si riproduce più** (OQ-09): oggi il primo termine è 0,7705. La riga in esatta sì, cifra per cifra. È la ragione per cui da D-4 in poi i numeri di `ledger` si pubblicano in esatta.
 
 **Otto dei 21,7 punti di regresso — il 37% — erano l'indice, non il routing.** Su open_ragbench, dove entrambe le collection hanno richiamo quasi perfetto, il quadro non cambia: il routing guadagna +0,76 con l'approssimata e +1,06 con l'esatta.
 
@@ -2970,6 +2976,15 @@ diverso, numerosità diversa, prompt diverso. Tre differenze dentro una misura
 sola, ed è esattamente perché D-3 esiste. Queste due run dicono **dove si sta**,
 non perché. → **D-3 lo ha chiuso il 2026-08-22**, sezione in fondo.
 
+> **Le differenze erano quattro, non tre.** Fra il 12 e il 21 agosto è cambiato
+> anche l'indice approssimato di `ledger` (OQ-09), quindi i due bracci non hanno
+> ricevuto lo stesso contesto: identico su 72 query delle 100 in comune,
+> completamente diverso su 20. **Misurato dopo, la quarta non morde**: sulle 75
+> valutate in entrambe la conformità è 1,0000 da tutt'e due le parti, 17 delle
+> quali con contesto diverso, e le astensioni passano da 19 a 18. Il calo di
+> `ledger` viene dalle query 101–200 — i quattro rifiuti con parole proprie di
+> D-19 — non dal recupero. Il conto è nella coda di D-4, in fondo.
+
 #### Il calo di `ledger` non è ciò che la previsione diceva
 
 La previsione rinviata da U-14 era che il markdown avrebbe prodotto risposte
@@ -3781,3 +3796,228 @@ chiudere, e quale dei casi stia servendo non è affar suo.
 C'è un'**icona nuova**, `Chiudi`, e non è `Indietro`: una freccia dice «torna da
 dove sei arrivato», cioè promette una navigazione. Un foglio non porta da nessuna
 parte — si toglie di mezzo, e sotto c'è quel che c'era già.
+
+### D-4 — la sessione di fine fase, e il reranker che fa una cosa sola
+
+Otto configurazioni, due corpus, golden set completi — 3.045 query per
+`open_ragbench`, 10.000 per `ledger` — **tutte in ricerca esatta**, per la ragione
+scritta nella coda qui sopra. `top_k` 5, profondità 10, `pipeline_mode: generic`.
+
+Le sei senza rerank sono girate il 22 agosto (8 minuti in tutto), le due col
+rerank il 23 (**6 h 04**). Stesso percorso di recupero: fra i due giorni l'unica
+differenza in `src/retrieval`, `src/index`, `harness.py`, `metrics.py` e
+`config.py` è una funzione **aggiunta** a `embed.py` che nessuno di quei percorsi
+chiama — verificato col diff prima di spendere le sei ore, perché otto
+configurazioni misurate su codice diverso non sono otto configurazioni.
+
+#### I numeri
+
+| `open_ragbench` | nDCG@10 | Success@1 | RR@10 | R@5 | `doc_R@5` |
+|---|---|---|---|---|---|
+| dense | 0,7184 | 0,5448 | 0,6655 | 0,8279 | 0,9681 |
+| sparse | 0,7855 | 0,6263 | 0,7370 | 0,8837 | 0,9882 |
+| hybrid | 0,8004 | 0,6345 | 0,7450 | **0,9044** | **0,9954** |
+| dense+rerank | 0,7873 | 0,6548 | 0,7469 | 0,8716 | 0,9829 |
+| **hybrid+rerank** | **0,8053** | **0,6594** | **0,7593** | 0,8939 | 0,9915 |
+
+| `ledger` | nDCG@10 | Success@1 | RR@10 | R@5 | `doc_R@5` |
+|---|---|---|---|---|---|
+| dense | 0,2465 | 0,2647 | 0,3833 | 0,2112 | 0,8962 |
+| sparse | 0,0272 | 0,0291 | 0,0517 | 0,0214 | 0,8837 |
+| hybrid | 0,1564 | 0,0986 | 0,2254 | 0,1287 | **0,9129** |
+| **dense+rerank** | **0,2792** | **0,3110** | **0,4342** | **0,2473** | 0,8911 |
+| hybrid+rerank | 0,2570 | 0,3056 | 0,4170 | 0,2274 | 0,9023 |
+
+**La configurazione migliore dipende dal genere, ed è la quarta volta in questo
+progetto.** Su `open_ragbench` vince `hybrid+rerank`, su `ledger` vince
+`dense+rerank` — e su `ledger` la fusione, che sul corpus accademico è la scelta
+più forte, è la **peggiore** delle due strade col rerank. Un'unica riga nel README
+non esiste.
+
+#### Il reranker fa una cosa sola, e la fa sempre
+
+Test appaiati sulle stesse query, McNemar esatto (`compare_retrieved.py`).
+
+**Success@1 — il chunk giusto al primo posto. Migliora ovunque:**
+
+| | senza → con rerank | discordanti | |
+|---|---|---|---|
+| ORB dense | 0,5458 → **0,6542** | 534 a 204 | p < 0,0001 |
+| ORB hybrid | 0,6207 → **0,6588** | 401 a 285 | p < 0,0001 |
+| LED dense | 0,2642 → **0,3107** | 1615 a 1150 | p < 0,0001 |
+| LED hybrid | 0,1421 → **0,3052** | **2201 a 570** | p < 0,0001 |
+
+Quattro casi su quattro, e la riga più grande è **+16,3 punti**. Non c'è
+ambiguità: mettere il candidato giusto in cima è precisamente ciò che un
+cross-encoder sa fare, e lo fa su tutti e due i generi.
+
+**`doc_R@5` — il documento giusto fra i primi cinque. Peggiora dove il recupero
+era già buono:**
+
+| | senza → con rerank | discordanti | |
+|---|---|---|---|
+| ORB dense | 0,9642 → **0,9806** | 63 a 13 | p < 0,0001, **vince il rerank** |
+| ORB hybrid | 0,9924 → 0,9898 | 15 a 23 | p = 0,2559, **indistinguibile** |
+| LED dense | 0,9398 → 0,9335 | 157 a 220 | p = 0,0014, **vince senza** |
+| LED hybrid | 0,9566 → 0,9424 | 118 a 260 | p < 0,0001, **vince senza** |
+
+La regola che le quattro righe disegnano: **dove c'era margine il reranker lo
+prende, dove non ce n'era può solo rimescolare** — e rimescolando perde. Su ORB
+dense partiva da 0,9642 e guadagna; su ORB hybrid partiva da 0,9924 e il
+movimento sparisce nel rumore; su `ledger`, dove il documento giusto c'era già nel
+94–96% dei casi, toglie mezzo punto e un punto e mezzo, e tutte e due le volte è
+reale.
+
+#### È lo specchio esatto di OQ-06
+
+Quella domanda aperta descrive l'IDF su `ledger`: **porta al documento giusto e
+allontana dal chunk giusto** (doc@5 +27,85, chunk@5 −1,31). Il reranker sullo
+stesso corpus fa **l'opposto**: chunk@5 da +5,74 a +15,34, doc@5 da −0,63 a −1,42.
+
+Due meccanismi diversi, lo stesso corpus, le stesse due metriche, e il segno
+scambiato. Il che dice una cosa che nessuno dei due direbbe da solo: su `ledger`
+**`doc_R@5` e la precisione a livello di chunk non sono due misure della stessa
+cosa, sono due obiettivi in tensione.** Una domanda nomina un'azienda e un anno; i
+documenti candidati sono tutti bilanci di quell'azienda; scegliere *quale pagina*
+risponde è un problema diverso dallo scegliere *quale documento*, e migliorare il
+secondo non implica migliorare il primo.
+
+Per la generazione conta il chunk — è quello che finisce in contesto — quindi la
+scelta è `dense+rerank`. Ma il prezzo va scritto accanto, non nascosto in una
+media.
+
+#### Il rerank salva la fusione su `ledger`, e questo dice cos'era rotto
+
+`hybrid` su `ledger` senza rerank ha Success@1 a **0,0986**: praticamente non
+mette mai il chunk giusto per primo. Col rerank va a **0,3056**, tre volte tanto,
+e più di qualunque altra configurazione tranne `dense+rerank`.
+
+Eppure `hybrid` senza rerank ha il **miglior `doc_R@10` non-rerank del corpus**
+(0,9335). I due fatti insieme dicono che RRF su `ledger` produce un **insieme**
+di candidati buono e un **ordinamento** pessimo: il chunk giusto è lì dentro, in
+posizione sbagliata. È esattamente il difetto che un cross-encoder ripara, ed è la
+ragione per cui il guadagno più grande delle otto configurazioni sta lì.
+
+#### Il costo, e cosa la regola dei primi minuti ha e non ha comprato
+
+| | query | durata |
+|---|---|---|
+| ORB dense+rerank | 3.045 | 40 min 43 s |
+| LED dense+rerank | 10.000 | 2 h 13 min |
+| ORB hybrid+rerank | 3.045 | 41 min 59 s |
+| LED hybrid+rerank | 10.000 | 2 h 27 min |
+| | | **6 h 04** |
+
+Lo smoke da 200 query sulla combinazione più cara, fatto prima di lanciare, aveva
+dato **0,69 s a query**; la media vera è **0,89**. Il preventivo era corto del
+21%.
+
+**Ed è comunque servito**, perché è la seconda cifra che conta: la stessa regola,
+non applicata, aveva prodotto in questo progetto un preventivo sbagliato di
+quindici volte (il 12B) e uno di cinque (T-02). Cronometrare i primi minuti compra
+**l'ordine di grandezza, non il 20%** — e va scritto così, perché una regola che
+promette più di quel che dà si smette di usare la prima volta che delude.
+
+
+### D-4 (coda) — i numeri di LEDGER si riscrivono in ricerca esatta
+
+D-4 doveva essere una sessione di misura e ha trovato un reperto: **l'indice
+approssimato di `ledger` non è più quello di nove giorni fa** (OQ-09). Il
+contenuto è intatto — la ricerca esatta restituisce le stesse sei cifre del 13
+agosto, metrica per metrica — ma il grafo HNSW naviga peggio, e con la ricerca
+approssimata `doc_R@5` passa da 0,8915 a **0,7705**.
+
+Da qui la decisione, presa nel commit del ramo: **D-4 gira in ricerca esatta**, e
+i numeri di `ledger` nel quaderno si riscrivono con quelli.
+
+#### Le sei configurazioni senza rerank, nelle due ricerche
+
+Dodici run piene su `b1ffe32`, tre modalità per due corpus, una volta in ANN e una
+in esatta. Golden set completi: 3.045 query per `open_ragbench`, 10.000 per
+`ledger`, profondità 10, `top_k` 5, `pipeline_mode: generic`.
+
+| | | nDCG@10 | `doc_R@5` | `doc_R@10` | R@5 | Success@1 |
+|---|---|---|---|---|---|---|
+| **open_ragbench** | `dense` | 0,7184 | 0,9681 | 0,9777 | 0,8279 | 0,5448 |
+| | `sparse` | 0,7855 | 0,9882 | 0,9941 | 0,8837 | 0,6263 |
+| | `hybrid` | **0,8004** | **0,9954** | **0,9974** | **0,9044** | **0,6345** |
+| **ledger** | `dense` | **0,2465** | 0,8962 | 0,9159 | **0,2112** | **0,2647** |
+| | `sparse` | 0,0272 | 0,8837 | 0,9231 | 0,0214 | 0,0291 |
+| | `hybrid` | 0,1564 | **0,9129** | **0,9335** | 0,1287 | 0,0986 |
+
+Su `open_ragbench` questi sono **anche** i numeri in ANN: le due ricerche danno
+sei metriche identiche a sei decimali su tutte e tre le modalità. Su `ledger` no,
+e la differenza cade esattamente dove c'è un grafo di mezzo:
+
+| `ledger` | ANN | esatta | Δ |
+|---|---|---|---|
+| `dense`, `doc_R@5` | 0,7705 | **0,8962** | **+0,1257** |
+| `hybrid`, `doc_R@5` | 0,8740 | **0,9129** | +0,0389 |
+| `sparse`, `doc_R@5` | 0,8837 | 0,8837 | **identico** |
+
+`sparse` è identico perché l'indice sparso non passa da HNSW. È il controllo
+interno della tabella: se il divario fosse contenuto dell'indice invece che
+navigazione, si vedrebbe anche lì.
+
+#### Cosa vuol dire riscriverli, e cosa si compra
+
+Poco, in valore. Il `doc_R@5` denso pubblicato il 13 agosto era 0,8915 e diventa
+0,8962; l'nDCG@10 era 0,2422 e diventa 0,2465. Quattro millesimi, tre.
+
+**Quello che si compra non è precisione, è che i numeri si riproducano.**
+Rieseguire oggi la riga in ANN dà 0,7705 e nessun campo del risultato spiega
+perché; rieseguire la riga in esatta dà le stesse sei cifre di nove giorni fa, e
+le darà anche dopo la prossima riorganizzazione dei segmenti.
+
+#### Le righe già pubblicate, e come vanno lette
+
+Nessuna è stata cancellata. Le misure in ANN sono vere — sono state fatte, con
+quell'indice — ma **non si riproducono più**, e chi le rieseguisse oggi troverebbe
+altro senza sapere perché. Accanto a ognuna c'è ora la nota che lo dice.
+
+| dove | il numero in ANN | in esatta | |
+|---|---|---|---|
+| R-07 (sopra) e OQ-01 | `ledger` generic 0,8916 → routed 0,6744, −17,03 pt appaiati | 0,8962 → 0,7590, **−13,72** | l'esatta era già stata misurata da R-11; lì il numero in ANN è metà del confronto e resta dov'è |
+| R-11, *«non è la taglia»* | `ledger` 0,8915 → 0,8962, **+0,0046** | oggi lo stesso guadagno vale **+0,1257** | il segno regge, la grandezza no |
+| R-11, richiamo dell'indice | `ledger` 0,9892 del vero top-5 | oggi **0,8356** | è la misura che il reperto ha spostato, ed è la causa di tutte le altre |
+
+#### Le run di generazione del 21 e 22 agosto sono girate sull'indice cambiato
+
+E questo tocca **D-1, D-2, D-3 e D-19**, che hanno confrontato il prompt in vigore
+con le due run del 12 agosto. Fra i due bracci non è cambiato solo il prompt: è
+cambiato anche il recupero, che è precisamente ciò che il §15 vieta.
+
+Misurato invece che assunto, sulle **100 query** che le due run di `ledger`
+condividono:
+
+| | |
+|---|---|
+| contesto identico | 72 su 100 |
+| contesto completamente diverso | 20 su 100 |
+| astensioni | 19 → 18 (7 contro 6 discordanti) |
+| `format_compliance` sulle 75 valutate in entrambe | **1,0000 → 1,0000**, di cui 17 con contesto diverso |
+
+Il recupero è cambiato per **un quarto** delle domande e la conformità non si è
+mossa di una risposta. Il calo di `ledger` che D-1 registra (1,0000 → 0,9664)
+viene quindi dalle query 101–200, che il 12 agosto non erano state fatte — ed è
+esattamente ciò che D-19 ha poi identificato: **quattro rifiuti scritti con parole
+proprie**, non un effetto del recupero.
+
+Resta un difetto di metodo che non si cancella riportandolo bene: quel confronto
+aveva due variabili, e che la seconda non mordesse si è saputo **dopo**. È il
+motivo per cui il passo 3 di OQ-09 è `probe_ann_recall.py` prima di ogni run che
+pubblichi numeri in ANN — un minuto, contro il rischio di scoprire a cose fatte
+che i due bracci non erano confrontabili.
+
+#### Cosa questa coda non riscrive
+
+**Le due configurazioni col rerank**: sono girate il 23 agosto e stanno nella
+sezione qui sopra. Il vincolo che teneva aperto il ramo — le otto configurazioni
+sullo stesso percorso di recupero — è stato verificato col diff invece che
+assunto: fra il commit delle sei e quello delle due, `src/retrieval`, `src/index`,
+`harness.py`, `metrics.py` e `config.py` differiscono per una funzione **aggiunta**
+a `embed.py` che nessuno di quei percorsi chiama.
+
+**I numeri di `open_ragbench`**: non c'era niente da riscrivere. ANN ed esatta
+danno le stesse sei cifre, che è il motivo per cui il reperto è di `ledger` e non
+del progetto.

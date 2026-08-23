@@ -37,6 +37,8 @@ Misura definitiva (2026-08-07, golden set **completi**, profondità 10 — i num
 
 (Tassi sul criterio binario *"almeno un documento rilevante nei primi 5"*, non `doc_R@5`, che è una frazione quando una query ha più documenti rilevanti. Riproducibile con `scripts/compare_runs.py`.)
 
+> **La riga `ledger` è in ricerca approssimata e non si riproduce più** (OQ-09). In esatta vale 0,8962 → 0,7590, cioè −13,72 punti invece di −17,03 — R-11 lo aveva già misurato, e questa tabella è rimasta com'era perché è il fatto da spiegare così com'era stato osservato.
+
 La domanda è solo la seconda riga. Su LEDGER il routing sbaglia **1797 query su 10000** che la pipeline generica azzeccava, e ne recupera 94: non è rumore né un effetto di soglia, è un regresso sistematico. In `progress.md` la causa era annotata come *"sub-chunking aggressivo → chunk troppo piccoli, IDF diluito"*. È una congettura scritta senza misura: va verificata o sostituita.
 
 ### Cosa è stato misurato finora
@@ -772,3 +774,140 @@ numero di punti sotto misure già registrate, e comprerebbe un centesimo di punt
 ### Perché conta lo stesso
 
 Perché è la seconda volta che una proprietà dell'OCR di `ledger` emerge guardando l'interfaccia e non le metriche: la prima è **OQ-07**, il segno contabile fra parentesi. Le metriche aggregate non le avrebbero mostrate né l'una né l'altra — `citation_precision` e `doc_R@5` sono medie, e una media non dice mai *cosa* c'è dentro un chunk. Disegnare il corpus è stato un modo di leggerlo.
+
+---
+
+## OQ-09 — L'ANN di `ledger` rende dodici punti meno di nove giorni fa
+
+**Nuova (2026-08-22), osservata girando D-4.** Il fatto è misurato; la causa no.
+Si riproduce in 85 s con `scripts/eval.py --dataset ledger --retrieval-mode
+dense`, e senza rimisurare niente con `scripts/compare_retrieved.py` sui due dump
+già su disco.
+
+### Il fatto
+
+Stesso `config_hash` — **`5c3c7fa2`** su tutt'e due — stesse 10.000 query, stessa
+macchina, due numeri diversi:
+
+| `ledger`, dense, ricerca approssimata | 13 ago | 22 ago | |
+|---|---|---|---|
+| `doc_R@5` | 0,8915 | **0,7705** | **−12,10** |
+| `doc_R@10` | 0,9116 | 0,7898 | −12,19 |
+| nDCG@10 | 0,2422 | 0,2124 | −2,98 |
+
+Appaiato sulle stesse query, criterio binario *«almeno un documento rilevante nei
+primi 5»* (`compare_retrieved.py`, McNemar esatto):
+
+| | 13 ago | 22 ago | discordanti | |
+|---|---|---|---|---|
+| doc@5 | 0,9361 | 0,8120 | **1265 contro 24** | p < 0,0001 |
+| chunk@5 | 0,5434 | 0,4749 | 795 contro 110 | p < 0,0001 |
+
+Milleduecentosessantacinque query hanno smesso di trovare il documento giusto e
+ventiquattro hanno cominciato. Non è rumore e non è un effetto di soglia.
+
+### Tre controlli, e cosa restringono
+
+D-4 ha girato le stesse tre modalità sui due corpus, una volta in ANN e una in
+ricerca esatta. I tre controlli dicono tutti **niente cambiato**:
+
+| controllo | 13 ago | 22 ago | |
+|---|---|---|---|
+| `open_ragbench` dense ANN, nDCG@10 | 0,718418 | 0,718418 | identico a sei decimali |
+| `ledger` sparse ANN, `doc_R@5` | 0,883600 | 0,883733 | +0,0001 |
+| `ledger` dense **esatta**, `doc_R@5` | 0,896183 | 0,896183 | identico a sei decimali |
+
+Il primo esclude il codice, il modello d'embedding e la macchina: se una qualunque
+di quelle si fosse mossa, `open_ragbench` si sarebbe mosso con lei — e non si è
+mosso su nessuna delle sette metriche. Il secondo esclude il lato sparso, che da
+un grafo non passa. **Il terzo esclude il contenuto dell'indice**: la ricerca
+esatta legge gli stessi vettori ignorando il grafo, e restituisce le stesse sei
+cifre di nove giorni fa, metrica per metrica.
+
+Resta una cosa sola: **il grafo HNSW di `ledger` naviga peggio di prima**, sugli
+stessi vettori. Si vede direttamente confrontando i dump con l'ordinamento vero,
+cioè con la ricerca esatta di oggi:
+
+| | 13 ago | 22 ago |
+|---|---|---|
+| richiamo@10 dell'ANN sul vero top-10 | **0,9754** | **0,8369** |
+| il vero primo esce primo | 97,4% | 82,7% |
+| top-10 identico al vero | 86,3% | 66,6% |
+| primo restituito con punteggio più basso di nove giorni fa | — | 1659 query (contro 119 più alto) |
+
+L'ultima riga è la forma pura del fenomeno: per 1659 query la ricerca **si ferma
+su un candidato peggiore**, e i vettori sono gli stessi.
+
+### Quando è successo
+
+Fra il **12 e il 21 agosto**, e non si può stringere di più con quel che c'è.
+I dump di generazione lo datano perché portano i chunk mandati in contesto: la
+query `SHW_accounts_receivable_2017` riceve i cinque chunk di Sherwin-Williams il
+10 e il 12 agosto, e cinque chunk di cinque aziende diverse il 21 e il 22
+(identici fra loro). In mezzo nessuna run di recupero su `ledger` è registrata, e
+Qdrant non tiene la storia dei segmenti.
+
+### L'ipotesi
+
+**A-07, il 14 agosto**, ha aggiunto gli indici payload su `doc_id` e `chunk_id` a
+tutte e sette le collection. La riga scritta allora — «un indice payload si
+aggiunge a una collection viva **senza rifare i vettori**» — era vera ed è ancora
+vera: i vettori infatti sono gli stessi, lo dimostra la ricerca esatta. Ma un
+indice payload nuovo fa lavorare l'ottimizzatore, e i **segmenti** si rifanno: il
+grafo HNSW è per segmento, quindi si ricostruisce con essi. La data cade dentro
+la finestra.
+
+**È una correlazione con un meccanismo plausibile, non una prova**, e ha già una
+crepa: gli indici payload sono andati su tutte e sette le collection, e
+`open_ragbench` non si è mosso di un decimale. La risposta candidata è che
+`open_ragbench` **non avesse spazio per perdere** — R-11 ne aveva misurato il
+richiamo dell'ANN al 99,94% del vero top-5, contro il 98,92% di `ledger`, che vive
+in una banda di similarità larga 0,0085 (OQ-01). In una banda così stretta un
+grafo ricostruito diversamente arriva altrove. Ma è una risposta candidata, non
+una misura: oggi **tutte e sette** le collection hanno 8 segmenti, quindi il
+conteggio da solo non distingue chi ha perso da chi non aveva niente da perdere.
+
+### Protocollo
+
+**Passo 1 — allargare il fatto. ~3 minuti, niente generazione.** Rimisurare
+`ledger_routed` in ANN e in esatta. R-11 aveva lasciato 0,6744 e 0,7590: se anche
+lì l'ANN è sceso, il fenomeno riguarda le collection dense e non una sola, e il
+divario ANN↔esatta è la grandezza da guardare.
+
+**Passo 2 — la prova della causa, e perché non si fa.** Cancellare i due indici
+payload da `ledger` e rimisurare sarebbe questione di secondi, ed è **ambiguo per
+costruzione**: cancellare un indice fa lavorare lo stesso ottimizzatore che si
+sospetta, quindi un ANN che risale non distingue *«l'indice payload faceva male»*
+da *«i segmenti si sono rifatti di nuovo, e stavolta meglio»*. La prova pulita è
+ricostruire la collection da zero senza quegli indici — ore di re-ingestione — e
+non vale il prezzo di una domanda che non cambia nessuna decisione: qualunque sia
+la causa, ciò che si fa è già deciso (sotto).
+
+**Passo 3 — quello che costa zero e serve davvero.** `probe_ann_recall.py
+--dataset ledger` **prima** di ogni run che pubblichi numeri in ANN. Un minuto, e
+dice se l'indice approssimato di oggi è quello di ieri.
+
+### Cosa cambia comunque, senza aspettare la causa
+
+1. **D-4 gira in ricerca esatta.** Costa 85 s contro 88 su `ledger` e 27 contro 28
+   su `open_ragbench`, e toglie di mezzo una dipendenza che è già cambiata da sola
+   sotto un task che non toccava il recupero.
+2. **I numeri di `ledger` pubblicati in ANN non si riproducono più.** Nel quaderno
+   vanno letti come datati; la riscrittura è in [`progress.md`](progress.md), coda
+   di D-4.
+3. **Nessun campo di `EvalRun` registra lo stato dell'indice**, ed è per questo
+   che due misure diverse hanno potuto chiamarsi `5c3c7fa2`. Registrato come
+   **D-20** nel ROADMAP.
+
+### Trappole
+
+**Chiamarlo un peggioramento del sistema.** Non lo è: il contenuto dell'indice è
+intatto, e la ricerca esatta lo dimostra restituendo le stesse sei cifre. È un
+peggioramento del **richiamo dell'indice approssimato**, cioè di uno strumento di
+misura, non della cosa misurata.
+
+**Chiamarlo la prova che la ricerca esatta va accesa di default.** R-11 ha già
+deciso il contrario, e per ragioni che reggono: l'esatta è O(n), e a 47k punti
+costa 2,5 ms contro 1,4 ma a dieci milioni il conto è un altro. Quello che questo
+episodio aggiunge non è *«accendetela»*, è *«un numero in ANN è riproducibile solo
+finché nessuno tocca la collection, e niente registra che qualcuno l'ha toccata»*.
