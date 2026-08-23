@@ -31,6 +31,7 @@ from src.eval.run_config import build_config, make_eval_run
 from src.generation.chat import generate_detailed
 from src.generation.citation_format import ComplianceSummary, check_format, summarize
 from src.generation.prompt import SYSTEM, build_user_message
+from src.index import embed
 from src.index.store import chunk_from_payload, get_client
 
 
@@ -287,6 +288,18 @@ def run_citation_eval(
     all_candidates = retrieve(
         client, qdrant_collection, [q.query_text for q in answerable], top_k, None, config
     )
+
+    # **Il recupero e' finito qui, e la sessione ONNX no.** Da questo punto la
+    # run parla solo col modello via HTTP, ma l'embedder resterebbe in memoria
+    # per tutta la generazione -- su una scheda da 12 GB sono i ~2,3 GB che
+    # decidono se il 12B ci sta o se il driver ne sposta quattro nella memoria
+    # condivisa. Misurato il 2026-08-22: con l'embedder in memoria il decode del
+    # 12B sta a 4,7 tok/s contro i 33 a scheda libera, perche' il motore di
+    # copia satura e quelli di calcolo aspettano.
+    #
+    # Sta **dopo** il recupero e non dentro `encode()`: chi ha finito lo sa il
+    # chiamante, e l'ingestione embedda a lotti per decine di minuti.
+    embed.unload()
 
     print(f"  Generating {n} answers with {model}...", flush=True)
     records: list[GenerationRecord] = []

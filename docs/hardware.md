@@ -195,6 +195,58 @@ queste manopole vale un cambio di configurazione.** `num_batch` a 1024 è la
 migliore per ritmo di prefill ed è quella da provare per prima se un giorno il
 fuori-motore verrà ridotto; oggi non cambia la durata di una run.
 
+#### La stessa manopola sul 12B vale un fattore quattro (2026-08-22, sera)
+
+La frase qui sopra è vera per **E4B** ed è **falsa per il 12B**. I numeri non
+cambiano: cambia la loro portata, e va scritto perché sono stati usati per
+decidere il costo dell'affermazione 3.
+
+Misurato appaiato **sui token**, stesso modello, stessi prompt, stessa macchina,
+a poche ore di distanza:
+
+| prompt | FA spenta | FA accesa | |
+|---|---|---|---|
+| 4.068 token | 88,9 tok/s | **377,8** | **4,25×** |
+| 4.143 token | 114,5 tok/s | **375,5** | **3,28×** |
+| decode, qualunque prompt | 37,4 tok/s | 33,0 | **−12%** |
+
+I due prompt sono gli stessi al token, quindi non è un confronto fra medie: è la
+stessa domanda misurata due volte. E la firma è netta — **la manopola sposta il
+prefill e non tocca il decode**, che è quello che ci si aspetta da
+un'attenzione che materializza una matrice `n × n`: a 4.000 token conta, a uno
+per volta no.
+
+**Perché su E4B non si vedeva.** Non perché la manopola facesse meno, ma perché
+là il prefill costava 8,2 s su 13 di orologio e i ~4 s di fuori-motore ne
+assorbivano la differenza. Sul 12B un prompt da 4.000 token a 100 tok/s costa
+**40 secondi**, e non esiste nessun pavimento che assorba quaranta secondi. La
+regola dell'orologio — *«le manopole muovono il motore, non l'orologio»* — **non
+sopravvive a un cambio di taglia**: il fuori-motore è una costante, il prefill
+no, e più il modello è grande più la quota che la manopola tocca è grande.
+
+Effetto su una run vera (`eval_citations.py --limit 6`, 12B, `open_ragbench`):
+
+| | a domanda | proiezione su 100 |
+|---|---|---|
+| FA accesa, embedder in memoria | 43,5 s | 1 h 15 |
+| FA spenta, embedder in memoria | 63,5 s | 1 h 45 |
+| **FA accesa, embedder scaricato** | **21,8 s** | **~37 min** |
+
+Le due manopole sono indipendenti e colpiscono fasi diverse — la flash attention
+il prefill, la memoria dell'embedder il decode — ed è la ragione per cui per
+mezza giornata sono sembrate una sola. Il decode crolla a 4,7 tok/s quando il
+driver sposta ~4 GB nella memoria condivisa, e allora **il motore di copia sale
+all'82% mentre quelli di calcolo restano a zero**: è il sintomo che si vede nel
+pannello GPU di Windows e che né `/api/ps` né i contatori per processo mostrano,
+perché `size_vram` conta i pesi e non la contesa.
+
+> **Il default resta spento, e questa non è una raccomandazione di accenderlo
+> ovunque.** È una riga di protocollo: **la configurazione del motore va
+> dichiarata insieme alla taglia del modello**, perché una misura fatta su E4B
+> non si estende al 12B — e questa pagina lo ha appena fatto per mezza giornata.
+> Il campo non esiste in `EvalRun`, che registra `model` e `quantization` ma
+> niente del motore: è la stessa lacuna di **D-20**, un piano più in là.
+
 ### Cosa è stato misurato e cosa no
 
 `OLLAMA_NUM_PARALLEL` **non è stato misurato.** Era già a 1 prima della prima
@@ -278,6 +330,16 @@ domande del piano originale costano 1 h 15 invece di 6 h 40. La decisione del
 2026-08-20 di fare 50 invece di 100 era presa su un prezzo che non esiste, e va
 ripresa.
 
+> **Aggiornamento della stessa sera: 21,8 s, non 43,5.** Lo stesso comando a sei
+> domande, dopo aver scaricato l'embedder al termine del recupero, ha impiegato
+> **131 s** contro i 261 di questa riga. I 43,5 s erano misurati con ~2,1 GB di
+> sessione ONNX ferma in VRAM per tutta la generazione — il che non era un
+> difetto della misura (l'harness faceva davvero così) ma di ciò che l'harness
+> faceva. **Le 100 domande costano ~37 minuti.** Il numero qui sopra resta perché
+> descrive il codice di allora, e perché la sequenza 240 → 43,5 → 21,8 dice una
+> cosa che nessuno dei tre da solo direbbe: due volte su tre il preventivo era
+> alto perché la macchina stava facendo qualcosa che nessuno aveva chiesto.
+
 **Perché T-02 era così lontano** non è dimostrato, ma le due cause candidate sono
 entrambe scritte in questa pagina: il *thinking* era acceso (la nota di T-02 lo
 dichiara) e il 12B occupava 8,1 GB su una scheda da 12 — con un contesto grande è
@@ -285,6 +347,105 @@ esattamente la condizione in cui il modello entra a metà, che è il confonditor
 descritto più sopra. Non si può verificare a posteriori: quelle misure non
 registrarono né `think` né la quota in VRAM. È il motivo per cui `probe_prefill.py`
 adesso registra tutte e due.
+
+### Il budget di una scheda da 12 GB (2026-08-23)
+
+Questa pagina ha passato una giornata a chiedersi perché il 12B fosse lento, e la
+risposta non era mai nel modello. **Su 12 GB il vincolo non è «il modello ci
+sta»: è «che altro è residente».** Il modello ci stava sempre — `49/49 layers`,
+`size_vram == size` — e girava a un settimo del suo ritmo.
+
+#### Il conto, con i numeri misurati di questo progetto
+
+| voce | quanto | dove si legge |
+|---|---|---|
+| pesi `gemma4:12b` Q4_K_M | **8,6 GB** | `ollama ps`, campo `size` |
+| KV cache a 32k, flash attention **accesa** | **0,97 GB** | log llama.cpp, `llama_kv_cache: size` (512 + 480 MiB) |
+| KV cache a 32k, flash attention **spenta** | **1,72 GB** | idem: la V viene **paddata a 2048** (1.280 + 480 MiB) |
+| sessione ONNX dell'embedder (`multilingual-e5-large`) | **2,10 GB** | contatore per processo |
+| sessione ONNX del reranker (`bge-reranker-base`), in aggiunta | **1,04 GB** | idem |
+| desktop: `dwm`, sfondo animato, browser, editor | **1,1–1,3 GB** | idem |
+
+Il totale disponibile è **12,0 GB**, meno ~46 MB riservati all'hardware. Non è
+molto sopra la somma di due righe qualsiasi di quella tabella.
+
+#### Le tre configurazioni che questo progetto usa davvero
+
+| | conto | |
+|---|---|---|
+| generazione col 12B, **peggiore** (FA spenta, embedder residente) | 8,6 + 1,72 + 2,10 + 1,2 = **13,6 GB** | sfora di 1,6 |
+| generazione col 12B, **migliore** (FA accesa, embedder scaricato) | 8,6 + 0,97 + 1,2 = **10,8 GB** | ci sta, 1,2 di margine |
+| recupero con rerank, nessun LLM (D-4) | 3,2 + 1,2 = **4,4 GB** | non tocca il muro |
+
+La riga di mezzo è quella in cui girano le misure di oggi, e ha **1,2 GB** di
+margine. Non c'è spazio per una quarta cosa: il server API acceso ne prende 3,5 e
+riporta la macchina nella prima riga.
+
+#### Il sintomo non è un errore, ed è per questo che costa mezza giornata
+
+Lo sforamento non fallisce. La risposta arriva, ed è **giusta**: solo lenta. Il
+driver sposta la differenza nella memoria di sistema, e la scheda continua a
+rispondere passando i dati sul PCIe a ogni token.
+
+| strumento | cosa dice | cosa **non** dice |
+|---|---|---|
+| `ollama ps`, `size_vram` contro `size` | se i **pesi** sono in VRAM | niente della contesa — diceva `8,6 di 8,6` con 4 GB fuori |
+| log di llama.cpp, `offloaded 49/49 layers` | idem, ed è vero | idem |
+| **pannello GPU di Windows** | **memoria condivisa > 0**, motore **Copy** alto, **Compute** a zero | — |
+| contatore `GPU Process Memory`, `Local Usage` e `Non Local Usage` | lo stesso dato, **per processo e interrogabile da script** | — |
+
+Le prime due righe sono i due strumenti che questa pagina interrogava, e sono
+esattamente i due che non possono vederlo: guardano i **pesi**, non la contesa.
+Il motore di **copia** saturo con quelli di calcolo fermi è la firma — una GPU
+che trasferisce invece di calcolare.
+
+#### La diagnosi sta in una riga: quale delle due fasi è lenta
+
+| fase | a cosa è legata | manopola |
+|---|---|---|
+| **prefill** | calcolo — l'attenzione materializza una matrice `n × n` | **flash attention** |
+| **decode** | banda di memoria — quindi **dove** sta la memoria | **cosa altro è residente** |
+
+> **Decode lento col modello «tutto in VRAM» è un problema di collocazione.
+> Prefill lento col decode sano è un problema di kernel.** Guardare il totale a
+> orologio li confonde, ed è il motivo per cui per mezza giornata sono sembrati
+> un difetto solo.
+
+#### Tre regole operative
+
+1. **Contare prima, non sperare.** I numeri della prima tabella si leggono tutti
+   in meno di un minuto, e la somma dice già se si sforerà.
+2. **Liberare batte ridurre.** Nessuna manopola del modello è stata toccata — né
+   la quantizzazione né `n_ctx`, che il §3 fissa a 32768 e non è negoziabile.
+   Bastava non tenere 2,1 GB di sessione ONNX che aveva finito il suo lavoro.
+3. **Cronometrare i primi minuti** di una run lunga, sullo strumento vero e nello
+   stato in cui girerà. È la stessa regola che C-06 aveva già scritto dopo lo
+   smoke test da 3 query, e che questa giornata ha ripetuto due volte.
+
+#### Il controllo, in una riga
+
+```powershell
+$d=(Get-Counter "\GPU Process Memory(*)\Local Usage").CounterSamples
+$n=(Get-Counter "\GPU Process Memory(*)\Non Local Usage").CounterSamples
+"dedicata {0:N0} MB / condivisa {1:N0} MB" -f (($d|Measure-Object CookedValue -Sum).Sum/1MB),(($n|Measure-Object CookedValue -Sum).Sum/1MB)
+$d|?{$_.CookedValue -gt 200MB}|Sort CookedValue -Desc|%{ $p=Get-Process -Id (($_.InstanceName -split '_')[1]) -EA SilentlyContinue; "{0,-16} {1,8:N0} MB" -f $(if($p){$p.ProcessName}else{"(morto)"}),($_.CookedValue/1MB) }
+```
+
+**La riga da guardare è la condivisa.** Sopra lo zero — al netto di qualche
+centinaio di MB di sfondi e browser — vuol dire che qualcosa viaggia sul PCIe a
+ogni token.
+
+#### Cosa non è stato provato, e va detto
+
+- **Quantizzare il KV cache** (`OLLAMA_KV_CACHE_TYPE=q8_0`) dimezzerebbe la voce
+  da 0,97 GB. Non provato, e non è gratis: cambia i numeri che il modello genera,
+  quindi è una decisione da prendere **prima** di una campagna di misure, non
+  durante.
+- **`OLLAMA_NUM_PARALLEL`** resta a 1 e resta non misurata, per la ragione già
+  scritta più sopra.
+- **I modelli a contesto ridotto** (`gemma4:12b-8k` e simili, presenti nel
+  catalogo locale) libererebbero KV, ma il §3 fissa la finestra a 32768 per ogni
+  misura: sono fuori discussione qui, non in assoluto.
 
 ### Cosa questo dice su ROCm
 
