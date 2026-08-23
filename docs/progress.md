@@ -4021,3 +4021,104 @@ a `embed.py` che nessuno di quei percorsi chiama.
 **I numeri di `open_ragbench`**: non c'era niente da riscrivere. ANN ed esatta
 danno le stesse sei cifre, che è il motivo per cui il reperto è di `ledger` e non
 del progetto.
+
+### D-17 e U-23 — una lista che dichiarava una cosa che nessuno aveva verificato
+
+`esempi.ts` diceva: *«sono query d'oro vere, prese da `eval/golden`, perché il
+primo clic di chi prova il progetto non deve finire in un'astensione»*. La
+premessa era vera e la conclusione no, e lo scarto fra le due è tutto il task:
+**una query d'oro ha dei qrels, non la garanzia che il recupero li trovi.**
+
+Misurato adesso, con la configurazione con cui la demo parte (`dense`, `top_k` 5):
+su `ledger` solo il **35%** delle query d'oro porta il proprio chunk nei primi
+cinque. Una presa a caso ha circa una probabilità su tre.
+
+#### Cosa ha trovato la verifica
+
+Il debito aveva ragione, e i numeri esatti sono questi:
+
+| esempio | ANN | esatta |
+|---|---|---|
+| ORB — approccio MLMM e RMSE | 1 | 1 |
+| ORB — indipendenza posizione/classe | 1 | 1 |
+| LED — spesa in conto capitale di Sherwin-Williams 2017 | 5 | 5 |
+| LED — crediti verso clienti di Sherwin-Williams 2017 | **mai** | **mai** |
+
+Ma ne ha trovato anche uno che il debito non sapeva, ed è il più serio: **i due
+esempi "fuori corpus" non chiudevano il gate.** 0,8225 contro una soglia di
+0,7924 su `open_ragbench`, 0,8417 contro 0,8289 su `ledger`.
+
+L'astensione che la demo mostrava era vera, ma **per la ragione sbagliata**: a
+deciderla era il modello che scriveva *«Insufficient information»*, non la soglia
+calibrata di C-04. Sono due meccanismi diversi e il §15 ne preferisce uno in modo
+esplicito — *«la soglia di astensione e il formato di citazione si decidono in
+codice, mai lasciati al modello»*. La demo stava dimostrando l'altro.
+
+#### Il criterio, e perché è doppio
+
+Ogni esempio adesso dichiara **cosa deve succedere**, ed è `atteso` nel file:
+il `chunk_id` e la posizione, oppure che il gate si chiuda e con quanto margine.
+Il tipo è un'unione, quindi un esempio nuovo **non si può aggiungere senza dire
+quale dei due casi è** — che è la stessa forma di rete di `dettagli.ts` in D-5.
+
+`scripts/verify_esempi.py` lo controlla contro l'indice vero, **in ricerca
+approssimata e in esatta**. Le due servono tutt'e due perché il default oggi è
+l'ANN, il ROADMAP prevede che la demo giri in esatta, e `make dev` e il profilo
+`demo` potrebbero non coincidere: un esempio che regge in una sola delle due si
+rompe a seconda di come lo si avvia.
+
+> Un controllo che si accontentasse di *«ha trovato qualcosa»* passerebbe anche
+> il giorno in cui trova un chunk **diverso** da quello previsto — e su `ledger`,
+> dove i bilanci della stessa azienda si somigliano molto, quel giorno arriva.
+> Per questo si verifica il chunk dichiarato e non un qrel qualsiasi.
+
+Lo script **legge il TypeScript** invece di tenere una copia dell'elenco: due
+elenchi da allineare a mano sono un elenco solo che ogni tanto mente, ed è
+letteralmente il difetto da cui nasce questo task. Il parser è rigido apposta —
+conta gli esempi, pretende che ogni `query` abbia il suo `atteso` — così un
+cambio di forma del file lo fa **fallire** invece di fargli controllare meno di
+quello che deve.
+
+#### I nuovi esempi, e come sono stati scelti
+
+`--cerca DATASET` propone query d'oro **verificate**, ordinate per posizione
+peggiore fra le due ricerche. I due di `ledger` vengono da lì e arrivano **in
+posizione 1 in tutt'e due**; i due di `open_ragbench` erano già a posto e non si
+toccano — l'unica cosa che serviva era guardarli.
+
+Per i «fuori corpus» il criterio è più stretto: devono **chiudere il gate**. Ed è
+qui che è saltato fuori un fatto che vale oltre la demo:
+
+> **Su `ledger` cambiare anno non basta.** Quattro domande della forma «stessa
+> azienda, un anno che il corpus non ha» passano tutte il gate. A chiuderlo è
+> l'**azienda** assente: Microsoft chiude, il 2024 di Sherwin-Williams no.
+
+È **OQ-10**, perché la spiegazione candidata è che la soglia sia stata calibrata
+su una popolazione che non somiglia al caso vero — le non rispondibili di E-02
+sono costruite incrociando i corpus, cioè sono lontanissime.
+
+Fra i candidati che chiudono, la scelta è andata al **margine**, non alla
+bellezza: sette domande accademiche inventate per `open_ragbench` stavano fra
+−0,025 e +0,007 dalla soglia, cioè o passavano o ci andavano così vicino da non
+reggere il prossimo cambio d'indice. Ha vinto una query d'oro non rispondibile di
+E-02, a **+0,0227**. Su `ledger` la domanda su Microsoft sta a +0,0078: è più
+stretto, è accettato perché quella domanda ha la stessa forma dei due esempi
+buoni — e il margine è **scritto nel file**, così lo script avvisa quando si
+dimezza invece di scoprirlo quando sparisce.
+
+#### Due reti invece di una
+
+Lo script ha bisogno di Qdrant e dell'indice vero, quindi non gira nella suite.
+`esempi.test.ts` copre l'altra metà, quella che si vede senza accendere niente:
+tre esempi per dataset, **uno solo** fuori corpus e in fondo all'elenco, il chunk
+dichiarato che appartiene al dataset giusto, il margine positivo, e il testo
+inglese identico alla query che parte — perché i due stanno uno sopra l'altro
+nello stato vuoto, e se differissero chi legge in inglese vedrebbe una domanda e
+ne manderebbe un'altra.
+
+#### Cosa questo lascia a U-08
+
+I `chunk` dichiarati sono ora **esattamente ciò che l'indice ridotto del profilo
+`demo` deve contenere**. Prima il vincolo era scritto a parole in un commento;
+adesso è un elenco di sei identificatori che uno script sa leggere.
+
