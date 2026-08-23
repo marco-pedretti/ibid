@@ -1,0 +1,38 @@
+{
+  "run_id": "9b04cd6b-7f3c-42b7-91bc-4bafbb8c2238",
+  "timestamp": "2026-08-23T10:05:43.046190Z",
+  "git_commit": "6078f7f6a67fc1325fe7cb83b091955dc1e1266d",
+  "config_hash": "2a069d31",
+  "dataset_id": "open_ragbench",
+  "model": "retrieval_only",
+  "quantization": "none",
+  "context_window": 0,
+  "temperature": 0.0,
+  "reasoning_enabled": false,
+  "pipeline_mode": "generic",
+  "config": {
+    "retrieval_mode": "hybrid",
+    "top_k": 5,
+    "eval_depth": 10,
+    "rerank": true,
+    "query_rewrite": false,
+    "filter_content_type": null,
+    "doc_aggregate": false,
+    "collection": "open_ragbench",
+    "n_queries": 3045,
+    "embedding_model": "intfloat/multilingual-e5-large",
+    "search_exact": true,
+    "hnsw_ef": null,
+    "reranker_model": "BAAI/bge-reranker-base",
+    "query_rewrite_model": null
+  },
+  "metrics": {
+    "nDCG@10": 0.8053137581967128,
+    "R@5": 0.8939244663382594,
+    "RR@10": 0.7592524826022354,
+    "Success@1": 0.6594417077175698,
+    "R@10": 0.9474548440065681,
+    "doc_R@5": 0.9914614121510673,
+    "doc_R@10": 0.9963875205254515
+  }
+}
