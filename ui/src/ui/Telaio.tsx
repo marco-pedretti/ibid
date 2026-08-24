@@ -473,6 +473,26 @@ function BottoneCorsia({
 }
 
 /**
+ * La forma dei due comandi che **cambiano schermata** dalla corsia: «Esplora il
+ * corpus» e «Che cos'e'».
+ *
+ * Erano scritte quattro volte, due per comando, e identiche: la stringa compatta
+ * lo era carattere per carattere. Non e' una pastiglia (quella commuta un valore
+ * e resta dov'e') e non e' una cella di `CELLA` (quelle stanno affiancate in
+ * fondo): e' un comando a tutta larghezza, alto come una cella perche' nella
+ * striscia sta nella stessa colonna.
+ *
+ * Restano due costanti e non un componente: cio' che i due comandi hanno
+ * davvero in comune e' la forma, mentre intorno differiscono — uno porta la
+ * zona della guida, l'altro un margine — e un componente che prendesse anche
+ * quelle sarebbe una configurazione con sette manopole al posto di due bottoni.
+ */
+const COMANDO_COMPATTO =
+  "flex h-[34px] w-full items-center justify-center rounded-[7px] border border-line-2 text-ink-2 transition-colors hover:border-accent-2 hover:text-ink";
+const COMANDO_LARGO =
+  "flex h-[34px] w-full items-center gap-2 rounded-[7px] border border-line-2 px-2.5 text-[11.5px] text-ink-2 transition-colors hover:border-accent-2 hover:text-ink";
+
+/**
  * «Esplora il corpus»: la schermata che guarda l'indice invece della risposta.
  *
  * Non e' disabilitato quando manca un dataset — non capita, perche' senza indice
@@ -496,7 +516,7 @@ function BottoneCorpus({ compatto = false }: { compatto?: boolean }) {
           type="button"
           onClick={vai}
           aria-label={t("corpus.open.action")}
-          className="flex h-[34px] w-full items-center justify-center rounded-[7px] border border-line-2 text-ink-2 transition-colors hover:border-accent-2 hover:text-ink"
+          className={COMANDO_COMPATTO}
         >
           <Corpus size={14} />
         </button>
@@ -505,11 +525,7 @@ function BottoneCorpus({ compatto = false }: { compatto?: boolean }) {
   }
 
   return (
-    <button
-      type="button"
-      onClick={vai}
-      className="mt-1.5 flex h-[34px] w-full items-center gap-2 rounded-[7px] border border-line-2 px-2.5 text-[11.5px] text-ink-2 transition-colors hover:border-accent-2 hover:text-ink"
-    >
+    <button type="button" onClick={vai} className={`${COMANDO_LARGO} mt-1.5`}>
       <Corpus size={13} />
       {t("corpus.open.action")}
     </button>
@@ -578,7 +594,7 @@ function BottoneInfo({ compatto = false }: { compatto?: boolean }) {
             type="button"
             onClick={vai}
             aria-label={t("about.action")}
-            className="flex h-[34px] w-full items-center justify-center rounded-[7px] border border-line-2 text-ink-2 transition-colors hover:border-accent-2 hover:text-ink"
+            className={COMANDO_COMPATTO}
           >
             <Informazioni size={14} />
           </button>
@@ -590,11 +606,7 @@ function BottoneInfo({ compatto = false }: { compatto?: boolean }) {
   return (
     <div {...zona("resta")}>
       <Suggerimento testo={t("about.hint")} fuoco={false} className="block">
-        <button
-          type="button"
-          onClick={vai}
-          className="flex h-[34px] w-full items-center gap-2 rounded-[7px] border border-line-2 px-2.5 text-[11.5px] text-ink-2 transition-colors hover:border-accent-2 hover:text-ink"
-        >
+        <button type="button" onClick={vai} className={COMANDO_LARGO}>
           <Informazioni size={13} />
           {t("about.action")}
         </button>
