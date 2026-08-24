@@ -157,6 +157,9 @@ export function Presentazione() {
               <Limite>{t("about.not.world")}</Limite>
               <Limite>{t("about.not.truth")}</Limite>
               <Limite>{t("about.not.measure")}</Limite>
+              {/* Dove il selettore «Contesto» e' andato a finire (A-09): non e'
+                  una funzione che manca, e' una manopola che sta nel motore. */}
+              <Limite>{t("about.not.context")}</Limite>
               {/* Il punto che il piano chiede di dire qui per nome: e' l'unica
                   differenza fra come e' configurata la demo e come e'
                   configurata la valutazione. Ed e' un «cosa non e'» a tutti gli

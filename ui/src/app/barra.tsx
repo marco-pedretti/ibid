@@ -18,7 +18,6 @@ import type { ReactNode } from "react";
 
 import type { ConfigView } from "../api/types";
 import { usaBackend } from "./backend";
-import { modelli, risolvi } from "./catalogo";
 import { opzioniDa } from "./opzioni";
 import type { Opzioni } from "./opzioni";
 
@@ -43,18 +42,16 @@ export function ProvvedeBarra({ children }: { children: ReactNode }) {
   const [mosse, setMosse] = useState<Partial<Opzioni>>({});
 
   const predefiniti = backend.stato === "pronto" ? backend.predefiniti : null;
-  const catalogo = backend.stato === "pronto" ? backend.capabilities.model_catalog : [];
 
   const opzioni = useMemo(() => {
     if (predefiniti === null) return null;
-    const partenza = opzioniDa(predefiniti);
-    // `/config` restituisce il **modello base**, che da U-16 non e' una finestra
-    // scegliibile: senza risolverlo, la barra si aprirebbe su un modello di cui
-    // nessuna taglia risulta selezionata. Si parte dalla finestra con cui il
-    // progetto misura -- vedi `PREFERITA`.
-    const modello = risolvi(modelli(catalogo), partenza.modello);
-    return { ...partenza, modello, ...mosse };
-  }, [predefiniti, catalogo, mosse]);
+    // **Si parte da cio' che `/config` dice, e basta** (A-09). Fino ad allora
+    // qui si risolveva il modello base nella sua taglia da 32k, perche' la
+    // finestra era una scelta dell'interfaccia; adesso la decide il motore, e
+    // tradurre un nome in un altro vorrebbe dire mandare sul filo un modello
+    // che chi guarda non ha scelto.
+    return { ...opzioniDa(predefiniti), ...mosse };
+  }, [predefiniti, mosse]);
 
   const cambia = useCallback(
     <K extends keyof Opzioni>(chiave: K, valore: Opzioni[K]) =>

@@ -26,19 +26,9 @@
 import { useState } from "react";
 import type { ReactNode } from "react";
 
-import type { ModelView } from "../api/types";
 import { usaBackend } from "../app/backend";
 import { usaBarra } from "../app/barra";
 import { usaLingua } from "../app/i18n";
-import {
-  comeTaglia,
-  conModello,
-  daNomi,
-  finestraDi,
-  modelli as modelliDelCatalogo,
-  modelloDi,
-  risolvi,
-} from "../app/catalogo";
 import { avanzateToccate, modelloInstallato, ragionamentoDisponibile } from "../app/opzioni";
 import type { Opzioni } from "../app/opzioni";
 import { zona } from "./Avvio";
@@ -88,8 +78,14 @@ export function Barra() {
           />
         )}
 
-        <MenuModelli nomi={capacita?.models ?? []} catalogo={capacita?.model_catalog ?? []} />
-        <MenuFinestre catalogo={capacita?.model_catalog ?? []} />
+        {/* **Nessun selettore della finestra di contesto** (A-09): non e' una
+            manopola di ibid. La decide il motore -- una variabile d'ambiente o
+            lo slider dell'app -- e il progetto la **legge** invece di
+            imporla. Il comando che c'era prima sceglieva fra modelli derivati
+            creati apposta, e quei modelli restavano sulla macchina di chi
+            aveva solo voluto provare il progetto. Dove lo si dice a chi
+            guarda: la pagina «Che cos'e'», sotto i limiti. */}
+        <MenuModelli nomi={capacita?.models ?? []} />
 
         <Suggerimento testo={t("bar.advanced.hint")} fuoco={false}>
           <button
@@ -218,13 +214,7 @@ function Menu<T extends string>({
  * quindi la bolla che spiega non si aprirebbe — la lezione delle voci di
  * cronologia in U-13.
  */
-function MenuModelli({
-  nomi,
-  catalogo,
-}: {
-  nomi: readonly string[];
-  catalogo: readonly ModelView[];
-}) {
+function MenuModelli({ nomi }: { nomi: readonly string[] }) {
   const { t } = usaLingua();
   const { opzioni, predefiniti, cambia } = usaBarra();
   if (opzioni === null || predefiniti === null) return null;
@@ -242,12 +232,12 @@ function MenuModelli({
     );
   }
 
-  // Il primo selettore sceglie fra i **modelli**, non fra le voci del catalogo:
-  // `gemma4-8k` e `gemma4-32k` sono la stessa scelta di modello con finestre
-  // diverse, e metterle qui come due voci sarebbe mostrare il catalogo invece
-  // della scelta. Senza catalogo, ogni nome e' un modello con una finestra sola.
-  const elenco = catalogo.length > 0 ? modelliDelCatalogo(catalogo) : daNomi(nomi);
-  const attuale = modelloDi(elenco, opzioni.modello);
+  // **I nomi sono quelli che il motore elenca**, senza raggruppamenti. Fino ad
+  // A-09 questo menu univa modello e finestra -- `gemma4:e2b-8k` e
+  // `gemma4:e2b-32k` erano una voce sola con due taglie -- perche' era il
+  // progetto a creare quelle taglie. Non le crea piu': cio' che c'e' e'
+  // quello che qualcuno ha scaricato o costruito, e presentarlo diversamente
+  // vorrebbe dire interpretare di nuovo dei nomi.
 
   // Il predefinito puo' non essere fra gli installati: `/config` dice come il
   // deployment e' configurato, non cosa e' stato scaricato. Allora compare in
@@ -265,7 +255,7 @@ function MenuModelli({
           },
         ]
       : []),
-    ...elenco.map((m) => ({ valore: m.nome, testo: m.nome })),
+    ...nomi.map((m) => ({ valore: m, testo: m })),
   ];
 
   const rotto = !modelloInstallato(opzioni.modello, nomi);
@@ -274,89 +264,15 @@ function MenuModelli({
     <Suggerimento testo={rotto ? t("bar.model.missing") : t("bar.model.hint")} fuoco={false}>
       <Menu
         etichetta={t("bar.model")}
-        valore={attuale?.nome ?? opzioni.modello}
-        predefinito={modelloDi(elenco, predefiniti.model)?.nome ?? predefiniti.model}
+        valore={opzioni.modello}
+        predefinito={predefiniti.model}
         voci={voci}
-        // Cambiando modello si tiene la finestra piu' vicina a quella che si
-        // aveva: chi confronta due modelli sulla stessa domanda sta cambiando
-        // **una** cosa.
-        onCambia={(m) => cambia("modello", conModello(elenco, m, opzioni.modello))}
+        onCambia={(m) => cambia("modello", m)}
         // Non `danger`: non c'e' niente da distruggere, c'e' qualcosa da
         // sistemare — ed e' lo stesso tono degli altri rilievi (§12).
         tono={rotto ? "border-warn bg-warn-soft text-warn hover:border-warn" : undefined}
       >
-        <span className="font-mono">{attuale?.nome ?? opzioni.modello}</span>
-      </Menu>
-    </Suggerimento>
-  );
-}
-
-/**
- * Quanto testo entra nel modello scelto.
- *
- * **Compare solo quando c'e' una scelta**: se quel modello ha una finestra sola
- * — perche' nessuno ne ha create altre, o perche' il motore non pubblica il
- * catalogo — un menu da una voce non e' un controllo, e' un'etichetta che
- * assomiglia a un controllo. Sparisce, come sparisce il ragionamento quando
- * l'asse non c'e'.
- *
- * Le taglie offerte sono solo quelle **che quel modello regge**: il massimo non
- * e' uno solo (131.072 per `gemma4:e2b`, 262.144 per `gemma4:12b`), e una taglia
- * che compare e poi fallisce fa scoprire il limite dopo l'attesa, per giunta
- * come un errore invece che come un vincolo.
- */
-function MenuFinestre({ catalogo }: { catalogo: readonly ModelView[] }) {
-  const { t } = usaLingua();
-  const { opzioni, predefiniti, cambia } = usaBarra();
-  if (opzioni === null || predefiniti === null || catalogo.length === 0) return null;
-
-  const elenco = modelliDelCatalogo(catalogo);
-  const attuale = modelloDi(elenco, opzioni.modello);
-  if (attuale === null) return null;
-
-  const scelta = finestraDi(elenco, opzioni.modello);
-
-  // **Con una finestra sola la pastiglia resta, attenuata.** Nasconderla era la
-  // prima scelta, col ragionamento che un menu da una voce non e' un controllo:
-  // vero, ma il risultato era che la funzione non esisteva finche' non si
-  // lanciava uno script che nessuno aveva detto di lanciare. Qui il comando c'e'
-  // e dice **perche'** non si puo' scegliere, che e' lo stesso rimedio gia' usato
-  // sul menu dei modelli quando l'elenco non arriva: cio' che manca non e' la
-  // scelta, e' che le taglie non sono state create.
-  if (attuale.finestre.length < 2) {
-    return (
-      <Suggerimento testo={t("bar.context.only")}>
-        <span aria-disabled="true" className={`${PASTIGLIA} border-line-2 text-muted opacity-45`}>
-          {t("bar.context")}
-        </span>
-      </Suggerimento>
-    );
-  }
-  const nome = (f: { token: number | null }) => comeTaglia(f.token, t("bar.context"));
-
-  return (
-    <Suggerimento testo={t("bar.context.hint")} fuoco={false}>
-      <Menu
-        etichetta={t("bar.context")}
-        valore={opzioni.modello}
-        // **Lo stesso `risolvi` che decide da dove si parte.** Calcolarlo in un
-        // altro modo era il difetto: `finestraDi` sul modello base non trova
-        // niente -- il base non e' piu' una finestra -- e si ripiegava sulla
-        // prima taglia, cioe' 8k. Risultato: la pastiglia si apriva gia'
-        // accento, come se qualcuno avesse mosso qualcosa, e il menu marcava
-        // «predefinito» una voce che non lo era.
-        predefinito={risolvi(elenco, predefiniti.model)}
-        voci={attuale.finestre.map((f) => ({
-          valore: f.modello,
-          testo: nome(f),
-          // Il nome vero del catalogo sta nel dettaglio e non nella voce: e' cio'
-          // che parte sul filo, e nasconderlo del tutto renderebbe impossibile
-          // capire da «Dettagli della run» quale voce ha girato.
-          dettaglio: f.modello,
-        }))}
-        onCambia={(m) => cambia("modello", m)}
-      >
-        <span className="font-mono">{comeTaglia(scelta?.token ?? null, t("bar.context"))}</span>
+        <span className="font-mono">{opzioni.modello}</span>
       </Menu>
     </Suggerimento>
   );

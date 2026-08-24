@@ -2443,6 +2443,17 @@ dove la si va a cercare — ed è un dato, quindi si apre subito (140 ms).
 
 ### U-16 — due manopole sopra un nome solo
 
+> **Aggiornamento del 2026-08-24: le manopole sono tornate una.** Con A-09 la
+> finestra di contesto non è più una scelta dell'interfaccia — la decide il
+> motore, da come è avviato — quindi il secondo selettore è stato **tolto**, e
+> con lui `catalogo.ts` e i suoi 21 test: il menu dei modelli elenca ora ciò che
+> il motore elenca, senza raggruppare per genitore. Quello che resta di questa
+> sezione descrive un comando che non c'è più; si tiene perché il ragionamento
+> sul *perché* non si deducono i nomi resta valido, ed è la ragione per cui
+> togliere quel codice non ha lasciato buchi. Dove la cosa si dice a chi guarda:
+> il suggerimento del menu dei modelli, e un limite in più nella pagina «Che
+> cos'è» — *«quanto testo entra nel modello non lo decide ibid»*.
+
 Chi usa la demo sceglie **il modello** e **quanto contesto**, indipendentemente,
 perché sono due domande diverse: *chi risponde* e *quanto testo gli entra*. Che
 sotto la coppia sia un singolo nome nel catalogo di Ollama è un dettaglio
