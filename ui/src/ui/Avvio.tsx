@@ -283,13 +283,18 @@ export function Avvio({ guida }: { guida: Guida }) {
   if (passo === null || id === null || finestra === null) return null;
 
   return createPortal(
-    <Strato guida={guida} id={id} contorno={contorno} finestra={finestra} />,
+    <SopraTutto guida={guida} id={id} contorno={contorno} finestra={finestra} />,
     document.body,
   );
 }
 
 /**
- * Lo strato sopra tutto: il velo con il suo buco, e la scheda.
+ * Cio' che sta sopra tutto: il velo col suo buco, l'alone e la scheda.
+ *
+ * **Non si chiama `Strato`**, che era il suo nome: in questa cartella `Strato`
+ * e' gia' il pannello che entra da un bordo (`Strato.tsx`), e due cose senza
+ * niente in comune tranne la parola costringono chi legge a guardare gli import
+ * per sapere di quale si parla.
  *
  * Un componente a parte perche' la scheda **si misura**: la sua altezza dipende
  * da dove il testo va a capo, e nessuno la sa prima di averla disegnata. Due
@@ -297,7 +302,7 @@ export function Avvio({ guida }: { guida: Guida }) {
  * collocata, poi accesa. Accenderla prima la farebbe comparire in alto a
  * sinistra per un fotogramma.
  */
-const Strato = memo(function Strato({
+const SopraTutto = memo(function SopraTutto({
   guida,
   id,
   contorno,
