@@ -37,10 +37,11 @@ import { usaLingua } from "../app/i18n";
 import { griglia, leggi, ridimensiona } from "./colonne";
 import { Contenuto, Leggibile } from "./Leggibile";
 import { Modo } from "./Modo";
+import { Collegamento, Pagina, Ritorno } from "./Pagina";
 import type { Larghezze } from "./colonne";
 import { Etichetta } from "./Etichetta";
 import { larghezzePixel, quanteRighe, righeMappa } from "./mappa";
-import { Esterno, Indietro, Lente } from "./Icona";
+import { Lente } from "./Icona";
 import { usaForma } from "./Telaio";
 import { Separatore } from "./Separatore";
 import { Suggerimento } from "./Suggerimento";
@@ -111,24 +112,12 @@ export function Corpus() {
   }, [disponibile]);
 
   return (
-    <div className="flex h-full min-h-0 flex-col bg-paper">
-      <div className="flex shrink-0 items-start gap-3 border-b border-line px-[22px] py-3">
-        <div className="min-w-0 flex-1">
-          <Etichetta>{t("corpus.title")}</Etichetta>
-          <p className="mt-1 text-[13px] text-ink">
-            {t("corpus.subtitle", { dataset: dataset?.dataset_id ?? "—" })}
-          </p>
-        </div>
-        <button
-          type="button"
-          onClick={chiudi}
-          className="flex shrink-0 items-center gap-1.5 rounded-md border border-line-2 px-[9px] py-[5px] text-[11px] text-ink-2 transition-colors hover:border-accent-2 hover:text-ink"
-        >
-          <Indietro size={12} />
-          {t("corpus.back")}
-        </button>
-      </div>
-
+    <Pagina
+      etichetta={t("corpus.title")}
+      sottotitolo={t("corpus.subtitle", { dataset: dataset?.dataset_id ?? "—" })}
+      indietro={t("corpus.back")}
+      chiudi={chiudi}
+    >
       {stretta ? (
         <Affondo />
       ) : (
@@ -163,7 +152,7 @@ export function Corpus() {
           <Dettaglio />
         </div>
       )}
-    </div>
+    </Pagina>
   );
 }
 
@@ -206,14 +195,7 @@ function Affondo() {
   return (
     <div className="flex min-h-0 flex-1 flex-col">
       <div className="flex shrink-0 items-center gap-2 border-b border-line px-[18px] py-2">
-        <button
-          type="button"
-          onClick={lascia}
-          className="flex shrink-0 items-center gap-1.5 rounded-md border border-line-2 px-[9px] py-[5px] text-[11px] text-ink-2 transition-colors hover:border-accent-2 hover:text-ink"
-        >
-          <Indietro size={12} />
-          {t("corpus.documents")}
-        </button>
+        <Ritorno onClick={lascia}>{t("corpus.documents")}</Ritorno>
         <span className="min-w-0 truncate font-mono text-[10.5px] text-muted">
           {documento.doc_id}
         </span>
@@ -687,15 +669,7 @@ function Dettaglio({ impilato = false }: { impilato?: boolean }) {
       </div>
 
       {href !== null ? (
-        <a
-          href={href}
-          target="_blank"
-          rel="noreferrer noopener"
-          className="flex items-center gap-1.5 self-start rounded-md border border-line-2 px-[9px] py-[5px] text-[11px] text-ink-2 transition-colors hover:border-accent-2 hover:text-ink"
-        >
-          <Esterno size={12} />
-          {t("corpus.open")}
-        </a>
+        <Collegamento href={href}>{t("corpus.open")}</Collegamento>
       ) : (
         <p className="font-mono text-[9.5px] break-all text-muted">{chunk.source_uri}</p>
       )}
