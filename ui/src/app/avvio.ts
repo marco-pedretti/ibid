@@ -60,10 +60,6 @@ export const PASSI: readonly Passo[] = [
   { id: "resta", titolo: "start.rest.title", testo: "start.rest" },
 ];
 
-/** Dove si ricorda. Un solo prefisso per tutto cio' che il browser tiene di
- *  questo progetto, come `ibid.theme`, `ibid.history` e `ibid.corsia`. */
-export const DEPOSITO = "ibid.avvio";
-
 /** Cio' che si scrive quando la guida e' finita: una parola, non un booleano
  *  serializzato, perche' e' cio' che si legge negli strumenti del browser senza
  *  doverlo interpretare. */

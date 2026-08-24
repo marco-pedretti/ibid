@@ -45,9 +45,8 @@
 import type { ConfigView } from "../api/types";
 import { inizio, interrompi } from "./conversazione";
 import type { Risposta, Scambio } from "./conversazione";
-
-/** La stessa forma di `ibid.theme` e `ibid.dataset`: un prefisso solo. */
-export const CHIAVE_CRONOLOGIA = "ibid.history";
+import { CHIAVI, locale } from "./deposito";
+import type { Deposito } from "./deposito";
 
 export const VERSIONE = 1;
 
@@ -68,24 +67,6 @@ export interface Conversazione {
    *  cadrebbe su un corpus diverso senza dirlo. */
   dataset_id: string | null;
   scambi: Scambio[];
-}
-
-/** Il minimo di `localStorage` che serve qui. Un'interfaccia invece del globale
- *  perche' e' cio' che rende provabile il caso «deposito pieno». */
-export interface Deposito {
-  getItem: (chiave: string) => string | null;
-  setItem: (chiave: string, valore: string) => void;
-  removeItem: (chiave: string) => void;
-}
-
-function locale(): Deposito | null {
-  try {
-    return window.localStorage;
-  } catch {
-    // Negato (finestra privata, iframe) o assente (i test girano in `node`):
-    // non ricordare e' meno grave che rifiutare di partire.
-    return null;
-  }
 }
 
 export function nuovoId(): string {
@@ -208,7 +189,7 @@ function comeRisposta(x: unknown): Risposta {
 export function leggiCronologia(deposito: Deposito | null = locale()): Conversazione[] {
   if (deposito === null) return [];
   try {
-    return deserializza(deposito.getItem(CHIAVE_CRONOLOGIA));
+    return deserializza(deposito.getItem(CHIAVI.cronologia));
   } catch {
     return [];
   }
@@ -232,7 +213,7 @@ export function salvaCronologia(
   const cs = daRicordare(conversazioni);
   for (let n = cs.length; n > 0; n -= 1) {
     try {
-      deposito.setItem(CHIAVE_CRONOLOGIA, serializza(cs.slice(0, n)));
+      deposito.setItem(CHIAVI.cronologia, serializza(cs.slice(0, n)));
       return;
     } catch {
       /* pieno: si riprova con una conversazione in meno */
@@ -242,7 +223,7 @@ export function salvaCronologia(
   // Niente da ricordare (o nemmeno una ci sta): meglio togliere la chiave che
   // lasciare nel deposito una cronologia piu' vecchia di quella in memoria.
   try {
-    deposito.removeItem(CHIAVE_CRONOLOGIA);
+    deposito.removeItem(CHIAVI.cronologia);
   } catch {
     /* vedi `locale` */
   }

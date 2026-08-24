@@ -27,10 +27,7 @@
  * una selezione manderebbe query contro una collection vuota.
  */
 import type { DatasetView } from "../api/types";
-
-/** La stessa forma di `ibid.theme`: un solo prefisso per tutto cio' che il
- *  browser ricorda di questo progetto. */
-export const CHIAVE_DATASET = "ibid.dataset";
+import { CHIAVI, ricorda, ricordato } from "./deposito";
 
 /** Quelli su cui ha senso fare una domanda: indice presente e non vuoto. */
 export function interrogabili(datasets: readonly DatasetView[]): DatasetView[] {
@@ -53,22 +50,13 @@ export function sceltaIniziale(
   return validi.length > 0 ? validi[0].dataset_id : null;
 }
 
-/** Legge l'id ricordato. `null` anche quando `localStorage` e' negato
- *  (finestra privata, iframe): non ricordare una scelta e' meno grave che
- *  rifiutarsi di partire. */
+/** L'id ricordato, o `null` — anche quando il deposito non c'e'. Un id di un
+ *  dataset che non esiste piu' non fa danno: `sceltaIniziale` lo scarta. */
 export function leggiSalvato(): string | null {
-  try {
-    return localStorage.getItem(CHIAVE_DATASET);
-  } catch {
-    return null;
-  }
+  return ricordato(CHIAVI.dataset);
 }
 
 /** Ricorda l'id scelto, e non si lamenta se non puo'. */
 export function salva(dataset_id: string): void {
-  try {
-    localStorage.setItem(CHIAVE_DATASET, dataset_id);
-  } catch {
-    /* vedi `leggiSalvato` */
-  }
+  ricorda(CHIAVI.dataset, dataset_id);
 }

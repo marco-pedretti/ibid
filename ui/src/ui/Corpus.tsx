@@ -28,6 +28,7 @@ import type { ReactNode } from "react";
 
 import type { ChunkView } from "../api/types";
 import { filtra, indirizzo } from "../app/corpus";
+import { CHIAVI, ricorda, ricordato } from "../app/deposito";
 import { usaEsploratore } from "../app/esploratore";
 import type { StatoDocumento } from "../app/esploratore";
 import { usaDataset } from "../app/dataset";
@@ -45,23 +46,15 @@ import { pezzi } from "./tabellaHtml";
 import type { Cella } from "./tabellaHtml";
 import { Prosa } from "./Testo";
 
-/** Dove si ricordano le larghezze. Una preferenza, come il tema — vedi `colonne.ts`. */
-const DEPOSITO = "ibid.corpus.colonne";
-
 export function Corpus() {
   const { t } = usaLingua();
   const { chiudi } = usaEsploratore();
   const { scelto: dataset } = usaDataset();
   const stretta = usaForma() === "stretta";
   const contenitore = useRef<HTMLDivElement>(null);
-  const [larghezze, setLarghezze] = useState<Larghezze>(() => {
-    try {
-      return leggi(localStorage.getItem(DEPOSITO));
-    } catch {
-      // Deposito negato (modalita' privata, iframe): si parte dai predefiniti.
-      return leggi(null);
-    }
-  });
+  // Una preferenza, come il tema: `leggi` fa ricadere sui predefiniti tutto cio'
+  // che non e' un paio di larghezze valide, chiave assente compresa.
+  const [larghezze, setLarghezze] = useState<Larghezze>(() => leggi(ricordato(CHIAVI.colonne)));
 
   /** Le larghezze correnti, leggibili da un gestore che non si ri-crea. */
   const correnti = useRef(larghezze);
@@ -102,14 +95,7 @@ export function Corpus() {
   // pagare al deposito un movimento del mouse. La pausa e' la stessa idea del
   // ritardo di salvataggio della cronologia.
   useEffect(() => {
-    const t = setTimeout(() => {
-      try {
-        localStorage.setItem(DEPOSITO, JSON.stringify(larghezze));
-      } catch {
-        // Le misure restano valide per questa sessione: non ricordarle e' meno
-        // grave che rifiutare di cambiarle.
-      }
-    }, 300);
+    const t = setTimeout(() => ricorda(CHIAVI.colonne, JSON.stringify(larghezze)), 300);
     return () => clearTimeout(t);
   }, [larghezze]);
 

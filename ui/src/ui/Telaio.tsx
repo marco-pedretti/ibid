@@ -73,6 +73,7 @@
 import { createContext, useCallback, useContext, useEffect, useState } from "react";
 import type { ReactNode } from "react";
 
+import { CHIAVI, ricorda, ricordato } from "../app/deposito";
 import { usaEsploratore } from "../app/esploratore";
 import { usaLingua } from "../app/i18n";
 import { usaPresentazione } from "../app/presentazione";
@@ -81,7 +82,7 @@ import type { SceltaTema } from "../app/theme";
 import { LINGUE } from "../i18n/strings";
 import { zona } from "./Avvio";
 import { Chiusura, usaChiudiCassetto } from "./cassetto";
-import { APERTA, DEPOSITO, FIANCO, leggi } from "./corsia";
+import { APERTA, FIANCO, leggi } from "./corsia";
 import { Cronologia, CronologiaCompatta, NuovaCompatta } from "./Cronologia";
 import { Etichetta } from "./Etichetta";
 import { Chiaro, Corpus, Corsia, Indice, Informazioni, Scuro, Sistema } from "./Icona";
@@ -142,23 +143,10 @@ export function Telaio({ children, fianco }: { children: ReactNode; fianco?: Rea
   const conFonti = fianco !== undefined;
   const [cassetto, setCassetto] = useState(false);
   const [foglio, setFoglio] = useState(false);
-  const [chiusa, setChiusa] = useState(() => {
-    try {
-      return leggi(localStorage.getItem(DEPOSITO));
-    } catch {
-      // Deposito negato (finestra privata, iframe): si parte aperta, che e' il
-      // caso in cui non si perde niente.
-      return leggi(null);
-    }
-  });
+  const [chiusa, setChiusa] = useState(() => leggi(ricordato(CHIAVI.corsia)));
 
   useEffect(() => {
-    try {
-      localStorage.setItem(DEPOSITO, chiusa ? "chiusa" : "aperta");
-    } catch {
-      // Vale per questa sessione: non ricordarla e' meno grave che rifiutarsi
-      // di cambiarla.
-    }
+    ricorda(CHIAVI.corsia, chiusa ? "chiusa" : "aperta");
   }, [chiusa]);
 
   // Tornando alle colonne, cio' che era stato tirato fuori rientra: uno strato

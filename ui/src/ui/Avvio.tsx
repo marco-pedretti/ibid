@@ -51,9 +51,10 @@ import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useStat
 import { createPortal } from "react-dom";
 import type { ReactNode } from "react";
 
-import { DEPOSITO, PASSI, avanti, primoPasso, scrivi } from "../app/avvio";
+import { PASSI, avanti, primoPasso, scrivi } from "../app/avvio";
 import type { Passo } from "../app/avvio";
 import { leggiCronologia } from "../app/cronologia";
+import { CHIAVI, ricorda, ricordato } from "../app/deposito";
 import { usaLingua } from "../app/i18n";
 import { LINGUE } from "../i18n/strings";
 import type { Misura, Rettangolo } from "./collocazione";
@@ -161,29 +162,19 @@ export interface Guida {
  * volerlo — mentre lo stato non deve uscire dalla chat.
  */
 export function usaAvvio(): Guida {
-  const [passo, setPasso] = useState<number | null>(() => {
-    try {
-      // Una cronologia non vuota e' la prova che la prima volta e' gia' passata:
-      // la chiave e' nuova, e senza questa domanda il primo avvio dopo U-20
-      // accoglierebbe con un tour chi usa la demo da settimane.
-      return primoPasso(localStorage.getItem(DEPOSITO), leggiCronologia().length > 0);
-    } catch {
-      // Deposito negato (finestra privata, iframe): si mostra la guida, che e'
-      // il caso in cui non si perde niente.
-      return primoPasso(null, false);
-    }
-  });
+  // Una cronologia non vuota e' la prova che la prima volta e' gia' passata: la
+  // chiave e' nuova, e senza questa domanda il primo avvio dopo U-20
+  // accoglierebbe con un tour chi usa la demo da settimane.
+  const [passo, setPasso] = useState<number | null>(() =>
+    primoPasso(ricordato(CHIAVI.avvio), leggiCronologia().length > 0),
+  );
 
   // Scrive **anche al primo disegno**, e non solo quando si clicca. Senza, chi
   // apre la guida e chiede qualcosa senza toccarla lascia il deposito vuoto e
   // la cronologia piena: tornando dalla pagina «Che cos'e'» la guida sarebbe
   // sparita da sola, a meta' lettura, per la regola qui sopra.
   useEffect(() => {
-    try {
-      localStorage.setItem(DEPOSITO, scrivi(passo));
-    } catch {
-      // Vale per questa sessione: non ricordarla e' meno grave che non mostrarla.
-    }
+    ricorda(CHIAVI.avvio, scrivi(passo));
   }, [passo]);
 
   const salta = useCallback(() => setPasso(null), []);

@@ -4,7 +4,6 @@ import type { ChunkView } from "../api/types";
 import { inizio } from "./conversazione";
 import type { Risposta, Scambio } from "./conversazione";
 import {
-  CHIAVE_CRONOLOGIA,
   MASSIME,
   VERSIONE,
   conConversazione,
@@ -18,7 +17,9 @@ import {
   trova,
   vuota,
 } from "./cronologia";
-import type { Conversazione, Deposito } from "./cronologia";
+import type { Conversazione } from "./cronologia";
+import { CHIAVI } from "./deposito";
+import type { Deposito } from "./deposito";
 
 const CHUNK: ChunkView = {
   marker: 1,
@@ -257,10 +258,10 @@ describe("scrivere nel deposito", () => {
   it("senza niente da ricordare la chiave si toglie, invece di restare vecchia", () => {
     const d = deposito();
     salvaCronologia([conv("a", ["q"])], d);
-    expect(d.dati.has(CHIAVE_CRONOLOGIA)).toBe(true);
+    expect(d.dati.has(CHIAVI.cronologia)).toBe(true);
 
     salvaCronologia([nuovaConversazione()], d);
-    expect(d.dati.has(CHIAVE_CRONOLOGIA)).toBe(false);
+    expect(d.dati.has(CHIAVI.cronologia)).toBe(false);
   });
 
   it("un deposito negato non solleva: la sessione resta valida, solo non si ricorda", () => {
