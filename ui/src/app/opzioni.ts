@@ -60,7 +60,7 @@ export interface Opzioni {
 
 /** Le quattro che stanno chiuse sotto «Avanzate». Un elenco e non un oggetto
  *  annidato: vedi la nota su `Opzioni`. */
-export const AVANZATE = ["retrieval_mode", "rerank", "top_k", "hnsw_ef"] as const;
+const AVANZATE = ["retrieval_mode", "rerank", "top_k", "hnsw_ef"] as const;
 
 /**
  * I due capi dell'asse che C-07 ha misurato.

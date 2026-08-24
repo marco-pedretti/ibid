@@ -186,7 +186,7 @@ export function Marcatore({ marcato }: { marcato: Marcato }) {
 }
 
 /** Il verdetto in parole, senza glifo: serve agli `aria-label` e ai `title`. */
-export function parolaDelVerdetto(
+function parolaDelVerdetto(
   esito: EsitoScheda,
   t: (c: Chiave, v?: Record<string, string | number>) => string,
 ): string {

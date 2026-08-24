@@ -88,9 +88,11 @@ const GLIFO: Record<Passo["id"], (p: PropsIcona) => ReactNode> = {
 };
 
 /** L'attributo con cui una zona dichiara di essere il bersaglio di un passo.
- *  Una costante e non una stringa scritta in due file: e' un contratto che
- *  nessun tipo puo' controllare da solo. */
-export const ATTRIBUTO = "data-guida";
+ *  Una costante e non la stringa ripetuta: la scrivono `zona`, che la mette, e
+ *  `leggiZona`, che la cerca, e sono le due meta' dello stesso contratto --
+ *  quello che nessun tipo puo' controllare da solo. Non esce da questo file
+ *  perche' fuori nessuno deve scriverla a mano: per quello c'e' `zona`. */
+const ATTRIBUTO = "data-guida";
 
 /**
  * Da mettere sulla zona che un passo indica: `<aside {...zona("fonti")}>`.
