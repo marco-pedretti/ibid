@@ -4424,3 +4424,58 @@ su `stderr`**, che è il minimo che separi le due cose.
 E una nota che vale per il futuro: delle **tre** variabili del motore che ormai
 contano — finestra, flash attention, tipo di cache KV — il risultato ne registra
 una sola. È **D-20** vista da un altro lato.
+
+### Q-07 — la lista chiusa, scritta prima di aprire un file
+
+Il criterio del task non parla di codice, parla di metodo: *«lista chiusa di
+difetti scritta prima di toccare un file, ognuno con la prova che esiste»*. È la
+regola con cui la Fase 6 si è tenuta finita, ed è qui perché un refactor senza
+un bordo non finisce: finisce quando ci si stanca, e quello che resta a metà è
+peggio di quello che c'era prima.
+
+Quindi prima il censimento, e questo commit non tocca una riga di `ui/`.
+
+#### Cosa il censimento **non** ha trovato
+
+Vale la pena dirlo per primo, perché era l'ipotesi di partenza e si è rivelata
+falsa. La logica dentro il JSX — il difetto grosso, quello che rende un file
+impossibile da provare — **è già stata pagata**: l'ultima l'ha chiusa D-8 il
+giorno prima. [`chat.tsx`](../ui/src/app/chat.tsx) è cablaggio, e il calcolo che
+gli serve sta in `conversazione.ts`, provato; la geometria dell'esploratore sta
+in `mappa.ts`, provata; le ventinove icone sono tutte usate.
+
+Quel che resta non è struttura sbagliata: è **ripetizione e residuo**. Sette
+voci, e nessuna di loro cambia cosa fa una schermata.
+
+#### Le sette
+
+| # | difetto | la prova |
+|---|---|---|
+| 1 | Sei depositi, sei `try/catch`, tre convenzioni di nome | `localStorage` è aperto in sei posti indipendenti — `avvio.ts`, `corsia.ts`, `Corpus.tsx`, `i18n.tsx`, `theme.tsx`, `scelta-dataset.ts` — ognuno col suo `try/catch` e lo stesso commento riscritto sei volte. Solo `cronologia.ts` prende il deposito **per parametro**, ed è l'unico di cui si prova il fallimento per quota |
+| 2 | `PASTIGLIA` definita tre volte, con tre valori diversi | `pastiglia.ts`, `Telaio.tsx`, `Verdetto.tsx`. Il modulo esiste apposta per impedirlo, e lo dice la sua stessa intestazione |
+| 3 | Due tabelle, due misure | `Corpus.tsx` disegna mono 10,5 px coi bordi pieni, `Testo.tsx` 12,5 px col bordo solo sotto. Stesso oggetto sullo schermo, due serie di numeri, nessuna delle due sa dell'altra |
+| 4 | `Strato` è due cose diverse nella stessa cartella | il pannello che entra da un bordo (`Strato.tsx`) e uno strato della guida (dentro `Avvio.tsx`). Non hanno niente in comune tranne la parola |
+| 5 | Ventisette `export` che nessuno importa | `AVANZATE`, `ATTRIBUTO`, `parolaDelVerdetto`, `Braccio`, `Veste`, `Segmento`… Nemmeno un test li nomina: il bordo del modulo dichiara pubblico ciò che è privato |
+| 6 | Venti stringhe morte, dieci chiavi per due lingue | `app.tagline`, `nav.chat`, `nav.explore`, `index.*`: resti di una barra di navigazione e di un pannello indice che non esistono più, e non sono nemmeno costruite dinamicamente |
+| 7 | `Corpus.tsx` a 871 righe, il doppio del secondo file | diciannove componenti, di cui tre disegnano cose generiche. Non è un difetto di dimensione: è che le tre colonne dell'esploratore e i mattoni di disegno stanno nello stesso file |
+
+#### Le due voci che hanno un giudizio dentro
+
+Cinque si eseguono senza decidere niente. Due no, e sono state discusse prima.
+
+**La tabella (3) non si unifica all'aspetto, si unifica al codice.** Sono due
+cose diverse davvero — un chunk del corpus e la risposta del modello — e
+imporre a una l'aspetto dell'altra sarebbe **cambiare una schermata**, cioè
+esattamente ciò che il gate vieta. Quello che si unifica è l'implementazione:
+un disegno solo con due densità dichiarate, e i pixel restano quelli di prima.
+
+**Spezzare un file (7) è la mossa che si fa più spesso senza guadagnarci.** Tre
+file da 290 righe non valgono più di uno da 871 se poi si leggono sempre
+insieme. Qui si sposta solo ciò che **non parla dell'esploratore** — un mattone
+generico che sta lì per caso — e le tre colonne restano dove sono, perché sono
+una cosa sola.
+
+#### Cosa succede a ciò che si trova dopo
+
+Va nel registro dei debiti, non dentro il task. La lista è chiusa: è quello che
+significa la parola nel criterio.
