@@ -18,9 +18,10 @@ from pathlib import Path
 import pytest
 
 import src.config as cfg
-from src.eval.run_config import make_eval_run, reasoning_enabled
+from src.eval.run_config import finestra_registrata, make_eval_run, reasoning_enabled
 
 ROOT = Path(__file__).parent.parent
+
 
 
 def _run(**kw):
@@ -70,7 +71,60 @@ class TestTheLlmFieldsFollowTheLlm:
         run = _run(llm="gemma4:12b")
         assert run.model == "gemma4:12b"
         assert run.quantization == cfg.LLM_QUANTIZATION
+        # Col motore muto la finestra resta quella dichiarata: e' il caso di
+        # chi non usa Ollama, ed e' il solo in cui il campo non e' una misura.
         assert run.context_window == 32768
+
+
+class TestLaFinestraSiMisura:
+    """A-09 — `context_window` era la costante, e D-14 diceva perche' non
+    bastava: *«oggi il numero e' vero perche' il default di questo modello
+    coincide, ma e' una coincidenza, non una misura»*."""
+
+    def test_quando_la_misura_arriva_la_fabbrica_la_usa(self, monkeypatch):
+        monkeypatch.setattr(cfg, "CONTEXT_WINDOW", 32768)
+        assert _run(llm="gemma4:12b", context_window=4096).context_window == 4096
+
+    def test_una_fabbrica_senza_misura_lo_dice(self, monkeypatch, capsys):
+        """Chi costruisce un `EvalRun` senza passare la finestra ottiene il
+        valore dichiarato **e un avviso**, non un default silenzioso: sarebbe il
+        difetto di D-14 rimesso al suo posto."""
+        monkeypatch.setattr(cfg, "CONTEXT_WINDOW", 32768)
+        assert _run(llm="m").context_window == 32768
+        assert "non ho potuto verificare" in capsys.readouterr().err
+
+    def test_una_finestra_diversa_dalla_costante_non_viene_corretta(self, monkeypatch):
+        """Il caso che il difetto nascondeva: senza `OLLAMA_CONTEXT_LENGTH`
+        Ollama sceglie da se' fra 4k, 32k e 256k in base alla memoria. Il
+        risultato deve **dire** che la run e' girata a 4096, non riportare la
+        costante e lasciare che chi legge creda ai 32768."""
+        monkeypatch.setattr(cfg, "CONTEXT_WINDOW", 32768)
+        monkeypatch.setattr("src.service.catalog.finestra_attiva", lambda *a, **k: 4096)
+        assert finestra_registrata("m") == 4096
+
+    def test_quando_non_si_sa_lo_dice(self, monkeypatch, capsys):
+        """Registrare in silenzio il valore dichiarato sarebbe tornare al punto
+        di partenza: il numero c'e' e nessuno sa se e' vero."""
+        monkeypatch.setattr(cfg, "CONTEXT_WINDOW", 32768)
+        assert finestra_registrata("m") == 32768
+        assert "non ho potuto verificare" in capsys.readouterr().err
+
+    def test_un_motore_che_esplode_non_fa_cadere_la_run(self, monkeypatch):
+        """Succederebbe **alla fine** di una run lunga un'ora, cioe' nel
+        momento in cui perdere il risultato costa di piu'."""
+
+        def rotto(*a, **k):
+            raise RuntimeError("muto")
+
+        monkeypatch.setattr("src.service.catalog.finestra_attiva", rotto)
+        monkeypatch.setattr(cfg, "CONTEXT_WINDOW", 32768)
+        assert finestra_registrata("m") == 32768
+
+    def test_senza_modello_la_finestra_resta_zero(self, monkeypatch):
+        """`llm=None` significa «nessun modello ha girato»: la finestra e' 0, e
+        una misura passata per sbaglio non la cambia."""
+        assert _run(llm=None).context_window == 0
+        assert _run(llm=None, context_window=4096).context_window == 0
 
 
 class TestProvenance:

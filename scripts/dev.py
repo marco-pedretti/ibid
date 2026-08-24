@@ -124,23 +124,47 @@ def aspetta(url: str, secondi: float) -> bool:
     return False
 
 
-def assicura_taglie() -> None:
-    """Crea le finestre di contesto mancanti, in silenzio se non c'e' niente da fare.
+def controlla_finestra() -> None:
+    """Dice **una riga** sulla finestra di contesto, e solo quando serve (A-09).
+
+    La finestra non e' un campo del contratto OpenAI: la decide il motore. Senza
+    `OLLAMA_CONTEXT_LENGTH` Ollama sceglie da se' fra 4k, 32k e 256k guardando
+    la memoria -- il che vuol dire che su una macchina il progetto gira coi
+    32768 che dichiara e su un'altra con 4096, cioe' meno di cinque chunk in
+    contesto, **senza dirlo a nessuno**.
+
+    Qui si guarda `/api/ps`, che elenca i modelli **caricati**: prima della prima
+    risposta non sa niente, ed e' il caso normale a un avvio. Quindi:
+
+    - finestra giusta -> silenzio, perche' un avviso che compare sempre smette
+      di essere letto;
+    - finestra diversa -> si dice quale, ed e' l'unico caso in cui il messaggio
+      e' un dato e non un consiglio;
+    - non si sa -> una riga che dice dove si imposta, senza allarmare.
 
     Non solleva mai: un motore irraggiungibile o non-Ollama non deve impedire
-    l'avvio dello sviluppo. Il selettore in quel caso resta spento, e la
-    pastiglia dice perche' -- vedi `MenuFinestre`.
+    l'avvio dello sviluppo.
     """
     try:
-        from scripts.model_sizes import assicura
+        from src.service.catalog import finestra_attiva
+
+        attiva = finestra_attiva(cfg.LLM_MODEL)
     except Exception:
+        attiva = None
+
+    if attiva == cfg.CONTEXT_WINDOW:
         return
-    try:
-        n = assicura()
-    except Exception:
+    if attiva is not None:
+        print(
+            f"! {cfg.LLM_MODEL} sta girando a {attiva} token, non {cfg.CONTEXT_WINDOW}.\n"
+            f"  imposta OLLAMA_CONTEXT_LENGTH={cfg.CONTEXT_WINDOW} e riavvia il motore.",
+            file=sys.stderr,
+        )
         return
-    if n:
-        print(f"-> {n} finestre di contesto create")
+    print(
+        f"  la finestra di contesto la decide il motore: OLLAMA_CONTEXT_LENGTH="
+        f"{cfg.CONTEXT_WINDOW} (senza, Ollama sceglie fra 4k, 32k e 256k da se')."
+    )
 
 
 def main() -> int:
@@ -207,13 +231,13 @@ def main() -> int:
         cwd=ROOT,
     )
     try:
-        # Le taglie di contesto (U-16) sono modelli derivati, e chi usa la demo
-        # non deve saperlo: senza questo passo il selettore c'e' e non ha niente
-        # da offrire, cioe' la funzione non esiste finche' non si legge la
-        # documentazione giusta. Idempotente, quindi dalla seconda volta non
-        # costa niente; e best-effort, perche' su un motore che non e' Ollama --
-        # o che sta su un'altra macchina -- semplicemente non si fa.
-        assicura_taglie()
+        # **Non si creano piu' taglie di contesto qui** (A-09). Lo si faceva a
+        # ogni avvio, e il risultato erano ventidue modelli derivati in
+        # `ollama list` sulla macchina di chi aveva solo voluto provare il
+        # progetto. La finestra si imposta sul motore -- una variabile -- e chi
+        # vuole il selettore di U-16 chiede le taglie apposta:
+        #   python scripts/model_sizes.py --assicura   /  --pulisci
+        controlla_finestra()
 
         if not aspetta(f"http://127.0.0.1:{args.api_port}/health", 60):
             print("l'API non ha risposto entro 60 s: guarda i log qui sopra", file=sys.stderr)

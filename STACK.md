@@ -73,7 +73,45 @@ Nessuno dei due è ancora corretto, di proposito: correggerli cambia ogni numero
 | Alternativa | Ollama | Più comodo, meno controllo sui parametri. Va benissimo |
 | Interfaccia | Endpoint **OpenAI-compatibile** dietro `LLM_BASE_URL` | Il vincolo architetturale più importante: il repo resta eseguibile da chiunque, non solo sulla tua macchina |
 | Modelli | Gemma 4 E2B / E4B / 12B / 26B MoE | Il 26B MoE (3.8B attivi) è il candidato migliore per 12 GB. Verificate in Fase 0 |
+| Finestra di contesto | **`OLLAMA_CONTEXT_LENGTH=32768`** sul motore, non nella richiesta | Il contratto OpenAI non ha un campo per la finestra: la decide chi avvia il server (A-09). Senza, Ollama sceglie da sé fra 4k, 32k e 256k in base alla memoria — e a 4096 cinque chunk non entrano |
+| Attenzione | **`OLLAMA_FLASH_ATTENTION=1`** | Misurata sul 12B: **4× sul prefill**. Non è un default di Ollama, va impostata a mano — dettaglio in [`docs/hardware.md`](docs/hardware.md) |
 | Entailment | **`MoritzLaurer/bge-m3-zeroshot-v2.0`** (MIT, multilingue) | Per la verifica delle citazioni. Preferitelo all'LLM: più veloce, deterministico, e la metrica non dipende dal modello che state valutando. Sostituisce mDeBERTa-v3 NLI a seguito della misura in C-03 — vedi sotto |
+
+#### Le due variabili del motore si impostano fuori dal progetto, e vanno dette
+
+Sono le uniche due cose che il repo **non può garantire da sé**: stanno nel
+processo che serve i modelli, che può essere su un'altra macchina o condiviso
+con qualcun altro. Il progetto le dichiara, le verifica dove può — `make dev` lo
+dice se la finestra attiva non è quella dichiarata, e ogni `EvalRun` registra
+quella **misurata** — ma non le scrive al posto di nessuno.
+
+**Su Windows** si impostano una volta e valgono per il servizio:
+
+```powershell
+[Environment]::SetEnvironmentVariable('OLLAMA_CONTEXT_LENGTH','32768','Machine')
+[Environment]::SetEnvironmentVariable('OLLAMA_FLASH_ATTENTION','1','Machine')
+# poi riavviare Ollama: il servizio legge l'ambiente all'avvio
+```
+
+**Su Linux/macOS**, `OLLAMA_CONTEXT_LENGTH=32768 OLLAMA_FLASH_ATTENTION=1 ollama serve`,
+oppure le stesse due righe nel service file.
+
+**La finestra si può anche impostare dallo slider nelle impostazioni dell'app
+Ollama**, ed è la stessa cosa: una variabile e uno slider scrivono lo stesso
+numero nel motore. Il progetto non ha bisogno di sapere quale delle due si è
+usata, ed è il punto di A-09 — **la finestra si misura invece di crederla**:
+`make dev` lo dice se quella attiva non è quella dichiarata, e ogni `EvalRun`
+registra quella letta da `/api/ps`. Vale anche come controllo dello slider
+stesso, che in alcune versioni dell'app è stato segnalato come ignorato: dopo la
+prima risposta, `ollama ps` mostra la colonna `CONTEXT` e chiude la questione.
+
+> **La finestra non viaggia più col nome del modello** (A-09). Fino al
+> 2026-08-24 il progetto creava un modello derivato per ogni coppia (modello,
+> finestra) — l'unica strada che Ollama documenti, e che resta l'unica se le
+> finestre servono **scegliibili** — ma il conto lo pagava chi aveva solo voluto
+> provare il progetto: ventidue voci in più in `ollama list`, che Ollama non sa
+> nascondere. Ora quelle taglie sono opt-in (`python scripts/model_sizes.py
+> --assicura`) e si tolgono in blocco (`--pulisci`).
 
 #### Perché non più mDeBERTa-v3 NLI (misurato in C-03, 2026-08-10)
 

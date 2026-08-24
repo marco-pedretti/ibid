@@ -4296,3 +4296,120 @@ Un gate che su quel file non è più vuoto: 376 test, e la parte che il refactor
 toccherà di sicuro è la metà che adesso è misurata. Il refactor puro e i test
 stanno in **due commit separati**, così che il primo dimostri da solo ciò che
 dichiara — 358 test prima, 358 dopo.
+
+### A-09 — la finestra la imposta il motore, e ventidue modelli se ne vanno
+
+Segnalato da Marco il 2026-08-24, e non come un difetto del progetto: *«quando
+voglio usare ollama indipendentemente ci sono ora un sacco di profili, uno per
+ogni modello e contesto — non è una bella cosa da lasciare sul pc di qualcuno
+che ha voluto provare il progetto»*. Su questa macchina erano **22 voci su 30**
+in `ollama list`, e `ollama list` ripete la taglia del modello base a ogni riga:
+a occhio, duecento GB di roba altrui. I blob sono condivisi e il disco non se ne
+accorge; chi apre l'elenco sì.
+
+#### Prima di cercare un rimedio, verificare che il difetto fosse ancora quello
+
+A-08 aveva deciso il 19 agosto che la finestra viaggia col **nome del modello**,
+dopo aver misurato che `num_ctx` mandato a `/v1/chat/completions` riceve *200 e
+nessun effetto*. Cinque giorni non sono molti, ma la decisione andava
+riverificata prima di essere aggirata:
+
+- la documentazione di Ollama elenca i campi accettati da `/v1/chat/completions`,
+  e la finestra non c'è;
+- la PR che gliela aggiungeva è stata **chiusa dai maintainer** — *«non segue la
+  spec di OpenAI: la API di OpenAI non permette di impostare la lunghezza del
+  contesto»* — e la richiesta d'origine è chiusa con lei;
+- la strada indicata al suo posto è, testualmente, il Modelfile.
+
+**A-08 aveva ragione, e continua ad averla.** Quello che nessuno aveva
+guardato è che la finestra si può impostare da un'altra parte: non nella
+richiesta, ma nel **motore**.
+
+#### La misura che ha deciso tutto
+
+`OLLAMA_CONTEXT_LENGTH` non era stata considerata. Provata il 2026-08-24 senza
+toccare il servizio di Marco — un secondo server sulla porta 11435, `OLLAMA_NOPRUNE=1`
+per non fargli toccare i blob, una domanda da un token su `gemma4:e2b` **base**
+attraverso `/v1`:
+
+```
+gemma4:e2b   1.9 GB   100% GPU   CONTEXT 32768
+```
+
+Nessun modello derivato. Poi, la stessa domanda al server vero, sempre sul
+modello base — e qui è arrivata la cosa che il debito non stava cercando.
+
+#### Le run giravano a 32k per fortuna
+
+Anche il server di Marco, **senza nessuna variabile impostata**, dà 32768. Non è
+una sua configurazione: `OLLAMA_CONTEXT_LENGTH` non è impostata da nessuna parte
+(solo `OLLAMA_FLASH_ATTENTION=1`, messa a mano il 22). È il default automatico di
+Ollama 0.32.15, che sceglie fra **4k, 32k e 256k** guardando la memoria.
+
+Quindi ogni `EvalRun` scriveva `context_window: 32768` e la finestra vera era
+32768 — **per coincidenza**. Su una macchina più piccola sarebbe stata 4096, e
+con cinque chunk in contesto quella differenza non è un dettaglio di
+registrazione: è una run che tronca senza dirlo, e un file di risultati che
+dichiara il contrario.
+
+Era già scritto, parola per parola, in **D-14**: *«oggi il numero è vero perché
+il default di questo modello coincide, ma è una coincidenza, non una misura»*.
+Il debito era stato registrato il 19 agosto e catalogato come cosmetico. Non lo
+era.
+
+#### Cosa è cambiato
+
+**La finestra si imposta sul motore.** `OLLAMA_CONTEXT_LENGTH=32768`, dichiarata
+in `STACK.md` accanto a `OLLAMA_FLASH_ATTENTION=1` — che nel frattempo non era
+documentata in nessun `.md`, e vale un fattore quattro sul prefill del 12B. Sono
+le due cose che il repo non può garantire da sé, perché stanno nel processo che
+serve i modelli, e adesso stanno scritte dove le si cerca.
+
+**La finestra si misura.** `EvalRun.context_window` è letta da `/api/ps`, l'unico
+posto dove quel numero esiste. La misura la prende chi ha appena fatto girare il
+modello — i tre harness — e non la fabbrica: `/api/ps` sa rispondere solo di un
+modello **caricato**, e una chiamata dentro `make_eval_run` sarebbe una richiesta
+HTTP per ogni `EvalRun` costruito. Misurato mentre lo scrivevo:
+`test_generation_baseline` passava da **1,1 a 49,6 secondi**, e la suite intera
+da 47 a 184. Il tempo era il sintomo; il difetto era che l'esito di quei test
+avrebbe cominciato a dipendere da quale modello era caricato sulla macchina di
+chi li lancia. Da lì `tests/conftest.py`, che fissa la regola per tutta la suite:
+**nessun test parla col motore acceso**.
+
+**`make dev` non crea più niente.** Al posto delle taglie, una riga sola e solo
+quando serve: silenzio se la finestra attiva è quella dichiarata, il numero vero
+se è diversa, dove si imposta se non si sa — che è il caso normale a un avvio,
+perché `/api/ps` elenca i modelli caricati e all'inizio non ce n'è nessuno.
+
+**Le taglie restano, sotto `ibid/` e a richiesta.** Sono ancora l'unico modo di
+rendere la finestra *scegliibile* (U-16), quindi non si buttano: `ibid/gemma4-e2b:32k`
+invece di `gemma4:e2b-32k`. Verificato che un namespace regge tutto il giro —
+risponde su `/v1/chat/completions` a CONTEXT 32768, compare in `/v1/models`, e
+conserva `parent_model: gemma4:e2b`, quindi il raggruppamento di U-16, che passa
+dal genitore e non dal nome, non cambia di una riga. E riusa il blob del modello
+base: **stesso ID** della taglia creata col nome vecchio.
+
+#### `--pulisci`, e cosa non tocca
+
+È l'unico comando del progetto che cancella qualcosa dalla macchina di chi lo
+lancia, quindi elenca prima, spiega che i blob restano dove sono, e chiede
+conferma. Senza terminale la risposta è **no**: un comando che cancella non
+interpreta il silenzio come un sì.
+
+Riconosce **solo** ciò che questo script avrebbe creato, coi due nomi che ha
+usato — `ibid/...` e `<base>-32k` — e mai un modello senza genitore, che non è
+una taglia ma dei pesi scaricati. Su questa macchina la differenza è concreta e
+c'è un test che la fissa: propone le 22 giuste e lascia stare
+`Qwen3.8-27B-IQ3-32k`, che è derivato, ha una finestra, ed è di Marco.
+
+#### Cosa resta aperto
+
+Una metà di D-14, ed è di contratto: il JSON non distingue «32768 misurato» da
+«32768 creduto». Distinguerli vuol dire aggiungere un campo a `EvalRun`, cioè
+toccare il §3 — e non si fa di passaggio, in coda a un altro task. Intanto chi
+costruisce un `EvalRun` senza misura ottiene il valore dichiarato **e un avviso
+su `stderr`**, che è il minimo che separi le due cose.
+
+E una nota che vale per il futuro: delle **tre** variabili del motore che ormai
+contano — finestra, flash attention, tipo di cache KV — il risultato ne registra
+una sola. È **D-20** vista da un altro lato.

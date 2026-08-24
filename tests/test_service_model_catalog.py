@@ -16,6 +16,7 @@ from src.service.catalog import (
     _come_info,
     _nativo,
     dimentica_modelli,
+    finestra_attiva,
     model_catalog,
 )
 
@@ -225,3 +226,82 @@ class TestIlCostoDiChiederli:
             dettagli=_mostra({"a": GEMMA, "b": QWEN, "c": GEMMA}),
         )
         assert [m.name for m in c] == ["a", "b", "c"]
+
+
+class TestLaFinestraAttiva:
+    """A-09 — con che contesto ha risposto **davvero**.
+
+    `/api/ps` e' l'unico posto in cui quel numero esiste: il contratto OpenAI non
+    ha un campo per la finestra ne' in richiesta ne' in risposta, quindi prima di
+    A-09 `EvalRun.context_window` era la costante `CONTEXT_WINDOW` -- vera per
+    coincidenza, ed e' il difetto che D-14 registrava.
+    """
+
+    @staticmethod
+    def _ps(*voci: dict):
+        return lambda url, timeout: {"models": list(voci)}
+
+    def test_legge_la_finestra_del_modello_caricato(self):
+        assert (
+            finestra_attiva(
+                "gemma4:e2b",
+                "http://x/v1",
+                fetch=self._ps({"name": "gemma4:e2b", "context_length": 32768}),
+            )
+            == 32768
+        )
+
+    def test_guarda_tutti_e_due_i_nomi(self):
+        """Ollama ripete il nome in `name` e in `model`. Non e' scritto da
+        nessuna parte che coincidano sempre."""
+        assert (
+            finestra_attiva(
+                "m:32k",
+                "http://x/v1",
+                fetch=self._ps({"name": "altro", "model": "m:32k", "context_length": 8192}),
+            )
+            == 8192
+        )
+
+    def test_un_altro_modello_caricato_non_risponde_per_lui(self):
+        """Il caso vero: due modelli in memoria, e la finestra di uno non dice
+        niente dell'altro."""
+        assert (
+            finestra_attiva(
+                "gemma4:12b",
+                "http://x/v1",
+                fetch=self._ps({"name": "gemma4:e2b", "context_length": 32768}),
+            )
+            is None
+        )
+
+    def test_a_motore_fermo_non_si_sa(self):
+        """`/api/ps` elenca i **caricati**: prima della prima risposta la lista
+        e' vuota, e vuoto significa «non lo so», non «4096»."""
+        assert finestra_attiva("m", "http://x/v1", fetch=self._ps()) is None
+
+    @pytest.mark.parametrize(
+        "risposta",
+        [
+            {},
+            {"models": None},
+            {"models": ["non un oggetto"]},
+            {"models": [{"name": "m"}]},
+            {"models": [{"name": "m", "context_length": "32768"}]},
+        ],
+    )
+    def test_una_risposta_di_forma_diversa_non_solleva(self, risposta):
+        """Un motore che non e' Ollama risponde qualcos'altro su quell'URL, o
+        niente. Deve venirne fuori «non lo so», non un'eccezione dentro una run
+        di valutazione lunga un'ora."""
+
+        def strana(url: str, timeout: int) -> dict:
+            return risposta
+
+        assert finestra_attiva("m", "http://x/v1", fetch=strana) is None
+
+    def test_un_motore_muto_non_solleva(self):
+        def rotto(url: str, timeout: int) -> dict:
+            raise RuntimeError("nessun /api/ps qui")
+
+        assert finestra_attiva("m", "http://x/v1", fetch=rotto) is None
