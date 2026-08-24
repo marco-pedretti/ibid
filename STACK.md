@@ -96,6 +96,15 @@ quella **misurata** — ma non le scrive al posto di nessuno.
 **Su Linux/macOS**, `OLLAMA_CONTEXT_LENGTH=32768 OLLAMA_FLASH_ATTENTION=1 ollama serve`,
 oppure le stesse due righe nel service file.
 
+**La finestra si può anche impostare dallo slider nelle impostazioni dell'app
+Ollama**, ed è la stessa cosa: una variabile e uno slider scrivono lo stesso
+numero nel motore. Il progetto non ha bisogno di sapere quale delle due si è
+usata, ed è il punto di A-09 — **la finestra si misura invece di crederla**:
+`make dev` lo dice se quella attiva non è quella dichiarata, e ogni `EvalRun`
+registra quella letta da `/api/ps`. Vale anche come controllo dello slider
+stesso, che in alcune versioni dell'app è stato segnalato come ignorato: dopo la
+prima risposta, `ollama ps` mostra la colonna `CONTEXT` e chiude la questione.
+
 > **La finestra non viaggia più col nome del modello** (A-09). Fino al
 > 2026-08-24 il progetto creava un modello derivato per ogni coppia (modello,
 > finestra) — l'unica strada che Ollama documenti, e che resta l'unica se le
