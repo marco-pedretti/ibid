@@ -25,7 +25,7 @@ from src.eval.metrics import (
 from src.eval.dump import JsonlWriter
 from src.eval.provenance import git_commit, load_golden
 from src.retrieval.backends import RETRIEVERS
-from src.eval.run_config import build_config, make_eval_run
+from src.eval.run_config import build_config, finestra_registrata, make_eval_run
 from src.index.store import get_client
 import ir_measures
 
@@ -376,6 +376,9 @@ def run_retrieval_eval(
         # e prima questa riga era un `model="retrieval_only"` cablato che lo
         # negava. Vedi `make_eval_run`: e' il difetto che quella firma corregge.
         llm=config.rewrite_model if query_rewrite else None,
+        context_window=(
+            finestra_registrata(config.rewrite_model) if query_rewrite else None
+        ),
         pipeline_mode=pipeline_mode,
         config=build_config(
             top_k=top_k,

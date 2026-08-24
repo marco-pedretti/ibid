@@ -13,7 +13,7 @@ from pathlib import Path
 
 import src.config as cfg
 from src.eval.dump import JsonlWriter
-from src.eval.run_config import make_eval_run
+from src.eval.run_config import finestra_registrata, make_eval_run
 from src.datasets.schema import EvalRun
 from src.eval.provenance import git_commit, load_golden
 from src.generation.baseline_prompts import (
@@ -220,6 +220,7 @@ def run_generation_eval(
         config_hash=_config_hash(baseline, model, queries),
         dataset_id=dataset_id,
         llm=model,
+        context_window=finestra_registrata(model),
         pipeline_mode=_ROUTING_AXIS,
         config={
             "harness": "generation_baseline",

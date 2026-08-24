@@ -27,7 +27,7 @@ from src.datasets.schema import Chunk, EvalRun
 from src.eval.dump import JsonlWriter, write_all
 from src.eval.provenance import git_commit, load_golden
 from src.retrieval.backends import RETRIEVERS
-from src.eval.run_config import build_config, make_eval_run
+from src.eval.run_config import build_config, finestra_registrata, make_eval_run
 from src.generation.chat import generate_detailed
 from src.generation.citation_format import ComplianceSummary, check_format, summarize
 from src.generation.prompt import SYSTEM, build_user_message
@@ -349,6 +349,7 @@ def run_citation_eval(
         config_hash=_config_hash(top_k, retrieval_mode, qdrant_collection, model, system_prompt),
         dataset_id=dataset_id,
         llm=model,
+        context_window=finestra_registrata(model),
         pipeline_mode=pipeline_mode,
         config={
             **build_config(

@@ -17,6 +17,7 @@ non-comparable, which ROADMAP §3 forbids after Fase 2.
 
 from __future__ import annotations
 
+import sys
 import uuid
 from datetime import datetime, timezone
 from typing import Any
@@ -36,6 +37,62 @@ def reasoning_enabled() -> bool:
     return cfg.REASONING_EFFORT not in ("none", "", None)
 
 
+def finestra_registrata(llm: str) -> int:
+    """La finestra con cui la run ha **davvero** girato (A-09).
+
+    Era `cfg.CONTEXT_WINDOW`, cioe' la costante 32768, e D-14 aveva registrato
+    il difetto: *«oggi il numero e' vero perche' il default di questo modello
+    coincide, ma e' una coincidenza, non una misura»*. Il contratto OpenAI non
+    ha un campo per la finestra ne' in richiesta ne' in risposta (A-08), quindi
+    l'unico posto dove quel numero esiste e' `/api/ps` -- e da li' si legge.
+
+    **E' la stessa classe di difetto di `reasoning_enabled`**, un campo piu' in
+    su: una dichiarazione che nessuno verificava, e per un periodo falsa in ogni
+    run. Qui il rischio era peggiore che cosmetico: senza
+    `OLLAMA_CONTEXT_LENGTH` Ollama sceglie da se' fra 4k, 32k e 256k in base
+    alla memoria, quindi su un'altra macchina cinque chunk non entrerebbero nel
+    contesto mentre il risultato continuerebbe a dichiarare 32768.
+
+    **La chiama chi ha appena fatto girare il modello**, e non la fabbrica:
+    `/api/ps` sa rispondere solo di un modello **caricato**, quindi il momento
+    giusto e' subito dopo la generazione. Ed e' anche l'unico modo di tenere la
+    fabbrica una funzione totale: interrogare la rete dentro `make_eval_run`
+    faceva una chiamata HTTP per ogni `EvalRun` costruito -- misurato,
+    `test_generation_baseline` passava da 1,1 a 49,6 secondi -- e legava la
+    suite al motore acceso sulla macchina di chi la lancia.
+
+    **Quando il motore non lo dice si registra il valore dichiarato e lo si
+    dice a voce.** Resta l'unica meta' non chiusa: il JSON non distingue «32768
+    misurato» da «32768 creduto», e distinguerli vorrebbe dire aggiungere un
+    campo a `EvalRun`, cioe' toccare il contratto del §3. E' scritto in D-14.
+    """
+    try:
+        from src.service.catalog import finestra_attiva
+
+        attiva = finestra_attiva(llm)
+    except Exception:
+        attiva = None
+
+    return attiva if attiva is not None else _dichiarata(llm)
+
+
+def _dichiarata(llm: str) -> int:
+    """Il valore dichiarato, detto a voce. **Non e' un default silenzioso.**
+
+    Ci si arriva in due modi -- il motore non sa rispondere, o chi ha costruito
+    l'`EvalRun` non ha misurato -- e in tutti e due il numero che finisce nel
+    JSON e' una credenza. Dirlo su `stderr` e' il minimo che distingua questo
+    caso da una misura, finche' il §3 non avra' un campo per distinguerli nel
+    file (D-14).
+    """
+    print(
+        f"! non ho potuto verificare la finestra di {llm}: registro "
+        f"{cfg.CONTEXT_WINDOW}, che e' il valore dichiarato e non una misura.",
+        file=sys.stderr,
+    )
+    return cfg.CONTEXT_WINDOW
+
+
 def make_eval_run(
     *,
     git_commit: str,
@@ -45,6 +102,7 @@ def make_eval_run(
     config: dict[str, Any],
     metrics: dict[str, float],
     llm: str | None,
+    context_window: int | None = None,
 ) -> EvalRun:
     """Costruisce un `EvalRun`. **L'unico posto che lo fa.**
 
@@ -96,7 +154,7 @@ def make_eval_run(
         dataset_id=dataset_id,
         model=llm,
         quantization=cfg.LLM_QUANTIZATION,
-        context_window=cfg.CONTEXT_WINDOW,
+        context_window=context_window if context_window is not None else _dichiarata(llm),
         temperature=cfg.TEMPERATURE,
         reasoning_enabled=reasoning_enabled(),
         pipeline_mode=pipeline_mode,
