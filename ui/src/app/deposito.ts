@@ -83,7 +83,10 @@ export function locale(): Deposito | null {
 
 /** Cio' che era stato ricordato sotto `chiave`, o `null` — anche quando il
  *  deposito non c'e' o rifiuta di rispondere. */
-export function ricordato(chiave: ChiaveDeposito, deposito: Deposito | null = locale()): string | null {
+export function ricordato(
+  chiave: ChiaveDeposito,
+  deposito: Deposito | null = locale(),
+): string | null {
   if (deposito === null) return null;
   try {
     return deposito.getItem(chiave);
