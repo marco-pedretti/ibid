@@ -2837,6 +2837,12 @@ non è in gioco. È vero e non è tutto ciò che il criterio vorrebbe — regist
 come **D-18**, perché è una scelta di perimetro che non era scritta da nessuna
 parte.
 
+> **Aggiornamento del 2026-08-24: non è più un rinvio, è la decisione.** D-18 è
+> stato chiuso scegliendo di **non** offrire le collection instradate — in
+> ricerca esatta il routing perde 13,72 punti su `ledger` — quindi la targhetta
+> resta costante per costruzione, e dice il vero su ogni risposta che la demo
+> produce. Il ragionamento sta in fondo a questo quaderno, in *D-18*.
+
 ### U-06 — la fonte è il chunk intero, e il PDF non c'è affatto
 
 Il criterio dice «da una citazione si raggiunge la pagina della fonte», e la
@@ -2906,7 +2912,7 @@ silenzio. Il repo non lo faceva mai: `chat.tsx` sta accanto a `conversazione.ts`
 
 ### U-17 — le cuciture sono il contenuto, e il nome dice cosa si sta guardando
 
-**Si chiama «il testo indicizzato» e non «il documento»**, ed è il punto del task: il PDF non ce l'abbiamo (U-06), e ciò che si può mettere in fila sono i chunk. Oggi le due cose coincidono, e non per fortuna: nell'indice generico **non c'è nessuna sovrapposizione** fra chunk adiacenti — misurato — quindi i pezzi partizionano il documento esattamente. In una collection instradata non sarebbe più vero: un quarto delle coppie condivide fino a **586 caratteri**, e una lettura continua li mostrerebbe due volte. Il nome regge anche quel giorno, la vista no, e sta scritto dove serve (D-18).
+**Si chiama «il testo indicizzato» e non «il documento»**, ed è il punto del task: il PDF non ce l'abbiamo (U-06), e ciò che si può mettere in fila sono i chunk. Oggi le due cose coincidono, e non per fortuna: nell'indice generico **non c'è nessuna sovrapposizione** fra chunk adiacenti — misurato — quindi i pezzi partizionano il documento esattamente. In una collection instradata non sarebbe più vero: un quarto delle coppie condivide fino a **586 caratteri**, e una lettura continua li mostrerebbe due volte. Il nome regge anche quel giorno, la vista no, e sta scritto dove serve (D-18 — chiuso il 2026-08-24 decidendo di **non** offrirle nel selettore, quindi dal menù quel giorno non arriva; dall'API, che accetta `collection`, sì).
 
 **Le cuciture sono il contenuto, non un difetto.** Vedere dove un taglio è caduto — in mezzo a una frase, prima di una tabella, dopo un titolo — è la tesi del progetto applicata al corpus: la mappa dice che i pezzi sono disuguali, questa dice cosa c'era nel punto in cui uno è stato staccato. La cucitura sta **sopra** il chunk e non fra due, così porta il nome di quello che apre e il primo taglio si vede come gli altri.
 
@@ -3744,9 +3750,12 @@ astensione è calibrata per collection, non per dataset; riportarla è ciò che
 rende il risultato ricostruibile.»* Lo stream però la lasciava cadere, e il
 frontend poteva solo dedurla dal `dataset_id`.
 
-È una deduzione **giusta oggi e sbagliata domani**: appena una collection
-instradata diventa scegliibile (**D-18**), lo stesso dataset avrà due indici, e
-«su cosa hai cercato» avrebbe dato la stessa risposta a due run diverse. Il
+È una deduzione **giusta quasi sempre e sbagliata quando conta**: `ledger` e
+`ledger_routed` sono due indici dello stesso `dataset_id`, e «su cosa hai
+cercato» avrebbe dato la stessa risposta a due run diverse. Il caso non è
+ipotetico neanche dopo D-18 — che ha deciso di non offrirle nel **selettore**
+(2026-08-24) — perché `QueryRequest.collection` le accetta comunque: la demo non
+le propone, l'API ci risponde. Il
 default è `""` e non il dataset — vale prima che la risposta finisca e sulle
 risposte già in cronologia, che sono lo stesso caso: **non si sa**. Metterci il
 dataset avrebbe indovinato giusto quasi sempre, che è il modo in cui un difetto
@@ -4122,3 +4131,79 @@ I `chunk` dichiarati sono ora **esattamente ciò che l'indice ridotto del profil
 `demo` deve contenere**. Prima il vincolo era scritto a parole in un commento;
 adesso è un elenco di sei identificatori che uno script sa leggere.
 
+### D-18 — le collection instradate restano fuori dall'interfaccia
+
+**Deciso il 2026-08-24. È una chiusura per decisione, non per lavoro fatto: il
+codice non cambia di una riga.**
+
+Il debito era scritto come una domanda di presentazione — *offrire
+`open_ragbench_routed` e `ledger_routed` raddoppierebbe l'elenco dei corpus con
+due voci che sono varianti dello stesso, e va deciso come si presentano* — e
+dava per scontata la risposta: che si presentano. Il ROADMAP arrivava a dire che
+D-18 era **«l'unica cosa che rende l'affermazione 2 visibile invece che solo
+scritta»**. La decisione è l'altra: non entrano.
+
+#### La ragione è un numero, non un gusto
+
+In ricerca esatta — l'unico confronto legittimo fra due indici di densità
+diversa, ed è il §15 dopo R-11 — il routing **perde 13,72 punti** di `doc_R@5`
+su `ledger` e ne guadagna **1,06** su `open_ragbench`. Sul genere per cui la
+pipeline instradata è stata scritta a mano, quella pipeline recupera **peggio**.
+
+Un elenco di corpus che offre due strade non le sta descrivendo: le sta
+dichiarando alternative alla pari. Chi prova il progetto non ha modo di sapere
+quale delle due è peggio, e la demo non glielo può dire, perché **mostra una
+risposta per volta e non sa confrontare niente**. Il risultato sarebbe una
+scelta in più che non decide nulla, con metà delle risposte prese dal braccio
+che recupera meno.
+
+#### «Visibile» non era la parola giusta
+
+L'argomento originale — renderlo visibile è ciò che lo rende confutabile — vale
+quando il reperto è positivo. Qui è negativo, ed è il reperto più interessante
+del progetto: confutarlo significa **rifare la misura**, cioè R-07 con
+`compare_runs.py`, i due bracci sulla stessa riga e McNemar appaiato accanto.
+Quella è la sede, e c'è già. Un menù a tendina non è un esperimento; mettercelo
+avrebbe spostato un risultato dalla tabella dove si legge a un posto dove si
+può solo aneddotare.
+
+#### Cosa si perde, detto per intero
+
+La targhetta di U-05 resta costante su «taglio generico»: si vede che il routing
+**non** è in gioco, non lo si vede all'opera. Era già annotato in U-05 come
+limite dichiarato, e da oggi è una scelta invece che un rinvio.
+
+#### Cosa non cambia, ed è più di quanto sembri
+
+- **Le due collection restano su Qdrant.** Sono il secondo braccio di R-07, cioè
+  l'unica misura che decide l'affermazione 2: cancellarle libererebbe 2,1 GB e
+  costerebbe la riproducibilità di un numero che finisce nel README.
+- **Restano fuori dalle Release** (U-08), come già deciso: servono a chi
+  riproduce, e chi riproduce ingerisce.
+- **L'API le raggiunge ancora.** `QueryRequest.collection` le accetta, e
+  `/datasets` le elenca già oggi nel campo `collections` — che è il motivo per
+  cui vale la pena correggere la formulazione del debito: non è `/datasets` a
+  pubblicare solo le generiche, è il **registro dei dataset**, e il selettore
+  dell'interfaccia si costruisce da quello. `collections` esiste per chi
+  ispeziona (A-06, la dashboard) e continua a vederle. Quindi non si toglie
+  niente: si smette di **offrirle**, che è una cosa diversa e reversibile con un
+  elenco.
+
+#### Un effetto collaterale sulla ricerca esatta, che va scritto
+
+Il §12 chiedeva che la demo girasse con `SEARCH_EXACT` acceso, e l'argomento
+forte era proprio l'esposizione: con l'ANN, `ledger_routed` restituisce l'84,8%
+del vero top-5 e più di una query su tre riceve un top-5 sbagliato (R-11), per
+cui la demo avrebbe fatto vedere il routing **più il difetto dell'indice** — di
+otto punti peggiore del vero. Fuori dall'interfaccia, quel rischio sparisce
+insieme alla ragione.
+
+La scelta resta comunque, per un argomento più debole e non nullo: **OQ-09**.
+Sulle generiche la ricerca esatta sposta le metriche fra 0,0000 e 0,0046 e costa
+2,5 ms contro 1,4 — niente in tutti e due i sensi — ma l'ANN di `ledger` ha reso
+dodici punti in meno a configurazione identica, da solo, sotto un task che non
+lo toccava, e la ricerca esatta riproduce bit per bit. Una dimostrazione che
+qualcuno riavvia fra sei mesi ha più bisogno di quella garanzia di quanta ne
+abbia la valutazione, che i propri numeri li rifà. **Non è ancora in
+`compose.yml`**: resta lavoro di U-08, adesso con la sua ragione aggiornata
+accanto.
