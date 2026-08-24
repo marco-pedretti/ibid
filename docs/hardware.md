@@ -247,6 +247,17 @@ perché `size_vram` conta i pesi e non la contesa.
 > Il campo non esiste in `EvalRun`, che registra `model` e `quantization` ma
 > niente del motore: è la stessa lacuna di **D-20**, un piano più in là.
 
+> **Aggiornamento del 2026-08-24 (A-09): una terza variabile del motore, e la
+> più silenziosa.** `OLLAMA_CONTEXT_LENGTH` decide la finestra di contesto, e
+> senza di lei Ollama la sceglie **da sé** fra 4k, 32k e 256k guardando la
+> memoria. Su questa macchina dà 32768 — cioè il numero che il progetto
+> dichiara, ottenuto per fortuna — e su una scheda più piccola darebbe 4096,
+> dove cinque chunk non entrano in contesto e nessuno lo direbbe. Misurata
+> funzionante attraverso `/v1` su un modello base, quindi **senza** modelli
+> derivati. Da A-09 `EvalRun.context_window` è letta da `/api/ps` invece che
+> copiata dalla costante: delle tre variabili del motore, è la prima che il
+> risultato registra davvero.
+
 ### Cosa è stato misurato e cosa no
 
 `OLLAMA_NUM_PARALLEL` **non è stato misurato.** Era già a 1 prima della prima
