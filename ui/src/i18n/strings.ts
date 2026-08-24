@@ -486,27 +486,6 @@ export const it = {
     "Non ha risposto: le fonti trovate erano troppo deboli, e il modello non è stato interrogato.",
   "abstention.model": "Il modello ha dichiarato di non trovare la risposta nelle fonti.",
 
-  // --- non ancora in uso ---------------------------------------------------
-  // Nessuno legge queste, e ognuna appartiene a un task che ha un nome. Stanno
-  // qui e non fra le altre perche' altrimenti un ripasso le rivede come se
-  // fossero sullo schermo: **vanno riscritte quando il task le accende**, con
-  // davanti la cosa che devono spiegare. Una frase giudicata al buio non e' una
-  // frase giudicata.
-  // U-11 (il README) e la testata che non c'e' piu'
-  "app.tagline": "RAG con citazioni verificate a livello di frase",
-
-  // l'esploratore del corpus, §12
-  "nav.chat": "Chat",
-  "nav.explore": "Esplora il corpus",
-
-  // il debito di U-02: i dati dell'indice sotto «Dettagli della run»
-  "index.title": "Indice",
-  "index.collection": "Collection",
-  "index.points": "punti",
-  "index.dense": "dimensione densa",
-  "index.sparse": "vettori sparsi",
-  "index.missing": "Il server non elenca nessuna collection con questo nome.",
-
   // U-19 — la pagina «Che cos'è».
   //
   // **I numeri non ci sono, ed è una scelta scritta.** Il criterio del task ne
@@ -895,27 +874,6 @@ export const en: Record<Chiave, string> = {
 
   "abstention.gate": "No answer: the sources found were too weak, and the model was never asked.",
   "abstention.model": "The model stated it could not find the answer in the sources.",
-
-  // --- non ancora in uso ---------------------------------------------------
-  // Nessuno legge queste, e ognuna appartiene a un task che ha un nome. Stanno
-  // qui e non fra le altre perche' altrimenti un ripasso le rivede come se
-  // fossero sullo schermo: **vanno riscritte quando il task le accende**, con
-  // davanti la cosa che devono spiegare. Una frase giudicata al buio non e' una
-  // frase giudicata.
-  // U-11 (il README) e la testata che non c'e' piu'
-  "app.tagline": "RAG with sentence-level verified citations",
-
-  // l'esploratore del corpus, §12
-  "nav.chat": "Chat",
-  "nav.explore": "Explore the corpus",
-
-  // il debito di U-02: i dati dell'indice sotto «Dettagli della run»
-  "index.title": "Index",
-  "index.collection": "Collection",
-  "index.points": "points",
-  "index.dense": "dense size",
-  "index.sparse": "sparse vectors",
-  "index.missing": "The server lists no collection with this name.",
 
   "about.title": "What this is",
   "about.subtitle": "What ibid does, what it sets out to show, and where it stops.",
