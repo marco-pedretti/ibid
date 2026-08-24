@@ -2339,6 +2339,12 @@ quindi è già «invitato», ed E-04/E-05 restano confrontabili.
 composizione fra markdown, marcatori e verdetti non è verificata da un test —
 `ui/` non ha jsdom, per scelta di U-00. Si guarda a schermo.
 
+> **Saldato il 2026-08-24 (D-8).** La composizione è uscita da `Testo.tsx` in
+> `composizione.ts`, che restituisce una lista di pezzi invece di nodi e quindi
+> ha 18 test suoi. U-00 non è stata riaperta: quello che si prova è **quali
+> pezzi, dove, con che veste**; le classi e KaTeX restano un giudizio a schermo.
+> In fondo a questo quaderno, in *D-8*.
+
 `npm run typecheck && npm test && npm run build` verdi, **172 test Vitest**;
 1678 test Python passano col prompt nuovo.
 
@@ -4207,3 +4213,86 @@ qualcuno riavvia fra sei mesi ha più bisogno di quella garanzia di quanta ne
 abbia la valutazione, che i propri numeri li rifà. **Non è ancora in
 `compose.yml`**: resta lavoro di U-08, adesso con la sua ragione aggiornata
 accanto.
+
+### D-8 — la composizione esce dal JSX, e l'incrocio diventa provabile
+
+Il debito era vecchio di dieci giorni e diceva già come si saldava: *«estrarre
+la composizione in una funzione pura che restituisce intervalli invece di
+nodi»*. Quello che è cambiato il 2026-08-24 non è la soluzione, è il momento: la
+**tappa 3 è Q-07**, il refactor dell'interfaccia, e il suo gate dice *«il numero
+di test Vitest non cala e nessuna schermata cambia comportamento»*. Su
+[`Testo.tsx`](../ui/src/ui/Testo.tsx) quel gate era **vuoto** — 422 righe, il
+file dove il refactor ha più da guadagnare, e nessun test a dire che il
+risultato è lo stesso.
+
+#### Le parti avevano i loro test, l'incrocio no
+
+`markdown.ts` prova gli intervalli di enfasi e sintassi, `matematica.ts` il
+taglio fra prosa e TeX, `verdetti.ts` quale verdetto tocca a quale occorrenza.
+Sono tre elenchi di intervalli **sullo stesso testo**, e le decisioni difficili
+stanno tutte in come si sovrappongono. Erano scritte nei commenti, con la loro
+ragione, e verificate guardando lo schermo:
+
+1. **La matematica taglia per prima.** Le annotazioni entrano dentro i suoi
+   pezzi di prosa, non viceversa: `$x[3]$` — un indice fra quadre dentro una
+   formula, che in un corpus di paper esiste — verrebbe spezzato a metà dal
+   marcatore, e la formula non si comporrebbe più. Un errore di matematica rompe
+   il disegno, un marcatore mancato resta leggibile.
+2. **Gli intervalli si ritagliano, non si scartano.** Una frase scoperta che
+   contiene una formula sta a cavallo di due segmenti, e una che attraversa due
+   celle di tabella è lo stesso caso: metà sottolineatura è leggibile, nessuna
+   no.
+3. **I caratteri di sintassi spariscono all'ultimo passo.** Toglierli prima
+   sposterebbe gli offset di ogni altro intervallo — ed è la ragione per cui
+   `markdown.ts` restituisce posizioni invece di testo ripulito.
+
+#### La lista è piatta, e non è un dettaglio
+
+`composizione.ts` restituisce `Pezzo[]`: testo con la sua veste, marcatore,
+formula, ognuno col proprio offset nel grezzo. Il disegno **annida** — un tratto
+in grassetto e sottolineato sta dentro due involucri — e la lista no: un pezzo
+porta le due cose insieme.
+
+È una scelta contro l'istinto, e la ragione è Q-07. Un albero di nodi renderebbe
+i test una descrizione della **struttura HTML**, cioè proprio la cosa che il
+refactor ha il diritto di cambiare: cambierebbe l'annidamento e i test si
+dovrebbero riscrivere, che è il modo in cui un test smette di essere un vincolo
+e diventa un costo. La lista piatta descrive **cosa si legge e come**, che è
+quello che non deve cambiare.
+
+È la stessa mossa di `dettagli.ts`, che dice quali campi e in che gruppi senza
+sapere che aspetto avranno, e per la stessa ragione: è la parte che si può
+sbagliare **senza che si veda**.
+
+#### Provati a mutazione, prima di essere creduti
+
+I diciotto test sono passati **alla prima esecuzione**, che è esattamente la
+condizione in cui un test non ha ancora dimostrato niente: può passare perché il
+codice è giusto, o perché la sua asserzione non tocca il codice. Quindi sono
+stati rotti apposta, uno per decisione:
+
+| mutazione | test caduti |
+|---|---|
+| l'annotazione che non sta tutta dentro il tratto viene scartata | 3 |
+| il segmento di prosa perde l'offset del proprio inizio | 4 |
+| i caratteri nascosti non si saltano | 2 |
+
+Tre minuti, e sono la differenza fra una suite e una decorazione. È la stessa
+cautela che il §15 chiede alle misure — non dichiarare un miglioramento senza la
+linea di rumore accanto: finché non lo si è visto fallire, non si sa che cosa
+sia il test a tenere fermo.
+
+#### Cosa questo **non** prova, detto per intero
+
+Che l'interfaccia sia provata. Le classi, KaTeX, il componente del marcatore e
+tutto ciò che ha un aspetto restano verificabili solo guardando: `ui/` non ha
+jsdom, e la scelta di U-00 **non è stata riaperta** — il debito indicava questa
+strada proprio per non doverla riaprire. Quel che ora si prova è **quali pezzi,
+dove, con che veste**, cioè il calcolo. Il disegno resta un giudizio.
+
+#### Cosa lascia a Q-07
+
+Un gate che su quel file non è più vuoto: 376 test, e la parte che il refactor
+toccherà di sicuro è la metà che adesso è misurata. Il refactor puro e i test
+stanno in **due commit separati**, così che il primo dimostri da solo ciò che
+dichiara — 358 test prima, 358 dopo.
