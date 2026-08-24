@@ -214,8 +214,10 @@ export const it = {
     "Fa ragionare il modello prima che risponda. L'abbiamo misurato: +0,6 punti di citazioni ben formate, 9,5× i token, e sui bilanci le domande a cui rifiuta di rispondere passano da 56 a 90 su 200.",
   "bar.model": "Modello",
   "bar.default": "predefinito",
+  // La seconda frase ha preso il posto del selettore «Contesto», tolto in A-09:
+  // sta qui perché è qui che si va a cercare la manopola che non c'è più.
   "bar.model.hint":
-    "Chi risponde. Con un buon recupero la taglia del modello conta meno del previsto: è una delle cose che questo progetto misura.",
+    "Chi risponde. Con un buon recupero la taglia del modello conta meno del previsto: è una delle cose che questo progetto misura. Quanto testo gli entra, invece, lo decide il motore di inferenza e non ibid.",
   // `/config` dice come il servizio è configurato, non cosa è stato scaricato:
   // il predefinito compare in elenco lo stesso, disabilitato, perché una voce
   // assente non spiegherebbe perché non è selezionato niente.
@@ -226,19 +228,6 @@ export const it = {
   // risponde, è poterlo cambiare — e la frase dice quello.
   "bar.model.none":
     "L'elenco dei modelli non è arrivato dal servizio di inferenza: risponde quello configurato, e per ora non si può cambiare.",
-  // Il secondo selettore di U-16. «Contesto» e non «finestra di contesto»: la
-  // pastiglia sta accanto ad altre quattro, e la parola lunga la fa a capo.
-  "bar.context": "Contesto",
-  // Il costo di una finestra grande è un **rallentamento**, non un guasto: se la
-  // memoria della scheda non basta il servizio continua sulla CPU. Dirlo qui è
-  // meglio che nascondere le taglie grandi, perché il rallentamento si vede da
-  // sé nella riga dei tempi.
-  "bar.context.hint":
-    "Quanto testo entra nel modello prima che risponda. Le finestre grandi tengono più fonti insieme ma occupano più memoria: oltre quella della scheda il servizio continua sulla CPU e diventa molto più lento.",
-  // Attenuata: la finestra e' una sola, e la pastiglia dice perche' invece di
-  // sparire -- sparendo, la funzione non esisterebbe per chi non sa dello script.
-  "bar.context.only":
-    "Questo modello ha una finestra sola. Per poter scegliere, creane altre con «scripts/model_sizes.py».",
   "bar.advanced": "Avanzate",
   "bar.advanced.hint":
     "Come si cerca nel corpus, prima che il modello scriva. Stanno chiuse di proposito: confrontare configurazioni è il lavoro del cruscotto, non di qui.",
@@ -575,6 +564,13 @@ export const it = {
     "Una citazione verificata dice che il pezzo citato sostiene la frase, non che la frase sia vera. Se il documento sbaglia, la risposta sbaglia con lui.",
   "about.not.measure":
     "Una risposta sola non è una misura. Lo stesso modello, con tutto il resto uguale, risponde in modo diverso da un'esecuzione all'altra: le tabelle nascono da migliaia di domande, non da quella che hai appena fatto.",
+  // Tolto il selettore «Contesto» (A-09), questa riga è il posto in cui la cosa
+  // si dice: non è una funzione mancante, è una manopola che sta altrove. Il
+  // numero non si scrive qui perché dipende da come è avviato il motore — e
+  // scriverne uno fisso sarebbe di nuovo la dichiarazione non verificata da cui
+  // A-09 è uscita.
+  "about.not.context":
+    "Quanto testo entra nel modello non lo decide ibid: lo decide il motore di inferenza, da come è stato avviato. Qui si sceglie chi risponde e come si cerca, non quanta memoria ha chi risponde.",
   // Il punto che il piano chiede di dire qui, per nome: è l'unica differenza fra
   // com'è configurata la demo e com'è configurata la valutazione.
   "about.not.exact":
@@ -716,17 +712,12 @@ export const en: Record<Chiave, string> = {
   "bar.model": "Model",
   "bar.default": "default",
   "bar.model.hint":
-    "Who answers. With good retrieval, model size matters less than expected: it is one of the things this project measures.",
+    "Who answers. With good retrieval, model size matters less than expected: it is one of the things this project measures. How much text fits into it, though, is decided by the inference engine and not by ibid.",
   "bar.model.notInstalled": "not installed",
   "bar.model.missing":
     "The configured model is not among those installed on the inference service: pick one from the list, or install it there.",
   "bar.model.none":
     "The model list did not arrive from the inference service: the configured one answers, and for now it cannot be changed.",
-  "bar.context": "Context",
-  "bar.context.hint":
-    "How much text fits into the model before it answers. Larger windows hold more sources at once but take more memory: past what the card has, the service keeps going on the CPU and gets much slower.",
-  "bar.context.only":
-    "This model has a single context size. To get a choice, create more with «scripts/model_sizes.py».",
   "bar.advanced": "Advanced",
   "bar.advanced.hint":
     "How the corpus is searched, before the model writes. Closed on purpose: comparing configurations is the dashboard's job, not this one's.",
@@ -969,6 +960,8 @@ export const en: Record<Chiave, string> = {
     "A verified citation says the cited passage supports the sentence, not that the sentence is true. If the document is wrong, the answer is wrong with it.",
   "about.not.measure":
     "A single answer is not a measurement. The same model, with everything else identical, answers differently from one run to the next: the tables come from thousands of questions, not from the one you just asked.",
+  "about.not.context":
+    "How much text fits into the model is not ibid's decision: it is the inference engine's, from the way it was started. Here you choose who answers and how the corpus is searched, not how much memory the one who answers has.",
   "about.not.exact":
     "It is not configured exactly the way the evaluation is, and there is one difference: here the index is searched exactly rather than approximately. On a dense index the approximate search misses things, and a demonstration would end up showing that flaw while believing it was showing retrieval.",
 
