@@ -250,7 +250,14 @@ function numero(n: number, lingua: Lingua, cifre: number): string {
   });
 }
 
-const PASTIGLIA =
+/** Il riquadro del verdetto numerico: rettangolo, mono, cifre in colonna.
+ *
+ * **Non e' la pastiglia di `pastiglia.ts`**, che e' una pillola da 11 px con
+ * cui si commuta qualcosa: questo non si preme, dice un esito, e porta un
+ * numero — da cui `tabular-nums`, che a una pillola di comando non serve. Si
+ * chiamava `PASTIGLIA` anche lui, ed erano due misure diverse sotto la stessa
+ * parola in due file che si leggono insieme. */
+const RIQUADRO =
   "inline-flex items-center gap-[5px] rounded border px-1.5 py-px font-mono text-[10px] tabular-nums";
 
 /**
@@ -275,7 +282,7 @@ export function VerdettoNumerico({ esito }: { esito: EsitoNumerico }) {
       : t(`verdict.numeric.${esito.tipo === "sostiene" ? "supported" : "unsupported"}`);
 
   return (
-    <span className={`${PASTIGLIA} ${esito.tipo === "sostiene" ? TONO.ok : TONO.warn}`}>
+    <span className={`${RIQUADRO} ${esito.tipo === "sostiene" ? TONO.ok : TONO.warn}`}>
       <Glifo size={11} />
       <Suggerimento dato testo={t("verdict.numeric.what")}>
         {parola}
@@ -290,7 +297,7 @@ export function Verdetto({ esito }: { esito: EsitoScheda }) {
   const dettaglio = dettaglioDi(esito, lingua, t);
 
   return (
-    <span className={`${PASTIGLIA} ${TONO[tono]}`}>
+    <span className={`${RIQUADRO} ${TONO[tono]}`}>
       <Glifo size={11} />
       {/* Il suggerimento sta sulla **parola** e non sulla pastiglia intera: dentro
           ci sono due o tre cose diverse, e una bolla sola che copre tutto direbbe

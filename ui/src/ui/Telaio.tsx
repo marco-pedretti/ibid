@@ -541,10 +541,16 @@ function BottoneCorpus({ compatto = false }: { compatto?: boolean }) {
  * Le due misure restano costanti separate perche' due classi in conflitto nella
  * stessa stringa non si risolvono nell'ordine in cui sono scritte — vince
  * l'ordine del foglio.
+ *
+ * **Si chiama `CELLA` e non `PASTIGLIA`**, che era il suo nome, per la parola
+ * che questa stessa nota usa due righe piu' su: nella striscia sono una colonna
+ * di celle da 34. La pastiglia e' un'altra forma e sta in `pastiglia.ts` —
+ * pillola, bordo, 11 px — e questa non e' una sua variante: e' rettangolare,
+ * arrotondata di 7 px, e nessuna delle due misure viene dall'altra.
  */
-const PASTIGLIA = "rounded-[7px] border border-line-2 text-muted";
-const PASTIGLIA_LARGA = `${PASTIGLIA} h-[26px] px-[7px] text-[10px]`;
-const PASTIGLIA_STRETTA = `${PASTIGLIA} h-[34px] px-1 text-[9px]`;
+const CELLA = "rounded-[7px] border border-line-2 text-muted";
+const CELLA_LARGA = `${CELLA} h-[26px] px-[7px] text-[10px]`;
+const CELLA_STRETTA = `${CELLA} h-[34px] px-1 text-[9px]`;
 
 /**
  * «Che cos'e'»: la pagina che presenta il progetto (U-19).
@@ -647,7 +653,7 @@ function PastigliaLingua({ compatta = false }: { compatta?: boolean }) {
         type="button"
         onClick={() => imposta(altra)}
         aria-label={`${t("lang.label")}: ${lingua.toUpperCase()}`}
-        className={`${compatta ? PASTIGLIA_STRETTA : PASTIGLIA_LARGA} flex transition-colors hover:border-line ${
+        className={`${compatta ? CELLA_STRETTA : CELLA_LARGA} flex transition-colors hover:border-line ${
           compatta ? "w-full flex-col items-center justify-center gap-px" : "items-center gap-0.5"
         }`}
       >
@@ -722,7 +728,7 @@ function PastigliaTema({ compatta = false }: { compatta?: boolean }) {
       voci={voci}
       onCambia={imposta}
       verso="su"
-      className={`${compatta ? PASTIGLIA_STRETTA : PASTIGLIA_LARGA} flex items-center ${
+      className={`${compatta ? CELLA_STRETTA : CELLA_LARGA} flex items-center ${
         compatta ? "justify-center" : "gap-1.5"
       }`}
     >
