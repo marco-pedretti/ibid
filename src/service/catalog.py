@@ -298,6 +298,65 @@ def _mostra(base_nativo: str, nome: str, timeout: int) -> dict:
     return letto if isinstance(letto, dict) else {}
 
 
+#: L'endpoint nativo che dice **cosa sta girando adesso, e con quale finestra**.
+#: Come `/api/show` non e' inferenza, e vale la stessa nota di `_MOSTRA`: e'
+#: scoperta, e degrada a «non lo so» dove non esiste.
+#:
+#: Risponde a una domanda che il contratto OpenAI non sa porre — *con che
+#: contesto ha risposto davvero?* — e da **A-09** e' quella che rende
+#: `EvalRun.context_window` una misura invece di una dichiarazione. Elenca i
+#: modelli **caricati**: a motore fermo la risposta e' vuota, quindi si sa
+#: **dopo** la prima risposta e mai prima. E' un limite del posto in cui la
+#: verita' sta, non di questa funzione.
+_CARICATI = "/api/ps"
+
+
+def finestra_attiva(
+    model: str,
+    base_url: str | None = None,
+    *,
+    fetch: Callable[[str, int], dict] | None = None,
+) -> int | None:
+    """Con quale finestra `model` sta girando **adesso**. `None` = non si sa.
+
+    Serve perche' la finestra non e' un campo del contratto OpenAI (A-08) e
+    quindi nessuna risposta puo' riportarla: chi genera sa cosa ha chiesto, non
+    cosa ha ottenuto. Prima di A-09 il divario era coperto da una costante --
+    `CONTEXT_WINDOW = 32768` -- vera per coincidenza, ed e' il difetto che D-14
+    registrava.
+
+    **`None` non significa 4096.** Significa che il motore non lo dice: perche'
+    non e' Ollama, perche' non risponde, o perche' quel modello non e' caricato.
+    Restituire un numero plausibile al suo posto ricreerebbe esattamente la
+    dichiarazione non verificata da cui si sta uscendo.
+    """
+    base = _nativo(base_url or cfg.LLM_BASE_URL)
+    try:
+        d = (fetch or _caricati)(f"{base}{_CARICATI}", 5)
+    except Exception:
+        return None
+
+    voci = d.get("models") if isinstance(d, dict) else None
+    if not isinstance(voci, list):
+        return None
+    for v in voci:
+        if not isinstance(v, dict):
+            continue
+        # Ollama ripete il nome in due campi: `name` e' quello chiesto, `model`
+        # quello risolto. Si guardano tutti e due perche' non e' scritto da
+        # nessuna parte che coincidano sempre.
+        if model in {v.get("name"), v.get("model")}:
+            finestra = v.get("context_length")
+            return finestra if isinstance(finestra, int) else None
+    return None
+
+
+def _caricati(url: str, timeout: int) -> dict:
+    with urllib.request.urlopen(url, timeout=timeout) as resp:
+        letto = json.loads(resp.read())
+    return letto if isinstance(letto, dict) else {}
+
+
 def _come_info(nome: str, d: object) -> ModelInfo:
     """Il payload di `/api/show` ridotto a cio' che serve, senza fidarsi."""
     if not isinstance(d, dict):
