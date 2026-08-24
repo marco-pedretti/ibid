@@ -1,6 +1,13 @@
 /**
  * Il testo della risposta: marcatori col loro verdetto, formule disegnate.
  *
+ * **Qui si disegna soltanto.** Quali pezzi ci sono, in che ordine e con che
+ * veste lo decide `composizione.ts`, che non produce nodi e quindi ha dei test
+ * (D-8): questo file prende quella lista e le mette addosso delle classi. La
+ * separazione non e' formale — l'incrocio fra markdown, matematica, marcatori e
+ * verdetti e' la parte che si puo' sbagliare senza che si veda, e finche' e'
+ * stata scritta in JSX si e' potuta verificare solo a schermo.
+ *
  * **I marcatori sono inerti finche' `answer` non arriva**, ed e' una regola del
  * §3.5 e non una scelta grafica: mentre i token scorrono, `[2]` compare prima
  * che il suo verdetto esista, e prima ancora che il parser abbia potuto
@@ -10,8 +17,7 @@
  * **Poi ognuno porta il proprio verdetto** (U-07): sostenuta, non sostenuta, non
  * verificata, ciascuna distinguibile dalle altre senza aprire niente, e nessuna
  * nascosta. Chi decide quale verdetto tocca a quale occorrenza e' `verdetti.ts`,
- * qui si disegna — l'ordine importa perche' quella decisione ha dei test e questo
- * file no.
+ * qui si disegna.
  *
  * **La frase che non cita niente e' sottolineata dove sta**, non solo elencata
  * nel pannello. E' il denominatore nascosto della precisione: si alza citando di
@@ -36,13 +42,12 @@
 import katex from "katex";
 import "katex/dist/katex.min.css";
 import { useMemo } from "react";
-import type { ReactNode } from "react";
 
-import { marcatoriDelTesto, spanSenzaCitazione } from "../app/verdetti";
-import type { Marcato, Span } from "../app/verdetti";
 import type { Risposta } from "../app/conversazione";
-import { analizza, stiliIn, visibili } from "./markdown";
-import type { Blocco as BloccoMd, Nascosto, Stile } from "./markdown";
+import { annotazioni, componi, raggruppa } from "./composizione";
+import type { Contesto, Pezzo } from "./composizione";
+import { analizza } from "./markdown";
+import type { Blocco as BloccoMd, Stile } from "./markdown";
 import { perAnteprima, segmenta } from "./matematica";
 import { Marcatore } from "./Verdetto";
 
@@ -57,50 +62,18 @@ export function marcatoriCitati(testo: string): Set<number> {
 }
 
 export function Testo({ risposta }: { risposta: Risposta }) {
-  const { blocchi, annotazioni, stili, nascosti } = useMemo(() => {
-    const marcati = marcatoriDelTesto(risposta);
-    // **Senza fonti recuperate non c'e' niente da sottolineare.** «Questa frase
-    // non cita nessuna fonte» e' un rilievo quando le fonti c'erano e la frase
-    // non le ha usate; col RAG spento — e in un'astensione del gate — non ce
-    // n'era nessuna, quindi la frase e' vera di ogni riga e non dice niente di
-    // nessuna. Sottolineare tutta la colonna la fa anche sembrare *analizzata*,
-    // che e' l'opposto di cio' che quella meta' del confronto merita: li' non
-    // c'e' un verdetto piu' severo, non c'e' proprio niente da verificare, e a
-    // dirlo basta l'avviso — una volta.
-    const scoperte = risposta.chunks.length === 0 ? [] : spanSenzaCitazione(risposta);
+  const { blocchi, contesto } = useMemo(() => {
     const md = analizza(risposta.testo);
-    return {
-      ...md,
-      // Le due specie non si annidano mai: una frase «senza citazione» e' per
-      // definizione una frase senza marcatori. Quindi una lista piatta, ordinata,
-      // basta -- e non serve un albero di intervalli.
-      annotazioni: ordina([
-        ...marcati.map((m): Annotazione => ({
-          da: m.indice,
-          a: m.indice + m.lunghezza,
-          marcato: m,
-        })),
-        ...scoperte.map((s): Annotazione => ({ ...s, marcato: null })),
-      ]),
+    const contesto: Contesto = {
+      testo: risposta.testo,
+      annotazioni: annotazioni(risposta),
+      stili: md.stili,
+      nascosti: md.nascosti,
     };
+    return { blocchi: md.blocchi, contesto };
   }, [risposta]);
 
-  const contesto: Contesto = { testo: risposta.testo, annotazioni, stili, nascosti };
-
-  // I blocchi si raggruppano solo per disegnare `<ul>`/`<ol>`: voci consecutive
-  // stanno in un elenco, e senza il raggruppamento sarebbero N elenchi da una
-  // voce -- che i lettori di schermo annunciano uno per uno.
-  return (
-    <div className="flex flex-col gap-2 text-[13.5px] leading-[1.66] text-ink">
-      {raggruppa(blocchi).map((g, i) =>
-        g.tipo === "elenco" ? (
-          <Elenco key={i} voci={g.blocchi} contesto={contesto} />
-        ) : (
-          <Blocco key={i} blocco={g.blocchi[0]} contesto={contesto} />
-        ),
-      )}
-    </div>
-  );
+  return <Composto blocchi={blocchi} contesto={contesto} spaziata />;
 }
 
 /**
@@ -110,18 +83,44 @@ export function Testo({ risposta }: { risposta: Risposta }) {
  * e formule esattamente come una risposta, e non ha ne' marcatori di citazione
  * ne' verdetti — perche' nessuno lo ha ancora citato ne' controllato.
  *
- * **Riusa `Testo` invece di rifarlo** passando `annotazioni: []`. Le annotazioni
- * sono l'unica cosa che lega quella macchina alle risposte; tutto il resto —
- * blocchi, tabelle Markdown, matematica, sintassi nascosta — vale per qualunque
- * testo. Una seconda composizione scritta accanto sarebbe divergente al primo
- * caso di bordo, e i casi di bordo qui sono la ragione per cui il modulo esiste.
+ * **Riusa la stessa macchina invece di rifarla** passando `annotazioni: []`. Le
+ * annotazioni sono l'unica cosa che lega quella macchina alle risposte; tutto il
+ * resto — blocchi, tabelle Markdown, matematica, sintassi nascosta — vale per
+ * qualunque testo. Una seconda composizione scritta accanto sarebbe divergente
+ * al primo caso di bordo, e i casi di bordo qui sono la ragione per cui il
+ * modulo esiste.
  */
 export function Prosa({ testo }: { testo: string }) {
-  const { blocchi, stili, nascosti } = useMemo(() => analizza(testo), [testo]);
-  const contesto: Contesto = { testo, annotazioni: [], stili, nascosti };
+  const { blocchi, contesto } = useMemo(() => {
+    const md = analizza(testo);
+    const contesto: Contesto = {
+      testo,
+      annotazioni: [],
+      stili: md.stili,
+      nascosti: md.nascosti,
+    };
+    return { blocchi: md.blocchi, contesto };
+  }, [testo]);
 
+  return <Composto blocchi={blocchi} contesto={contesto} spaziata={false} />;
+}
+
+/** I blocchi, disegnati. `spaziata` distingue la colonna di una risposta — che
+ *  ha il proprio corpo e la propria interlinea — dal testo di un chunk, che
+ *  eredita quelli di chi lo ospita. */
+function Composto({
+  blocchi,
+  contesto,
+  spaziata,
+}: {
+  blocchi: readonly BloccoMd[];
+  contesto: Contesto;
+  spaziata: boolean;
+}) {
   return (
-    <div className="flex flex-col gap-2">
+    <div
+      className={`flex flex-col gap-2 ${spaziata ? "text-[13.5px] leading-[1.66] text-ink" : ""}`}
+    >
       {raggruppa(blocchi).map((g, i) =>
         g.tipo === "elenco" ? (
           <Elenco key={i} voci={g.blocchi} contesto={contesto} />
@@ -131,27 +130,6 @@ export function Prosa({ testo }: { testo: string }) {
       )}
     </div>
   );
-}
-
-/** Cio' che serve a ogni pezzo per disegnarsi: il testo grezzo e i quattro
- *  elenchi di intervalli che ci stanno sopra. */
-interface Contesto {
-  testo: string;
-  annotazioni: Annotazione[];
-  stili: Stile[];
-  nascosti: Nascosto[];
-}
-
-type Gruppo = { tipo: "elenco" | "solo"; blocchi: BloccoMd[] };
-
-function raggruppa(blocchi: readonly BloccoMd[]): Gruppo[] {
-  const fuori: Gruppo[] = [];
-  for (const b of blocchi) {
-    const ultimo = fuori[fuori.length - 1];
-    if (b.tipo === "voce" && ultimo?.tipo === "elenco") ultimo.blocchi.push(b);
-    else fuori.push({ tipo: b.tipo === "voce" ? "elenco" : "solo", blocchi: [b] });
-  }
-  return fuori;
 }
 
 /**
@@ -168,7 +146,7 @@ const TITOLO = "font-semibold text-ink";
 function Blocco({ blocco, contesto }: { blocco: BloccoMd; contesto: Contesto }) {
   if (blocco.tipo === "tabella") return <Tabella blocco={blocco} contesto={contesto} />;
 
-  const dentro = <Tratto da={blocco.da} a={blocco.a} contesto={contesto} />;
+  const dentro = <Pezzi da={blocco.da} a={blocco.a} contesto={contesto} />;
   if (blocco.tipo === "titolo") {
     return <p className={`${TITOLO} ${(blocco.livello ?? 1) <= 2 ? "mt-1" : ""}`}>{dentro}</p>;
   }
@@ -194,7 +172,7 @@ function Elenco({ voci, contesto }: { voci: BloccoMd[]; contesto: Contesto }) {
     >
       {voci.map((v) => (
         <li key={v.da}>
-          <Tratto da={v.da} a={v.a} contesto={contesto} />
+          <Pezzi da={v.da} a={v.a} contesto={contesto} />
         </li>
       ))}
     </Tag>
@@ -224,7 +202,7 @@ function Tabella({ blocco, contesto }: { blocco: BloccoMd; contesto: Contesto })
                 key={c.da}
                 className="border-b border-line-2 px-2 py-1 text-left font-semibold text-ink"
               >
-                <Tratto da={c.da} a={c.a} contesto={contesto} />
+                <Pezzi da={c.da} a={c.a} contesto={contesto} />
               </th>
             ))}
           </tr>
@@ -234,7 +212,7 @@ function Tabella({ blocco, contesto }: { blocco: BloccoMd; contesto: Contesto })
             <tr key={i}>
               {riga.map((c) => (
                 <td key={c.da} className="border-b border-line px-2 py-1 align-top text-ink-2">
-                  <Tratto da={c.da} a={c.a} contesto={contesto} />
+                  <Pezzi da={c.da} a={c.a} contesto={contesto} />
                 </td>
               ))}
             </tr>
@@ -245,73 +223,15 @@ function Tabella({ blocco, contesto }: { blocco: BloccoMd; contesto: Contesto })
   );
 }
 
-/**
- * Un tratto di testo grezzo, disegnato con tutto cio' che gli sta sopra.
- *
- * L'ordine e' obbligato. `segmenta` **prima**, e annotare dentro i suoi pezzi:
- * al contrario, un `$x[3]$` — un indice fra quadre dentro una formula, che in un
- * corpus di paper esiste — verrebbe spezzato a meta' e la formula non si
- * comporrebbe piu'. La matematica ha la precedenza perche' un suo errore rompe
- * il disegno, mentre un marcatore mancato resta leggibile.
- */
-function Tratto({ da, a, contesto }: { da: number; a: number; contesto: Contesto }) {
-  // `segmenta` lavora sulla stringa che riceve, quindi i suoi `da` sono relativi:
-  // si riportano sul grezzo sommando `da`. Meglio che aggiungere un parametro a
-  // una funzione che ha gia' i suoi test e che qui non deve cambiare.
-  const grezzo = contesto.testo.slice(da, a);
+/** Un tratto di testo grezzo, coi suoi pezzi al loro posto. */
+function Pezzi({ da, a, contesto }: { da: number; a: number; contesto: Contesto }) {
   return (
     <>
-      {segmenta(grezzo).map((s, i) =>
-        s.tipo === "testo" ? (
-          <span key={i}>{conStile(s.valore, da + s.da, contesto)}</span>
-        ) : (
-          <Formula key={i} tex={s.tex} blocco={s.tipo === "blocco"} />
-        ),
-      )}
+      {componi(da, a, contesto).map((p) => (
+        <Disegno key={`${p.tipo}-${p.da}`} pezzo={p} />
+      ))}
     </>
   );
-}
-
-/**
- * La prosa di un segmento: prima si tolgono i caratteri di sintassi, poi si
- * spezza per enfasi, e dentro ogni pezzo vanno marcatori e sottolineature.
- *
- * I nascosti si saltano **qui** e non in `analizza` per la ragione di tutto il
- * modulo: togliere caratteri prima sposterebbe gli offset di tutti gli altri
- * intervalli.
- */
-function conStile(prosa: string, da: number, contesto: Contesto): ReactNode[] {
-  const fine = da + prosa.length;
-  const stili = stiliIn(contesto.stili, da, fine);
-
-  // I confini che contano: inizio, fine, e ogni estremo di stile. Fra due
-  // confini consecutivi lo stile e' uno solo, perche' `analizza` prende ogni
-  // carattere una volta sola -- quindi gli stili non si annidano e un taglio
-  // secco basta. Con l'annidamento servirebbe un albero, e non e' il caso.
-  const confini = [...new Set([da, fine, ...stili.flatMap((s) => [s.da, s.a])])].sort(
-    (x, y) => x - y,
-  );
-
-  const pezzi: ReactNode[] = [];
-  for (let k = 0; k + 1 < confini.length; k += 1) {
-    const [inizio, termine] = [confini[k], confini[k + 1]];
-    const dentro = visibili(inizio, termine, contesto.nascosti).flatMap((v) =>
-      annota(contesto.testo.slice(v.da, v.a), v.da, contesto.annotazioni),
-    );
-    if (dentro.length === 0) continue;
-
-    const stile = stili.find((s) => s.da <= inizio && s.a >= termine);
-    pezzi.push(
-      stile === undefined ? (
-        <span key={inizio}>{dentro}</span>
-      ) : (
-        <span key={inizio} className={VESTE_STILE[stile.tipo]}>
-          {dentro}
-        </span>
-      ),
-    );
-  }
-  return pezzi;
 }
 
 const VESTE_STILE: Record<Stile["tipo"], string> = {
@@ -321,48 +241,23 @@ const VESTE_STILE: Record<Stile["tipo"], string> = {
   codice: "rounded bg-surface-2 px-1 py-px font-mono text-[11.5px]",
 };
 
-/** Un tratto di testo che va disegnato diversamente. `marcato: null` = una frase
- *  che non cita niente. */
-interface Annotazione extends Span {
-  marcato: Marcato | null;
-}
+/** La frase che non cita nessuna fonte. Punteggiata e in colore d'avviso: non e'
+ *  un errore, e' un tratto di risposta che nessuno ha potuto verificare. */
+const SCOPERTO = "border-b-2 border-dotted border-warn pb-px";
 
-function ordina(a: Annotazione[]): Annotazione[] {
-  return a.sort((x, y) => x.da - y.da);
-}
+function Disegno({ pezzo }: { pezzo: Pezzo }) {
+  if (pezzo.tipo === "formula") return <Formula tex={pezzo.tex} blocco={pezzo.blocco} />;
 
-/**
- * La prosa di un segmento, coi tratti annotati al loro posto.
- *
- * Gli intervalli si **ritagliano** sul segmento invece di essere scartati: una
- * frase scoperta che contiene una formula sta a cavallo di due segmenti, e
- * scartarla la lascerebbe senza sottolineatura proprio nella meta' che si legge.
- */
-function annota(prosa: string, da: number, annotazioni: Annotazione[]): ReactNode[] {
-  const fine = da + prosa.length;
-  const pezzi: ReactNode[] = [];
-  let i = da;
-
-  for (const ann of annotazioni) {
-    if (ann.a <= i || ann.da >= fine) continue;
-    const inizio = Math.max(ann.da, i);
-    const termine = Math.min(ann.a, fine);
-    if (inizio > i) pezzi.push(prosa.slice(i - da, inizio - da));
-
-    if (ann.marcato !== null) {
-      pezzi.push(<Marcatore key={ann.da} marcato={ann.marcato} />);
-    } else {
-      pezzi.push(
-        <span key={`s${ann.da}`} className="border-b-2 border-dotted border-warn pb-px">
-          {prosa.slice(inizio - da, termine - da)}
-        </span>,
-      );
-    }
-    i = termine;
+  const veste = pezzo.veste === null ? "" : VESTE_STILE[pezzo.veste];
+  if (pezzo.tipo === "marcatore") {
+    return (
+      <span className={veste}>
+        <Marcatore marcato={pezzo.marcato} />
+      </span>
+    );
   }
-
-  if (i < fine) pezzi.push(prosa.slice(i - da));
-  return pezzi;
+  const classi = `${veste} ${pezzo.scoperto ? SCOPERTO : ""}`.trim();
+  return <span className={classi}>{pezzo.testo}</span>;
 }
 
 /**
