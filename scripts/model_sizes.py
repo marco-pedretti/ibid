@@ -17,11 +17,17 @@ rifiuto, perche' un controllo costruito li' sembrerebbe funzionare. Un
 endpoint. Quindi la finestra viaggia col nome del modello, e questo script e' il
 posto dove quei nomi nascono. Il ragionamento per esteso sta in ROADMAP, A-08.
 
-**`--assicura` e' il modo normale, e nessuno dovrebbe lanciarlo a mano**: lo
-chiama `scripts/dev.py` all'avvio. Chi usa la demo non deve sapere che le taglie
-sono modelli derivati -- e' un dettaglio del motore, e chiedergli di crearli
-significherebbe che il selettore non esiste finche' non ha letto la
-documentazione giusta.
+**`--assicura` si lancia a mano, ed e' cambiato con A-09.** Fino al 2026-08-24
+lo chiamava `scripts/dev.py` a ogni avvio, perche' chi usa la demo non deve
+sapere che le taglie sono modelli derivati. Il prezzo pero' lo pagava chi non
+aveva chiesto niente: **ventidue modelli** in `ollama list` su questa macchina,
+che a occhio sembrano duecento GB di roba altrui (i blob sono condivisi, ma
+`ollama list` ripete la taglia del modello base a ogni riga).
+
+Quindi la finestra del percorso normale la imposta il **motore** --
+`OLLAMA_CONTEXT_LENGTH=32768`, misurata funzionante attraverso `/v1` il
+2026-08-24 -- e queste taglie servono solo al secondo selettore di U-16, che
+scompare da se' quando ce n'e' una sola. Chi lo vuole le chiede.
 
 **Il servizio non le crea da se', ed e' una decisione.** `LLM_BASE_URL` puo'
 puntare a un motore **condiviso** o su un'altra macchina (in `compose.yml` sta
