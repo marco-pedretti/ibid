@@ -329,7 +329,15 @@ function PannelloAvanzate({ modalita }: { modalita: readonly string[] }) {
           ]}
           onCambia={(v) => cambia("rerank", v === SI)}
         >
-          {opzioni.rerank ? t("bar.advanced.on") : t("bar.advanced.off")}
+          {/* `font-mono` come il valore accanto, e non e' uniformita' per
+              uniformita': nel §12 il mono e' **il ruolo dei dati**, e «acceso»
+              qui e' il valore del campo `rerank` esattamente come `dense` e'
+              quello di `retrieval_mode`. Era l'unico dei quattro valori del
+              pannello scritto in prosa, e in una riga di pastiglie affiancate
+              due facce diverse si leggono come due altezze diverse. */}
+          <span className="font-mono">
+            {opzioni.rerank ? t("bar.advanced.on") : t("bar.advanced.off")}
+          </span>
         </Menu>
       </Campo>
 
