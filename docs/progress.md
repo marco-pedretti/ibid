@@ -4728,3 +4728,63 @@ sapere che `inline-flex` dentro un contenitore di blocco genera una riga di
 testo, e di andarla a cercare. La difesa che il progetto ha già trovato due
 volte è la stessa: **dichiarare l'altezza invece di dedurla**. Dove è dichiarata
 il difetto non nasce, perché non c'è niente da dedurre.
+
+
+### U-11 — il README, e la vetrina che deve dire d'aver perso
+
+`README.md` in italiano, `README.en.md` accanto, 237 righe ciascuno, rimando
+reciproco in cima. La divisione era già decisa nel piano di chiusura: il
+progetto è scritto in italiano — ROADMAP, questo file, i commenti nel codice —
+e un README inglese davanti a un quaderno italiano prometterebbe una cosa che
+il repo non mantiene. Il README inglese lo **dichiara**, invece di lasciarlo
+scoprire a chi clicca il primo link.
+
+#### Il criterio chiedeva due cose che erano la stessa cosa
+
+Alla lettera: *le tre affermazioni compaiono ciascuna con la tabella per
+dataset che la sostiene*, **e** *la sezione limiti nomina i risultati negativi
+invece di ometterli*. Sembrano due requisiti indipendenti, e non lo sono:
+**l'affermazione 2 è un risultato negativo**. Metterla fra i limiti avrebbe
+soddisfatto la seconda metà violando la prima, e avrebbe consegnato una vetrina
+di due terzi del progetto.
+
+Sta quindi nel corpo, allo stesso livello delle altre due, col titolo che porta
+❌ accanto ai due ✅, e con la tabella che la smentisce. Con due righe che non
+sono decorazione: **otto dei ventidue punti di regresso erano il richiamo
+dell'indice** e non la pipeline, e **le tre ipotesi sulla causa sono cadute
+tutte**. Senza quelle due, il −13,72 è un aneddoto sulla sfortuna; con quelle,
+è una misura di cui si sa cosa contiene.
+
+#### Nessuna riga aggregata, in nessuna tabella
+
+Il §3 vieta di mediare fra generi documentali, e il README è l'unico file del
+repo dove quel divieto **non ha un test che lo protegga**. Applicato a mano,
+tabella per tabella: ognuna ha due righe, e dove il lettore si aspetterebbe una
+conclusione unica il testo dice che non esiste — *«una riga sola non esiste»*
+per la configurazione di recupero, *«l'asimmetria fra 20% e 97% non è una
+proprietà dei corpus»* per la confabulazione.
+
+È anche la ragione per cui `citation_precision` e
+`numeric_citation_precision` compaiono su due righe della stessa tabella e non
+in due colonne: sono definizioni diverse, e affiancarle come colonne avrebbe
+suggerito che si sommano.
+
+#### L'avvio racconta ciò che parte oggi
+
+`make up`, `make ingest`, `make dev`, più le due manopole di Ollama che valgono
+un fattore quattro sul prefill. Il profilo `demo` — il modo in cui il progetto
+si consegnerà — sta in una nota sola, dichiarato come non ancora attivo perché
+gli manca l'indice committato di U-08.
+
+La scelta è quella ovvia detta per intero: **un README che si apre con un
+comando che non parte mente alla prima riga**, e chi lo prova smette di credere
+anche al resto della pagina. Quando U-08 atterra, quella sezione si accorcia
+invece di allungarsi.
+
+#### Cosa il task non ha consegnato
+
+- **Lo screenshot**, che il criterio nomina. Serve una cattura vera
+  dell'interfaccia e ha senso farla insieme al video di **U-10**; un
+  segnaposto rotto in una vetrina è peggio della sua assenza.
+- **La descrizione «About» del repo**, che il §1 rende obbligatoria. Si imposta
+  su GitHub e non vive in nessun file.
