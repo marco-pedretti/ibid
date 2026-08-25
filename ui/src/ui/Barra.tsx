@@ -451,29 +451,26 @@ function Passo({
   // dei bottoncini, e due utility di padding nella stessa classe non si
   // annullano nell'ordine in cui sono scritte.
   return (
-    <div className={`${FORMA} px-1 py-0.5 ${mosso ? MOSSA : RIPOSO}`}>
+    <div className={`${FORMA} justify-between px-1 py-0.5 ${mosso ? MOSSA : RIPOSO}`}>
       <BottonePasso etichetta={t("bar.advanced.less")} onClick={giu} spento={valore === null}>
         <Meno size={11} />
       </BottonePasso>
 
-      {/* Il numero sta **fra i due segni**, e i due segni sono larghi uguali:
-          e' l'unico modo in cui «meno, valore, piu'» si legge come una manopola
-          sola invece che come tre cose in fila. Prima il ritorno stava in mezzo,
-          fra il numero e il piu', e spostava il valore verso sinistra ogni volta
-          che ci si allontanava dal predefinito — cioe' proprio quando lo si sta
-          guardando. */}
+      {/* Lo specchio del ritorno, e non e' spazio sprecato: **i due segni stanno
+          ai bordi** — sono i comandi della manopola, e il loro posto e' nella
+          curvatura — mentre il numero sta in mezzo a loro. Perche' ci stia
+          davvero, i due fianchi devono essere larghi uguali, e a destra c'e' un
+          bottoncino che compare e sparisce. Senza questo, il numero e' spostato
+          a sinistra di nove pixel, sempre. */}
+      <span className="w-[18px]" aria-hidden="true" />
+
       <span className="min-w-[3.5ch] text-center font-mono text-[11px] tabular-nums">
         {valore === null ? t("bar.advanced.auto") : valore}
       </span>
 
-      <BottonePasso etichetta={t("bar.advanced.more")} onClick={su}>
-        <Piu size={11} />
-      </BottonePasso>
-
-      {/* Il ritorno dopo il piu', e uno spazio della sua misura quando non
-          c'e': senza, la pillola si accorcerebbe di diciotto pixel tornando al
-          predefinito, e una manopola che cambia larghezza mentre la si usa
-          sposta quella accanto. */}
+      {/* Il ritorno, o uno spazio della sua misura: senza, la pillola si
+          accorcerebbe di diciotto pixel tornando al predefinito, e una manopola
+          che cambia larghezza mentre la si usa sposta quella accanto. */}
       {mosso ? (
         <BottonePasso etichetta={t("bar.advanced.reset")} onClick={() => onCambia(predefinito)}>
           <Ritorno size={11} />
@@ -481,6 +478,10 @@ function Passo({
       ) : (
         <span className="w-[18px]" aria-hidden="true" />
       )}
+
+      <BottonePasso etichetta={t("bar.advanced.more")} onClick={su}>
+        <Piu size={11} />
+      </BottonePasso>
     </div>
   );
 }
