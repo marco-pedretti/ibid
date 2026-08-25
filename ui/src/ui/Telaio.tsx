@@ -486,11 +486,24 @@ function BottoneCorsia({
  * davvero in comune e' la forma, mentre intorno differiscono — uno porta la
  * zona della guida, l'altro un margine — e un componente che prendesse anche
  * quelle sarebbe una configurazione con sette manopole al posto di due bottoni.
+ *
+ * **Lo stato acceso e' quello del resto dell'interfaccia** — accento su fondo
+ * d'accento, come `MOSSA` — perche' da quando questi due commutano la loro
+ * pressione ha due esiti, e un comando che non dice qual e' il suo stato ne
+ * lascia indovinare uno. Il riposo resta **senza fondo**, a differenza della
+ * pastiglia: qui sotto c'e' la corsia e non una barra, e un fondo proprio su
+ * sette celle in colonna le farebbe leggere come una lista di caselle.
  */
-const COMANDO_COMPATTO =
-  "flex h-[34px] w-full items-center justify-center rounded-[7px] border border-line-2 text-ink-2 transition-colors hover:border-accent-2 hover:text-ink";
-const COMANDO_LARGO =
-  "flex h-[34px] w-full items-center gap-2 rounded-[7px] border border-line-2 px-2.5 text-[11.5px] text-ink-2 transition-colors hover:border-accent-2 hover:text-ink";
+const COMANDO = "flex h-[34px] w-full items-center rounded-[7px] border transition-colors";
+const COMANDO_COMPATTO = `${COMANDO} justify-center`;
+const COMANDO_LARGO = `${COMANDO} gap-2 px-2.5 text-[11.5px]`;
+const COMANDO_RIPOSO = "border-line-2 text-ink-2 hover:border-accent-2 hover:text-ink";
+const COMANDO_ACCESO = "border-accent bg-accent-soft text-accent hover:border-accent-2";
+
+/** La veste di un comando che commuta, nella forma che gli tocca. */
+function veste(forma: string, acceso: boolean): string {
+  return `${forma} ${acceso ? COMANDO_ACCESO : COMANDO_RIPOSO}`;
+}
 
 /**
  * «Esplora il corpus»: la schermata che guarda l'indice invece della risposta.
@@ -501,11 +514,18 @@ const COMANDO_LARGO =
  */
 function BottoneCorpus({ compatto = false }: { compatto?: boolean }) {
   const { t } = usaLingua();
-  const { apri } = usaEsploratore();
+  const { aperto, apri, chiudi } = usaEsploratore();
   // Cambia schermata, quindi si porta via il cassetto: vedi `cassetto.ts`.
   const chiudiCassetto = usaChiudiCassetto();
+  // **Commuta.** Il comando che porta a una schermata e' anche quello che ne
+  // riporta indietro: chi l'ha appena premuto lo ha ancora sotto il dito, e
+  // cercare l'uscita altrove e' un gesto che non si impara. Il bottone
+  // «Torna alla conversazione» in cima alla pagina resta, e non e' un
+  // doppione: quello e' l'uscita per chi sta leggendo, questo per chi si e'
+  // appena mosso.
   const vai = () => {
-    apri();
+    if (aperto) chiudi();
+    else apri();
     chiudiCassetto();
   };
 
@@ -514,9 +534,10 @@ function BottoneCorpus({ compatto = false }: { compatto?: boolean }) {
       <Suggerimento testo={t("corpus.open.action")} fuoco={false} className="block">
         <button
           type="button"
+          aria-pressed={aperto}
           onClick={vai}
           aria-label={t("corpus.open.action")}
-          className={COMANDO_COMPATTO}
+          className={veste(COMANDO_COMPATTO, aperto)}
         >
           <Corpus size={14} />
         </button>
@@ -525,7 +546,12 @@ function BottoneCorpus({ compatto = false }: { compatto?: boolean }) {
   }
 
   return (
-    <button type="button" onClick={vai} className={`${COMANDO_LARGO} mt-1.5`}>
+    <button
+      type="button"
+      aria-pressed={aperto}
+      onClick={vai}
+      className={`${veste(COMANDO_LARGO, aperto)} mt-1.5`}
+    >
       <Corpus size={13} />
       {t("corpus.open.action")}
     </button>
@@ -576,10 +602,14 @@ const CELLA_STRETTA = `${CELLA} h-[34px] px-1 text-[9px]`;
  */
 function BottoneInfo({ compatto = false }: { compatto?: boolean }) {
   const { t } = usaLingua();
-  const { apri } = usaPresentazione();
+  const { aperta, apri, chiudi } = usaPresentazione();
   const chiudiCassetto = usaChiudiCassetto();
+  // Commuta come «Esplora il corpus», e per la stessa ragione: due comandi
+  // affiancati che aprono una schermata e si comportano in modo diverso alla
+  // seconda pressione sono peggio di due che non commutano affatto.
   const vai = () => {
-    apri();
+    if (aperta) chiudi();
+    else apri();
     chiudiCassetto();
   };
 
@@ -592,9 +622,10 @@ function BottoneInfo({ compatto = false }: { compatto?: boolean }) {
         <Suggerimento testo={t("about.hint")} fuoco={false} className="block">
           <button
             type="button"
+            aria-pressed={aperta}
             onClick={vai}
             aria-label={t("about.action")}
-            className={COMANDO_COMPATTO}
+            className={veste(COMANDO_COMPATTO, aperta)}
           >
             <Informazioni size={14} />
           </button>
@@ -606,7 +637,12 @@ function BottoneInfo({ compatto = false }: { compatto?: boolean }) {
   return (
     <div {...zona("resta")}>
       <Suggerimento testo={t("about.hint")} fuoco={false} className="block">
-        <button type="button" onClick={vai} className={COMANDO_LARGO}>
+        <button
+          type="button"
+          aria-pressed={aperta}
+          onClick={vai}
+          className={veste(COMANDO_LARGO, aperta)}
+        >
           <Informazioni size={13} />
           {t("about.action")}
         </button>
