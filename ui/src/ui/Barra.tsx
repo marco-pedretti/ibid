@@ -94,7 +94,8 @@ export function Barra() {
             onClick={() => setAperte((x) => !x)}
             // Mosso e richiuso, la pastiglia resta accesa: e' l'unico controllo
             // che puo' nascondere una configurazione diversa da quella che sembra.
-            className={`${PASTIGLIA} ${avanzateToccate(opzioni, predefiniti) ? MOSSA : RIPOSO}`}
+            // Margini simmetrici: come i menu, davanti al testo non ha niente.
+            className={`${FORMA} gap-1.5 px-2.5 ${avanzateToccate(opzioni, predefiniti) ? MOSSA : RIPOSO}`}
           >
             {t("bar.advanced")}
             <CaretTendina aperto={aperte} />
@@ -190,7 +191,11 @@ function Menu<T extends string>({
       voci={marcate}
       onCambia={onCambia}
       verso="su"
-      className={`${PASTIGLIA} ${tono ?? (valore === predefinito ? RIPOSO : MOSSA)}`}
+      // `FORMA` e non `PASTIGLIA`: il `pl-[7px]` di quella e' stretto apposta
+      // per chi porta un pallino davanti al testo — gli interruttori — e un
+      // menu non ne ha nessuno. Con quello, `dense` stava a 7 px dal bordo e il
+      // caret a 10 dall'altro, cioe' una pillola storta di tre pixel.
+      className={`${FORMA} gap-1.5 px-2.5 ${tono ?? (valore === predefinito ? RIPOSO : MOSSA)}`}
     >
       {children}
     </Selettore>
@@ -224,7 +229,7 @@ function MenuModelli({ nomi }: { nomi: readonly string[] }) {
       <Suggerimento testo={t("bar.model.none")}>
         <span
           aria-disabled="true"
-          className={`${PASTIGLIA} border-line-2 font-mono text-muted opacity-45`}
+          className={`${FORMA} gap-1.5 px-2.5 border-line-2 font-mono text-muted opacity-45`}
         >
           {opzioni.modello}
         </span>
@@ -415,7 +420,10 @@ function Campo({
 }) {
   return (
     <div className="flex flex-col gap-1">
-      <div className="flex h-[14px] items-center gap-1">
+      {/* Il bottoncino dell'azione e' alto 14 px e la riga di testo 14,25:
+          comparendo non fa crescere la riga, quindi qui non serve dichiarare
+          un'altezza — servirebbe solo a tagliare un quarto di pixel. */}
+      <div className="flex items-center gap-1">
         <Suggerimento
           testo={suggerimento}
           className="font-mono text-[9.5px] tracking-[0.04em] text-muted uppercase"
@@ -483,7 +491,7 @@ function Passo({
   // a destra, e poi il suo specchio a sinistra per non spostare il numero —
   // cioe' trentasei pixel per un bottoncino che quasi sempre non c'e'.
   return (
-    <div className={`${FORMA} justify-between px-1 py-0.5 ${mosso ? MOSSA : RIPOSO}`}>
+    <div className={`${FORMA} justify-between px-1 ${mosso ? MOSSA : RIPOSO}`}>
       <BottonePasso etichetta={t("bar.advanced.less")} onClick={giu} spento={valore === null}>
         <Meno size={11} />
       </BottonePasso>
