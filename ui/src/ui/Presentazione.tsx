@@ -48,10 +48,10 @@ import type { Traduci } from "../app/i18n";
 import { usaPresentazione } from "../app/presentazione";
 import { scheda } from "../app/scheda";
 import type { Chiave } from "../i18n/strings";
-import { Etichetta } from "./Etichetta";
-import { Esterno, InAttesa, Indietro, NonSostiene, Sostiene } from "./Icona";
+import { InAttesa, NonSostiene, Sostiene } from "./Icona";
 import type { PropsIcona } from "./Icona";
 import { MISURA } from "./misura";
+import { Collegamento, Pagina } from "./Pagina";
 import { TONO } from "./Verdetto";
 import type { Tono } from "./Verdetto";
 
@@ -109,22 +109,12 @@ export function Presentazione() {
   const chi = scheda(backend.stato === "pronto" ? backend.predefiniti : null, scelto);
 
   return (
-    <div className="flex h-full min-h-0 flex-col bg-paper">
-      <div className="flex shrink-0 items-start gap-3 border-b border-line px-[22px] py-3">
-        <div className="min-w-0 flex-1">
-          <Etichetta>{t("about.title")}</Etichetta>
-          <p className="mt-1 text-[13px] text-ink">{t("about.subtitle")}</p>
-        </div>
-        <button
-          type="button"
-          onClick={chiudi}
-          className="flex shrink-0 items-center gap-1.5 rounded-md border border-line-2 px-[9px] py-[5px] text-[11px] text-ink-2 transition-colors hover:border-accent-2 hover:text-ink"
-        >
-          <Indietro size={12} />
-          {t("about.back")}
-        </button>
-      </div>
-
+    <Pagina
+      etichetta={t("about.title")}
+      sottotitolo={t("about.subtitle")}
+      indietro={t("about.back")}
+      chiudi={chiudi}
+    >
       {/* Il contenitore che scorre resta largo quanto la colonna — e' lui che
           porta la barra di scorrimento — e la misura di lettura sta nel figlio.
           E' la stessa impaginazione della chat, per la stessa ragione. */}
@@ -171,19 +161,11 @@ export function Presentazione() {
           <Sezione titolo={t("about.who.title")}>
             <p className="text-[12.5px] leading-[1.65] text-ink">{t("about.who")}</p>
             <p className="text-[12.5px] leading-[1.65] text-ink-2">{t("about.who.license")}</p>
-            <a
-              href={REPO}
-              target="_blank"
-              rel="noreferrer noopener"
-              className="flex items-center gap-1.5 self-start rounded-md border border-line-2 px-[9px] py-[5px] text-[11px] text-ink-2 transition-colors hover:border-accent-2 hover:text-ink"
-            >
-              <Esterno size={12} />
-              {t("about.who.repo")}
-            </a>
+            <Collegamento href={REPO}>{t("about.who.repo")}</Collegamento>
           </Sezione>
         </div>
       </div>
-    </div>
+    </Pagina>
   );
 }
 

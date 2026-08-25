@@ -28,25 +28,23 @@ import type { ReactNode } from "react";
 
 import type { ChunkView } from "../api/types";
 import { filtra, indirizzo } from "../app/corpus";
+import { CHIAVI, ricorda, ricordato } from "../app/deposito";
 import { usaEsploratore } from "../app/esploratore";
 import type { StatoDocumento } from "../app/esploratore";
 import { usaDataset } from "../app/dataset";
 import { nomeGenere, nomeTaglio, taglioPerGenere } from "../app/genere";
 import { usaLingua } from "../app/i18n";
 import { griglia, leggi, ridimensiona } from "./colonne";
+import { Contenuto, Leggibile } from "./Leggibile";
+import { Modo } from "./Modo";
+import { Collegamento, Pagina, Ritorno } from "./Pagina";
 import type { Larghezze } from "./colonne";
 import { Etichetta } from "./Etichetta";
 import { larghezzePixel, quanteRighe, righeMappa } from "./mappa";
-import { Esterno, Indietro, Lente } from "./Icona";
+import { Lente } from "./Icona";
 import { usaForma } from "./Telaio";
 import { Separatore } from "./Separatore";
 import { Suggerimento } from "./Suggerimento";
-import { pezzi } from "./tabellaHtml";
-import type { Cella } from "./tabellaHtml";
-import { Prosa } from "./Testo";
-
-/** Dove si ricordano le larghezze. Una preferenza, come il tema — vedi `colonne.ts`. */
-const DEPOSITO = "ibid.corpus.colonne";
 
 export function Corpus() {
   const { t } = usaLingua();
@@ -54,14 +52,9 @@ export function Corpus() {
   const { scelto: dataset } = usaDataset();
   const stretta = usaForma() === "stretta";
   const contenitore = useRef<HTMLDivElement>(null);
-  const [larghezze, setLarghezze] = useState<Larghezze>(() => {
-    try {
-      return leggi(localStorage.getItem(DEPOSITO));
-    } catch {
-      // Deposito negato (modalita' privata, iframe): si parte dai predefiniti.
-      return leggi(null);
-    }
-  });
+  // Una preferenza, come il tema: `leggi` fa ricadere sui predefiniti tutto cio'
+  // che non e' un paio di larghezze valide, chiave assente compresa.
+  const [larghezze, setLarghezze] = useState<Larghezze>(() => leggi(ricordato(CHIAVI.colonne)));
 
   /** Le larghezze correnti, leggibili da un gestore che non si ri-crea. */
   const correnti = useRef(larghezze);
@@ -102,14 +95,7 @@ export function Corpus() {
   // pagare al deposito un movimento del mouse. La pausa e' la stessa idea del
   // ritardo di salvataggio della cronologia.
   useEffect(() => {
-    const t = setTimeout(() => {
-      try {
-        localStorage.setItem(DEPOSITO, JSON.stringify(larghezze));
-      } catch {
-        // Le misure restano valide per questa sessione: non ricordarle e' meno
-        // grave che rifiutare di cambiarle.
-      }
-    }, 300);
+    const t = setTimeout(() => ricorda(CHIAVI.colonne, JSON.stringify(larghezze)), 300);
     return () => clearTimeout(t);
   }, [larghezze]);
 
@@ -126,24 +112,12 @@ export function Corpus() {
   }, [disponibile]);
 
   return (
-    <div className="flex h-full min-h-0 flex-col bg-paper">
-      <div className="flex shrink-0 items-start gap-3 border-b border-line px-[22px] py-3">
-        <div className="min-w-0 flex-1">
-          <Etichetta>{t("corpus.title")}</Etichetta>
-          <p className="mt-1 text-[13px] text-ink">
-            {t("corpus.subtitle", { dataset: dataset?.dataset_id ?? "—" })}
-          </p>
-        </div>
-        <button
-          type="button"
-          onClick={chiudi}
-          className="flex shrink-0 items-center gap-1.5 rounded-md border border-line-2 px-[9px] py-[5px] text-[11px] text-ink-2 transition-colors hover:border-accent-2 hover:text-ink"
-        >
-          <Indietro size={12} />
-          {t("corpus.back")}
-        </button>
-      </div>
-
+    <Pagina
+      etichetta={t("corpus.title")}
+      sottotitolo={t("corpus.subtitle", { dataset: dataset?.dataset_id ?? "—" })}
+      indietro={t("corpus.back")}
+      chiudi={chiudi}
+    >
       {stretta ? (
         <Affondo />
       ) : (
@@ -178,7 +152,7 @@ export function Corpus() {
           <Dettaglio />
         </div>
       )}
-    </div>
+    </Pagina>
   );
 }
 
@@ -221,14 +195,7 @@ function Affondo() {
   return (
     <div className="flex min-h-0 flex-1 flex-col">
       <div className="flex shrink-0 items-center gap-2 border-b border-line px-[18px] py-2">
-        <button
-          type="button"
-          onClick={lascia}
-          className="flex shrink-0 items-center gap-1.5 rounded-md border border-line-2 px-[9px] py-[5px] text-[11px] text-ink-2 transition-colors hover:border-accent-2 hover:text-ink"
-        >
-          <Indietro size={12} />
-          {t("corpus.documents")}
-        </button>
+        <Ritorno onClick={lascia}>{t("corpus.documents")}</Ritorno>
         <span className="min-w-0 truncate font-mono text-[10.5px] text-muted">
           {documento.doc_id}
         </span>
@@ -702,15 +669,7 @@ function Dettaglio({ impilato = false }: { impilato?: boolean }) {
       </div>
 
       {href !== null ? (
-        <a
-          href={href}
-          target="_blank"
-          rel="noreferrer noopener"
-          className="flex items-center gap-1.5 self-start rounded-md border border-line-2 px-[9px] py-[5px] text-[11px] text-ink-2 transition-colors hover:border-accent-2 hover:text-ink"
-        >
-          <Esterno size={12} />
-          {t("corpus.open")}
-        </a>
+        <Collegamento href={href}>{t("corpus.open")}</Collegamento>
       ) : (
         <p className="font-mono text-[9.5px] break-all text-muted">{chunk.source_uri}</p>
       )}
@@ -721,140 +680,6 @@ function Dettaglio({ impilato = false }: { impilato?: boolean }) {
         {t("corpus.noPdf")}
       </p>
     </aside>
-  );
-}
-
-/**
- * Il chunk, in due modi: come lo si legge e com'e' nell'indice.
- *
- * **Tutti e due servono, e per ragioni diverse.** Leggibile e' il modo di
- * controllare cosa dice una fonte: `## Table of Contents` e' un titolo, e
- * `<table><tr><td>` e' una tabella con dentro dei numeri incolonnati. Grezzo e'
- * cio' che sta davvero nell'indice — la stessa stringa che il modello ha ricevuto
- * in contesto e che il verificatore ha giudicato. In un progetto la cui tesi e'
- * che si controlla cio' che il sistema fa, il secondo non e' una modalita' di
- * ripiego: e' il dato.
- *
- * Si parte da **leggibile** perche' la domanda frequente e' «cosa dice questa
- * fonte», e un muro di `</td><td>` non risponde. Il grezzo resta a un clic, e la
- * pastiglia dice quale dei due si sta guardando invece di chiederlo.
- */
-function Contenuto({ testo }: { testo: string }) {
-  const { t } = usaLingua();
-  const [grezzo, setGrezzo] = useState(false);
-
-  return (
-    <div className="flex min-w-0 flex-col gap-1.5">
-      <div className="flex items-center gap-1">
-        <Modo attivo={!grezzo} onClick={() => setGrezzo(false)}>
-          {t("corpus.readable")}
-        </Modo>
-        <Modo attivo={grezzo} onClick={() => setGrezzo(true)}>
-          {t("corpus.raw")}
-        </Modo>
-      </div>
-
-      {grezzo ? (
-        <p className="min-w-0 rounded-[7px] border border-line-2 bg-surface px-2.5 py-2 font-mono text-[10.5px] leading-[1.55] break-words whitespace-pre-wrap text-ink-2">
-          {testo}
-        </p>
-      ) : (
-        <div className="min-w-0 rounded-[7px] border border-line-2 bg-surface px-2.5 py-2">
-          <Leggibile testo={testo} />
-        </div>
-      )}
-    </div>
-  );
-}
-
-/**
- * Del testo del corpus, disegnato: prosa e tabelle.
- *
- * Sta in un componente perche' lo usano in due — il chunk singolo nella colonna
- * di destra e il documento intero in quella di mezzo (U-17) — e sono la stessa
- * cosa a due scale. Il costo e' misurato: preparare i 261 chunk di
- * `NASDAQ_LOOP_2017` (457.565 caratteri) costa **29 ms** fra `pezzi`, `analizza`
- * e `segmenta`, quindi il documento intero non ha bisogno di una finestra sui
- * pezzi visibili.
- */
-function Leggibile({ testo }: { testo: string }) {
-  const parti = useMemo(() => pezzi(testo), [testo]);
-  return (
-    <div className="flex min-w-0 flex-col gap-2 text-[12px] leading-[1.55] text-ink-2">
-      {parti.map((p) =>
-        p.tipo === "tabella" ? (
-          <TabellaHtml key={p.da} righe={p.righe} />
-        ) : (
-          <Prosa key={p.da} testo={testo.slice(p.da, p.a)} />
-        ),
-      )}
-    </div>
-  );
-}
-
-function Modo({
-  attivo,
-  onClick,
-  children,
-}: {
-  attivo: boolean;
-  onClick: () => void;
-  children: string;
-}) {
-  return (
-    <button
-      type="button"
-      aria-pressed={attivo}
-      onClick={onClick}
-      className={`rounded-full border px-2 py-[3px] text-[10px] transition-colors ${
-        attivo
-          ? "border-accent bg-accent-soft text-accent"
-          : "border-line-2 text-muted hover:border-accent-2 hover:text-ink"
-      }`}
-    >
-      {children}
-    </button>
-  );
-}
-
-/**
- * Una tabella dei bilanci, costruita da noi con del testo.
- *
- * `colSpan`/`rowSpan` passano al browser invece di essere espansi: e' la
- * differenza dichiarata con `parse_html_table` in Python, che le espande perche'
- * serve a cercare. Qui serve a mostrare, e a mostrare ci pensa il browser.
- *
- * **Nessuna riga e' promossa a intestazione per posizione.** L'OCR di `ledger`
- * non produce `<th>` — misurato su 2.758 tabelle — e la prima riga di una
- * tabella di bilancio spesso e' un'etichetta di periodo che copre due colonne,
- * non un'intestazione. Indovinarla la farebbe sembrare un dato del documento.
- */
-function TabellaHtml({ righe }: { righe: Cella[][] }) {
-  return (
-    // Scorre per conto suo: una tabella larga non deve far scorrere la colonna,
-    // che porterebbe via anche il resto del chunk.
-    <div className="-mx-1 overflow-x-auto px-1">
-      <table className="w-full border-collapse font-mono text-[10.5px] tabular-nums">
-        <tbody>
-          {righe.map((riga, i) => (
-            <tr key={i}>
-              {riga.map((c, j) => (
-                <td
-                  key={j}
-                  colSpan={c.colspan}
-                  rowSpan={c.rowspan}
-                  className={`border border-line px-1.5 py-[3px] align-top ${
-                    c.intestazione ? "font-semibold text-ink" : "text-ink-2"
-                  }`}
-                >
-                  {c.testo}
-                </td>
-              ))}
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
   );
 }
 

@@ -174,6 +174,33 @@ export function ProvvedeChat({ children }: { children: ReactNode }) {
   const [occupato, setOccupato] = useState(false);
   const controller = useRef<AbortController | null>(null);
 
+  /**
+   * Prende in carico uno stream: da qui a quando finisce, non ne parte un altro.
+   *
+   * Era scritto **tre volte** — la domanda, il confronto, il prompt rifatto — e
+   * la parte che si ricopiava e' quella che a mano si sbaglia: `controller.current
+   * === ctrl`. Senza quel confronto, uno stream annullato che finisce **dopo**
+   * che ne e' partito un altro spegnerebbe l'occupato del nuovo, e il campo si
+   * riaprirebbe mentre il modello sta ancora parlando. E' lo stesso motivo per
+   * cui `guida` esiste: le tre righe che distinguono un annullato da un caduto
+   * non si ricopiano.
+   */
+  const avvia = useCallback(
+    (richiesta: QueryRequest, aggiorna: (f: (r: Risposta) => Risposta) => void) => {
+      const ctrl = new AbortController();
+      controller.current = ctrl;
+      setOccupato(true);
+
+      void guida(richiesta, ctrl, aggiorna).finally(() => {
+        if (controller.current === ctrl) {
+          controller.current = null;
+          setOccupato(false);
+        }
+      });
+    },
+    [],
+  );
+
   useEffect(() => {
     const t = setTimeout(() => salvaCronologia(stato.conversazioni), RITARDO_SALVATAGGIO_MS);
     return () => clearTimeout(t);
@@ -207,32 +234,22 @@ export function ProvvedeChat({ children }: { children: ReactNode }) {
         })),
       }));
 
-      const ctrl = new AbortController();
-      controller.current = ctrl;
-      setOccupato(true);
-
       // Il `dataset_id` viene dal selettore di U-01 e non da un default del
       // server: e' cio' che rende vero «cambio dataset senza riavvio» anche per
       // una domanda gia' in coda. I campi della barra sono quelli di **quando
       // si e' premuto invio**: `opzioni` e' la costante del render in cui
       // `invia` e' nata, quindi toccare un controllo mentre il modello parla non
       // riscrive una richiesta gia' partita.
-      void guida(
+      avvia(
         { query: testo, dataset_id: scelto.dataset_id, ...campiRichiesta(opzioni, predefiniti) },
-        ctrl,
         (f) =>
           setStato((s) => ({
             ...s,
             conversazioni: conRisposta(s.conversazioni, conversazione, id, f),
           })),
-      ).finally(() => {
-        if (controller.current === ctrl) {
-          controller.current = null;
-          setOccupato(false);
-        }
-      });
+      );
     },
-    [scelto, stato.corrente, opzioni, predefiniti],
+    [avvia, scelto, stato.corrente, opzioni, predefiniti],
   );
 
   const ferma = useCallback(() => controller.current?.abort(), []);
@@ -269,11 +286,7 @@ export function ProvvedeChat({ children }: { children: ReactNode }) {
         promptChiesto: config.baseline_prompt,
       });
 
-      const ctrl = new AbortController();
-      controller.current = ctrl;
-      setOccupato(true);
-
-      void guida(
+      avvia(
         {
           query: s.domanda,
           // Il corpus e' quello della conversazione, non quello scelto adesso:
@@ -282,16 +295,10 @@ export function ProvvedeChat({ children }: { children: ReactNode }) {
           ...stessaConfigurazione(config),
           rag: !config.rag,
         },
-        ctrl,
         (f) => setConfronto((x) => (x === null ? x : { ...x, nuova: f(x.nuova) })),
-      ).finally(() => {
-        if (controller.current === ctrl) {
-          controller.current = null;
-          setOccupato(false);
-        }
-      });
+      );
     },
-    [stato.conversazioni, stato.corrente],
+    [avvia, stato.conversazioni, stato.corrente],
   );
 
   /**
@@ -327,11 +334,7 @@ export function ProvvedeChat({ children }: { children: ReactNode }) {
         x === null ? x : { ...conBraccio(x, quale, inizio), promptChiesto: prompt },
       );
 
-      const ctrl = new AbortController();
-      controller.current = ctrl;
-      setOccupato(true);
-
-      void guida(
+      avvia(
         {
           query: confronto.domanda,
           ...(c?.dataset_id ? { dataset_id: c.dataset_id } : {}),
@@ -340,16 +343,10 @@ export function ProvvedeChat({ children }: { children: ReactNode }) {
           ...stessaConfigurazione(config),
           baseline_prompt: prompt,
         },
-        ctrl,
         (f) => setConfronto((x) => (x === null ? x : conBraccio(x, quale, f))),
-      ).finally(() => {
-        if (controller.current === ctrl) {
-          controller.current = null;
-          setOccupato(false);
-        }
-      });
+      );
     },
-    [confronto, stato.conversazioni, stato.corrente],
+    [avvia, confronto, stato.conversazioni, stato.corrente],
   );
 
   /** Si torna al filo. Non mentre il modello parla: la via d'uscita e' «Ferma»,

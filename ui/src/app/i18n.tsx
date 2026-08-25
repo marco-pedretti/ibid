@@ -11,16 +11,14 @@ import type { ReactNode } from "react";
 
 import { DIZIONARI, LINGUE } from "../i18n/strings";
 import type { Chiave, Lingua } from "../i18n/strings";
+import { CHIAVI, ricorda, ricordato } from "./deposito";
 
-const CHIAVE = "ibid.lang";
-
+/** Quella ricordata se e' una lingua che esiste, altrimenti quella del browser.
+ *  Un valore storto nel deposito ricade sul secondo caso, che e' il predefinito
+ *  di chi non ha mai scelto: non c'e' niente da perdere. */
 function leggiLingua(): Lingua {
-  try {
-    const salvata = localStorage.getItem(CHIAVE);
-    if (salvata && (LINGUE as readonly string[]).includes(salvata)) return salvata as Lingua;
-  } catch {
-    /* localStorage negato: si deduce dal browser */
-  }
+  const salvata = ricordato(CHIAVI.lingua);
+  if (salvata !== null && (LINGUE as readonly string[]).includes(salvata)) return salvata as Lingua;
   return navigator.language.toLowerCase().startsWith("it") ? "it" : "en";
 }
 
@@ -73,11 +71,7 @@ export function ProvvedeLingua({ children }: { children: ReactNode }) {
 
   const imposta = useCallback((l: Lingua) => {
     setLingua(l);
-    try {
-      localStorage.setItem(CHIAVE, l);
-    } catch {
-      /* vale per questa sessione */
-    }
+    ricorda(CHIAVI.lingua, l);
   }, []);
 
   return <Contesto.Provider value={{ lingua, t, imposta }}>{children}</Contesto.Provider>;

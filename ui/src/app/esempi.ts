@@ -127,7 +127,8 @@ export const ESEMPI: Record<string, Esempio[]> = {
       // per cui non si e' tenuta una domanda accademica inventata: le sette
       // provate stavano fra −0,025 e +0,007 dalla soglia, cioe' o passavano o
       // ci andavano cosi' vicino da non reggere il prossimo cambio d'indice.
-      query: "How much of Allison Transmission Holdings's 2022 net income belongs to the parent company?",
+      query:
+        "How much of Allison Transmission Holdings's 2022 net income belongs to the parent company?",
       testo: {
         it: "Quanta parte dell'utile netto 2022 di Allison Transmission Holdings spetta alla capogruppo?",
         en: "How much of Allison Transmission Holdings's 2022 net income belongs to the parent company?",

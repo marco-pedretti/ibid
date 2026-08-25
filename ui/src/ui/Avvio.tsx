@@ -51,9 +51,10 @@ import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useStat
 import { createPortal } from "react-dom";
 import type { ReactNode } from "react";
 
-import { DEPOSITO, PASSI, avanti, primoPasso, scrivi } from "../app/avvio";
+import { PASSI, avanti, primoPasso, scrivi } from "../app/avvio";
 import type { Passo } from "../app/avvio";
 import { leggiCronologia } from "../app/cronologia";
+import { CHIAVI, ricorda, ricordato } from "../app/deposito";
 import { usaLingua } from "../app/i18n";
 import { LINGUE } from "../i18n/strings";
 import type { Misura, Rettangolo } from "./collocazione";
@@ -88,9 +89,11 @@ const GLIFO: Record<Passo["id"], (p: PropsIcona) => ReactNode> = {
 };
 
 /** L'attributo con cui una zona dichiara di essere il bersaglio di un passo.
- *  Una costante e non una stringa scritta in due file: e' un contratto che
- *  nessun tipo puo' controllare da solo. */
-export const ATTRIBUTO = "data-guida";
+ *  Una costante e non la stringa ripetuta: la scrivono `zona`, che la mette, e
+ *  `leggiZona`, che la cerca, e sono le due meta' dello stesso contratto --
+ *  quello che nessun tipo puo' controllare da solo. Non esce da questo file
+ *  perche' fuori nessuno deve scriverla a mano: per quello c'e' `zona`. */
+const ATTRIBUTO = "data-guida";
 
 /**
  * Da mettere sulla zona che un passo indica: `<aside {...zona("fonti")}>`.
@@ -159,29 +162,19 @@ export interface Guida {
  * volerlo — mentre lo stato non deve uscire dalla chat.
  */
 export function usaAvvio(): Guida {
-  const [passo, setPasso] = useState<number | null>(() => {
-    try {
-      // Una cronologia non vuota e' la prova che la prima volta e' gia' passata:
-      // la chiave e' nuova, e senza questa domanda il primo avvio dopo U-20
-      // accoglierebbe con un tour chi usa la demo da settimane.
-      return primoPasso(localStorage.getItem(DEPOSITO), leggiCronologia().length > 0);
-    } catch {
-      // Deposito negato (finestra privata, iframe): si mostra la guida, che e'
-      // il caso in cui non si perde niente.
-      return primoPasso(null, false);
-    }
-  });
+  // Una cronologia non vuota e' la prova che la prima volta e' gia' passata: la
+  // chiave e' nuova, e senza questa domanda il primo avvio dopo U-20
+  // accoglierebbe con un tour chi usa la demo da settimane.
+  const [passo, setPasso] = useState<number | null>(() =>
+    primoPasso(ricordato(CHIAVI.avvio), leggiCronologia().length > 0),
+  );
 
   // Scrive **anche al primo disegno**, e non solo quando si clicca. Senza, chi
   // apre la guida e chiede qualcosa senza toccarla lascia il deposito vuoto e
   // la cronologia piena: tornando dalla pagina «Che cos'e'» la guida sarebbe
   // sparita da sola, a meta' lettura, per la regola qui sopra.
   useEffect(() => {
-    try {
-      localStorage.setItem(DEPOSITO, scrivi(passo));
-    } catch {
-      // Vale per questa sessione: non ricordarla e' meno grave che non mostrarla.
-    }
+    ricorda(CHIAVI.avvio, scrivi(passo));
   }, [passo]);
 
   const salta = useCallback(() => setPasso(null), []);
@@ -281,13 +274,18 @@ export function Avvio({ guida }: { guida: Guida }) {
   if (passo === null || id === null || finestra === null) return null;
 
   return createPortal(
-    <Strato guida={guida} id={id} contorno={contorno} finestra={finestra} />,
+    <SopraTutto guida={guida} id={id} contorno={contorno} finestra={finestra} />,
     document.body,
   );
 }
 
 /**
- * Lo strato sopra tutto: il velo con il suo buco, e la scheda.
+ * Cio' che sta sopra tutto: il velo col suo buco, l'alone e la scheda.
+ *
+ * **Non si chiama `Strato`**, che era il suo nome: in questa cartella `Strato`
+ * e' gia' il pannello che entra da un bordo (`Strato.tsx`), e due cose senza
+ * niente in comune tranne la parola costringono chi legge a guardare gli import
+ * per sapere di quale si parla.
  *
  * Un componente a parte perche' la scheda **si misura**: la sua altezza dipende
  * da dove il testo va a capo, e nessuno la sa prima di averla disegnata. Due
@@ -295,7 +293,7 @@ export function Avvio({ guida }: { guida: Guida }) {
  * collocata, poi accesa. Accenderla prima la farebbe comparire in alto a
  * sinistra per un fotogramma.
  */
-const Strato = memo(function Strato({
+const SopraTutto = memo(function SopraTutto({
   guida,
   id,
   contorno,

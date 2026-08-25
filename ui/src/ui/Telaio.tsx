@@ -73,6 +73,7 @@
 import { createContext, useCallback, useContext, useEffect, useState } from "react";
 import type { ReactNode } from "react";
 
+import { CHIAVI, ricorda, ricordato } from "../app/deposito";
 import { usaEsploratore } from "../app/esploratore";
 import { usaLingua } from "../app/i18n";
 import { usaPresentazione } from "../app/presentazione";
@@ -81,7 +82,7 @@ import type { SceltaTema } from "../app/theme";
 import { LINGUE } from "../i18n/strings";
 import { zona } from "./Avvio";
 import { Chiusura, usaChiudiCassetto } from "./cassetto";
-import { APERTA, DEPOSITO, FIANCO, leggi } from "./corsia";
+import { APERTA, FIANCO, leggi } from "./corsia";
 import { Cronologia, CronologiaCompatta, NuovaCompatta } from "./Cronologia";
 import { Etichetta } from "./Etichetta";
 import { Chiaro, Corpus, Corsia, Indice, Informazioni, Scuro, Sistema } from "./Icona";
@@ -142,23 +143,10 @@ export function Telaio({ children, fianco }: { children: ReactNode; fianco?: Rea
   const conFonti = fianco !== undefined;
   const [cassetto, setCassetto] = useState(false);
   const [foglio, setFoglio] = useState(false);
-  const [chiusa, setChiusa] = useState(() => {
-    try {
-      return leggi(localStorage.getItem(DEPOSITO));
-    } catch {
-      // Deposito negato (finestra privata, iframe): si parte aperta, che e' il
-      // caso in cui non si perde niente.
-      return leggi(null);
-    }
-  });
+  const [chiusa, setChiusa] = useState(() => leggi(ricordato(CHIAVI.corsia)));
 
   useEffect(() => {
-    try {
-      localStorage.setItem(DEPOSITO, chiusa ? "chiusa" : "aperta");
-    } catch {
-      // Vale per questa sessione: non ricordarla e' meno grave che rifiutarsi
-      // di cambiarla.
-    }
+    ricorda(CHIAVI.corsia, chiusa ? "chiusa" : "aperta");
   }, [chiusa]);
 
   // Tornando alle colonne, cio' che era stato tirato fuori rientra: uno strato
@@ -485,6 +473,26 @@ function BottoneCorsia({
 }
 
 /**
+ * La forma dei due comandi che **cambiano schermata** dalla corsia: «Esplora il
+ * corpus» e «Che cos'e'».
+ *
+ * Erano scritte quattro volte, due per comando, e identiche: la stringa compatta
+ * lo era carattere per carattere. Non e' una pastiglia (quella commuta un valore
+ * e resta dov'e') e non e' una cella di `CELLA` (quelle stanno affiancate in
+ * fondo): e' un comando a tutta larghezza, alto come una cella perche' nella
+ * striscia sta nella stessa colonna.
+ *
+ * Restano due costanti e non un componente: cio' che i due comandi hanno
+ * davvero in comune e' la forma, mentre intorno differiscono — uno porta la
+ * zona della guida, l'altro un margine — e un componente che prendesse anche
+ * quelle sarebbe una configurazione con sette manopole al posto di due bottoni.
+ */
+const COMANDO_COMPATTO =
+  "flex h-[34px] w-full items-center justify-center rounded-[7px] border border-line-2 text-ink-2 transition-colors hover:border-accent-2 hover:text-ink";
+const COMANDO_LARGO =
+  "flex h-[34px] w-full items-center gap-2 rounded-[7px] border border-line-2 px-2.5 text-[11.5px] text-ink-2 transition-colors hover:border-accent-2 hover:text-ink";
+
+/**
  * «Esplora il corpus»: la schermata che guarda l'indice invece della risposta.
  *
  * Non e' disabilitato quando manca un dataset — non capita, perche' senza indice
@@ -508,7 +516,7 @@ function BottoneCorpus({ compatto = false }: { compatto?: boolean }) {
           type="button"
           onClick={vai}
           aria-label={t("corpus.open.action")}
-          className="flex h-[34px] w-full items-center justify-center rounded-[7px] border border-line-2 text-ink-2 transition-colors hover:border-accent-2 hover:text-ink"
+          className={COMANDO_COMPATTO}
         >
           <Corpus size={14} />
         </button>
@@ -517,11 +525,7 @@ function BottoneCorpus({ compatto = false }: { compatto?: boolean }) {
   }
 
   return (
-    <button
-      type="button"
-      onClick={vai}
-      className="mt-1.5 flex h-[34px] w-full items-center gap-2 rounded-[7px] border border-line-2 px-2.5 text-[11.5px] text-ink-2 transition-colors hover:border-accent-2 hover:text-ink"
-    >
+    <button type="button" onClick={vai} className={`${COMANDO_LARGO} mt-1.5`}>
       <Corpus size={13} />
       {t("corpus.open.action")}
     </button>
@@ -541,10 +545,16 @@ function BottoneCorpus({ compatto = false }: { compatto?: boolean }) {
  * Le due misure restano costanti separate perche' due classi in conflitto nella
  * stessa stringa non si risolvono nell'ordine in cui sono scritte — vince
  * l'ordine del foglio.
+ *
+ * **Si chiama `CELLA` e non `PASTIGLIA`**, che era il suo nome, per la parola
+ * che questa stessa nota usa due righe piu' su: nella striscia sono una colonna
+ * di celle da 34. La pastiglia e' un'altra forma e sta in `pastiglia.ts` —
+ * pillola, bordo, 11 px — e questa non e' una sua variante: e' rettangolare,
+ * arrotondata di 7 px, e nessuna delle due misure viene dall'altra.
  */
-const PASTIGLIA = "rounded-[7px] border border-line-2 text-muted";
-const PASTIGLIA_LARGA = `${PASTIGLIA} h-[26px] px-[7px] text-[10px]`;
-const PASTIGLIA_STRETTA = `${PASTIGLIA} h-[34px] px-1 text-[9px]`;
+const CELLA = "rounded-[7px] border border-line-2 text-muted";
+const CELLA_LARGA = `${CELLA} h-[26px] px-[7px] text-[10px]`;
+const CELLA_STRETTA = `${CELLA} h-[34px] px-1 text-[9px]`;
 
 /**
  * «Che cos'e'»: la pagina che presenta il progetto (U-19).
@@ -584,7 +594,7 @@ function BottoneInfo({ compatto = false }: { compatto?: boolean }) {
             type="button"
             onClick={vai}
             aria-label={t("about.action")}
-            className="flex h-[34px] w-full items-center justify-center rounded-[7px] border border-line-2 text-ink-2 transition-colors hover:border-accent-2 hover:text-ink"
+            className={COMANDO_COMPATTO}
           >
             <Informazioni size={14} />
           </button>
@@ -596,11 +606,7 @@ function BottoneInfo({ compatto = false }: { compatto?: boolean }) {
   return (
     <div {...zona("resta")}>
       <Suggerimento testo={t("about.hint")} fuoco={false} className="block">
-        <button
-          type="button"
-          onClick={vai}
-          className="flex h-[34px] w-full items-center gap-2 rounded-[7px] border border-line-2 px-2.5 text-[11.5px] text-ink-2 transition-colors hover:border-accent-2 hover:text-ink"
-        >
+        <button type="button" onClick={vai} className={COMANDO_LARGO}>
           <Informazioni size={13} />
           {t("about.action")}
         </button>
@@ -647,7 +653,7 @@ function PastigliaLingua({ compatta = false }: { compatta?: boolean }) {
         type="button"
         onClick={() => imposta(altra)}
         aria-label={`${t("lang.label")}: ${lingua.toUpperCase()}`}
-        className={`${compatta ? PASTIGLIA_STRETTA : PASTIGLIA_LARGA} flex transition-colors hover:border-line ${
+        className={`${compatta ? CELLA_STRETTA : CELLA_LARGA} flex transition-colors hover:border-line ${
           compatta ? "w-full flex-col items-center justify-center gap-px" : "items-center gap-0.5"
         }`}
       >
@@ -722,7 +728,7 @@ function PastigliaTema({ compatta = false }: { compatta?: boolean }) {
       voci={voci}
       onCambia={imposta}
       verso="su"
-      className={`${compatta ? PASTIGLIA_STRETTA : PASTIGLIA_LARGA} flex items-center ${
+      className={`${compatta ? CELLA_STRETTA : CELLA_LARGA} flex items-center ${
         compatta ? "justify-center" : "gap-1.5"
       }`}
     >

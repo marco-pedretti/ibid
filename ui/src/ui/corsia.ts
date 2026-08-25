@@ -46,10 +46,6 @@ export function griglia(chiusa: boolean, fianco: boolean): string {
   return fianco ? `${corsia}px 1fr ${FIANCO}px` : `${corsia}px 1fr`;
 }
 
-/** Dove si ricorda. Un solo prefisso per tutto cio' che il browser tiene di
- *  questo progetto, come `ibid.theme` e `ibid.corpus.colonne`. */
-export const DEPOSITO = "ibid.corsia";
-
 /**
  * La corsia e' chiusa? Solo la parola esatta lo dice; qualunque altra cosa
  * riapre.

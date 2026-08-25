@@ -14,20 +14,18 @@
 import { createContext, useCallback, useContext, useEffect, useState } from "react";
 import type { ReactNode } from "react";
 
+import { CHIAVI, ricorda, ricordato } from "./deposito";
+
 export type SceltaTema = "light" | "dark" | "system";
 export type TemaEffettivo = "light" | "dark";
 
-const CHIAVE = "ibid.theme"; // la stessa che legge lo script in index.html
 const SCURO = "(prefers-color-scheme: dark)";
 
+/** Solo «dark» e «light» sono una scelta; tutto il resto — chiave assente,
+ *  deposito negato, valore scritto a mano — e' «segui il sistema». */
 function leggiScelta(): SceltaTema {
-  try {
-    const v = localStorage.getItem(CHIAVE);
-    return v === "dark" || v === "light" ? v : "system";
-  } catch {
-    // localStorage negato (modalita' privata, iframe): si segue il sistema.
-    return "system";
-  }
+  const v = ricordato(CHIAVI.tema);
+  return v === "dark" || v === "light" ? v : "system";
 }
 
 function risolvi(scelta: SceltaTema): TemaEffettivo {
@@ -63,13 +61,9 @@ export function ProvvedeTema({ children }: { children: ReactNode }) {
 
   const imposta = useCallback((s: SceltaTema) => {
     setScelta(s);
-    try {
-      if (s === "system") localStorage.removeItem(CHIAVE);
-      else localStorage.setItem(CHIAVE, s);
-    } catch {
-      // Il tema resta valido per questa sessione: non ricordarlo e' meno grave
-      // che rifiutare di cambiarlo.
-    }
+    // «Segui il sistema» non e' un tema salvato: si toglie la chiave, altrimenti
+    // si seguirebbe per sempre il sistema com'era nel momento della scelta.
+    ricorda(CHIAVI.tema, s === "system" ? null : s);
   }, []);
 
   return <Contesto.Provider value={{ scelta, effettivo, imposta }}>{children}</Contesto.Provider>;

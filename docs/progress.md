@@ -4424,3 +4424,178 @@ su `stderr`**, che è il minimo che separi le due cose.
 E una nota che vale per il futuro: delle **tre** variabili del motore che ormai
 contano — finestra, flash attention, tipo di cache KV — il risultato ne registra
 una sola. È **D-20** vista da un altro lato.
+
+### Q-07 — la lista chiusa, scritta prima di aprire un file
+
+Il criterio del task non parla di codice, parla di metodo: *«lista chiusa di
+difetti scritta prima di toccare un file, ognuno con la prova che esiste»*. È la
+regola con cui la Fase 6 si è tenuta finita, ed è qui perché un refactor senza
+un bordo non finisce: finisce quando ci si stanca, e quello che resta a metà è
+peggio di quello che c'era prima.
+
+Quindi prima il censimento, e questo commit non tocca una riga di `ui/`.
+
+#### Cosa il censimento **non** ha trovato
+
+Vale la pena dirlo per primo, perché era l'ipotesi di partenza e si è rivelata
+falsa. La logica dentro il JSX — il difetto grosso, quello che rende un file
+impossibile da provare — **è già stata pagata**: l'ultima l'ha chiusa D-8 il
+giorno prima. [`chat.tsx`](../ui/src/app/chat.tsx) è cablaggio, e il calcolo che
+gli serve sta in `conversazione.ts`, provato; la geometria dell'esploratore sta
+in `mappa.ts`, provata; le ventinove icone sono tutte usate.
+
+Quel che resta non è struttura sbagliata: è **ripetizione e residuo**. Sette
+voci, e nessuna di loro cambia cosa fa una schermata.
+
+#### Le sette
+
+| # | difetto | la prova |
+|---|---|---|
+| 1 | Sei depositi, sei `try/catch`, tre convenzioni di nome | `localStorage` è aperto in sei posti indipendenti — `avvio.ts`, `corsia.ts`, `Corpus.tsx`, `i18n.tsx`, `theme.tsx`, `scelta-dataset.ts` — ognuno col suo `try/catch` e lo stesso commento riscritto sei volte. Solo `cronologia.ts` prende il deposito **per parametro**, ed è l'unico di cui si prova il fallimento per quota |
+| 2 | `PASTIGLIA` definita tre volte, con tre valori diversi | `pastiglia.ts`, `Telaio.tsx`, `Verdetto.tsx`. Il modulo esiste apposta per impedirlo, e lo dice la sua stessa intestazione |
+| 3 | Due tabelle, due misure | `Corpus.tsx` disegna mono 10,5 px coi bordi pieni, `Testo.tsx` 12,5 px col bordo solo sotto. Stesso oggetto sullo schermo, due serie di numeri, nessuna delle due sa dell'altra |
+| 4 | `Strato` è due cose diverse nella stessa cartella | il pannello che entra da un bordo (`Strato.tsx`) e uno strato della guida (dentro `Avvio.tsx`). Non hanno niente in comune tranne la parola |
+| 5 | Ventisette `export` che nessuno importa | `AVANZATE`, `ATTRIBUTO`, `parolaDelVerdetto`, `Braccio`, `Veste`, `Segmento`… Nemmeno un test li nomina: il bordo del modulo dichiara pubblico ciò che è privato |
+| 6 | Venti stringhe morte, dieci chiavi per due lingue | `app.tagline`, `nav.chat`, `nav.explore`, `index.*`: resti di una barra di navigazione e di un pannello indice che non esistono più, e non sono nemmeno costruite dinamicamente |
+| 7 | `Corpus.tsx` a 871 righe, il doppio del secondo file | diciannove componenti, di cui tre disegnano cose generiche. Non è un difetto di dimensione: è che le tre colonne dell'esploratore e i mattoni di disegno stanno nello stesso file |
+
+#### Le due voci che hanno un giudizio dentro
+
+Cinque si eseguono senza decidere niente. Due no, e sono state discusse prima.
+
+**La tabella (3) non si unifica all'aspetto, si unifica al codice.** Sono due
+cose diverse davvero — un chunk del corpus e la risposta del modello — e
+imporre a una l'aspetto dell'altra sarebbe **cambiare una schermata**, cioè
+esattamente ciò che il gate vieta. Quello che si unifica è l'implementazione:
+un disegno solo con due densità dichiarate, e i pixel restano quelli di prima.
+
+**Spezzare un file (7) è la mossa che si fa più spesso senza guadagnarci.** Tre
+file da 290 righe non valgono più di uno da 871 se poi si leggono sempre
+insieme. Qui si sposta solo ciò che **non parla dell'esploratore** — un mattone
+generico che sta lì per caso — e le tre colonne restano dove sono, perché sono
+una cosa sola.
+
+#### Cosa succede a ciò che si trova dopo
+
+Va nel registro dei debiti, non dentro il task. La lista è chiusa: è quello che
+significa la parola nel criterio.
+
+#### Cinque saldate, e la prova che il refactor è puro
+
+| # | difetto | come si è chiuso |
+|---|---|---|
+| 1 | sei depositi | `app/deposito.ts`: `CHIAVI`, `ricordato`, `ricorda`, e il `Deposito` iniettabile che `cronologia.ts` aveva già |
+| 2 | `PASTIGLIA` per tre | non si unifica — sono **tre forme diverse**: restano `pastiglia.ts`, `CELLA`, `RIQUADRO` |
+| 4 | `Strato` per due | quello della guida diventa `SopraTutto` |
+| 6 | venti stringhe morte | via, e con loro l'intestazione «non ancora in uso» che ormai stava sopra roba in uso |
+| 7 | `Corpus.tsx` a 871 righe | escono `Leggibile.tsx` e `Modo.tsx`: 871 → 722 + 133 + 43 |
+
+Il caso più istruttivo è il **2**. La lista lo chiamava «duplicazione», e non lo
+era: `pastiglia.ts` è una pillola da 11 px che si preme, quella di `Telaio.tsx`
+un rettangolo da 7 px di raggio, quella di `Verdetto.tsx` un riquadro mono con
+`tabular-nums` che non si preme affatto. Unificarle avrebbe cambiato dei pixel —
+proprio ciò che il gate vieta. **Si separano i nomi, non le forme**, e ognuno
+prende la parola che la sua parte di codice usava già in nota: la stessa nota di
+`Telaio.tsx` parlava di «una colonna di celle da 34».
+
+Del **7** vale la parte che *non* si è fatta. `Targa`, `Voce` e `Attesa`
+sembrano mattoni generici e sono rimasti dov'erano: li usa solo l'esploratore, e
+un modulo condiviso con un consumatore solo è un'astrazione in cerca di un
+secondo. Le tre colonne, allo stesso modo, restano insieme — tre file da 240
+righe che si leggono sempre in fila non valgono più di uno da 720.
+
+#### Due si sono dissolte al contatto, e il perché conta più di loro
+
+**La voce 5 diceva «27 export che nessuno importa». Ne restano tre.** Il conto
+veniva da una domanda sbagliata — *chi mi nomina in un altro file?* — mentre
+quella giusta è *sono raggiungibile da una firma esportata?*. Ventitré di quei
+ventisette lo sono: `Frame` è il tipo di ritorno di `frames`, `ChunksPayload` un
+ramo di `Evento`, `Veste` un campo di `Pezzo`. Nessuno li importa **oggi**, ma
+sono la superficie nominabile di ciò che il modulo pubblica: toglierne l'`export`
+darebbe un `Pezzo` pubblico con un campo di tipo innominabile — un difetto vero
+al posto di uno immaginario.
+
+**La voce 3, le due tabelle, non si è fatta affatto.** La lista prometteva «un
+disegno solo con due densità dichiarate», e sul codice quella frase non regge:
+`Testo.tsx` costruisce `<thead>` e `<th>` e riempie le celle con intervalli
+composti, `Leggibile.tsx` non promuove nessuna riga a intestazione — perché
+l'OCR di `ledger` non produce `<th>`, misurato su 2.758 tabelle — e passa
+`colSpan`/`rowSpan` al browser. Un componente che portasse tutt'e due sarebbe più
+complicato dei due che sostituisce, e la richiesta era *meno* complessità, non
+meno righe. Ciò che davvero condividono è il contenitore che scorre: due `div`,
+con classi diverse. Non si estrae un componente per questo.
+
+Un censimento che non sopravvive al contatto col codice **in due voci su sette**
+non è un censimento sbagliato: è quello che succede a una lista scritta prima di
+aprire i file, ed è il prezzo della regola. Il prezzo è basso perché entrambe le
+volte si è pagato con una riga di spiegazione invece che con un refactor
+inutile.
+
+#### Tre voci in più, dichiarate
+
+A lista chiusa Marco l'ha riaperta: *«fai tutto quello che ritieni necessario,
+l'obiettivo è rendere il codice pulito sia per capirlo che per complessità vera
+e propria»*. Riaprirla su richiesta dell'autore è legittimo; farlo in silenzio
+no, quindi ogni commit dice di essere fuori lista.
+
+**L'ottava è l'unica che tocca qualcosa che si può rompere.** Tre callback di
+`chat.tsx` — la domanda, il confronto, il prompt rifatto — ripetevano a mano la
+stessa cerimonia, e la riga che conta è l'ultima:
+
+```
+void guida(...).finally(() => {
+  if (controller.current === ctrl) { controller.current = null; setOccupato(false); }
+});
+```
+
+Senza quel confronto, uno stream annullato che finisce **dopo** che ne è partito
+un altro spegne l'occupato del nuovo: il campo si riapre e «Ferma» si spegne
+mentre il modello sta ancora parlando. Tre copie a mano di un invariante di
+concorrenza sono tre occasioni di scriverlo giusto due volte su tre, e la terza
+non si vede finché non capita. Adesso è `avvia`, ed è la stessa ragione per cui
+`guida` esisteva già.
+
+La **nona** e la **decima** sono la stessa forma copiata: l'esploratore e «Che
+cos'è» — le due pagine che si aprono sopra la conversazione — scrivevano due
+volte le stesse quaranta righe, bottone «indietro» compreso, con la sua stringa
+di classi lunga ottantuno caratteri; e i due comandi di corsia che cambiano
+schermata la scrivevano quattro volte, due per comando. Da lì `Pagina.tsx`
+(`Pagina`, `Ritorno`, `Collegamento`) e due costanti in `Telaio.tsx`. Anche qui
+la scelta di dove fermarsi è la stessa della tabella: i due comandi di corsia
+restano **due bottoni con una forma in comune** e non diventano un componente,
+perché intorno differiscono — uno porta la zona della guida, l'altro un margine —
+e un componente che prendesse anche quelle sarebbe una configurazione a sette
+manopole.
+
+#### La prova che nessuna schermata è cambiata
+
+Il gate chiede due cose e una era facile da mostrare: **355 → 365** test, e le
+dieci in più sono i casi del deposito, provati a mutazione prima di essere
+creduti (lettura non protetta: 1 caduto; `null` scritto come parola: 1;
+due `CHIAVI` uguali: 1; scrittura non protetta: 2).
+
+L'altra metà — «nessuna schermata cambia comportamento» — in un frontend senza
+jsdom è di solito un giudizio. Qui c'è un fatto: **il CSS costruito da questo
+ramo è byte per byte identico a quello di `main`**. Tailwind genera il foglio
+leggendo le stringhe di classe che trova nel codice, quindi due fogli identici
+sono due insiemi di classi identici — e questo ramo ha toccato **ventun file** e
+mille e cento righe senza spostare una classe. Il confronto costa due `npm run
+build` e un `diff`, e il modo di farlo è un `git worktree` sul commit di
+partenza.
+
+Non prova tutto: la struttura del DOM, gli attributi, l'ordine dei nodi restano
+fuori. Ma la classe di difetto che un refactor d'interfaccia produce più spesso —
+una classe persa nello spostamento — quella è coperta, e prima non lo era.
+
+#### Cosa lascia aperto
+
+**D-22**, trovato e non saldato di proposito: la pillola del mockup esiste in due
+misure — 11 px in `pastiglia.ts`, 10 px in `Modo.tsx` — e perché siano due non
+risulta da nessuna parte. Unificarle cambia dei pixel, cioè il gate; va deciso
+guardando, che è l'unico modo.
+
+E resta vero ciò che D-8 diceva un giorno prima: quel che si prova di `ui/` è
+**il calcolo**, non il disegno. `Pagina`, `Ritorno`, `Modo` e `CELLA` non hanno
+un test e non possono averlo finché U-00 non si riapre. Ciò che è cambiato oggi
+è che sbagliarli si vede in un `diff` del foglio di stile invece che in una
+schermata aperta per caso.
