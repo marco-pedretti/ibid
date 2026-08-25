@@ -4599,3 +4599,38 @@ E resta vero ciò che D-8 diceva un giorno prima: quel che si prova di `ui/` è
 un test e non possono averlo finché U-00 non si riapre. Ciò che è cambiato oggi
 è che sbagliarli si vede in un `diff` del foglio di stile invece che in una
 schermata aperta per caso.
+
+### D-22 — quattro bottoni tornano nella famiglia, e il metodo di ieri mostra il suo limite
+
+Nato da Q-07 e chiuso il giorno dopo, su richiesta di Marco: *«uniforma quei 4
+bottoni»*. Sono le due coppie dell'esploratore — «Com'è stato spezzato» /
+«Il testo indicizzato» nella colonna di mezzo, «Leggibile» / «Grezzo» sul chunk
+scelto — e sono le uniche pillole dell'interfaccia che non venivano da
+`pastiglia.ts`.
+
+**La prova che erano parenti stava nello stato acceso.** `border-accent
+bg-accent-soft text-accent`, identico carattere per carattere ai sei controlli
+della barra; tutto il resto divergeva — 10 px contro 11, `text-muted` contro
+`text-ink-2`, nessun fondo contro `bg-surface`. Una divergenza che sta tutta a
+riposo e nessuna da acceso non è un disegno diverso: è una copia ritoccata.
+
+**Prende `FORMA` e non `PASTIGLIA`**, e la differenza non è di gusto:
+`PASTIGLIA` porta `pl-[7px] pr-2.5`, asimmetrici apposta per chi ha un glifo
+davanti al testo. Questi non ce l'hanno. I margini interni sono quelli del
+selettore del prompt di `Confronto.tsx`, che è l'altra pillola senza glifo — e
+il modulo prevedeva già questa variazione, con due dei suoi sei siti che la
+usano. Dopo il cambio la forma senza glifo è **una sola** in tutta
+l'interfaccia.
+
+#### Il CSS identico, qui, non prova niente
+
+Vale la pena scriverlo perché ieri quello stesso confronto era la prova
+principale di Q-07. Questo cambio è **visivo per costruzione** — quattro
+bottoni cambiano misura — e il foglio costruito resta **byte per byte lo
+stesso**: tutte le utility in gioco (`text-[11px]`, `bg-surface`, `text-ink-2`,
+`px-2.5`, `py-1`) erano già usate altrove, quindi Tailwind le emetteva già.
+
+Il confronto fra fogli vede una classe **persa**, non una classe **cambiata**.
+È esattamente la classe di difetto che un refactor produce — uno spostamento
+che si porta via una classe — e non è affatto quella che produce un ritocco.
+Un metodo che ieri era una prova, oggi è muto: e saperlo vale quanto averlo.
