@@ -341,7 +341,15 @@ function PannelloAvanzate({ modalita }: { modalita: readonly string[] }) {
         </Menu>
       </Campo>
 
-      <Campo etichetta="top_k" suggerimento={t("bar.advanced.topk.hint")}>
+      <Campo
+        etichetta="top_k"
+        suggerimento={t("bar.advanced.topk.hint")}
+        azione={
+          opzioni.top_k === predefiniti.top_k ? null : (
+            <RitornoAlPredefinito onClick={() => cambia("top_k", predefiniti.top_k)} />
+          )
+        }
+      >
         <Passo
           valore={opzioni.top_k}
           predefinito={predefiniti.top_k}
@@ -350,7 +358,15 @@ function PannelloAvanzate({ modalita }: { modalita: readonly string[] }) {
         />
       </Campo>
 
-      <Campo etichetta="hnsw_ef" suggerimento={t("bar.advanced.ef.hint")}>
+      <Campo
+        etichetta="hnsw_ef"
+        suggerimento={t("bar.advanced.ef.hint")}
+        azione={
+          opzioni.hnsw_ef === predefiniti.hnsw_ef ? null : (
+            <RitornoAlPredefinito onClick={() => cambia("hnsw_ef", predefiniti.hnsw_ef)} />
+          )
+        }
+      >
         <Passo
           valore={opzioni.hnsw_ef}
           predefinito={predefiniti.hnsw_ef}
@@ -385,20 +401,29 @@ function PannelloAvanzate({ modalita }: { modalita: readonly string[] }) {
 function Campo({
   etichetta,
   suggerimento,
+  azione,
   children,
 }: {
   etichetta: string;
   suggerimento: string;
+  /** Un comando che riguarda **il campo**, non il suo valore: oggi solo il
+   *  ritorno al predefinito. Sta accanto al nome e non dentro il controllo
+   *  perche' li' occuperebbe un posto anche quando non c'e' — e un posto vuoto
+   *  in mezzo a una manopola la allarga di diciotto pixel senza dire niente. */
+  azione?: ReactNode;
   children: ReactNode;
 }) {
   return (
     <div className="flex flex-col gap-1">
-      <Suggerimento
-        testo={suggerimento}
-        className="font-mono text-[9.5px] tracking-[0.04em] text-muted uppercase"
-      >
-        {etichetta}
-      </Suggerimento>
+      <div className="flex h-[14px] items-center gap-1">
+        <Suggerimento
+          testo={suggerimento}
+          className="font-mono text-[9.5px] tracking-[0.04em] text-muted uppercase"
+        >
+          {etichetta}
+        </Suggerimento>
+        {azione}
+      </div>
       {children}
     </div>
   );
@@ -416,10 +441,11 @@ function Campo({
  * significa lasciar decidere l'indice, e si raggiunge scendendo sotto il minimo.
  * Non e' «vuoto», ed e' per questo che si legge `auto` e non uno spazio bianco.
  *
- * Quando ci si allontana dal predefinito compare il segno che riporta indietro:
- * una manopola senza ritorno costringe a ricordare da dove si era partiti, e
+ * Quando ci si allontana dal predefinito compare il segno che riporta indietro
+ * — una manopola senza ritorno costringe a ricordare da dove si era partiti, e
  * ricordare un numero e' esattamente cio' che «marcato come predefinito» esiste
- * per evitare.
+ * per evitare — ma compare **accanto al nome del campo** e non qui dentro:
+ * vedi `RitornoAlPredefinito`. Qui restano i tre pezzi che sono la manopola.
  */
 function Passo({
   valore,
@@ -450,39 +476,52 @@ function Passo({
   // `FORMA` e non `PASTIGLIA`: stessa pillola, ma i margini interni sono quelli
   // dei bottoncini, e due utility di padding nella stessa classe non si
   // annullano nell'ordine in cui sono scritte.
+  // Tre pezzi e non quattro: **i due segni ai bordi, il numero in mezzo**, e i
+  // due fianchi larghi uguali perche' e' l'unico modo in cui ci sta davvero. Il
+  // ritorno al predefinito e' uscito di qui e sta accanto al nome del campo:
+  // dentro la pillola occupava un posto anche da assente — uno spazio riservato
+  // a destra, e poi il suo specchio a sinistra per non spostare il numero —
+  // cioe' trentasei pixel per un bottoncino che quasi sempre non c'e'.
   return (
     <div className={`${FORMA} justify-between px-1 py-0.5 ${mosso ? MOSSA : RIPOSO}`}>
       <BottonePasso etichetta={t("bar.advanced.less")} onClick={giu} spento={valore === null}>
         <Meno size={11} />
       </BottonePasso>
 
-      {/* Lo specchio del ritorno, e non e' spazio sprecato: **i due segni stanno
-          ai bordi** — sono i comandi della manopola, e il loro posto e' nella
-          curvatura — mentre il numero sta in mezzo a loro. Perche' ci stia
-          davvero, i due fianchi devono essere larghi uguali, e a destra c'e' un
-          bottoncino che compare e sparisce. Senza questo, il numero e' spostato
-          a sinistra di nove pixel, sempre. */}
-      <span className="w-[18px]" aria-hidden="true" />
-
       <span className="min-w-[3.5ch] text-center font-mono text-[11px] tabular-nums">
         {valore === null ? t("bar.advanced.auto") : valore}
       </span>
-
-      {/* Il ritorno, o uno spazio della sua misura: senza, la pillola si
-          accorcerebbe di diciotto pixel tornando al predefinito, e una manopola
-          che cambia larghezza mentre la si usa sposta quella accanto. */}
-      {mosso ? (
-        <BottonePasso etichetta={t("bar.advanced.reset")} onClick={() => onCambia(predefinito)}>
-          <Ritorno size={11} />
-        </BottonePasso>
-      ) : (
-        <span className="w-[18px]" aria-hidden="true" />
-      )}
 
       <BottonePasso etichetta={t("bar.advanced.more")} onClick={su}>
         <Piu size={11} />
       </BottonePasso>
     </div>
+  );
+}
+
+/**
+ * Il ritorno al predefinito, accanto al nome del campo.
+ *
+ * **Riguarda il campo, non il numero.** Stava dentro la pillola, fra il valore
+ * e il piu', e da li' faceva due danni: spostava il numero fuori dall'asse dei
+ * due segni, e per non spostarlo serviva riservargli un posto anche da assente
+ * — piu' il suo specchio dall'altra parte. Trentasei pixel di manopola per un
+ * bottoncino che compare solo quando ci si e' allontanati.
+ *
+ * Alto quanto la riga del nome, cosi' comparendo non la fa crescere: una
+ * manopola che si alza di due pixel quando la si muove sposta quelle in fila.
+ */
+function RitornoAlPredefinito({ onClick }: { onClick: () => void }) {
+  const { t } = usaLingua();
+  return (
+    <button
+      type="button"
+      aria-label={t("bar.advanced.reset")}
+      onClick={onClick}
+      className="grid h-[14px] w-[14px] shrink-0 place-items-center rounded-full text-muted transition-colors hover:bg-accent-soft hover:text-accent"
+    >
+      <Ritorno size={10} />
+    </button>
   );
 }
 
