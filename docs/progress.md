@@ -4634,3 +4634,97 @@ Il confronto fra fogli vede una classe **persa**, non una classe **cambiata**.
 È esattamente la classe di difetto che un refactor produce — uno spostamento
 che si porta via una classe — e non è affatto quella che produce un ritocco.
 Un metodo che ieri era una prova, oggi è muto: e saperlo vale quanto averlo.
+
+### Tre ritocchi chiesti a vista, e due pixel che erano un meccanismo
+
+Marco guarda il pannello «Avanzate» e la corsia dopo Q-07 e chiede tre cose
+piccole. Due si esauriscono in una riga; la terza ha aperto un difetto di
+geometria che c'era da sempre e che nessuno poteva vedere prima, e vale la pena
+scriverla perché è la ragione per cui `pastiglia.ts` adesso **dichiara
+un'altezza**.
+
+#### Le tre richieste
+
+1. **`Riordino` si chiama `rerank`.** È il nome del campo che parte sul filo e
+   che compare in ogni `EvalRun` a disco: una traduzione onesta serviva a
+   nessuno. Cambiato anche in «Dettagli della run» e in inglese, dove diceva
+   «Reranking» — una manopola sola non può avere tre nomi in due lingue.
+2. **Il numero fra i due segni.** `top_k` e `hnsw_ef` mettevano il ritorno al
+   predefinito *in mezzo*, fra il valore e il più.
+3. **Si esce dall'esploratore da dove ci si è entrati**: il comando che porta a
+   una schermata è anche quello che ne riporta indietro, e nuova conversazione
+   o una voce di cronologia riportano al filo.
+
+Della terza vale la pena dire che **non era una funzione nuova**: la regola sta
+già in `chat.tsx`, per il confronto, con queste parole — *«le tre azioni della
+corsia riportano al filo… cambiare conversazione lasciando aperte due colonne
+che parlano di una domanda dell'altra sarebbe la peggiore delle due uscite»*.
+Non arrivava alle due pagine per una ragione di struttura: `ProvvedeEsploratore`
+e `ProvvedePresentazione` stanno **dentro** `ProvvedeChat`, e un provider non
+legge i contesti dei suoi figli. Quindi lo dichiara chi naviga, come per
+`usaChiudiCassetto` — da cui `pagine.ts`, che ne è il gemello.
+
+#### Due correzioni a vista sulla stessa manopola
+
+La seconda richiesta è costata tre tentativi, ed è istruttivo perché nessuno dei
+due sbagliati era assurdo.
+
+Il primo spostava il ritorno **dopo** il più: il numero finiva in mezzo, sì, ma
+i due segni finivano al centro e la pillola restava con un buco a destra. I
+segni sono i comandi della manopola, e il loro posto è nella curvatura.
+
+Il secondo li rimetteva ai bordi e centrava il numero con uno **specchio** —
+diciotto pixel vuoti a sinistra, a bilanciare il posto del ritorno a destra.
+Corretto in geometria, sbagliato in economia: la pillola arrivava a 103 px e il
+pannello andava a capo. **Trentasei pixel riservati a un bottoncino che quasi
+sempre non c'è.**
+
+La terza sposta il ritorno fuori dalla manopola, accanto al nome del campo:
+riguarda il campo, non il numero, e lì lo spazio è già libero perché la colonna
+è larga quanto la pillola sotto. Manopola a tre pezzi, 67 px — più stretta di
+com'era prima dei ritocchi.
+
+#### Il disallineamento: tre cause, in ordine di quanto erano invisibili
+
+Poi Marco dice che le voci del pannello non sono allineate, «e forse c'è anche
+una differenza di scala». Di scala non c'era niente; il resto erano tre cose.
+
+**Le altezze erano due.** Un menu era alto quanto la sua riga di testo — 11 px
+per l'interlinea 1,5, più margini e bordi: **26,5** — e il numero a passi quanto
+i suoi bottoncini da 18: **24**. Il pannello allinea le colonne in basso, quindi
+quei 2,5 px diventavano due altezze di etichetta. Adesso l'altezza sta in
+`FORMA`, dichiarata: 26 px per ogni pastiglia dell'interfaccia. È la lezione che
+`Telaio.tsx` aveva già scritto sulle celle della corsia — *due controlli
+affiancati che differiscono di due pixel non si leggono come due misure, si
+leggono come un errore* — e le è arrivata sei giorni dopo, da un'altra parte del
+codice.
+
+**I margini orizzontali erano storti su quattro pillole.** `PASTIGLIA` ha
+`pl-[7px] pr-2.5`, stretto a sinistra **apposta** per chi porta un pallino
+davanti al testo. Se lo prendevano anche quattro pillole che un glifo non ce
+l'hanno: `dense` stava a 7 px dal bordo e il caret a 10 dall'altro. Adesso
+prendono `FORMA` con `px-2.5`, e `PASTIGLIA` resta a **un solo uso**, quello per
+cui esiste.
+
+**E la terza non era una misura, era un meccanismo.** Con le altezze pari le
+pastiglie combaciavano, ma i nomi sopra i due menu restavano un pixel e mezzo
+più in alto. La pastiglia è `inline-flex`, cioè **in linea**, e il selettore la
+metteva dentro un `<div class="relative">`, che dispone i figli come testo: il
+bottone si posava su una riga insieme allo strut del carattere ereditato. La sua
+linea di base sta a ~18 px dal bordo di sopra, sotto gliene restano otto, e la
+discendente dello strut ne chiede di più — riga alta ~27,6 px per una pastiglia
+di 26, con l'avanzo **sotto**. In un riquadro isolato non lo vede nessuno; in
+una riga di quattro colonne allineate in basso, l'avanzo fa combaciare le
+pastiglie e alza le etichette.
+
+`relative flex`, e la riga di testo non esiste più. Vale per **tutti** i
+selettori — dataset, tema, modello — che avevano lo stesso avanzo da sempre,
+senza che nessuno lo notasse: perché lì nessuno stava in fila con qualcos'altro.
+
+#### Cosa ne resta come regola
+
+Le prime due cause si trovano leggendo il codice; la terza no — richiede di
+sapere che `inline-flex` dentro un contenitore di blocco genera una riga di
+testo, e di andarla a cercare. La difesa che il progetto ha già trovato due
+volte è la stessa: **dichiarare l'altezza invece di dedurla**. Dove è dichiarata
+il difetto non nasce, perché non c'è niente da dedurre.

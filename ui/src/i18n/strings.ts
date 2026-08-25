@@ -104,7 +104,7 @@ export const it = {
   "run.campo.has_sparse": "Vettori sparsi",
   "run.campo.retrieval_mode": "Modalità",
   "run.campo.top_k": "top_k",
-  "run.campo.rerank": "Riordino",
+  "run.campo.rerank": "Rerank",
   "run.campo.query_rewrite": "Riscrittura query",
   "run.campo.filter_content_type": "Filtro contenuto",
   "run.campo.search_exact": "Ricerca esatta",
@@ -238,7 +238,7 @@ export const it = {
   "bar.advanced.mode": "Ricerca",
   "bar.advanced.mode.hint":
     "Come si trova un pezzo del corpus: per significato, per parole esatte, o le due cose fuse insieme (dense, sparse, hybrid). Nessuna delle tre vince sempre — su articoli e su bilanci si comportano in modo diverso, ed è il motivo per cui qui le misure non si mediano mai fra dataset.",
-  "bar.advanced.rerank": "Riordino",
+  "bar.advanced.rerank": "Rerank",
   "bar.advanced.rerank.hint":
     "Un secondo modello rilegge i pezzi trovati e li rimette in ordine, stavolta guardando domanda e pezzo insieme invece che separatamente. Costa tempo a ogni domanda, e quanto si legge nella riga dei tempi.",
   // Quanti pezzi vanno nel prompt. Il rischio dei due estremi è diverso, e la
@@ -703,7 +703,7 @@ export const en: Record<Chiave, string> = {
   "bar.advanced.mode": "Search",
   "bar.advanced.mode.hint":
     "How a piece of the corpus is found: by meaning, by exact words, or the two fused together (dense, sparse, hybrid). None of the three always wins — they behave differently on articles and on ledgers, which is why measurements here are never averaged across datasets.",
-  "bar.advanced.rerank": "Reranking",
+  "bar.advanced.rerank": "Rerank",
   "bar.advanced.rerank.hint":
     "A second model reads the retrieved pieces again and reorders them, this time looking at question and piece together instead of separately. It costs time on every question, and the timing line says how much.",
   "bar.advanced.topk.hint":

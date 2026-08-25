@@ -38,7 +38,7 @@ export function Modo({
       type="button"
       aria-pressed={attivo}
       onClick={onClick}
-      className={`${FORMA} px-2.5 py-1 ${attivo ? MOSSA : RIPOSO}`}
+      className={`${FORMA} px-2.5 ${attivo ? MOSSA : RIPOSO}`}
     >
       {children}
     </button>

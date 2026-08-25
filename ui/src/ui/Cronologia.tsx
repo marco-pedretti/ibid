@@ -50,6 +50,7 @@ import { titoloDi, vuota } from "../app/cronologia";
 import type { Conversazione } from "../app/cronologia";
 import { usaLingua } from "../app/i18n";
 import { usaChiudiCassetto } from "./cassetto";
+import { usaChiudiPagine } from "./pagine";
 import { Etichetta } from "./Etichetta";
 import { Cestino, Orologio, Piu } from "./Icona";
 import { Suggerimento } from "./Suggerimento";
@@ -100,13 +101,17 @@ export function Cronologia() {
 export function NuovaCompatta() {
   const { t } = usaLingua();
   const { occupato, nuova } = usaChat();
+  const chiudiPagine = usaChiudiPagine();
 
   return (
     <Attivabile
       bloccato={occupato}
       etichetta={t("history.new")}
       suggerimento={occupato ? t("history.busy") : t("history.new")}
-      onClick={nuova}
+      onClick={() => {
+        nuova();
+        chiudiPagine();
+      }}
       className={`flex h-[34px] w-full items-center justify-center rounded-[7px] border border-accent bg-accent text-accent-ink transition-colors ${
         occupato ? "" : "hover:border-accent-2 hover:bg-accent-2"
       }`}
@@ -173,6 +178,10 @@ function BottoneNuova() {
   // Porta in una conversazione vuota, quindi si porta via il cassetto della
   // corsia dove ce n'e' uno: vedi `cassetto.ts`.
   const chiudiCassetto = usaChiudiCassetto();
+  // E porta via anche l'esploratore e «Che cos'e'», se erano aperti: vedi
+  // `pagine.ts`. Aprire una conversazione e restare a guardare il corpus e'
+  // il caso che `chat.tsx` esclude gia' per il confronto.
+  const chiudiPagine = usaChiudiPagine();
 
   return (
     <Attivabile
@@ -181,6 +190,7 @@ function BottoneNuova() {
       onClick={() => {
         nuova();
         chiudiCassetto();
+        chiudiPagine();
       }}
       className={`flex h-[34px] w-full items-center gap-[7px] rounded-[7px] border border-accent bg-accent px-2.5 text-left text-[12px] font-medium text-accent-ink transition-colors ${
         occupato ? "" : "hover:border-accent-2 hover:bg-accent-2"
@@ -271,6 +281,7 @@ function Voce({ conversazione, attiva }: { conversazione: Conversazione; attiva:
   const { t } = usaLingua();
   const { occupato, apri } = usaChat();
   const chiudiCassetto = usaChiudiCassetto();
+  const chiudiPagine = usaChiudiPagine();
   const titolo = titoloDi(conversazione) ?? t("history.new");
 
   return (
@@ -280,6 +291,7 @@ function Voce({ conversazione, attiva }: { conversazione: Conversazione; attiva:
       onClick={() => {
         apri(conversazione.id);
         chiudiCassetto();
+        chiudiPagine();
       }}
       attiva={attiva}
       className={`w-full truncate rounded-md px-2 py-1.5 text-left text-[11.5px] transition-colors ${

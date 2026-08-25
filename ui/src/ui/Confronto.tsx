@@ -163,7 +163,7 @@ function PromptDelModello() {
             // gruppo li lascia passare al suggerimento che lo avvolge.
             aria-disabled={occupato}
             onClick={() => cambiaPrompt(p)}
-            className={`${FORMA} px-2.5 py-1 ${p === attuale ? MOSSA : RIPOSO} aria-disabled:pointer-events-none aria-disabled:opacity-45`}
+            className={`${FORMA} px-2.5 ${p === attuale ? MOSSA : RIPOSO} aria-disabled:pointer-events-none aria-disabled:opacity-45`}
           >
             {t(p === PERMISSIVO ? "compare.prompt.permissive" : "compare.prompt.strict")}
           </button>
