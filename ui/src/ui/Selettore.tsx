@@ -185,7 +185,23 @@ export function Selettore<T extends string>({
   const scelta = indiceDi(voci, valore);
 
   return (
-    <div ref={contenitore} className="relative">
+    // `flex` e non solo `relative`, e sono due pixel che si vedevano.
+    //
+    // La pastiglia e' `inline-flex`, cioe' **in linea**: dentro un contenitore
+    // che dispone i figli come testo, si posa su una riga insieme allo strut del
+    // carattere ereditato, e la riga e' piu' alta di lei — la sua linea di base
+    // sta a diciotto pixel dal bordo di sopra e la discendente dello strut
+    // scende piu' in basso dei suoi otto. Il riquadro finiva percio' alto ~27,6
+    // px invece di 26, con l'avanzo **sotto** la pastiglia.
+    //
+    // Nel pannello «Avanzate», che allinea le colonne in basso, quell'avanzo
+    // faceva combaciare le pastiglie e alzava di un pixel e mezzo le due
+    // etichette sopra i menu: il difetto che si vedeva era il nome, la causa
+    // era la riga di testo sotto. Con `flex` il bottone diventa un elemento di
+    // flusso e la riga non esiste piu'.
+    //
+    // Il pannello delle voci e' `absolute`, quindi non entra in questo conto.
+    <div ref={contenitore} className="relative flex">
       <button
         ref={bottone}
         type="button"
