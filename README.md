@@ -8,6 +8,10 @@ Ogni affermazione che il sistema produce porta un rimando al pezzo di documento 
 
 Non è una demo con dei link in fondo alla risposta. È un banco di misura, costruito attorno a tre affermazioni: **due reggono, una è stata confutata dai numeri**. Quella confutata è rimasta in questa pagina, con la tabella che la smentisce, ed è il reperto più interessante del progetto.
 
+![Una domanda, la risposta con le citazioni verificate, e la fonte aperta sul chunk citato](docs/demo.gif)
+
+<sub>Ripresa unica, nessun taglio: gli **undici secondi di attesa sono quelli veri**, e la riga dei tempi sopra la risposta li scompone in recupero, generazione e verifica. Si rifà con un comando, <code>npm run video</code>.</sub>
+
 ---
 
 ## Avvio
@@ -43,6 +47,10 @@ QDRANT_URL=http://10.0.0.5:6333 LLM_BASE_URL=http://10.0.0.7:11434/v1 make api
 ## Cosa dimostra
 
 Tre affermazioni. Ognuna compare qui sotto con la propria tabella, **sempre per dataset e mai mediata fra i due**: sono generi documentali diversi, e una media aritmetica avrebbe nascosto il risultato principale del progetto.
+
+![La risposta con i marcatori di citazione, i verdetti per frase e la colonna delle fonti](docs/screenshot.png)
+
+<sub>Ogni citazione porta il proprio verdetto, e le fonti che il modello non ha citato restano in colonna marcate come tali invece di sparire.</sub>
 
 ### 1. L'attribuzione verificata è misurabile, e i modelli piccoli sbagliano in modo sistematico ✅
 

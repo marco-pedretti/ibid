@@ -8,6 +8,10 @@ Every claim the system produces carries a pointer to the chunk it came from, and
 
 This is not a demo with links at the bottom of the answer. It is a measurement bench, built around three claims: **two hold, one was refuted by the numbers**. The refuted one stayed on this page, with the table that disproves it: it is the most interesting finding in the project.
 
+![A question, the answer with verified citations, and the source opened at the cited chunk](docs/demo.en.gif)
+
+<sub>Single take, no cuts: the **ten seconds of waiting are the real ones**, and the timings row above the answer splits them into retrieval, generation and verification. It is re-recorded with one command, <code>npm run video -- --en</code>.</sub>
+
 ---
 
 ## Getting started
@@ -43,6 +47,10 @@ QDRANT_URL=http://10.0.0.5:6333 LLM_BASE_URL=http://10.0.0.7:11434/v1 make api
 ## What it demonstrates
 
 Three claims. Each appears below with its own table, **always per dataset and never averaged across the two**: they are different document genres, and an arithmetic mean would have hidden the project's main result.
+
+![The answer with citation markers, per-sentence verdicts and the sources column](docs/screenshot.en.png)
+
+<sub>Every citation carries its own verdict, and the sources the model did not cite stay in the column marked as such instead of disappearing.</sub>
 
 ### 1. Verified attribution is measurable, and small models fail systematically ✅
 
