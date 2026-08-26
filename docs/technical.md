@@ -133,6 +133,9 @@ Qdrant appena avviato la lista è vuota: la si riempie nel §4.
 
 `make up` avvia anche il backend nel container, che a questo punto non serve.
 
+> **I target `make` sono scorciatoie.** Su Windows `make` spesso non c'è: accanto
+> a ognuno, qui, sta il comando che esegue, e quello funziona ovunque.
+
 ### 2.3 L'endpoint LLM (solo se si genera)
 
 ```bash
@@ -169,8 +172,8 @@ Per il frontend, `cd ui && npm install && npm run test` (365 test) e
 
 ### 2.5 L'interfaccia, se si vuole guardarla
 
-`make dev` avvia il backend, **aspetta** che risponda, poi avvia Vite, su
-http://localhost:5173. L'attesa non è cortesia: senza, la prima chiamata parte
+`make dev` (cioè `python scripts/dev.py`) avvia il backend, **aspetta** che
+risponda, poi avvia Vite, su http://localhost:5173. L'attesa non è cortesia: senza, la prima chiamata parte
 contro una porta chiusa e la pagina si apre già in stato di guasto, che chi
 guarda legge come un difetto del frontend. Non è il modo in cui il progetto si
 consegna (quello è `docker compose --profile demo up`, task U-08): serve a chi
