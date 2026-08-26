@@ -58,7 +58,7 @@ services:
     restart: unless-stopped
 
   qdrant:
-    image: qdrant/qdrant:v1.12.4
+    image: qdrant/qdrant:v1.19.0
     profiles: ["full", "eval", "demo"]
     ports:
       - "${QDRANT_PORT:-6333}:6333"
