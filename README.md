@@ -199,6 +199,12 @@ make noise-floor
 make dashboard
 ```
 
+I comandi qui sopra presuppongono l'indice già costruito e i servizi accesi.
+**[`docs/technical.md`](docs/technical.md) è il manuale**: prerequisiti,
+installazione con un controllo per ogni passo, contratti, architettura, e la
+procedura per riprodurre ognuna delle misure di questa pagina, comprese quelle
+che non chiedono una GPU.
+
 Le regole con cui questi numeri sono stati raccolti sono poche e vincolanti: **mai due modifiche dentro una misura sola**; nessuna metrica senza `dataset_id`; **nessun miglioramento dichiarato senza il confronto con la linea di rumore**; la soglia di astensione e il formato delle citazioni decisi nel codice, mai lasciati al modello.
 
 - [`ROADMAP.md`](ROADMAP.md): le decisioni, i contratti dati, i task con i loro criteri

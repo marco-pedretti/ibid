@@ -4870,3 +4870,74 @@ intervallo semiaperto. Piu' le due suite, verdi.
 
 La regola sta in `CLAUDE.md` perche' un lavoro fatto una volta su millequattro-
 cento posti si disfa da solo se chi scrive la riga successiva non la conosce.
+
+### U-22: il manuale, e la regola di scriverlo eseguendolo
+
+Il criterio non chiedeva una pagina completa: chiedeva che **chi arriva da GitHub
+rifaccia una misura seguendo solo cio' che c'e' scritto**, senza aprire il
+codice. E' un criterio verificabile, e ha deciso il metodo: ogni comando della
+pagina e' stato eseguito prima di essere scritto, e cio' che sta nelle tabelle e'
+cio' che ha stampato.
+
+`docs/technical.md`, 907 righe, undici sezioni. Le prime cinque sono nell'ordine
+del lavoro vero (cosa serve, installazione, indice, misura); le altre sei si
+consultano (metriche, contratti, architettura, estensione, guasti, dove sta il
+resto). Ogni passo di installazione porta il proprio controllo con l'output
+atteso, perche' un passo senza controllo si scopre sbagliato tre passi dopo.
+
+#### Cio' che e' stato rimisurato per scriverla
+
+| misura | esito | tempo |
+|---|---|---|
+| smoke test 50 query, ORB dense / ORB hybrid / LEDGER dense | tabella di controllo del §5.1 | ~4 s l'una |
+| ORB dense, golden completo, ricerca esatta | nDCG@10 **0,7184**, doc_R@5 **0,9681** | **56 s** |
+| LEDGER dense, golden completo, ricerca esatta | nDCG@10 **0,2465**, doc_R@5 **0,8962** | **2 min 52 s** |
+| suite Python | **1752 verdi** | 52 s |
+| `eval_citation_precision.py --limit 5` | gira sulle generazioni committate | ~45 s per corpus |
+| `compare_retrieved.py` su due dump committati | +0,0256, 13 contro 91, p < 0,0001 | immediato |
+
+Le due run complete **riproducono a quattro decimali le cifre del README**, prese
+tredici giorni prima su un altro commit. Non era scontato: OQ-09 aveva mostrato
+che due run con lo stesso `config_hash` possono aver interrogato indici diversi,
+ed e' il motivo per cui la verifica e' stata fatta invece di essere data per
+buona.
+
+#### La cosa che la pagina dice e il README non poteva dire
+
+**Quasi tutto si riproduce senza GPU.** I dump per query di diciannove run e i
+ventiquattro dump di generazione, ognuno con il prompt che lo ha prodotto, sono
+committati, quindi il confronto appaiato fra
+due configurazioni gira **senza Qdrant, senza modelli e senza scheda video**, e
+la precisione di citazione si ricalcola senza generare niente. E' la misura piu'
+facile da riprodurre del progetto, e prima di questa pagina non era scritto da
+nessuna parte.
+
+#### Un difetto vero, trovato eseguendo il passo due
+
+Il comando `docker compose --profile eval up -d qdrant`, scritto nella pagina e
+poi eseguito per verificarlo, **ha rotto Qdrant**: il container e' stato ricreato
+dall'immagine fissata in `compose.yml` (`v1.12.4`, da A-05), che non sa leggere
+uno storage scritto dalla `v1.19.0`, ed e' finito in restart loop con
+`Can not create shard holder`. Il volume era intatto: rimesso il pin sulla
+versione che lo aveva scritto, le quattro collection sono tornate ai conteggi
+attesi (18.840 / 47.110 / 98.312 / 228.331) e lo smoke test di recupero ha dato
+gli stessi quattro decimali di prima.
+
+Il pin sbagliato era li' da dodici giorni e non aveva mai fatto danno **perche'
+nessuno rifaceva il container**. Corretto in un commit suo, su `main`: e'
+esattamente il difetto che il criterio di U-22 esiste per far emergere, e sarebbe
+emerso sul primo lettore invece che qui.
+
+#### Due README che la spazzata del trattino non aveva visto
+
+`data/README.md` ed `eval/results/archive/README.md` non stanno ne' in radice ne'
+in `docs/`, quindi non erano nella lista passata al convertitore: nove trattini
+lunghi erano sopravvissuti in due pagine che si raggiungono dai link del README.
+Convertiti a mano, commit separato.
+
+#### Cosa resta fuori
+
+La pagina **non ripete i risultati**: quelli stanno nel README, e due copie degli
+stessi numeri divergono al primo aggiornamento. Non copre la Fase 9 (X-xx), che
+non esiste ancora, e non descrive l'interfaccia schermata per schermata: U-19 e'
+la pagina che lo fa, e dentro l'applicazione.

@@ -199,6 +199,12 @@ make noise-floor
 make dashboard
 ```
 
+The commands above assume the index is already built and the services are up.
+**[`docs/technical.md`](docs/technical.md) is the manual**: prerequisites,
+installation with a check at every step, contracts, architecture, and the
+procedure for reproducing every measurement on this page, including the ones
+that need no GPU. It is in Italian, like the rest of the working documents.
+
 The rules these numbers were collected under are few and binding: **never two changes inside one measurement**; no metric without `dataset_id`; **no improvement declared without comparing it against the noise floor**; the abstention threshold and the citation format decided in code, never left to the model.
 
 - [`ROADMAP.md`](ROADMAP.md): decisions, data contracts, tasks with their acceptance criteria
