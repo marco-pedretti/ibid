@@ -45,7 +45,7 @@ def render() -> None:
         pd.DataFrame([
             {
                 "collection": c["name"],
-                "nel registro": "sì" if c["name"] in del_registro else "—",
+                "nel registro": "sì" if c["name"] in del_registro else "n/d",
                 "punti": f"{c['points']:,}",
                 "dim. densa": c["dense_size"],
                 "sparso": "sì" if c["has_sparse"] else "**no**",
@@ -77,4 +77,4 @@ def render() -> None:
     st.caption("File golden disponibili:")
     for path in sorted(GOLDEN_DIR.glob("*.jsonl")):
         n = sum(1 for line in path.open(encoding="utf-8") if line.strip())
-        st.write(f"- `{path.name}` — {n:,} query")
+        st.write(f"- `{path.name}`: {n:,} query")

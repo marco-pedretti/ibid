@@ -127,11 +127,11 @@ def short_run_label(run: EvalRun, index: int) -> str:
 
 
 def active_flags(config: dict[str, Any]) -> str:
-    """Human list of the retrieval flags that are on, or "—" when none are."""
+    """Human list of the retrieval flags that are on, or "n/d" when none are."""
     active = [k for k in ("rerank", "query_rewrite", "doc_aggregate") if config.get(k)]
     if config.get("filter_content_type"):
         active.append(f"filter={config['filter_content_type']}")
-    return ", ".join(active) if active else "—"
+    return ", ".join(active) if active else "n/d"
 
 
 def run_rows(runs: list[EvalRun]) -> list[dict[str, Any]]:
@@ -147,9 +147,9 @@ def run_rows(runs: list[EvalRun]) -> list[dict[str, Any]]:
         rows.append({
             "#": f"#{i}",
             "pipeline_mode": run.pipeline_mode,
-            "retrieval": run.config.get("retrieval_mode", "—"),
-            "collection": run.config.get("collection", "—"),
-            "top_k": run.config.get("top_k", "—"),
+            "retrieval": run.config.get("retrieval_mode", "n/d"),
+            "collection": run.config.get("collection", "n/d"),
+            "top_k": run.config.get("top_k", "n/d"),
             "flag attivi": active_flags(run.config),
             "commit": run.git_commit[:7],
             "config_hash": run.config_hash,

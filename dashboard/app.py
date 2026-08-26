@@ -37,7 +37,7 @@ import streamlit as st  # noqa: E402  (must follow the sys.path bootstrap above)
 
 # Must be the first Streamlit call in the script, so it precedes the view
 # imports rather than sitting with them.
-st.set_page_config(page_title="ibid — dashboard interna", layout="wide")
+st.set_page_config(page_title="ibid: dashboard interna", layout="wide")
 
 from dashboard.state import PAGES  # noqa: E402  (needs sys.path above)
 from dashboard.views import collections, comparator, failures, playground  # noqa: E402

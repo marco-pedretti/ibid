@@ -87,7 +87,7 @@ def compare_paired(hits_a: list[bool], hits_b: list[bool]) -> PairedResult:
     """
     if len(hits_a) != len(hits_b):
         raise ValueError(
-            f"query non appaiate: {len(hits_a)} contro {len(hits_b)} — "
+            f"query non appaiate: {len(hits_a)} contro {len(hits_b)}: "
             "un confronto appaiato richiede le stesse query nello stesso ordine"
         )
     n = len(hits_a)

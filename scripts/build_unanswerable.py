@@ -34,7 +34,7 @@ def _already_has_unanswerable(path: Path) -> bool:
 def append_unanswerable(dataset_id: str) -> None:
     path = GOLDEN_DIR / f"{dataset_id}.jsonl"
     if not path.exists():
-        print(f"  ERROR: {path} not found — run build_golden.py first.")
+        print(f"  ERROR: {path} not found: run build_golden.py first.")
         return
 
     if _already_has_unanswerable(path):

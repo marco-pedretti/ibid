@@ -112,7 +112,7 @@ def main() -> None:
         # misura non e'. Stesso `--no-write` di eval_citation_precision.py.
         writer = None if args.no_write else GenerationWriter(gen_path, system_prompt)
 
-        print(f"\n=== C-01 citation format — {dataset_id} ===", flush=True)
+        print(f"\n=== C-01 citation format: {dataset_id} ===", flush=True)
         # Il prompt e' cio' che questo script misura: stamparne l'identita' e'
         # l'unico modo perche' due run con numeri diversi si spieghino da sole.
         origine = "" if args.system_prompt_file is None else f" da {args.system_prompt_file}"

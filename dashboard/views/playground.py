@@ -21,7 +21,7 @@ from dashboard.retrieval_probe import (
 )
 from dashboard.state import collections, known_datasets, load_golden, run_probe
 
-FREE = "— inserisci query libera —"
+FREE = "(inserisci query libera)"
 
 
 def _config_picker(key_prefix: str, colls: list[str], top_k: int,
@@ -46,7 +46,7 @@ def _render_single_tab(colls: list[str], top_k: int, query_text: str) -> None:
 
     conf = ProbeConfig(collection=coll, retrieval_mode=mode,
                        rerank=do_rerank, top_k=top_k)
-    with st.spinner(f"Retrieval — {conf.label()}…"):
+    with st.spinner(f"Retrieval: {conf.label()}…"):
         try:
             render_hits(run_probe(query_text, conf))
         except Exception as e:
@@ -55,7 +55,7 @@ def _render_single_tab(colls: list[str], top_k: int, query_text: str) -> None:
 
 def _render_ab_tab(colls: list[str], top_k: int, query_text: str) -> None:
     st.caption(
-        "Due configurazioni qualsiasi sulla stessa query — per esempio "
+        "Due configurazioni qualsiasi sulla stessa query, per esempio "
         "`ledger` contro `ledger_routed`, che è l'ablation R-07."
     )
     col_a, col_b = st.columns(2)
@@ -89,7 +89,7 @@ def _render_ab_tab(colls: list[str], top_k: int, query_text: str) -> None:
         st.info(
             "Zero chunk in comune ma documenti condivisi: le due collection usano "
             "pipeline di chunking diverse, quindi i `chunk_id` non coincidono per "
-            "costruzione. Solo il livello documento è confrontabile — è la ragione "
+            "costruzione. Solo il livello documento è confrontabile: è la ragione "
             "per cui R-07 si legge su doc_R@5.",
             icon="ℹ️",
         )
@@ -99,10 +99,10 @@ def _render_ab_tab(colls: list[str], top_k: int, query_text: str) -> None:
 
     res_a, res_b = st.columns(2)
     with res_a:
-        st.markdown(f"### A — {conf_a.label()}")
+        st.markdown(f"### A: {conf_a.label()}")
         render_hits(hits_a, show_scores_chart=False, highlight=set(cmp.shared))
     with res_b:
-        st.markdown(f"### B — {conf_b.label()}")
+        st.markdown(f"### B: {conf_b.label()}")
         render_hits(hits_b, show_scores_chart=False, highlight=set(cmp.shared))
 
 

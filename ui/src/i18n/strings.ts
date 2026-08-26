@@ -237,7 +237,7 @@ export const it = {
   // leggibili anche a chi quel campo non lo conosce.
   "bar.advanced.mode": "Ricerca",
   "bar.advanced.mode.hint":
-    "Come si trova un pezzo del corpus: per significato, per parole esatte, o le due cose fuse insieme (dense, sparse, hybrid). Nessuna delle tre vince sempre — su articoli e su bilanci si comportano in modo diverso, ed è il motivo per cui qui le misure non si mediano mai fra dataset.",
+    "Come si trova un pezzo del corpus: per significato, per parole esatte, o le due cose fuse insieme (dense, sparse, hybrid). Nessuna delle tre vince sempre: su articoli e su bilanci si comportano in modo diverso, ed è il motivo per cui qui le misure non si mediano mai fra dataset.",
   "bar.advanced.rerank": "Rerank",
   "bar.advanced.rerank.hint":
     "Un secondo modello rilegge i pezzi trovati e li rimette in ordine, stavolta guardando domanda e pezzo insieme invece che separatamente. Costa tempo a ogni domanda, e quanto si legge nella riga dei tempi.",
@@ -249,7 +249,7 @@ export const it = {
   // open_ragbench e 0,9892 su ledger — arrotondato onestamente a «il 99%», con
   // la condizione in cui smetterebbe di valere.
   "bar.advanced.ef.hint":
-    "Quanti candidati l'indice visita prima di rispondere: più ne visita, più i primi cinque sono davvero i primi cinque, e più lentamente risponde. Sui due indici di questa demo l'approssimazione ne prende già il 99%, quindi alzarlo cambia poco — su un indice più denso cambierebbe molto.",
+    "Quanti candidati l'indice visita prima di rispondere: più ne visita, più i primi cinque sono davvero i primi cinque, e più lentamente risponde. Sui due indici di questa demo l'approssimazione ne prende già il 99%, quindi alzarlo cambia poco; su un indice più denso cambierebbe molto.",
   "bar.advanced.on": "acceso",
   "bar.advanced.off": "spento",
   "bar.advanced.auto": "auto",
@@ -262,7 +262,7 @@ export const it = {
   "compare.action.bare": "Confronta senza le fonti",
   "compare.action.sourced": "Confronta con le fonti",
   "compare.action.hint":
-    "Rifà la stessa domanda cambiando solo questo. Tutto il resto — modello, ricerca, temperatura — resta identico, altrimenti le due risposte differirebbero per più di una cosa.",
+    "Rifà la stessa domanda cambiando solo questo. Tutto il resto (modello, ricerca, temperatura) resta identico, altrimenti le due risposte differirebbero per più di una cosa.",
   "compare.title": "Stessa domanda",
   "compare.withSources": "Con le fonti",
   "compare.withoutSources": "Senza fonti",
@@ -361,7 +361,7 @@ export const it = {
   // Il criterio di U-06 chiede di dichiararla, non di simularla. E il motivo è
   // più largo del solo `bbox`: un PDF non c'è proprio, su nessuno dei due corpus.
   "corpus.noPdf":
-    "Nessuna pagina da mostrare: di questo corpus non abbiamo i PDF, solo il testo estratto. L'evidenziazione sulla pagina non è disponibile — dichiarata, non simulata.",
+    "Nessuna pagina da mostrare: di questo corpus non abbiamo i PDF, solo il testo estratto. L'evidenziazione sulla pagina non è disponibile: dichiarata, non simulata.",
   "corpus.fromCitation": "Apri questa fonte nel corpus",
 
   "example.note.numbers": "Un numero preciso: la citazione deve reggerlo.",
@@ -475,7 +475,7 @@ export const it = {
   "report.title.disagreement": "I due verificatori non concordano.",
   "report.marks": "Non sostenute: {marcatori}.",
   "report.numeric":
-    "Di queste, {quante} le conferma il controllo dei numeri: la cifra c'è nella tabella, ma chi legge la prosa non la vede. Su una tabella vale lui — qui il 96,7% delle frasi afferma un numero.",
+    "Di queste, {quante} le conferma il controllo dei numeri: la cifra c'è nella tabella, ma chi legge la prosa non la vede. Su una tabella vale lui: qui il 96,7% delle frasi afferma un numero.",
   "report.uncited": "Frasi senza citazione: {quante}, sottolineate nel testo.",
   "report.unverified":
     "Citazioni senza verdetto: {quante}. Il controllo era spento, o la frase era troppo corta per giudicarla.",
@@ -559,7 +559,7 @@ export const it = {
   "about.who":
     "Marco Pedretti ed Elia Dallanoce, in due sulla stessa parte. È il motivo per cui qui quasi ogni scelta ha accanto la ragione per cui è stata presa: erano in due a doverla accettare.",
   "about.who.license":
-    "Il codice è aperto, licenza MIT. Insieme al codice ci sono il piano, le tabelle delle misure e le domande ancora senza risposta — comprese le misure andate male, che restano in tabella.",
+    "Il codice è aperto, licenza MIT. Insieme al codice ci sono il piano, le tabelle delle misure e le domande ancora senza risposta, comprese le misure andate male, che restano in tabella.",
   "about.who.repo": "Il progetto su GitHub",
 } as const;
 
@@ -702,14 +702,14 @@ export const en: Record<Chiave, string> = {
     "How the corpus is searched, before the model writes. Closed on purpose: comparing configurations is the dashboard's job, not this one's.",
   "bar.advanced.mode": "Search",
   "bar.advanced.mode.hint":
-    "How a piece of the corpus is found: by meaning, by exact words, or the two fused together (dense, sparse, hybrid). None of the three always wins — they behave differently on articles and on ledgers, which is why measurements here are never averaged across datasets.",
+    "How a piece of the corpus is found: by meaning, by exact words, or the two fused together (dense, sparse, hybrid). None of the three always wins: they behave differently on articles and on ledgers, which is why measurements here are never averaged across datasets.",
   "bar.advanced.rerank": "Rerank",
   "bar.advanced.rerank.hint":
     "A second model reads the retrieved pieces again and reorders them, this time looking at question and piece together instead of separately. It costs time on every question, and the timing line says how much.",
   "bar.advanced.topk.hint":
     "How many pieces of the corpus end up in front of the model. Too few risk leaving the answer out; too many dilute it among its neighbours and fill the context window.",
   "bar.advanced.ef.hint":
-    "How many candidates the index visits before answering: the more it visits, the more the top five really are the top five, and the slower it answers. On this demo's two indexes the approximation already gets 99% of them, so raising it changes little — on a denser index it would change a lot.",
+    "How many candidates the index visits before answering: the more it visits, the more the top five really are the top five, and the slower it answers. On this demo's two indexes the approximation already gets 99% of them, so raising it changes little; on a denser index it would change a lot.",
   "bar.advanced.on": "on",
   "bar.advanced.off": "off",
   "bar.advanced.auto": "auto",
@@ -720,7 +720,7 @@ export const en: Record<Chiave, string> = {
   "compare.action.bare": "Compare without the sources",
   "compare.action.sourced": "Compare with the sources",
   "compare.action.hint":
-    "Asks the same question again, changing only this. Everything else — model, search, temperature — stays identical, otherwise the two answers would differ in more than one thing.",
+    "Asks the same question again, changing only this. Everything else (model, search, temperature) stays identical, otherwise the two answers would differ in more than one thing.",
   "compare.title": "Same question",
   "compare.withSources": "With the sources",
   "compare.withoutSources": "Without sources",
@@ -780,7 +780,7 @@ export const en: Record<Chiave, string> = {
   "corpus.split.generic":
     "Every document in this index was split the same way, taking the unit the document already offered.",
   "corpus.noPdf":
-    "No page to show: we do not have the PDFs for this corpus, only the extracted text. Highlighting on the page is unavailable — declared, not simulated.",
+    "No page to show: we do not have the PDFs for this corpus, only the extracted text. Highlighting on the page is unavailable: declared, not simulated.",
   "corpus.fromCitation": "Open this source in the corpus",
 
   "example.note.numbers": "A precise number: the citation has to hold it up.",
@@ -865,7 +865,7 @@ export const en: Record<Chiave, string> = {
   "report.title.disagreement": "The two verifiers disagree.",
   "report.marks": "Not supported: {marcatori}.",
   "report.numeric":
-    "Of those, {quante} are confirmed by the number check: the figure is in the table, but the one reading prose does not see it. On a table that one holds — here 96.7% of sentences assert a number.",
+    "Of those, {quante} are confirmed by the number check: the figure is in the table, but the one reading prose does not see it. On a table that one holds: here 96.7% of sentences assert a number.",
   "report.uncited": "Sentences with no citation: {quante}, underlined in the text.",
   "report.unverified":
     "Citations with no verdict: {quante}. Checking was off, or the sentence was too short to judge.",
@@ -927,7 +927,7 @@ export const en: Record<Chiave, string> = {
   "about.who":
     "Marco Pedretti and Elia Dallanoce, two people on the same part. It is why almost every choice here has the reason for it written next to it: two people had to agree on it.",
   "about.who.license":
-    "The code is open, MIT licensed. Alongside it are the plan, the measurement tables and the questions still without an answer — including the measurements that went badly, which stay in the table.",
+    "The code is open, MIT licensed. Alongside it are the plan, the measurement tables and the questions still without an answer, including the measurements that went badly, which stay in the table.",
   "about.who.repo": "The project on GitHub",
 };
 

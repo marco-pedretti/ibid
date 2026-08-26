@@ -70,7 +70,7 @@ def load(path: Path) -> dict[str, dict]:
     of the other is not paired at all.
     """
     if path.suffix == ".partial" or path.name.endswith(".jsonl.partial"):
-        raise SystemExit(f"{path.name} is a partial run — no verdict from an unfinished arm.")
+        raise SystemExit(f"{path.name} is a partial run: no verdict from an unfinished arm.")
     records = [json.loads(line) for line in path.read_text(encoding="utf-8").splitlines() if line]
     return {r["query_id"]: r for r in records}
 
@@ -103,7 +103,7 @@ def main() -> None:
     a, b = load(args.a), load(args.b)
     shared = sorted(set(a) & set(b))
     if not shared:
-        raise SystemExit("The two runs share no query_id — different query sets.")
+        raise SystemExit("The two runs share no query_id: different query sets.")
     if len(shared) != len(a) or len(shared) != len(b):
         # Not fatal, but it changes what the verdict is about, so it is stated.
         print(f"[warn] {len(a)} vs {len(b)} query, {len(shared)} in comune: confronto sulle comuni")

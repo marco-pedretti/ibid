@@ -59,7 +59,7 @@ def _render_summary(outcomes) -> None:
             "Recall chunk 0 su tutte le query ma documenti trovati: i `chunk_id` di "
             "questa collection non coincidono con quelli dei qrels, perché è stata "
             "costruita con una pipeline di chunking diversa. Leggi il **recall "
-            "documento**, non quello chunk — è la stessa ragione per cui R-07 si "
+            "documento**, non quello chunk: è la stessa ragione per cui R-07 si "
             "misura su doc_R@5.",
             icon="ℹ️",
         )
@@ -158,7 +158,7 @@ def render() -> None:
     conf = ProbeConfig(collection=coll, retrieval_mode=mode,
                        rerank=do_rerank, top_k=top_k)
 
-    if st.button(f"Esegui {n_queries} query — {conf.label()}", type="primary"):
+    if st.button(f"Esegui {n_queries} query: {conf.label()}", type="primary"):
         outcomes = _run_batch(answerable[:n_queries], conf)
         if outcomes is None:
             st.stop()
@@ -175,7 +175,7 @@ def render() -> None:
         st.stop()
 
     st.divider()
-    st.subheader(f"Risultati — {batch['label']}")
+    st.subheader(f"Risultati: {batch['label']}")
     _render_summary(outcomes)
 
     ranked = sort_by_failure(outcomes)

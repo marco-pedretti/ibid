@@ -158,14 +158,14 @@ def benchmark(model: str) -> dict:
 
 def print_summary(results: list[dict]) -> None:
     print("\n\n" + "="*60)
-    print("RIEPILOGO — incolla in docs/hardware.md")
+    print("RIEPILOGO: incolla in docs/hardware.md")
     print("="*60)
     print()
     print("| Modello | Quantizzazione (Ollama) | Generazione (tok/s) | Prefill (tok/s) | Memoria | Processor |")
     print("|---|---|---|---|---|---|")
     for r in results:
         if r.get("error"):
-            print(f"| {r['model']} | — | ERRORE | — | — | {r['error'][:60]} |")
+            print(f"| {r['model']} | n/d | ERRORE | n/d | n/d | {r['error'][:60]} |")
         else:
             quant = "(vedi ollama show)"
             print(
