@@ -4941,3 +4941,90 @@ La pagina **non ripete i risultati**: quelli stanno nel README, e due copie degl
 stessi numeri divergono al primo aggiornamento. Non copre la Fase 9 (X-xx), che
 non esiste ancora, e non descrive l'interfaccia schermata per schermata: U-19 e'
 la pagina che lo fa, e dentro l'applicazione.
+
+### U-10: il video, e il taglio che si fa da solo
+
+Il criterio dice **≤ 90 secondi** e **niente tagli che nascondano la latenza
+reale**. La seconda meta' e' quella che decide come si lavora, e la scelta e'
+stata di Marco fra tre strade: la ripresa la esegue **uno script**, non una
+mano. `npm run video` apre l'applicazione vera con Playwright, fa il copione dal
+vivo e tiene la registrazione aperta dal primo clic all'ultimo. Non c'e' un
+montaggio da cui togliere qualcosa.
+
+Il vantaggio che non si vede nel file finito: **la GIF si rifa' con un
+comando**. U-13, U-17, U-18 e U-19 cambieranno le tre colonne, e una ripresa a
+mano si rifa' solo rifacendola.
+
+| | |
+|---|---|
+| durata | **41,0 s** (ripresa 44,1 s, meno il caricamento in testa) |
+| peso | 3,48 MB italiano, 3,57 MB inglese |
+| formato | 1000 x 625, 12 fps, 128 colori |
+| fotogrammi | 494 estratti, **315 distinti**: gli identici si fondono |
+| tempi mostrati a schermo | recupero 0,19 s, generazione 8,03 s, verifica 2,6 s, **totale 10,82 s** |
+
+#### La trappola: un taglio senza forbici
+
+Ollama tiene la cache del prompt, e **una domanda gia' fatta non paga il
+prefill**. Sulla domanda del copione, nello stesso pomeriggio:
+
+| stato del motore | `generation` |
+|---|---|
+| prima volta, modello caricato | 16,9 s |
+| dopo qualche ripetizione | **3,9 s** |
+| modello scaricato e ricaricato con un'altra domanda | 8,0 s |
+
+La riga di mezzo e' la prima versione della ripresa, ed e' quella che ha fatto
+capire il problema: **avrebbe scritto «generation 3,91 s» a schermo senza che
+nessuno tagliasse un fotogramma**. Il criterio sarebbe stato rispettato alla
+lettera e violato nella sostanza.
+
+Il primo tentativo di rimedio (scaldare con una domanda diversa) **non e'
+bastato**: le cache sono piu' d'una e quella del copione sopravvive. La
+correzione e' scaricare il modello (`keep_alive: 0`) e ricaricarlo con una
+domanda che nel video non compare. E' l'unico punto in cui il progetto parla
+all'API nativa del motore invece che a `/v1`, quindi **si tenta e non si
+pretende**: con `llama-server` l'operazione non esiste, e lo script lo dice
+invece di fingere.
+
+L'errore opposto e' altrettanto facile: a freddo la stessa domanda costa **24,8
+s contro 14,3**, e sarebbe una latenza gonfiata da un caricamento che non e'
+la pipeline. Riscaldare e' quindi obbligatorio quanto svuotare la cache.
+
+#### Tre dettagli che hanno deciso la resa
+
+- **Il puntatore e' disegnato nel DOM.** Playwright non registra il cursore di
+  sistema: senza un surrogato i clic sembrano accadere da soli. Nello scatto
+  fermo viene tolto, perche' li' non spiega niente.
+- **Si aspettano gli eventi, non i secondi.** La fine della generazione e' la
+  scomparsa del comando «Ferma», che esiste solo mentre lo stream scorre: una
+  risposta lenta il doppio allunga la ripresa invece di finire tagliata.
+- **La guida di U-20 si salta dal deposito**, perche' un profilo di browser
+  nuovo la mostrerebbe a ogni ripresa.
+
+#### La GIF, e le tre scelte che ne decidono il peso
+
+`scripts/video_gif.py` la costruisce con Pillow: l'ffmpeg che Playwright si
+porta dietro ha **dodici filtri e nessun encoder GIF**, quindi serve solo a
+decodificare in PNG. Misurato sulla stessa ripresa:
+
+| | peso |
+|---|---|
+| 1000 px, 128 colori, senza dithering | **4,5 MB** (scelto) |
+| 1000 px, 128 colori, con dithering | 8,0 MB |
+| `disposal=2` invece di `1` | **40,5 MB** |
+
+Il dithering su colori piatti aggiunge rumore che LZW non comprime. Il
+`disposal` e' la leva grossa: con `1` si riscrive solo il rettangolo che cambia,
+e su una schermata ferma quel rettangolo e' vuoto.
+
+#### Cosa e' entrato nel repository, e cosa no
+
+Dentro: le due GIF, le due schermate (2560 x 1600, ~300 kB), i due script e la
+riga di `playwright` in `STACK.md` (Apache-2.0, dipendenza di sviluppo, non
+entra nel bundle). Fuori: i `.webm` grezzi, che si rifanno a comando e
+peserebbero 2,7 MB ciascuno per un file che nessuno apre.
+
+**Con lo screenshot si chiude anche la prima delle due cose che U-11 aveva
+lasciato indietro.** Resta la descrizione «About» del repo, che si imposta su
+GitHub e non da qui.
