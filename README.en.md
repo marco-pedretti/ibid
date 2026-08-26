@@ -10,7 +10,7 @@ This is not a demo with links at the bottom of the answer. It is a measurement b
 
 ![A question, the answer with verified citations, and the source opened at the cited chunk](docs/demo.en.gif)
 
-<sub>Single take, no cuts: the **eight seconds of waiting are the real ones**, and the timings row above the answer splits them into retrieval, generation and verification. It is re-recorded with one command, <code>npm run video -- --en</code>.</sub>
+<sub>No cuts: the **eight seconds of waiting are the real ones**, and the timings row above the answer splits them into retrieval, generation and verification. The continuation, where the source opens at the cited chunk, is under «How it works»: same recording, cut in two.</sub>
 
 ---
 
@@ -156,6 +156,10 @@ question → rewrite → hybrid retrieval (dense + BM25, RRF fusion)
          → generation with enforced markers → parser → entailment check
          → answer with clickable citations, each resolved to its chunk
 ```
+
+![From the citation to the cited chunk inside the document, and a question outside the corpus that gets no answer](docs/fonte.en.gif)
+
+<sub>The continuation of the recording above, from the same video: the source opens at the chunk that was cited, and the out-of-corpus question closes the gate in half a second, before the model is ever asked.</sub>
 
 | | |
 |---|---|

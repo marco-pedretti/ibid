@@ -4957,10 +4957,10 @@ mano si rifa' solo rifacendola.
 
 | | |
 |---|---|
-| durata | **39,8 s** (ripresa 46,5 s, meno il caricamento in testa) |
-| peso | 4,40 MB italiano, 4,44 MB inglese |
+| durata | **19,8 s** la chat, **23,3 s** l'apertura della fonte (ripresa unica, 46,5 s) |
+| peso | 1,79 + 2,84 MB in italiano, 1,92 + 2,64 in inglese |
 | formato | 1000 x 625, 12 fps, 128 colori, **tema scuro** |
-| fotogrammi | 480 estratti, **277 distinti**: gli identici si fondono |
+| fotogrammi | 239 e 281 estratti, 153 e 133 distinti: gli identici si fondono |
 | tempi mostrati a schermo | recupero 0,20 s, generazione 7,77 s, verifica 0,82 s, **totale 8,80 s** |
 
 #### La trappola: un taglio senza forbici
@@ -5039,6 +5039,39 @@ regolari, cosi' dentro ci sono la conversazione, l'esploratore e l'astensione.
 
 Tutti e due si sono visti **aprendo il file finito**, non dai numeri che lo
 strumento stampava: 41,0 s e 3,48 MB erano plausibili in tutt'e due i casi.
+
+#### Due GIF invece di una, e una convinzione sbagliata smontata per strada
+
+**Idea di Marco**: quaranta secondi sono un ciclo lungo, e chi guarda una GIF in
+cima a un README ne vede i primi dieci. Spezzata in due (la chat con le
+citazioni in cima, l'apertura della fonte in «Come funziona») ogni pezzo ha una
+tesi sola. Il peso totale non cambia: 4,6 MB la coppia contro 4,4 il file unico.
+
+**Sono due ritagli di una ripresa sola, e non due riprese.** Registrarne due
+obbligherebbe la seconda a partire da una risposta gia' pronta, cioe' a mostrare
+la schermata senza l'attesa che l'ha prodotta: il criterio aggirato senza
+tagliare niente, di nuovo. Cosi' invece la garanzia si rafforza, e il confine
+cade a 22,9 s, un secondo e quattro prima che l'esploratore compaia: il primo
+pezzo finisce sulla risposta, il secondo comincia dallo stesso fotogramma.
+
+**E qui e' caduta una cosa che avevo scritto in cinque posti.** Per tagliare la
+testa serviva sapere dove comincia il copione, e il primo tentativo (leggere la
+prima battuta dal file dei tempi) sembrava dare il punto sbagliato: da li' avevo
+concluso che *«la traccia video non e' allineata all'orologio dello script, e lo
+scarto cambia da una ripresa all'altra: 0,25 s e 3,4 s»*. **Non e' vero.** Lo
+sbaglio era del mio rilevatore: cerca il primo fotogramma diverso da quello del
+caricamento, e in tema scuro la comparsa dell'applicazione sposta meno pixel,
+la soglia non scatta e il punto scivola al movimento successivo. Cercando invece
+i **cambi di schermata piu' grossi** dell'intero filmato, cadono a 7,25 / 24,33
+/ 33,42 s contro 7,25 / 24,34 / 33,44 registrati dalla ripresa: **i due orologi
+coincidono**. Le battute si usano dirette, e la ricerca nei fotogrammi resta
+solo come ripiego per un video senza il suo file dei tempi.
+
+Vale la pena notare come si e' visto: **non da una misura in piu', ma aprendo il
+file finito** e guardando l'ultimo fotogramma del primo pezzo, che mostrava
+l'esploratore invece della risposta. E' la stessa lezione di `hardware.md`
+(«quando una spiegazione e' pronta, la prima ipotesi da scartare e' che si stia
+misurando altro»), ripetuta a spese mie.
 
 #### Il tema scuro, e la terza trappola che ha tirato fuori
 

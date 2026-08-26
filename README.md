@@ -10,7 +10,7 @@ Non è una demo con dei link in fondo alla risposta. È un banco di misura, cost
 
 ![Una domanda, la risposta con le citazioni verificate, e la fonte aperta sul chunk citato](docs/demo.gif)
 
-<sub>Ripresa unica, nessun taglio: gli **otto secondi di attesa sono quelli veri**, e la riga dei tempi sopra la risposta li scompone in recupero, generazione e verifica. Si rifà con un comando, <code>npm run video</code>.</sub>
+<sub>Nessun taglio: gli **otto secondi di attesa sono quelli veri**, e la riga dei tempi sopra la risposta li scompone in recupero, generazione e verifica. Il seguito, con la fonte che si apre sul chunk citato, è in «Come funziona»: è lo stesso video, ritagliato in due.</sub>
 
 ---
 
@@ -156,6 +156,10 @@ domanda → riscrittura → recupero ibrido (denso + BM25, fusione RRF)
         → generazione con marcatori imposti → parser → verifica di entailment
         → risposta con citazioni cliccabili, ognuna risolta al suo chunk
 ```
+
+![Dalla citazione al chunk citato dentro il documento, e una domanda fuori dal corpus che non riceve risposta](docs/fonte.gif)
+
+<sub>Il seguito della ripresa qui sopra, dallo stesso video: la fonte si apre sul chunk che è stato citato, e la domanda fuori corpus chiude il gate in mezzo secondo, prima che il modello venga interrogato.</sub>
 
 | | |
 |---|---|

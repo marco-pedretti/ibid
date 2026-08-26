@@ -5,6 +5,24 @@ GitHub mostra sempre, senza dipendere da come un client rende un `<video>`.
 
     python scripts/video_gif.py docs/demo.webm
 
+## Due finestre su una ripresa sola
+
+Il README mostra **due GIF**: la chat con le citazioni, e l'apertura della
+fonte. Non sono due riprese: sono due ritagli dello stesso video continuo, ed e'
+la ragione per cui restano onesti. Due riprese separate obbligherebbero la
+seconda a partire da una risposta gia' pronta, cioe' a mostrare la schermata
+senza l'attesa che l'ha prodotta.
+
+    python scripts/video_gif.py docs/demo.webm --a "fonte aperta-1.4" -o docs/demo.gif
+    python scripts/video_gif.py docs/demo.webm --da "fonte aperta-1.4" -o docs/fonte.gif
+
+`--da` e `--a` prendono un secondo oppure **il nome di una battuta**, con uno
+scostamento facoltativo (`"fonte aperta-1.4"`). Le battute le scrive la ripresa
+in `*.tempi.json`, e **sono gia' sull'orologio del video**: verificato
+cercando nel filmato i cambi di schermata piu' grossi, che cadono a 7,25 s
+(domanda inviata), 24,33 s (fonte aperta) e 33,42 s (conversazione nuova),
+contro 7,25 / 24,34 / 33,44 registrati dalla ripresa.
+
 ## Il solo taglio, e dove cade
 
 Il criterio di U-10 vieta i tagli che nascondono la latenza reale. Qui ce n'e'
@@ -13,17 +31,17 @@ carica (`/datasets` costa ~2,5 s), e quei secondi di scheletro non sono il
 copione. **Dentro il copione non si taglia niente**, e la riga dei tempi che si
 vede a schermo dice quanto e' costata ogni fase.
 
-Il punto in cui tagliare **si trova guardando i fotogrammi**, non l'orologio.
-Il primo tentativo usava le battute che la ripresa registra in `*.tempi.json`,
-ed era sbagliato: **la traccia video non e' allineata all'orologio dello
-script**, e di quanto cambia da una ripresa all'altra (misurate 0,25 s e 3,4 s
-su due riprese consecutive). Tagliare sul numero dello script lasciava dentro
-lo scheletro intero.
+Il punto lo dichiara la prima battuta della ripresa, «stato vuoto». Quando il
+file dei tempi non c'e', si ripiega su una ricerca nei fotogrammi: finche'
+l'applicazione carica lo schermo non cambia, quindi il primo fotogramma diverso
+da quello del caricamento e' il punto giusto.
 
-Finche' l'applicazione carica, lo schermo non cambia di un pixel: il taglio
-cade sul **primo fotogramma diverso dal primo**, con un quarto di secondo di
-margine prima. Si autocalibra, e non ha bisogno di sapere quanto vale il
-ritardo.
+**Il ripiego era la strada principale, e sbagliava.** In tema chiaro trovava il
+momento giusto; in tema scuro il cambio di schermata sposta meno pixel, la
+soglia non scattava, e il taglio finiva sul primo movimento successivo: tre
+secondi piu' in la'. Da li' era nata anche la convinzione, sbagliata, che il
+video fosse in ritardo sull'orologio dello script. Non lo e': i due orologi
+coincidono, e la verifica sta qui sopra.
 
 ## Perche' non `palettegen`/`paletteuse`
 
@@ -57,7 +75,9 @@ con una durata lunga invece di ottantaquattro uguali.
 from __future__ import annotations
 
 import argparse
+import json
 import os
+import re
 import shutil
 import subprocess
 import sys
@@ -114,11 +134,11 @@ _MARGINE_S = 0.0
 def _primo_movimento(files: list[Path], passo_ms: int) -> float:
     """Il secondo in cui lo schermo smette di essere quello del caricamento.
 
-    Serve perche' **la traccia video non e' allineata all'orologio della
-    ripresa**, e lo scarto cambia da una volta all'altra: fra due riprese
-    consecutive e' stato 0,25 s e 3,4 s. Finche' l'applicazione carica non
-    cambia un pixel, quindi il primo fotogramma diverso da quello del
-    caricamento e' il punto giusto **qualunque sia lo scarto**.
+    E' il **ripiego** per un video senza il suo file dei tempi. Va usato
+    sapendo che sbaglia per difetto di sensibilita': in tema scuro la comparsa
+    dell'applicazione sposta meno pixel del previsto, la soglia non scatta, e il
+    taglio scivola al movimento successivo. Con le battute a disposizione, si
+    usano quelle.
     """
     from PIL import ImageChops
 
@@ -137,6 +157,37 @@ def _primo_movimento(files: list[Path], passo_ms: int) -> float:
         if diversi > soglia:
             return max(0.0, i * passo_ms / 1000 - _MARGINE_S)
     return 0.0
+
+
+def _istante(spec: str | None, battute: list[dict], difetto: float) -> float:
+    """Un secondo del video, da un numero o dal nome di una battuta.
+
+    `"fonte aperta"` e' il momento in cui la ripresa ha registrato quella
+    battuta; `"fonte aperta-1.4"` un secondo e quattro prima, che e' come si
+    taglia **poco prima** di un gesto invece che subito dopo.
+    """
+    if spec is None:
+        return difetto
+    try:
+        return float(spec)
+    except ValueError:
+        pass
+    m = re.match(r"^(.*?)\s*([+-][0-9.]+)?$", spec)
+    nome = (m.group(1) or "").strip() if m else ""
+    delta = float(m.group(2)) if m and m.group(2) else 0.0
+    for b in battute:
+        if b["nome"] == nome:
+            return b["s"] + delta
+    noti = ", ".join(repr(b["nome"]) for b in battute)
+    sys.exit(f"battuta sconosciuta: {nome!r}. Ci sono: {noti}")
+
+
+def _battute(video: Path) -> list[dict]:
+    """Le battute che la ripresa ha lasciato accanto al video, se ci sono."""
+    tempi = video.with_suffix("").with_suffix(".tempi.json")
+    if not tempi.exists():
+        return []
+    return list(json.loads(tempi.read_text(encoding="utf-8"))["battute"])
 
 
 def _estrai(ff: str, video: Path, dove: Path, da: float, fps: int, larghezza: int) -> list[Path]:
@@ -197,7 +248,8 @@ def main() -> None:
     p = argparse.ArgumentParser(description="U-10: dalla ripresa alla GIF del README")
     p.add_argument("video", type=Path, help="il .webm prodotto da `npm run video`")
     p.add_argument("-o", "--out", type=Path, help="la GIF (default: accanto al video)")
-    p.add_argument("--da", type=float, help="secondo da cui partire (default: dedotto, vedi sopra)")
+    p.add_argument("--da", help="secondo o battuta da cui partire (default: dedotto, vedi sopra)")
+    p.add_argument("--a", help="secondo o battuta a cui fermarsi (default: la fine)")
     p.add_argument("--fps", type=int, default=12)
     p.add_argument("--larghezza", type=int, default=1000)
     p.add_argument("--colori", type=int, default=128)
@@ -215,8 +267,15 @@ def main() -> None:
         files = _estrai(ff, video, Path(tmp), 0.0, args.fps, args.larghezza)
         if not files:
             sys.exit("nessun fotogramma estratto: il video e' vuoto o ffmpeg non lo legge")
-        da = args.da if args.da is not None else _primo_movimento(files, passo)
-        files = files[round(da * args.fps) :]
+        battute = _battute(video)
+        # Il difetto: la prima battuta se la ripresa l'ha lasciata, altrimenti
+        # il primo fotogramma in cui lo schermo del caricamento cambia.
+        apertura = battute[0]["s"] if battute else _primo_movimento(files, passo)
+        da = _istante(args.da, battute, apertura)
+        a = _istante(args.a, battute, len(files) * passo / 1000)
+        if a <= da:
+            sys.exit(f"la fine ({a:.2f} s) non e' dopo l'inizio ({da:.2f} s)")
+        files = files[round(da * args.fps) : round(a * args.fps)]
         immagini, durate = _fondi(files, passo)
 
     tavolozza = [im.quantize(palette=_palette(immagini, args.colori), dither=Image.NONE)
@@ -237,7 +296,7 @@ def main() -> None:
     print(
         f"{out.relative_to(ROOT) if out.is_absolute() else out}  "
         f"{peso:.2f} MB  {durata:.1f} s  "
-        f"taglio a {da:.2f} s, {len(files)} fotogrammi -> {len(tavolozza)} distinti  "
+        f"da {da:.2f} a {da + durata:.2f} s, {len(files)} fotogrammi -> {len(tavolozza)} distinti  "
         f"{tavolozza[0].width}x{tavolozza[0].height}, {args.colori} colori"
     )
     if durata > DURATA_MAX_S:

@@ -134,12 +134,14 @@ questi sono quelli della ripresa italiana del 2026-08-26.
 | 7,2 s | domanda inviata | clic sul primo esempio (MLMM e RMSE) |
 | 8,1 s | fonti arrivate | **la colonna delle fonti si riempie prima che il modello scriva una parola** |
 | 16,5 s | risposta finita | otto secondi di attesa veri, con i marcatori nel testo e i verdetti per frase |
+| **22,9 s** | | **il confine fra le due GIF**: la prima finisce sulla risposta, la seconda comincia da qui |
 | 24,3 s | fonte aperta | la scheda fonte apre l'esploratore sul documento, con il chunk citato evidenziato |
 | 33,4 s | conversazione nuova | si torna e si ricomincia |
 | 35,0 s | astensione | la domanda fuori corpus: **il gate chiude in mezzo secondo**, e dice perché |
 | 46,5 s | fine | |
 
-La GIF che ne esce dura **39,8 secondi**, meno della metà del tetto. Il margine non è
+Le due GIF che ne escono durano **19,8 e 23,3 secondi**: insieme meno della
+metà del tetto, e ciascuna un ciclo corto abbastanza da vedersi intero. Il margine non è
 sprecato: è ciò che permette a una risposta lenta il doppio di restare dentro il
 criterio senza toccare niente.
 
@@ -171,21 +173,40 @@ dentro un tag `<video>` no. Quindi la GIF è l'artefatto, e il `.webm` resta
 fuori dal repository.
 
 ```bash
-python scripts/video_gif.py docs/demo.webm
-# docs\demo.gif  4.40 MB  39.8 s  taglio a 6.47 s, 480 fotogrammi -> 277 distinti  1000x625, 128 colori
+python scripts/video_gif.py docs/demo.webm --a "fonte aperta-1.4" -o docs/demo.gif
+python scripts/video_gif.py docs/demo.webm --da "fonte aperta-1.4" -o docs/fonte.gif
+# docs\demo.gif   1.79 MB  19.8 s  da  3.00 a 22.84 s
+# docsonte.gif  2.84 MB  23.3 s  da 22.94 a 46.26 s
 ```
+
+**Due GIF, una ripresa sola.** Il README mostra la chat con le citazioni in
+cima e l'apertura della fonte in «Come funziona»: quaranta secondi sono un ciclo
+lungo, e chi guarda una GIF in cima a una pagina ne vede i primi dieci. Non sono
+due riprese: sono due finestre sullo stesso video continuo, ed è la ragione per
+cui restano oneste. Due riprese separate obbligherebbero la seconda a partire da
+una risposta già pronta, cioè a mostrare la schermata senza l'attesa che l'ha
+prodotta.
+
+`--da` e `--a` prendono un secondo oppure il **nome di una battuta**, con uno
+scostamento facoltativo: `"fonte aperta-1.4"` taglia un secondo e quattro prima
+che l'esploratore compaia, così il primo pezzo finisce sulla risposta e il
+secondo comincia da lì.
 
 **Il solo taglio è in testa**: la registrazione si apre sull'applicazione che
 carica, e quei secondi di scheletro non sono il copione. Dentro il copione non
 si taglia niente.
 
-Il punto si trova **guardando i fotogrammi**, non l'orologio. Il primo tentativo
-usava le battute che la ripresa scrive in `*.tempi.json`, ed era sbagliato: la
-traccia video non è allineata all'orologio dello script, e lo scarto cambia da
-una ripresa all'altra (misurate 0,25 s e 3,4 s su due consecutive). Finché
-l'applicazione carica non cambia un pixel, quindi si taglia sul **primo
-fotogramma diverso da quello del caricamento**, che è anche la locandina che
-GitHub mostra ferma finché l'animazione non parte.
+Il punto lo dichiara la prima battuta della ripresa, «stato vuoto», e **le
+battute sono già sull'orologio del video**: verificato cercando nel filmato i
+cambi di schermata più grossi, che cadono a 7,25 s, 24,33 s e 33,42 s contro
+7,25 / 24,34 / 33,44 registrati dalla ripresa.
+
+Senza il file dei tempi si ripiega su una ricerca nei fotogrammi (finché
+l'applicazione carica lo schermo non cambia). **Quel ripiego era la strada
+principale, e sbagliava**: in tema scuro la comparsa dell'applicazione sposta
+meno pixel, la soglia non scattava e il taglio scivolava tre secondi più in là.
+Da lì era nata anche la convinzione, sbagliata, che il video fosse in ritardo
+sull'orologio dello script.
 
 L'`ffmpeg` che Playwright si porta dietro ha **dodici filtri e nessun encoder
 GIF**: serve solo a decodificare in PNG, e palette e animazione le fa Pillow,
@@ -217,16 +238,19 @@ il copione, non si abbassa la qualità: una GIF illeggibile non dimostra niente.
 
 ## 5. Dove stanno, nei due README
 
-| file | dove | peso |
-|---|---|---|
-| `docs/demo.gif` | `README.md`, subito dopo i paragrafi di apertura | 4,40 MB |
-| `docs/demo.en.gif` | `README.en.md`, nello stesso punto | 4,44 MB |
-| `docs/screenshot.png` | `README.md`, in cima a «Cosa dimostra» | 0,31 MB |
-| `docs/screenshot.en.png` | `README.en.md`, in cima a «What it demonstrates» | 0,30 MB |
+| file | dove | durata | peso |
+|---|---|---|---|
+| `docs/demo.gif` | `README.md`, dopo i paragrafi di apertura | 19,8 s | 1,79 MB |
+| `docs/fonte.gif` | `README.md`, in «Come funziona» | 23,3 s | 2,84 MB |
+| `docs/demo.en.gif` | `README.en.md`, stesso punto | 19,8 s | 1,92 MB |
+| `docs/fonte.en.gif` | `README.en.md`, stesso punto | 22,3 s | 2,64 MB |
+| `docs/screenshot.png` | `README.md`, in cima a «Cosa dimostra» | | 0,31 MB |
+| `docs/screenshot.en.png` | `README.en.md`, stesso punto | | 0,30 MB |
 
-Due riprese e non una: il README principale è italiano e quello accanto è
+Due lingue e non una: il README principale è italiano e quello accanto è
 inglese, e mostrare un'interfaccia nell'altra lingua a chi legge la propria è
-proprio la cosa che i due README esistono per evitare.
+proprio la cosa che i due README esistono per evitare. Quattro file, quindi, ma
+il peso totale è quello di prima: spezzare non aggiunge byte, li divide.
 
 **Tutte e quattro in tema scuro**, che è la scelta di Marco per come il progetto
 si presenta. Il chiaro resta a un flag di distanza (`--chiaro`), e il tema si
