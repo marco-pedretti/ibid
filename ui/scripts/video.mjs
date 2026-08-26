@@ -91,7 +91,10 @@ const ETICHETTE = {
 /** Quanto si lascia leggere ogni battuta. Le attese **vere** non sono qui,
  *  perche' non sono numeri: sono eventi dell'interfaccia. */
 const LEGGI = {
-  esempi: 3500, // lo stato vuoto: le tre domande e la loro nota
+  // Due secondi: l'interfaccia carica si vede ferma, poi il puntatore parte.
+  // Con tre secondi e mezzo la GIF si apriva su una pausa lunga il doppio del
+  // gesto che segue.
+  esempi: 2000,
   fonti: 1500, // le fonti sono arrivate, la risposta non e' cominciata
   verdetti: 7000, // i verdetti per frase, a risposta finita
   fonte: 7500, // il chunk citato dentro il documento
@@ -133,6 +136,38 @@ async function disegnaCursore(page) {
     d.style.transform = "translate(640px, 720px)";
     document.body.appendChild(d);
   });
+}
+
+/**
+ * Una pausa in cui lo schermo **continua a cambiare**, di pochissimo.
+ *
+ * Serve contro un comportamento della registrazione che costa i primi secondi
+ * del video: **il filmato riceve un fotogramma solo quando la pagina ne
+ * dipinge uno**, e per il resto ripete l'ultimo che ha. Un'interfaccia appena
+ * caricata e ferma non ne dipinge nessuno, quindi il video continuava a
+ * mostrare lo scheletro del caricamento fino al primo clic: misurato, la
+ * ripresa vedeva lo stato vuoto a 3,0 s e il video lo mostrava a 6,5, cioe'
+ * esattamente quando qualcosa si muoveva.
+ *
+ * Il puntatore disegnato si sposta di pochi pixel a ogni battito, e tanto basta:
+ * un ridisegno per battito, e l'interfaccia carica si vede davvero. Non e'
+ * finzione, e' il contrario: senza, il video mostra uno stato che a schermo era
+ * gia' passato.
+ */
+async function respira(page, ms, { passo = 250 } = {}) {
+  const battiti = Math.max(1, Math.round(ms / passo));
+  for (let i = 0; i < battiti; i++) {
+    await page.evaluate((k) => {
+      const d = document.getElementById("__cursore");
+      if (d !== null) {
+        const m = /translate\(([-\d.]+)px,\s*([-\d.]+)px\)/.exec(d.style.transform);
+        const x = m ? parseFloat(m[1]) : 640;
+        const y = m ? parseFloat(m[2]) : 720;
+        d.style.transform = `translate(${x + (k % 2 === 0 ? 1 : -1)}px, ${y}px)`;
+      }
+    }, i);
+    await attesa(passo);
+  }
 }
 
 /** Porta il puntatore sul bersaglio, ci passa sopra col mouse vero (cosi' gli
@@ -319,7 +354,7 @@ async function main() {
   await esempio1.waitFor({ state: "visible", timeout: 60_000 });
   await disegnaCursore(page);
   battuta("stato vuoto");
-  await attesa(LEGGI.esempi);
+  await respira(page, LEGGI.esempi);
 
   // 2. La prima domanda parte.
   await clicca(page, esempio1);

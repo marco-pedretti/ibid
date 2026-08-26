@@ -146,11 +146,10 @@ _MARGINE_S = 0.0
 def _primo_movimento(files: list[Path], passo_ms: int) -> float:
     """Il secondo in cui lo schermo smette di essere quello del caricamento.
 
-    E' il **ripiego** per un video senza il suo file dei tempi. Va usato
-    sapendo che sbaglia per difetto di sensibilita': in tema scuro la comparsa
-    dell'applicazione sposta meno pixel del previsto, la soglia non scatta, e il
-    taglio scivola al movimento successivo. Con le battute a disposizione, si
-    usano quelle.
+    E' l'unico modo di trovarlo: la prima battuta della ripresa e' registrata
+    quando l'elemento e' visibile nel DOM, che su questa applicazione precede la
+    prima pittura di qualche secondo. Misurato: battuta a 3,00 s, interfaccia
+    dipinta a 6,50 s, e tutte le battute successive invece allineate.
     """
     from PIL import ImageChops
 
@@ -287,9 +286,10 @@ def main() -> None:
         if not files:
             sys.exit("nessun fotogramma estratto: il video e' vuoto o ffmpeg non lo legge")
         battute = _battute(video)
-        # Il difetto: la prima battuta se la ripresa l'ha lasciata, altrimenti
-        # il primo fotogramma in cui lo schermo del caricamento cambia.
-        apertura = battute[0]["s"] if battute else _primo_movimento(files, passo)
+        # Il difetto e' **sempre** la ricerca nei fotogrammi, anche quando le
+        # battute ci sono: la prima battuta e' l'unica che non corrisponde a
+        # quello che il video mostra, per la ragione scritta piu' su.
+        apertura = _primo_movimento(files, passo)
         da = _istante(args.da, battute, apertura)
         a = _istante(args.a, battute, len(files) * passo / 1000)
         if a <= da:

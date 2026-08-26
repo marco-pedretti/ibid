@@ -78,7 +78,7 @@ invece di lasciare pubblicare una latenza che non è quella del sistema.
 
 ---
 
-## 2. Le trappole, che sono la parte interessante
+## 2. Le quattro trappole, che sono la parte interessante
 
 ### La cache del prefill: un taglio senza forbici
 
@@ -109,6 +109,22 @@ produce una più alta: 26 secondi contro 8, per la ragione del paragrafo qui
 sopra. **Nessuna delle due è la latenza del sistema**, e pubblicarle sarebbe
 sbagliato in tutti e due i versi.
 
+### Lo schermo fermo, che nel video non esiste
+
+**Il filmato riceve un fotogramma solo quando la pagina ne dipinge uno**, e per
+il resto ripete l'ultimo che ha. Un'interfaccia appena caricata e ferma non
+dipinge niente: il video continuava a mostrare lo scheletro del caricamento
+**fino al primo clic**, cioè fino al primo momento in cui qualcosa si muoveva.
+
+Misurato: la ripresa registra lo stato vuoto a 3,00 s e il video lo mostra a
+6,50. Allungando la pausa a 6,5 s la comparsa si è spostata a 10,13, cioè di
+nuovo esattamente al clic: la prova che a dipingere era il gesto, non
+l'applicazione.
+
+Il rimedio è una pausa che **respira**: il puntatore disegnato si sposta di un
+pixel ogni 250 ms, un ridisegno per battito. Non è finzione, è il contrario:
+senza, il video mostra uno stato che a schermo era già passato.
+
 ### Il freddo, che è l'altro modo di gonfiarla
 
 La prima domanda dopo una pausa costa circa il doppio, e non per colpa della
@@ -130,20 +146,18 @@ questi sono quelli della ripresa italiana del 2026-08-26.
 
 | a | battuta | cosa si vede |
 |---|---|---|
-| 3,0 s | stato vuoto | l'applicazione ha finito di caricare: le tre domande d'esempio, con la query vera in mono sotto la traduzione |
-| 7,2 s | domanda inviata | clic sul primo esempio (MLMM e RMSE) |
-| 8,1 s | fonti arrivate | **la colonna delle fonti si riempie prima che il modello scriva una parola** |
-| 16,5 s | risposta finita | otto secondi di attesa veri, con i marcatori nel testo e i verdetti per frase |
-| **22,9 s** | | **il confine fra le due GIF**: la prima finisce sulla risposta, la seconda comincia da qui |
-| 24,3 s | fonte aperta | la scheda fonte apre l'esploratore sul documento, con il chunk citato evidenziato |
-| 33,4 s | conversazione nuova | si torna e si ricomincia |
-| 35,0 s | astensione | la domanda fuori corpus: **il gate chiude in mezzo secondo**, e dice perché |
-| 46,5 s | fine | |
+| 3,0 s | stato vuoto | l'interfaccia carica e ferma: le tre domande d'esempio, con la query vera in mono sotto la traduzione |
+| 5,8 s | domanda inviata | clic sul primo esempio (MLMM e RMSE) |
+| 6,6 s | fonti arrivate | **la colonna delle fonti si riempie prima che il modello scriva una parola** |
+| 15,2 s | risposta finita | otto secondi di attesa veri, con i marcatori nel testo e i verdetti per frase |
+| **21,5 s** | | **il confine fra le due GIF**: la prima finisce sulla risposta, la seconda comincia da qui |
+| 22,9 s | fonte aperta | la scheda fonte apre l'esploratore sul documento, con il chunk citato evidenziato |
+| 32,0 s | conversazione nuova | si torna e si ricomincia |
+| 33,6 s | astensione | la domanda fuori corpus: **il gate chiude in mezzo secondo**, e dice perché |
+| 45,1 s | fine | |
 
-Le due GIF che ne escono durano **19,8 e 23,3 secondi**: insieme meno della
-metà del tetto, e ciascuna un ciclo corto abbastanza da vedersi intero. Il margine non è
-sprecato: è ciò che permette a una risposta lenta il doppio di restare dentro il
-criterio senza toccare niente.
+Le due GIF che ne escono durano **18,3 e 23,5 secondi**: insieme meno della metà
+del tetto, e ciascuna un ciclo corto abbastanza da vedersi intero.
 
 I tempi che il video mostra a schermo, letti dal fotogramma:
 
@@ -175,8 +189,8 @@ fuori dal repository.
 ```bash
 python scripts/video_gif.py docs/demo.webm --a "fonte aperta-1.4" -o docs/demo.gif
 python scripts/video_gif.py docs/demo.webm --da "fonte aperta-1.4" -o docs/fonte.gif
-# docs\demo.gif   3.18 MB  19.8 s  da  3.00 a 22.84 s  1280x800, 256 colori
-# docsonte.gif  4.90 MB  23.3 s  da 22.94 a 46.26 s  1280x800, 256 colori
+# docs\demo.gif   3.49 MB  18.3 s  da  3.15 a 21.41 s  1280x800, 256 colori
+# docsonte.gif  5.29 MB  23.5 s  da 21.48 a 44.97 s  1280x800, 256 colori
 ```
 
 **Due GIF, una ripresa sola.** Il README mostra la chat con le citazioni in
@@ -196,17 +210,16 @@ secondo comincia da lì.
 carica, e quei secondi di scheletro non sono il copione. Dentro il copione non
 si taglia niente.
 
-Il punto lo dichiara la prima battuta della ripresa, «stato vuoto», e **le
-battute sono già sull'orologio del video**: verificato cercando nel filmato i
-cambi di schermata più grossi, che cadono a 7,25 s, 24,33 s e 33,42 s contro
-7,25 / 24,34 / 33,44 registrati dalla ripresa.
+Il punto **si cerca nei fotogrammi**: finché l'applicazione carica lo schermo non
+cambia, quindi il primo fotogramma diverso da quello del caricamento è l'inizio
+del copione. La prima battuta della ripresa **non si può usare al suo posto**, e
+il perché è la trappola descritta nel §2: il video riceve un fotogramma solo
+quando la pagina ne dipinge uno.
 
-Senza il file dei tempi si ripiega su una ricerca nei fotogrammi (finché
-l'applicazione carica lo schermo non cambia). **Quel ripiego era la strada
-principale, e sbagliava**: in tema scuro la comparsa dell'applicazione sposta
-meno pixel, la soglia non scattava e il taglio scivolava tre secondi più in là.
-Da lì era nata anche la convinzione, sbagliata, che il video fosse in ritardo
-sull'orologio dello script.
+Tutte le **altre** battute invece cadono dove il video le mostra, ed è per questo
+che `--da` e `--a` accettano un nome: verificato su una ripresa, domanda inviata
+7,25 contro 7,25, fonte aperta 24,34 contro 24,33, conversazione nuova 33,44
+contro 33,42.
 
 L'`ffmpeg` che Playwright si porta dietro ha **dodici filtri e nessun encoder
 GIF**: serve solo a decodificare in PNG, e palette e animazione le fa Pillow,
@@ -261,17 +274,17 @@ il copione, non si abbassa la qualità: una GIF illeggibile non dimostra niente.
 
 | file | dove | durata | peso |
 |---|---|---|---|
-| `docs/demo.gif` | `README.md`, dopo i paragrafi di apertura | 19,8 s | 3,18 MB |
-| `docs/fonte.gif` | `README.md`, in «Come funziona» | 23,3 s | 4,90 MB |
-| `docs/demo.en.gif` | `README.en.md`, stesso punto | 19,8 s | 3,41 MB |
-| `docs/fonte.en.gif` | `README.en.md`, stesso punto | 22,3 s | 4,63 MB |
+| `docs/demo.gif` | `README.md`, dopo i paragrafi di apertura | 18,3 s | 3,49 MB |
+| `docs/fonte.gif` | `README.md`, in «Come funziona» | 23,5 s | 5,29 MB |
+| `docs/demo.en.gif` | `README.en.md`, stesso punto | 17,9 s | 3,34 MB |
+| `docs/fonte.en.gif` | `README.en.md`, stesso punto | 24,0 s | 4,78 MB |
 | `docs/screenshot.png` | `README.md`, in cima a «Cosa dimostra» | | 0,31 MB |
 | `docs/screenshot.en.png` | `README.en.md`, stesso punto | | 0,30 MB |
 
 Due lingue e non una: il README principale è italiano e quello accanto è
 inglese, e mostrare un'interfaccia nell'altra lingua a chi legge la propria è
-proprio la cosa che i due README esistono per evitare. **Sedici megabyte in
-tutto**, otto per pagina: è il prezzo della dimensione nativa, ed è stato pagato
+proprio la cosa che i due README esistono per evitare. **Diciassette megabyte in
+tutto**, nove per pagina: è il prezzo della dimensione nativa, ed è stato pagato
 di proposito dopo che le prime versioni, a 1000 px, si leggevano come
 compresse.
 

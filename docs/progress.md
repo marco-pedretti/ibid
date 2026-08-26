@@ -4957,8 +4957,8 @@ mano si rifa' solo rifacendola.
 
 | | |
 |---|---|
-| durata | **19,8 s** la chat, **23,3 s** l'apertura della fonte (ripresa unica, 46,5 s) |
-| peso | 3,18 + 4,90 MB in italiano, 3,41 + 4,63 in inglese |
+| durata | **18,3 s** la chat, **23,5 s** l'apertura della fonte (ripresa unica, 45,1 s) |
+| peso | 3,49 + 5,29 MB in italiano, 3,34 + 4,78 in inglese |
 | formato | **1280 x 800** (nativo), 12 fps, **256 colori**, tema scuro |
 | fotogrammi | 239 e 281 estratti, 153 e 133 distinti: gli identici si fondono |
 | tempi mostrati a schermo | recupero 0,20 s, generazione 7,77 s, verifica 0,82 s, **totale 8,80 s** |
@@ -5017,6 +5017,33 @@ decodificare in PNG. Misurato sulla stessa ripresa:
 Il dithering su colori piatti aggiunge rumore che LZW non comprime. Il
 `disposal` e' la leva grossa: con `1` si riscrive solo il rettangolo che cambia,
 e su una schermata ferma quel rettangolo e' vuoto.
+
+#### La quarta trappola: uno schermo fermo, nel video, non esiste
+
+Segnalazione di Marco: *«e' un po' brutto che la gif parta che sta ancora
+finendo di caricare l'interfaccia»*. Aveva ragione, e la causa non era il punto
+di taglio.
+
+**Il filmato riceve un fotogramma solo quando la pagina ne dipinge uno**, e per
+il resto ripete l'ultimo che ha. Un'interfaccia appena caricata e **ferma** non
+dipinge niente: il video continuava a mostrare lo scheletro del caricamento fino
+al primo clic. Misurato: la ripresa registra lo stato vuoto a 3,00 s e il video
+lo mostra a 6,50; allungando la pausa a 6,5 s la comparsa si e' spostata a
+10,13, cioe' di nuovo esattamente al clic. **Era il gesto a dipingere, non
+l'applicazione.**
+
+Il rimedio e' una pausa che respira: il puntatore disegnato si sposta di un
+pixel ogni 250 ms, un ridisegno per battito. Adesso la GIF si apre
+sull'interfaccia carica, si ferma **2,7 secondi** e parte la domanda.
+
+**E questo corregge la correzione di prima.** Nel commit precedente avevo
+scritto che il rilevatore del taglio sbagliava e che andavano usate le battute:
+sbagliato al contrario. Il rilevatore trovava il momento giusto (il primo
+fotogramma diverso da quello del caricamento); e' **la prima battuta** a non
+corrispondere a quel che il video mostra, e solo quella: tutte le altre cadono
+dove devono, verificate una per una. Il taglio in testa torna a cercarsi nei
+fotogrammi, le battute restano buone per ogni altro punto, e adesso il perche' e'
+scritto.
 
 #### Due difetti del montaggio, trovati guardando il primo fotogramma
 
@@ -5125,7 +5152,7 @@ pagina costa piu' del megabyte risparmiato.
 fra loro, si somigliano di meno, se ne fondono meno e ognuno porta un rettangolo
 di differenza piu' grande. Dodici e' il minimo della curva, non un compromesso.
 
-Il totale passa da 9,2 a **16,1 MB**, otto per pagina. E' il prezzo della
+Il totale passa da 9,2 a **16,9 MB**, nove per pagina. E' il prezzo della
 dimensione nativa, pagato di proposito.
 
 #### Cosa e' entrato nel repository, e cosa no
