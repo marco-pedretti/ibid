@@ -1,4 +1,4 @@
-# Hardware — risultati smoke test (T-02)
+# Hardware: risultati smoke test (T-02)
 
 **Sistema:** AMD RX 6750 XT, 12 GB GDDR6 | Windows 11 Pro  
 **Inferenza:** Ollama 0.32.5 (backend GPU: Vulkan/DirectML automatico)  
@@ -14,7 +14,7 @@
 | Gemma 4 E2B | `gemma4:e2b` | 5.1B | Q4_K_M | **91.2** | 434.5 | 1.9 GB | 100% GPU |
 | Gemma 4 E4B | `gemma4:latest` | 8.0B | Q4_K_M | **15.1** | 146.3 | 3.3 GB | 100% GPU |
 | Gemma 4 12B | `gemma4:12b` | 11.9B | Q4_K_M | **2.4** | 33.8 | 8.1 GB | 100% GPU |
-| Gemma 4 26B MoE | `gemma4:27b` | — | — | — | — | ~18 GB | — |
+| Gemma 4 26B MoE | `gemma4:27b` | n/d |: | n/d |: | ~18 GB | n/d |
 
 > **Nota sui nomi Google:** "E2B" e "E4B" non corrispondono al conteggio di parametri. I parametri reali (da `ollama show`) sono 5.1B e 8.0B rispettivamente. La nomenclatura Google usa probabilmente "E" per indicare una famiglia di architettura efficiente.
 
@@ -24,7 +24,7 @@
 
 ## Decisione sul 26B MoE
 
-**Escluso.** Il file GGUF pesa ~18 GB, che supera i 12 GB di VRAM disponibili. Caricare il modello in RAM di sistema e usare la CPU produrrebbe velocità nell'ordine di 1-3 tok/s — inutilizzabili per la valutazione interattiva e per le run automatizzate di Fase 2-4.
+**Escluso.** Il file GGUF pesa ~18 GB, che supera i 12 GB di VRAM disponibili. Caricare il modello in RAM di sistema e usare la CPU produrrebbe velocità nell'ordine di 1-3 tok/s: inutilizzabili per la valutazione interattiva e per le run automatizzate di Fase 2-4.
 
 La curva di scaling in **C-06** si ferma quindi a 12B. I tre punti della curva sono E2B (5.1B), E4B (8.0B), 12B (11.9B).
 
@@ -32,7 +32,7 @@ La curva di scaling in **C-06** si ferma quindi a 12B. I tre punti della curva s
 
 ---
 
-## Embedding — backend e modello (T-05)
+## Embedding: backend e modello (T-05)
 
 ### Perché non PyTorch + sentence-transformers
 
@@ -44,7 +44,7 @@ La scelta originale (STACK.md) era `BAAI/bge-m3` via `sentence-transformers`. Su
 | fastembed ONNX CPU | **1.9 embed/s** | ONNX più efficiente, ma ancora lento |
 | fastembed + onnxruntime-directml (AMD GPU) | **10.4 embed/s** | DirectX 12 → GPU senza ROCm |
 
-PyTorch non vede la GPU AMD su Windows perché non esiste un backend nativo: ROCm è Linux-only e CUDA non è compatibile con AMD. `onnxruntime-directml` invece usa DirectX 12 Machine Learning, che funziona su qualsiasi GPU DirectX 12 — inclusa la RX 6750 XT.
+PyTorch non vede la GPU AMD su Windows perché non esiste un backend nativo: ROCm è Linux-only e CUDA non è compatibile con AMD. `onnxruntime-directml` invece usa DirectX 12 Machine Learning, che funziona su qualsiasi GPU DirectX 12, inclusa la RX 6750 XT.
 
 ### Soluzione adottata
 
@@ -60,10 +60,10 @@ _PROVIDERS = (
 
 ### Modello attuale vs target
 
-**Attuale (T-05):** `intfloat/multilingual-e5-large` — fastembed non ha ancora BGE-M3 nel catalogo.  
-**Target:** `BAAI/bge-m3` — quando fastembed lo supporta, cambiare una riga in `src/config.py` e re-ingest.
+**Attuale (T-05):** `intfloat/multilingual-e5-large`: fastembed non ha ancora BGE-M3 nel catalogo.  
+**Target:** `BAAI/bge-m3`: quando fastembed lo supporta, cambiare una riga in `src/config.py` e re-ingest.
 
-La differenza qualitativa sul retrieval denso puro è piccola (~2-5 punti nDCG su benchmark BEIR). La differenza che conta è che **BGE-M3 produce anche vettori sparsi** nello stesso passaggio — necessari per il retrieval ibrido di R-01 senza aggiungere un secondo modello. Con e5-large R-01 richiederebbe un modello separato per la parte sparsa.
+La differenza qualitativa sul retrieval denso puro è piccola (~2-5 punti nDCG su benchmark BEIR). La differenza che conta è che **BGE-M3 produce anche vettori sparsi** nello stesso passaggio: necessari per il retrieval ibrido di R-01 senza aggiungere un secondo modello. Con e5-large R-01 richiederebbe un modello separato per la parte sparsa.
 
 Il re-ingest è necessario al cambio modello perché le collection Qdrant contengono vettori nello spazio del modello corrente, incompatibili con quelli del nuovo.
 
@@ -101,7 +101,7 @@ Misure su `intfloat/multilingual-e5-large` via fastembed, forzando
   fastembed/DirectML, cioè due stack diversi. A parità di stack (ONNX) il
   divario è 4×.
 - **La generazione richiede comunque una GPU.** Gemma 12B su CPU è
-  inutilizzabile; `LLM_BASE_URL` esiste apposta — si punta a un endpoint
+  inutilizzabile; `LLM_BASE_URL` esiste apposta: si punta a un endpoint
   remoto. **C-06** (curva di scaling con latenza e VRAM) è irriducibilmente
   legata alla macchina con GPU.
 
@@ -126,14 +126,14 @@ le due generic, ~780 MB di snapshot.
 1. **`scripts/snapshot.py`** (`--export` / `--restore`). Senza GPU l'indice non
    è ricostruibile in tempi ragionevoli, quindi lo snapshot non è una comodità
    ma l'unico canale di distribuzione. Oggi si farebbe a mano via API Qdrant.
-2. **`data/README.md`** con licenza e attribuzione per dataset — già richiesto
+2. **`data/README.md`** con licenza e attribuzione per dataset: già richiesto
    da STACK.md e oggi mancante. È il **prerequisito legale** per distribuire
    qualunque indice. Entrambi i dataset lo permettono: `vectara/open_ragbench`
    Apache 2.0, `artefactory/ledger-long-context-KPI-QA` CC-BY-4.0. Il divieto di
    ROADMAP §14 (*"niente snapshot Qdrant con il testo nel payload"*) riguarda i
    **corpus con licenza restrittiva**, non questi.
 3. **U-08**, profilo `demo` con indice committato. A 11.8 KB/punto, un indice
-   sotto i 20 MB significa ~1.700 chunk, cioè 40-60 documenti open_ragbench —
+   sotto i 20 MB significa ~1.700 chunk, cioè 40-60 documenti open_ragbench:
    committabile senza problemi. Oggi `data/demo/` contiene solo `.gitkeep`.
 
 ---
@@ -147,7 +147,7 @@ calcolo, e un backend migliore si vede. La sonda è `scripts/probe_prefill.py`.
 
 **Condizioni:** `gemma4:latest` Q4_K_M, `num_ctx` 32768, `think: false`,
 temperatura 0, `OLLAMA_NUM_PARALLEL=1`. Cinque domande vere di `ledger`
-ricostruite dai dump con lo stesso `build_user_message` della pipeline — prompt
+ricostruite dai dump con lo stesso `build_user_message` della pipeline: prompt
 mediano **8.208 token**, cioè cinque chunk come in valutazione. Prima chiamata di
 riscaldamento, scartata. Mediane. Ogni condizione parte da un Ollama riavviato
 con **zero runner orfani** e il modello a 43/43 strati: sotto si spiega perché
@@ -169,8 +169,8 @@ nessun backend. Il prefill scala col prompt (5.015 token: 6,3 s; 10.052: 9,2 s)
 ed è l'unica voce su cui un backend diverso possa fare qualcosa.
 
 **Un terzo del tempo non è calcolo GPU.** `total_duration` di Ollama non copre
-tutto, e quel che resta fuori — più i ~2 s che il motore spende in tokenizzazione
-e contabilità — fa ~4 s su 13. Nessun backend li tocca. È il pavimento di
+tutto, e quel che resta fuori (più i ~2 s che il motore spende in tokenizzazione
+e contabilità) fa ~4 s su 13. Nessun backend li tocca. È il pavimento di
 qualunque stima di guadagno, e va sottratto prima di moltiplicare.
 
 ### Le manopole: muovono il motore, non l'orologio
@@ -211,16 +211,16 @@ a poche ore di distanza:
 | decode, qualunque prompt | 37,4 tok/s | 33,0 | **−12%** |
 
 I due prompt sono gli stessi al token, quindi non è un confronto fra medie: è la
-stessa domanda misurata due volte. E la firma è netta — **la manopola sposta il
+stessa domanda misurata due volte. E la firma è netta (**la manopola sposta il
 prefill e non tocca il decode**, che è quello che ci si aspetta da
-un'attenzione che materializza una matrice `n × n`: a 4.000 token conta, a uno
+un'attenzione che materializza una matrice `n × n`): a 4.000 token conta, a uno
 per volta no.
 
 **Perché su E4B non si vedeva.** Non perché la manopola facesse meno, ma perché
 là il prefill costava 8,2 s su 13 di orologio e i ~4 s di fuori-motore ne
 assorbivano la differenza. Sul 12B un prompt da 4.000 token a 100 tok/s costa
 **40 secondi**, e non esiste nessun pavimento che assorba quaranta secondi. La
-regola dell'orologio — *«le manopole muovono il motore, non l'orologio»* — **non
+regola dell'orologio (*«le manopole muovono il motore, non l'orologio»*) **non
 sopravvive a un cambio di taglia**: il fuori-motore è una costante, il prefill
 no, e più il modello è grande più la quota che la manopola tocca è grande.
 
@@ -232,8 +232,8 @@ Effetto su una run vera (`eval_citations.py --limit 6`, 12B, `open_ragbench`):
 | FA spenta, embedder in memoria | 63,5 s | 1 h 45 |
 | **FA accesa, embedder scaricato** | **21,8 s** | **~37 min** |
 
-Le due manopole sono indipendenti e colpiscono fasi diverse — la flash attention
-il prefill, la memoria dell'embedder il decode — ed è la ragione per cui per
+Le due manopole sono indipendenti e colpiscono fasi diverse (la flash attention
+il prefill, la memoria dell'embedder il decode), ed è la ragione per cui per
 mezza giornata sono sembrate una sola. Il decode crolla a 4,7 tok/s quando il
 driver sposta ~4 GB nella memoria condivisa, e allora **il motore di copia sale
 all'82% mentre quelli di calcolo restano a zero**: è il sintomo che si vede nel
@@ -243,15 +243,15 @@ perché `size_vram` conta i pesi e non la contesa.
 > **Il default resta spento, e questa non è una raccomandazione di accenderlo
 > ovunque.** È una riga di protocollo: **la configurazione del motore va
 > dichiarata insieme alla taglia del modello**, perché una misura fatta su E4B
-> non si estende al 12B — e questa pagina lo ha appena fatto per mezza giornata.
+> non si estende al 12B, e questa pagina lo ha appena fatto per mezza giornata.
 > Il campo non esiste in `EvalRun`, che registra `model` e `quantization` ma
 > niente del motore: è la stessa lacuna di **D-20**, un piano più in là.
 
 > **Aggiornamento del 2026-08-24 (A-09): una terza variabile del motore, e la
 > più silenziosa.** `OLLAMA_CONTEXT_LENGTH` decide la finestra di contesto, e
 > senza di lei Ollama la sceglie **da sé** fra 4k, 32k e 256k guardando la
-> memoria. Su questa macchina dà 32768 — cioè il numero che il progetto
-> dichiara, ottenuto per fortuna — e su una scheda più piccola darebbe 4096,
+> memoria. Su questa macchina dà 32768, cioè il numero che il progetto
+> dichiara, ottenuto per fortuna, e su una scheda più piccola darebbe 4096,
 > dove cinque chunk non entrano in contesto e nessuno lo direbbe. Misurata
 > funzionante attraverso `/v1` su un modello base, quindi **senza** modelli
 > derivati. Da A-09 `EvalRun.context_window` è letta da `/api/ps` invece che
@@ -262,13 +262,13 @@ perché `size_vram` conta i pesi e non la contesa.
 
 `OLLAMA_NUM_PARALLEL` **non è stato misurato.** Era già a 1 prima della prima
 misura della giornata, quindi tutte le righe qui sopra la condividono e nessuna
-la isola. Resta plausibile che conti — il contesto allocato è
+la isola. Resta plausibile che conti (il contesto allocato è
 `num_ctx × num_parallel`, e con quattro sessioni il KV cache quadruplica su una
-scheda da 12 GB — ma plausibile non è misurato, e in questa pagina la differenza
+scheda da 12 GB), ma plausibile non è misurato, e in questa pagina la differenza
 è tutta.
 
 Non costa comunque niente tenerla a 1: la valutazione è sequenziale per
-costruzione, e la schermata di confronto genera **una** risposta sola — l'altra è
+costruzione, e la schermata di confronto genera **una** risposta sola: l'altra è
 quella già data, riletta (`chat.tsx`, `confronta`). Nessun punto del repo chiede
 due generazioni insieme.
 
@@ -291,7 +291,7 @@ ragione per cui è riuscito a passare due volte:
    prefill e 10,5 di decode. Questa la sonda ora la **ferma**, confrontando
    `size` e `size_vram` di `/api/ps` dopo il riscaldamento.
 2. **Il modello entra tutto e va lo stesso piano.** 43 strati su 43, e 34–48
-   tok/s con un ritmo che **peggiora col crescere del contesto** — 240 tok/s a
+   tok/s con un ritmo che **peggiora col crescere del contesto**: 240 tok/s a
    1.536 token, 121 a 2.560, 62 a 5.120, 34 a 10.048. È il profilo di un KV cache
    che non sta dove dovrebbe. **Questa la sonda non la rileva**: dal suo punto di
    vista il modello è interamente in VRAM, ed è vero.
@@ -320,7 +320,7 @@ Start-Sleep -Seconds 7
 ### Il 12B, e la stima dell'affermazione 3 che era sbagliata di cinque volte
 
 Misurato il 2026-08-22 con la stessa sonda, su prompt veri di `open_ragbench`
-(mediana 3.815 token) e a motore pulito — `quota_vram 1.0`, cioè modello
+(mediana 3.815 token) e a motore pulito: `quota_vram 1.0`, cioè modello
 interamente in VRAM.
 
 | | T-02 (2026-08-04) | oggi |
@@ -332,8 +332,8 @@ interamente in VRAM.
 I 43,5 s vengono dallo strumento vero e non dalla sonda: `eval_citations.py
 --model gemma4:12b --limit 6 --no-write` ha impiegato **261 s per sei domande**,
 embedding e recupero inclusi, con latenza p50 35,6 s e p90 86 s. La sonda da sola
-dava 18,6 s, e la differenza è reale: il 12B è prolisso — 276 token di risposta
-in mediana contro i ~40 dell'E4B su `ledger` — e su una domanda lunga arriva a
+dava 18,6 s, e la differenza è reale: il 12B è prolisso (276 token di risposta
+in mediana contro i ~40 dell'E4B su `ledger`), e su una domanda lunga arriva a
 86 s.
 
 **Ne segue che l'affermazione 3 costa 40 minuti e non 3 ore e mezza**, e le 100
@@ -344,7 +344,7 @@ ripresa.
 > **Aggiornamento della stessa sera: 21,8 s, non 43,5.** Lo stesso comando a sei
 > domande, dopo aver scaricato l'embedder al termine del recupero, ha impiegato
 > **131 s** contro i 261 di questa riga. I 43,5 s erano misurati con ~2,1 GB di
-> sessione ONNX ferma in VRAM per tutta la generazione — il che non era un
+> sessione ONNX ferma in VRAM per tutta la generazione: il che non era un
 > difetto della misura (l'harness faceva davvero così) ma di ciò che l'harness
 > faceva. **Le 100 domande costano ~37 minuti.** Il numero qui sopra resta perché
 > descrive il codice di allora, e perché la sequenza 240 → 43,5 → 21,8 dice una
@@ -353,7 +353,7 @@ ripresa.
 
 **Perché T-02 era così lontano** non è dimostrato, ma le due cause candidate sono
 entrambe scritte in questa pagina: il *thinking* era acceso (la nota di T-02 lo
-dichiara) e il 12B occupava 8,1 GB su una scheda da 12 — con un contesto grande è
+dichiara) e il 12B occupava 8,1 GB su una scheda da 12, con un contesto grande è
 esattamente la condizione in cui il modello entra a metà, che è il confonditore
 descritto più sopra. Non si può verificare a posteriori: quelle misure non
 registrarono né `think` né la quota in VRAM. È il motivo per cui `probe_prefill.py`
@@ -363,8 +363,8 @@ adesso registra tutte e due.
 
 Questa pagina ha passato una giornata a chiedersi perché il 12B fosse lento, e la
 risposta non era mai nel modello. **Su 12 GB il vincolo non è «il modello ci
-sta»: è «che altro è residente».** Il modello ci stava sempre — `49/49 layers`,
-`size_vram == size` — e girava a un settimo del suo ritmo.
+sta»: è «che altro è residente».** Il modello ci stava sempre (`49/49 layers`,
+`size_vram == size`), e girava a un settimo del suo ritmo.
 
 #### Il conto, con i numeri misurati di questo progetto
 
@@ -400,22 +400,22 @@ rispondere passando i dati sul PCIe a ogni token.
 
 | strumento | cosa dice | cosa **non** dice |
 |---|---|---|
-| `ollama ps`, `size_vram` contro `size` | se i **pesi** sono in VRAM | niente della contesa — diceva `8,6 di 8,6` con 4 GB fuori |
+| `ollama ps`, `size_vram` contro `size` | se i **pesi** sono in VRAM | niente della contesa: diceva `8,6 di 8,6` con 4 GB fuori |
 | log di llama.cpp, `offloaded 49/49 layers` | idem, ed è vero | idem |
-| **pannello GPU di Windows** | **memoria condivisa > 0**, motore **Copy** alto, **Compute** a zero | — |
-| contatore `GPU Process Memory`, `Local Usage` e `Non Local Usage` | lo stesso dato, **per processo e interrogabile da script** | — |
+| **pannello GPU di Windows** | **memoria condivisa > 0**, motore **Copy** alto, **Compute** a zero | n/d |
+| contatore `GPU Process Memory`, `Local Usage` e `Non Local Usage` | lo stesso dato, **per processo e interrogabile da script** | n/d |
 
 Le prime due righe sono i due strumenti che questa pagina interrogava, e sono
 esattamente i due che non possono vederlo: guardano i **pesi**, non la contesa.
-Il motore di **copia** saturo con quelli di calcolo fermi è la firma — una GPU
+Il motore di **copia** saturo con quelli di calcolo fermi è la firma: una GPU
 che trasferisce invece di calcolare.
 
 #### La diagnosi sta in una riga: quale delle due fasi è lenta
 
 | fase | a cosa è legata | manopola |
 |---|---|---|
-| **prefill** | calcolo — l'attenzione materializza una matrice `n × n` | **flash attention** |
-| **decode** | banda di memoria — quindi **dove** sta la memoria | **cosa altro è residente** |
+| **prefill** | calcolo: l'attenzione materializza una matrice `n × n` | **flash attention** |
+| **decode** | banda di memoria, quindi **dove** sta la memoria | **cosa altro è residente** |
 
 > **Decode lento col modello «tutto in VRAM» è un problema di collocazione.
 > Prefill lento col decode sano è un problema di kernel.** Guardare il totale a
@@ -426,7 +426,7 @@ che trasferisce invece di calcolare.
 
 1. **Contare prima, non sperare.** I numeri della prima tabella si leggono tutti
    in meno di un minuto, e la somma dice già se si sforerà.
-2. **Liberare batte ridurre.** Nessuna manopola del modello è stata toccata — né
+2. **Liberare batte ridurre.** Nessuna manopola del modello è stata toccata, né
    la quantizzazione né `n_ctx`, che il §3 fissa a 32768 e non è negoziabile.
    Bastava non tenere 2,1 GB di sessione ONNX che aveva finito il suo lavoro.
 3. **Cronometrare i primi minuti** di una run lunga, sullo strumento vero e nello
@@ -442,8 +442,8 @@ $n=(Get-Counter "\GPU Process Memory(*)\Non Local Usage").CounterSamples
 $d|?{$_.CookedValue -gt 200MB}|Sort CookedValue -Desc|%{ $p=Get-Process -Id (($_.InstanceName -split '_')[1]) -EA SilentlyContinue; "{0,-16} {1,8:N0} MB" -f $(if($p){$p.ProcessName}else{"(morto)"}),($_.CookedValue/1MB) }
 ```
 
-**La riga da guardare è la condivisa.** Sopra lo zero — al netto di qualche
-centinaio di MB di sfondi e browser — vuol dire che qualcosa viaggia sul PCIe a
+**La riga da guardare è la condivisa.** Sopra lo zero (al netto di qualche
+centinaio di MB di sfondi e browser) vuol dire che qualcosa viaggia sul PCIe a
 ogni token.
 
 #### Cosa non è stato provato, e va detto
@@ -460,7 +460,7 @@ ogni token.
 
 ### Cosa questo dice su ROCm
 
-Rafforza poco e indebolisce parecchio. Il prefill resta la voce grossa — ~63% —
+Rafforza poco e indebolisce parecchio. Il prefill resta la voce grossa (~63%),
 e quella un backend la tocca. Ma il decode è al muro di banda, e i **~4 s di
 fuori-motore su 13 non li tocca nessuno**: anche raddoppiando il ritmo di
 prefill, una risposta passerebbe da 13,0 a ~8,9 s, cioè un guadagno del 32% e non

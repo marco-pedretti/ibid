@@ -2,17 +2,17 @@
 
 **A testbed for RAG with sentence-level verified citations**, running small models locally and measured quantitatively on public datasets.
 
-*[Versione italiana](README.md) — 🇮🇹 (the primary one)*
+*[Versione italiana](README.md) 🇮🇹 (the primary one)*
 
-Every claim the system produces carries a pointer to the chunk it came from, and that pointer is **verified**: an entailment model decides whether the cited text actually implies the sentence, instead of trusting whoever wrote it. The name is the abbreviation bibliographic notes use to refer back to the source just cited — from Latin *ibidem*, "in the same place".
+Every claim the system produces carries a pointer to the chunk it came from, and that pointer is **verified**: an entailment model decides whether the cited text actually implies the sentence, instead of trusting whoever wrote it. The name is the abbreviation bibliographic notes use to refer back to the source just cited: from Latin *ibidem*, "in the same place".
 
-This is not a demo with links at the bottom of the answer. It is a measurement bench, built around three claims: **two hold, one was refuted by the numbers**. The refuted one stayed on this page, with the table that disproves it — it is the most interesting finding in the project.
+This is not a demo with links at the bottom of the answer. It is a measurement bench, built around three claims: **two hold, one was refuted by the numbers**. The refuted one stayed on this page, with the table that disproves it: it is the most interesting finding in the project.
 
 ---
 
 ## Getting started
 
-You need **Docker** and an **OpenAI-compatible** endpoint with a model loaded — [Ollama](https://ollama.com) or llama.cpp's `llama-server` both work. The project never calls an inference engine directly: it always goes through `LLM_BASE_URL`, which is what makes it runnable on any machine.
+You need **Docker** and an **OpenAI-compatible** endpoint with a model loaded: [Ollama](https://ollama.com) or llama.cpp's `llama-server` both work. The project never calls an inference engine directly: it always goes through `LLM_BASE_URL`, which is what makes it runnable on any machine.
 
 ```bash
 # 1. the model, and the two knobs worth a 4x factor on prefill
@@ -36,7 +36,7 @@ No address is hard-coded in `compose.yml`: moving Qdrant or the model to another
 QDRANT_URL=http://10.0.0.5:6333 LLM_BASE_URL=http://10.0.0.7:11434/v1 make api
 ```
 
-> **The short path ships with the release.** `docker compose --profile demo up` will mount a tiny index committed to the repository, so that step 3 — the two GPU hours — disappears. The profile is already in `compose.yml`; what it lacks is the index.
+> **The short path ships with the release.** `docker compose --profile demo up` will mount a tiny index committed to the repository, so that step 3 (the two GPU hours) disappears. The profile is already in `compose.yml`; what it lacks is the index.
 
 ---
 
@@ -44,7 +44,7 @@ QDRANT_URL=http://10.0.0.5:6333 LLM_BASE_URL=http://10.0.0.7:11434/v1 make api
 
 Three claims. Each appears below with its own table, **always per dataset and never averaged across the two**: they are different document genres, and an arithmetic mean would have hidden the project's main result.
 
-### 1. Verified attribution is measurable, and small models fail systematically — ✅
+### 1. Verified attribution is measurable, and small models fail systematically ✅
 
 **The format can be enforced.** Only contiguous `[n][m]` markers are accepted; known variants (`[1] [2]`, `[2, 3]`) are repaired by a parser, and markers pointing at chunks that were never in context are discarded by the code, not by the model.
 
@@ -55,21 +55,21 @@ Three claims. Each appears below with its own table, **always per dataset and ne
 
 <sub>200 questions per corpus, Gemma 4 E4B Q4_K_M, T=0, 32k context, dense <code>top_k</code> 5.</sub>
 
-**The citation, on the other hand, is verified.** The unit is the *(claim, cited chunk)* pair — deliberately stricter than scoring the union of a sentence's citations: a model that pairs one correct citation with two irrelevant ones is doing exactly what the project set out to detect.
+**The citation, on the other hand, is verified.** The unit is the *(claim, cited chunk)* pair, deliberately stricter than scoring the union of a sentence's citations: a model that pairs one correct citation with two irrelevant ones is doing exactly what the project set out to detect.
 
 | | `citation_precision` | Wilson 95% | `citation_recall` | `uncited_claim_rate` |
 |---|---|---|---|---|
 | `open_ragbench` | **0.6573** (326/496) | [0.6144 – 0.6977] | 0.6250 | 0.1062 |
 | `ledger` (NLI) | 0.3656 (121/331) | [0.3155 – 0.4187] | 0.2815 | 0.1556 |
-| `ledger` (numeric) | **0.7328** | — | coverage 39.6% | |
+| `ledger` (numeric) | **0.7328** | n/d | coverage 39.6% | |
 
 `uncited_claim_rate` sits next to precision because **precision goes up by citing less**: one safe citation and nothing else would score 1.0. The first number is not readable without the second.
 
-On `ledger` the NLI verifier returns 0.3656, and that number **does not describe the generator**: 96.7% of the claims are values pulled from OCR'd tables, and asking a prose-trained model whether `<table><tr><td rowspan="2">` entails a number is not linguistic inference. Hence the second row: `numeric_citation_precision` finds the cell and compares the value. The two metrics **never share a column** — they are different definitions, and merging them would make the two corpora incomparable.
+On `ledger` the NLI verifier returns 0.3656, and that number **does not describe the generator**: 96.7% of the claims are values pulled from OCR'd tables, and asking a prose-trained model whether `<table><tr><td rowspan="2">` entails a number is not linguistic inference. Hence the second row: `numeric_citation_precision` finds the cell and compares the value. The two metrics **never share a column**: they are different definitions, and merging them would make the two corpora incomparable.
 
-**The error is systematic, and genre-dependent.** In `open_ragbench`, **23% of chunks already contain `[n]` markers** — they are papers, and that is how papers cite — and the dominant failure mode is copying the document's own reference system instead of ours. In `ledger`, across 1,500 sampled chunks, there are **zero**: that particular error cannot exist there. Same model, same prompt, same temperature.
+**The error is systematic, and genre-dependent.** In `open_ragbench`, **23% of chunks already contain `[n]` markers** (they are papers, and that is how papers cite), and the dominant failure mode is copying the document's own reference system instead of ours. In `ledger`, across 1,500 sampled chunks, there are **zero**: that particular error cannot exist there. Same model, same prompt, same temperature.
 
-**And grounding does not add knowledge — it suppresses confabulation.** On 35 questions built to have no answer in the corpus:
+**And grounding does not add knowledge: it suppresses confabulation.** On 35 questions built to have no answer in the corpus:
 
 | unanswerable questions | no retrieval | full system |
 |---|---|---|
@@ -78,9 +78,9 @@ On `ledger` the NLI verifier returns 0.3656, and that number **does not describe
 
 The asymmetry between 20% and 97% is not a property of the corpora, it is the kind of question: faced with a financial question the model knows it cannot consult a filing and refuses; faced with an academic one it answers from memory, and invents. **The gain is largest exactly where the model is most confident.**
 
-### 2. Genre-based routing beats a single generic pipeline — ❌ not supported
+### 2. Genre-based routing beats a single generic pipeline ❌ not supported
 
-The project has three hand-written chunking pipelines — `continuous_text`, `structured_hierarchical`, `table_heavy` — and a profiler that assigns a genre to each document and picks accordingly. The ablation indexed both corpora twice, once per path, and compared them on the full golden set.
+The project has three hand-written chunking pipelines (`continuous_text`, `structured_hierarchical`, `table_heavy`) and a profiler that assigns a genre to each document and picks accordingly. The ablation indexed both corpora twice, once per path, and compared them on the full golden set.
 
 | `doc_R@5`, exact search | generic pipeline | routed pipeline | gap |
 |---|---|---|---|
@@ -89,16 +89,16 @@ The project has three hand-written chunking pipelines — `continuous_text`, `st
 
 <sub>Paired McNemar test on the same queries. On <code>open_ragbench</code> the gain is real but marginal; on <code>ledger</code> the loss is overwhelming (p &lt; 0.0001).</sub>
 
-**On the table-heavy genre, the pipeline written specifically for it retrieves worse.** Not slightly worse: fourteen points. The value of routing depends on the genre, and averaging the two numbers — roughly −6 — would have hidden both the opposite sign and the fact that the two halves have incomparable statistical weight.
+**On the table-heavy genre, the pipeline written specifically for it retrieves worse.** Not slightly worse: fourteen points. The value of routing depends on the genre, and averaging the two numbers (roughly −6) would have hidden both the opposite sign and the fact that the two halves have incomparable statistical weight.
 
 Two things about how this number was obtained are half the result:
 
 - **Eight of the twenty-two points of regression were the index, not the pipeline.** The two collections have very different densities (47k vs 228k points), and under approximate search the comparison also measures how much recall the index loses on the way. Under exact search the gap goes from −21.71 to −13.72. Comparing two indexes of different density with approximate search is not a comparison between pipelines.
 - **The cause of the regression is still open.** All three initial hypotheses fell; the protocol and the measurements are in [`docs/open-questions.md`](docs/open-questions.md), OQ-01.
 
-The routed collections were not deleted — they are the second arm of the measurement, and without them the claim would no longer be refutable — but they **do not appear in the interface**: a menu offering two paths declares by itself that they are equal alternatives, and these are not.
+The routed collections were not deleted (they are the second arm of the measurement, and without them the claim would no longer be refutable), but they **do not appear in the interface**: a menu offering two paths declares by itself that they are equal alternatives, and these are not.
 
-### 3. With good retrieval, model size matters less than expected — ✅ in the strong form
+### 3. With good retrieval, model size matters less than expected ✅ in the strong form
 
 Three sizes from the same family, the same 91 questions, the same prompt, the same retrieved context. Between one point and the next, **only the model changes**.
 
@@ -108,9 +108,9 @@ Three sizes from the same family, the same 91 questions, the same prompt, the sa
 | Gemma 4 **E4B** (8.0B) | **0.9670** | 5 | 9.4 s | 3.28 GB |
 | Gemma 4 **12B** (11.9B) | **0.9670** | 9 | **19.2 s** | 8.1 GB |
 
-The jump happens **exactly once**: E2B → E4B is worth +9.9 points (9 queries to 0, p = 0.0039). After that the curve is flat — E4B → 12B is **+0.0000**, one query each way, p = 1.0000, **at twice the latency**. That is not "a small gain": it is zero to four decimal places.
+The jump happens **exactly once**: E2B → E4B is worth +9.9 points (9 queries to 0, p = 0.0039). After that the curve is flat: E4B → 12B is **+0.0000**, one query each way, p = 1.0000, **at twice the latency**. That is not "a small gain": it is zero to four decimal places.
 
-Two limits belong next to the result: the curve is measured on **format compliance** (the third point has no NLI verifier) and **only on `open_ragbench`** — on `ledger` E4B is already at 1.0000, with nowhere left to climb. Which, for the claim, is a different way of saying the same thing.
+Two limits belong next to the result: the curve is measured on **format compliance** (the third point has no NLI verifier) and **only on `open_ragbench`** (on `ledger` E4B is already at 1.0000, with nowhere left to climb). Which, for the claim, is a different way of saying the same thing.
 
 ---
 
@@ -134,7 +134,7 @@ Eight configurations, two corpora, full golden sets, all under exact search.
 | **dense + rerank** | **0.2792** | **0.3110** | **0.2473** | 0.8911 |
 | hybrid + rerank | 0.2570 | 0.3056 | 0.2274 | 0.9023 |
 
-**The best configuration depends on the genre.** On `open_ragbench` fusion plus rerank wins; on `ledger` dense plus rerank wins, and fusion — the strongest choice on the other corpus — is the worse of the two reranked paths. A single row does not exist.
+**The best configuration depends on the genre.** On `open_ragbench` fusion plus rerank wins; on `ledger` dense plus rerank wins, and fusion (the strongest choice on the other corpus) is the worse of the two reranked paths. A single row does not exist.
 
 The reranker does **one thing, and does it every time**: put the right candidate first, in all four paired comparisons (from +3.8 to **+16.3** points of Success@1, p < 0.0001). And where there was no headroom it can only reshuffle: on `ledger`, where the right document was already in the top five 94% of the time, `doc_R@5` **gets worse** in both modes. The price is written next to the gain, not buried in an average.
 
@@ -152,10 +152,10 @@ question → rewrite → hybrid retrieval (dense + BM25, RRF fusion)
 | | |
 |---|---|
 | **Backend** | Python 3.12, FastAPI, SSE streaming. No RAG framework: the pipeline *is* the project |
-| **Vector store** | Qdrant, named vectors — dense and sparse in one collection, one collection per dataset |
+| **Vector store** | Qdrant, named vectors: dense and sparse in one collection, one collection per dataset |
 | **Embedding** | `intfloat/multilingual-e5-large` (1024-dim) via fastembed + ONNX Runtime |
 | **Reranker** | `BAAI/bge-reranker-base`, multilingual cross-encoder |
-| **Verifier** | `MoritzLaurer/bge-m3-zeroshot-v2.0` — chosen **after** measuring it against mDeBERTa-v3: AUC 0.939 vs 0.661 on `open_ragbench` (p = 0.0001) |
+| **Verifier** | `MoritzLaurer/bge-m3-zeroshot-v2.0`, chosen **after** measuring it against mDeBERTa-v3: AUC 0.939 vs 0.661 on `open_ragbench` (p = 0.0001) |
 | **Generation** | Gemma 4 through an OpenAI-compatible endpoint, T=0, 32k window |
 | **Frontend** | React + Vite + Tailwind, bilingual |
 | **Dashboard** | Streamlit, kept separate from the demo: it exists to compare configurations and inspect failures |
@@ -168,7 +168,7 @@ Every evaluation result is a JSON file in `eval/results/` recording `git_commit`
 
 ## The two corpora
 
-No hand-built corpus, no scraping: only public datasets with a declared licence and relevance judgements included. The two belong to **different document genres** — the condition without which claim 2 could not even be stated.
+No hand-built corpus, no scraping: only public datasets with a declared licence and relevance judgements included. The two belong to **different document genres**: the condition without which claim 2 could not even be stated.
 
 | | `open_ragbench` | `ledger` |
 |---|---|---|
@@ -201,10 +201,10 @@ make dashboard
 
 The rules these numbers were collected under are few and binding: **never two changes inside one measurement**; no metric without `dataset_id`; **no improvement declared without comparing it against the noise floor**; the abstention threshold and the citation format decided in code, never left to the model.
 
-- [`ROADMAP.md`](ROADMAP.md) — decisions, data contracts, tasks with their acceptance criteria
-- [`docs/progress.md`](docs/progress.md) — the measurements, run by run, including the ones that went badly
-- [`docs/open-questions.md`](docs/open-questions.md) — the open questions, each with a protocol for closing it
-- [`STACK.md`](STACK.md) — technical choices and the licence table
+- [`ROADMAP.md`](ROADMAP.md): decisions, data contracts, tasks with their acceptance criteria
+- [`docs/progress.md`](docs/progress.md): the measurements, run by run, including the ones that went badly
+- [`docs/open-questions.md`](docs/open-questions.md): the open questions, each with a protocol for closing it
+- [`STACK.md`](STACK.md): technical choices and the licence table
 
 <sub>These are in Italian, like the comments in the code: they are the project's working notebook, not its shop window.</sub>
 
@@ -219,8 +219,8 @@ Negative results stay in the table by contract. These are the ones that matter.
 - **Metadata filtering makes retrieval worse** on the academic corpus (−4.1% nDCG@10): relevant chunks in papers are often mixed, text and tables together, and a "text only" filter excludes them. The flag stays, switched off.
 - **Longer chunks bought nothing**: 618 minutes of re-ingestion and a four-times-larger index for +0.0000 of compliance. The eleven points that looked like the result were premise length, not citation quality.
 - **No coordinates on the page.** Neither corpus ships the original PDFs: `open_ragbench` is pre-processed JSON, `ledger` is OCR'd Markdown with coordinates lost in conversion. A citation resolves to the chunk, not to a rectangle on the page.
-- **`config_hash` names the configuration, not the state of the index.** Two runs with the same name may have queried different indexes — it happened, and it is written down.
-- **No hosted demo.** Checked: without a free GPU the binding limit is the token quota, and a RAG query with five chunks burns four or five thousand — about one question per minute. A slow, rate-limited link is worse than no link.
+- **`config_hash` names the configuration, not the state of the index.** Two runs with the same name may have queried different indexes: it happened, and it is written down.
+- **No hosted demo.** Checked: without a free GPU the binding limit is the token quota, and a RAG query with five chunks burns four or five thousand, about one question per minute. A slow, rate-limited link is worse than no link.
 
 ## What is missing
 
@@ -230,7 +230,7 @@ Uploading your own documents with per-session isolation; multi-turn (today every
 
 ## Licence and attribution
 
-MIT — see [`LICENSE`](LICENSE). **No copyleft dependency enters the tree**, and it is a constraint checked on every addition: the licence table is in [`STACK.md`](STACK.md).
+MIT, see [`LICENSE`](LICENSE). **No copyleft dependency enters the tree**, and it is a constraint checked on every addition: the licence table is in [`STACK.md`](STACK.md).
 
 Datasets: `vectara/open_ragbench`; `artefactory/ledger-long-context-KPI-QA` (CC-BY-4.0). Models: Gemma 4 (Google), `multilingual-e5-large` and `Qdrant/bm25` (Apache 2.0), `bge-reranker-base` and `bge-m3-zeroshot-v2.0` (MIT).
 

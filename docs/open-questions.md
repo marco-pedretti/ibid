@@ -2,42 +2,42 @@
 
 Ipotesi emerse durante il lavoro, **non ancora verificate**, con il protocollo per verificarle.
 
-Non è `progress.md` (che registra cosa è stato fatto) né `ROADMAP.md` (che definisce i task da fare): qui stanno le cose che abbiamo *notato* e che meritano una misura prima di essere chiamate cause. Una voce esce da qui quando diventa un task con un delta misurato, e il risultato — positivo o negativo — va in `progress.md`.
+Non è `progress.md` (che registra cosa è stato fatto) né `ROADMAP.md` (che definisce i task da fare): qui stanno le cose che abbiamo *notato* e che meritano una misura prima di essere chiamate cause. Una voce esce da qui quando diventa un task con un delta misurato, e il risultato (positivo o negativo) va in `progress.md`.
 
 ---
 
-## OQ-01 — Perché il routing peggiora LEDGER di 17 punti
+## OQ-01, Perché il routing peggiora LEDGER di 17 punti
 
 **RISOLTA A METÀ (2026-08-13, R-10).** Osservata il 2026-08-07 durante la riscrittura della dashboard. Riferimento: R-07.
 
 > **Le tre ipotesi qui sotto sono cadute tutte. La causa principale non era in elenco.**
 >
-> **45,9% del regresso è richiamo perso da HNSW.** Con ricerca **esatta**, `ledger_routed` va da 0,7647 a 0,8471 (857 query recuperate contro 33 perse su 10.000) mentre `ledger` si muove di 0,37 punti. Il divario passa da −17,14 a **−9,27**. `ledger_routed` ha 228.331 punti contro 47.110, in una banda di similarità larga 0,0085: le condizioni peggiori per un grafo di prossimità. Costo del rimedio: **2,5 ms/query contro 1,4**, e nessuna re-ingestione — `exact` e `hnsw_ef` sono parametri di ricerca. Adozione proposta come **R-11**.
+> **45,9% del regresso è richiamo perso da HNSW.** Con ricerca **esatta**, `ledger_routed` va da 0,7647 a 0,8471 (857 query recuperate contro 33 perse su 10.000) mentre `ledger` si muove di 0,37 punti. Il divario passa da −17,14 a **−9,27**. `ledger_routed` ha 228.331 punti contro 47.110, in una banda di similarità larga 0,0085: le condizioni peggiori per un grafo di prossimità. Costo del rimedio: **2,5 ms/query contro 1,4**, e nessuna re-ingestione, `exact` e `hnsw_ef` sono parametri di ricerca. Adozione proposta come **R-11**.
 >
-> **H1 (heading mancante) — falsificata.** La simulazione del passo 2 dà +17,33%, che letto da solo sarebbe positivo. Ma un `section_path` **sbagliato**, preso da un altro documento, guadagna **esattamente lo stesso** (+17,33%), e il confronto appaiato vero-contro-finto dà 12 discordanti contro 12, p=1,0000. Il guadagno era perturbazione di un quasi-pareggio, non contesto.
+> **H1 (heading mancante): falsificata.** La simulazione del passo 2 dà +17,33%, che letto da solo sarebbe positivo. Ma un `section_path` **sbagliato**, preso da un altro documento, guadagna **esattamente lo stesso** (+17,33%), e il confronto appaiato vero-contro-finto dà 12 discordanti contro 12, p=1,0000. Il guadagno era perturbazione di un quasi-pareggio, non contesto.
 >
-> **H2b e H3 — falsificate.** Le query fallite e quelle riuscite hanno chunk d'oro **strutturalmente identici**: 1034 contro 1022 caratteri, 0,75 contro 0,75 lettere/carattere, `section_path` nel testo nel 66,4% contro 65,3%. Se dimensione o isolamento fossero la causa, i due gruppi differirebbero. Non differiscono.
+> **H2b e H3, falsificate.** Le query fallite e quelle riuscite hanno chunk d'oro **strutturalmente identici**: 1034 contro 1022 caratteri, 0,75 contro 0,75 lettere/carattere, `section_path` nel testo nel 66,4% contro 65,3%. Se dimensione o isolamento fossero la causa, i due gruppi differirebbero. Non differiscono.
 >
-> **H2a — fattore parziale.** Passare da profondità 5 a 20 recupera 6 punti su 17.
+> **H2a: fattore parziale.** Passare da profondità 5 a 20 recupera 6 punti su 17.
 >
-> **Aggiornamento R-11 (stesso giorno).** Misurate tutte e quattro le collection: il guadagno della ricerca esatta segue il **richiamo dell'indice**, non la sua taglia. `open_ragbench` +0,0000 (l'ANN trova il 99,94% del vero top-5), `open_ragbench_routed` +0,0030, `ledger` +0,0046, `ledger_routed` **+0,0846** (84,84%). Su `doc_R@5` il divario fra le due pipeline LEDGER passa da **−21,71 a −13,72**: il **37%** del regresso attribuito al routing era l'indice. Il default resta spento — è una scelta, non una correzione — ma il §15 ora vieta di confrontare indici di densità diversa con la ricerca approssimata.
+> **Aggiornamento R-11 (stesso giorno).** Misurate tutte e quattro le collection: il guadagno della ricerca esatta segue il **richiamo dell'indice**, non la sua taglia. `open_ragbench` +0,0000 (l'ANN trova il 99,94% del vero top-5), `open_ragbench_routed` +0,0030, `ledger` +0,0046, `ledger_routed` **+0,0846** (84,84%). Su `doc_R@5` il divario fra le due pipeline LEDGER passa da **−21,71 a −13,72**: il **37%** del regresso attribuito al routing era l'indice. Il default resta spento (è una scelta, non una correzione), ma il §15 ora vieta di confrontare indici di densità diversa con la ricerca approssimata.
 >
-> **Cosa resta:** 9,27 punti dopo aver tolto HNSW. Il regime è quello del quasi-pareggio — il chunk d'oro perde per 0,0090 di coseno, l'intero top-5 sta dentro 0,0085, e il routing ha portato i concorrenti a pari merito da 7,1 a 9,0 di media. Descritto, non ancora azionabile. Numeri e ragionamento in [`progress.md`](progress.md) → *R-10*.
+> **Cosa resta:** 9,27 punti dopo aver tolto HNSW. Il regime è quello del quasi-pareggio: il chunk d'oro perde per 0,0090 di coseno, l'intero top-5 sta dentro 0,0085, e il routing ha portato i concorrenti a pari merito da 7,1 a 9,0 di media. Descritto, non ancora azionabile. Numeri e ragionamento in [`progress.md`](progress.md) → *R-10*.
 >
-> **Sul protocollo qui sotto.** È stato eseguito com'era scritto, ed è giusto così. Ma il suo criterio binario non copriva il risultato reale né al passo 1 né al passo 2, e il passo 2 misurava senza saperlo l'instabilità dell'ordinamento invece del valore del contesto. **Pre-registrare un test protegge dallo scegliere il test dopo aver visto i dati; non protegge dall'aver scelto il test sbagliato prima.** Serve comunque un controllo che dica cosa il test sta misurando — ed è ciò che ha ribaltato la conclusione.
+> **Sul protocollo qui sotto.** È stato eseguito com'era scritto, ed è giusto così. Ma il suo criterio binario non copriva il risultato reale né al passo 1 né al passo 2, e il passo 2 misurava senza saperlo l'instabilità dell'ordinamento invece del valore del contesto. **Pre-registrare un test protegge dallo scegliere il test dopo aver visto i dati; non protegge dall'aver scelto il test sbagliato prima.** Serve comunque un controllo che dica cosa il test sta misurando, ed è ciò che ha ribaltato la conclusione.
 
 ### Il fatto da spiegare
 
-Misura definitiva (2026-08-07, golden set **completi**, profondità 10 — i numeri originali di R-07 erano affetti dai difetti descritti in `eval/results/archive/README.md`):
+Misura definitiva (2026-08-07, golden set **completi**, profondità 10: i numeri originali di R-07 erano affetti dai difetti descritti in `eval/results/archive/README.md`):
 
 | dataset | n query | generic | routed | delta | McNemar appaiato |
 |---|---|---|---|---|---|
-| open_ragbench | 3045 | 0.9681 | 0.9757 | +0.76 pt | 71 contro 48, p=0.043 — reale ma marginale |
+| open_ragbench | 3045 | 0.9681 | 0.9757 | +0.76 pt | 71 contro 48, p=0.043: reale ma marginale |
 | ledger | 10000 | 0.9433 | 0.7730 | **−17.03 pt** | **1797 contro 94**, p<0.0001 |
 
 (Tassi sul criterio binario *"almeno un documento rilevante nei primi 5"*, non `doc_R@5`, che è una frazione quando una query ha più documenti rilevanti. Riproducibile con `scripts/compare_runs.py`.)
 
-> **La riga `ledger` è in ricerca approssimata e non si riproduce più** (OQ-09). In esatta vale 0,8962 → 0,7590, cioè −13,72 punti invece di −17,03 — R-11 lo aveva già misurato, e questa tabella è rimasta com'era perché è il fatto da spiegare così com'era stato osservato.
+> **La riga `ledger` è in ricerca approssimata e non si riproduce più** (OQ-09). In esatta vale 0,8962 → 0,7590, cioè −13,72 punti invece di −17,03: R-11 lo aveva già misurato, e questa tabella è rimasta com'era perché è il fatto da spiegare così com'era stato osservato.
 
 La domanda è solo la seconda riga. Su LEDGER il routing sbaglia **1797 query su 10000** che la pipeline generica azzeccava, e ne recupera 94: non è rumore né un effetto di soglia, è un regresso sistematico. In `progress.md` la causa era annotata come *"sub-chunking aggressivo → chunk troppo piccoli, IDF diluito"*. È una congettura scritta senza misura: va verificata o sostituita.
 
@@ -57,7 +57,7 @@ Stesso contenuto, due collection:
 | `section_path` | `''` | `'FINANCIAL AND OPERATING HIGHLIGHTS'` |
 | `text` inizia con | `## FINANCIAL AND OPERATING HIGHLIGHTS` | `<table><tr><td rowspan=…` |
 
-Il routing **estrae correttamente** l'heading in `section_path` — la pipeline fa il suo lavoro. Ma `src/index/embed.py` embedda `Chunk.text`, e lì l'heading non c'è più.
+Il routing **estrae correttamente** l'heading in `section_path`: la pipeline fa il suo lavoro. Ma `src/index/embed.py` embedda `Chunk.text`, e lì l'heading non c'è più.
 
 Su 3000 chunk con `content_type="table"` di `ledger_routed`: 1960 hanno `section_path` valorizzato, di cui **solo 96 (5%) hanno l'heading anche nel testo**. 1864 chunk conoscono il proprio titolo e non lo usano.
 
@@ -74,11 +74,11 @@ Su 3000 chunk con `content_type="table"` di `ledger_routed`: 1960 hanno `section
 
 Il routing su LEDGER ha ridotto la mediana del testo utile di **~3.3×** sui chunk di prosa (3687 → 1111) e di **~12×** sui chunk tabella (3687 → 310). Metà dei caratteri di un chunk tabella non sono lettere: sono cifre, `$`, punteggiatura.
 
-**3. I fallimenti hanno score alto.** Su 30 query LEDGER (dense, top_k=5, via Failure Explorer): `ledger` doc-recall 0.756 con 1/30 fallimenti; `ledger_routed` 0.594 con 5/30. I fallimenti di `ledger_routed` hanno `top_score` **0.855–0.873** — il retrieval non ignora i chunk piccoli, li recupera **con confidenza sbagliata**. Un chunk di soli numeri assomiglia a qualunque tabella finanziaria.
+**3. I fallimenti hanno score alto.** Su 30 query LEDGER (dense, top_k=5, via Failure Explorer): `ledger` doc-recall 0.756 con 1/30 fallimenti; `ledger_routed` 0.594 con 5/30. I fallimenti di `ledger_routed` hanno `top_score` **0.855–0.873**: il retrieval non ignora i chunk piccoli, li recupera **con confidenza sbagliata**. Un chunk di soli numeri assomiglia a qualunque tabella finanziaria.
 
 ### La controprova che complica tutto (leggere prima di partire)
 
-**`open_ragbench_routed` perde l'heading ancora più severamente — e migliora.**
+**`open_ragbench_routed` perde l'heading ancora più severamente, e migliora.**
 
 | collection | con `section_path` | heading anche nel `text` |
 |---|---|---|
@@ -95,21 +95,21 @@ Se la perdita dell'heading fosse sufficiente a causare un crollo, ORB dovrebbe c
 
 Il routing su LEDGER ha cambiato **tre cose insieme**, il che viola §15 se le si vuole attribuire:
 
-- **H1 — perdita del contesto di sezione.** Il chunk tabella non embedda il proprio heading (misura 1).
-- **H2 — dimensione.** I chunk sono 3–12× più piccoli (misura 2). Due sotto-varianti, che vanno distinte:
-  - **H2a — profondità di ranking**: i chunk giusti ci sono ma vengono spinti fuori dal top-5 dai concorrenti.
-  - **H2b — qualità dell'embedding**: un chunk corto produce un vettore poco discriminante, indipendentemente da quanto in profondità si guardi.
-- **H3 — isolamento del contenuto.** La tabella è diventata un chunk atomico senza la prosa che la circondava (misura 2, colonna lettere/carattere).
+- **H1: perdita del contesto di sezione.** Il chunk tabella non embedda il proprio heading (misura 1).
+- **H2: dimensione.** I chunk sono 3–12× più piccoli (misura 2). Due sotto-varianti, che vanno distinte:
+  - **H2a, profondità di ranking**: i chunk giusti ci sono ma vengono spinti fuori dal top-5 dai concorrenti.
+  - **H2b, qualità dell'embedding**: un chunk corto produce un vettore poco discriminante, indipendentemente da quanto in profondità si guardi.
+- **H3: isolamento del contenuto.** La tabella è diventata un chunk atomico senza la prosa che la circondava (misura 2, colonna lettere/carattere).
 
 H1 e H3 sono quasi la stessa cosa vista da due lati; H2 è indipendente. Un singolo esperimento che le muove tutte insieme non dirà quale conta.
 
 ### ⚠️ Due trappole nei dati esistenti
 
-**1. `doc_R@10` nei run di `eval/results/archive/` non significa niente.** Tutti riportano `doc_R@10 == doc_R@5`. Non è un risultato: il retrieval girava con `top_k=5`, quindi c'erano solo 5 chunk per query e `@10` non poteva eccedere `@5`. **Non leggere quei numeri come "andare più in profondità non aiuta"** — dice il contrario, vedi il passo 1 qui sotto. Corretto il 2026-08-07: la profondità di valutazione è ora separata da quella di servizio (`harness.py`, `eval_depth = max(top_k, METRIC_DEPTH)`), e i run in `eval/results/` non hanno più il problema.
+**1. `doc_R@10` nei run di `eval/results/archive/` non significa niente.** Tutti riportano `doc_R@10 == doc_R@5`. Non è un risultato: il retrieval girava con `top_k=5`, quindi c'erano solo 5 chunk per query e `@10` non poteva eccedere `@5`. **Non leggere quei numeri come "andare più in profondità non aiuta"**: dice il contrario, vedi il passo 1 qui sotto. Corretto il 2026-08-07: la profondità di valutazione è ora separata da quella di servizio (`harness.py`, `eval_depth = max(top_k, METRIC_DEPTH)`), e i run in `eval/results/` non hanno più il problema.
 
-**2. Il rumore di fondo per il retrieval è esattamente zero, e questo NON significa che ogni delta conti.** Misurato il 2026-08-07 (E-07, 5 esecuzioni, 200 query, entrambi i dataset): σ = 0.000000 su ogni metrica. La pipeline di retrieval è deterministica — embedding ONNX senza campionamento, indice Qdrant fisso — quindi due esecuzioni identiche danno risultati identici bit per bit. La premessa di E-07 (*"lo stesso modello sulla stessa domanda cambia risposta tra esecuzioni"*) vale per la **generazione**, non per il retrieval.
+**2. Il rumore di fondo per il retrieval è esattamente zero, e questo NON significa che ogni delta conti.** Misurato il 2026-08-07 (E-07, 5 esecuzioni, 200 query, entrambi i dataset): σ = 0.000000 su ogni metrica. La pipeline di retrieval è deterministica (embedding ONNX senza campionamento, indice Qdrant fisso) quindi due esecuzioni identiche danno risultati identici bit per bit. La premessa di E-07 (*"lo stesso modello sulla stessa domanda cambia risposta tra esecuzioni"*) vale per la **generazione**, non per il retrieval.
 
-Conseguenza pratica: per gli eval di retrieval il rumore di fondo E-07 non cattura l'incertezza rilevante, e un σ=0 letto distrattamente fa sembrare significativo qualunque delta. L'incertezza che conta è quella di **campionamento sul set di query**, e va stimata con un test appaiato sulle stesse query — McNemar sulle discordanti, non un confronto fra due medie. È così che si è scoperto che il +2.5% su open_ragbench non è distinguibile dal caso (7 query discordanti su 200).
+Conseguenza pratica: per gli eval di retrieval il rumore di fondo E-07 non cattura l'incertezza rilevante, e un σ=0 letto distrattamente fa sembrare significativo qualunque delta. L'incertezza che conta è quella di **campionamento sul set di query**, e va stimata con un test appaiato sulle stesse query: McNemar sulle discordanti, non un confronto fra due medie. È così che si è scoperto che il +2.5% su open_ragbench non è distinguibile dal caso (7 query discordanti su 200).
 
 ---
 
@@ -117,13 +117,13 @@ Conseguenza pratica: per gli eval di retrieval il rumore di fondo E-07 non cattu
 
 A stadi, dal più economico. Ogni stadio può chiudere la questione senza pagare quello dopo.
 
-### Passo 0 — Rumore di fondo *(fatto, non ripetere)*
+### Passo 0: Rumore di fondo *(fatto, non ripetere)*
 
-**Già fatto il 2026-08-07**: `eval/results/` contiene i `NoiseFloorResult` per entrambi i dataset. Risultato: **σ = 0.000000 ovunque** — il retrieval è deterministico.
+**Già fatto il 2026-08-07**: `eval/results/` contiene i `NoiseFloorResult` per entrambi i dataset. Risultato: **σ = 0.000000 ovunque**: il retrieval è deterministico.
 
 Non rifarlo, e soprattutto **non leggerlo come "ogni delta è significativo"**. Per giudicare i delta degli stadi seguenti usa il test appaiato di McNemar sulle stesse query (vedi trappola 2 sopra), non la σ di E-07.
 
-### Passo 1 — H2a, profondità di ranking *(~10 min, nessuna re-ingestione)*
+### Passo 1: H2a, profondità di ranking *(~10 min, nessuna re-ingestione)*
 
 I chunk giusti sono nell'indice ma fuori dal top-5, o proprio non emergono?
 
@@ -138,12 +138,12 @@ python scripts/eval.py --dataset ledger \
 
 | esito | lettura |
 |---|---|
-| `doc_R@10` di routed risale vicino a `ledger` generic | **H2a confermata**: il problema è di *ranking*, non di rappresentazione. Il chunk giusto c'è, è il vicinato che lo supera. Direzione: reranker (R-02 già implementato) o `top_k` più alto in produzione — non serve re-ingestare niente. **La questione si chiude qui.** |
+| `doc_R@10` di routed risale vicino a `ledger` generic | **H2a confermata**: il problema è di *ranking*, non di rappresentazione. Il chunk giusto c'è, è il vicinato che lo supera. Direzione: reranker (R-02 già implementato) o `top_k` più alto in produzione, non serve re-ingestare niente. **La questione si chiude qui.** |
 | `doc_R@10` resta piatto vicino a 0.60 | **H2a esclusa.** Il chunk giusto non emerge nemmeno guardando il doppio in profondità: è un problema di rappresentazione. Procedere al passo 2. |
 
-Nota: usare `--limit 200` su entrambi, non l'intero golden set, e **lo stesso limite** su entrambi — altrimenti si confrontano popolazioni diverse.
+Nota: usare `--limit 200` su entrambi, non l'intero golden set, e **lo stesso limite** su entrambi, altrimenti si confrontano popolazioni diverse.
 
-### Passo 2 — H1, simulazione offline del contesto *(~10 min, nessuna re-ingestione)*
+### Passo 2: H1, simulazione offline del contesto *(~10 min, nessuna re-ingestione)*
 
 Verifica se prependere `section_path` al testo aiuta, **senza** re-ingestare 228k chunk. Idea: ricalcolare il ranking dentro un pool ristretto per le sole query che falliscono.
 
@@ -151,7 +151,7 @@ Per ogni query fallita su `ledger_routed` (`doc_recall == 0`):
 
 1. recuperare il top-20 attuale da `ledger_routed` → il *pool sbagliato*;
 2. risalire al `doc_id` corretto dai qrels golden (`doc_id_from_chunk_id`), e recuperare da `ledger_routed` **tutti** i chunk di quel documento (filtro Qdrant su `doc_id`) → il *pool giusto*;
-3. per ogni chunk dei due pool, calcolare due embedding: `text` e `f"{section_path}\n\n{text}"` (saltare i chunk con `section_path` vuoto — restano invariati);
+3. per ogni chunk dei due pool, calcolare due embedding: `text` e `f"{section_path}\n\n{text}"` (saltare i chunk con `section_path` vuoto, restano invariati);
 4. ricalcolare la similarità con la query e riordinare il pool unito, in entrambe le varianti;
 5. contare in quante query un chunk del documento corretto entra nei primi 5 **solo** nella variante con contesto.
 
@@ -164,15 +164,15 @@ Costo: ~50 query × ~50 chunk × 2 varianti ≈ 5000 embedding ≈ 8 min a ~10/s
 | nessun miglioramento, o < 10% delle query | **H1 falsificata.** Non spendere le ore GPU del passo 3. Restano H2b e H3: il problema è la dimensione/natura del chunk, non il titolo mancante. Direzione alternativa: alzare la soglia minima di chunk nella pipeline `table_heavy`, o non isolare le tabelle da un minimo di prosa circostante. |
 | miglioramento su ≥ 25% delle query fallite | **H1 sopravvive.** Vale il passo 3. |
 
-**Attenzione al bias:** questa simulazione ri-embedda solo il pool, mentre una re-ingestione vera cambierebbe *tutti* i chunk dell'indice, inclusi i concorrenti che oggi non vediamo. È quindi **ottimistica per costruzione**: va usata per *falsificare* H1 (se non migliora nemmeno qui, è morta), non per confermarla. Un risultato positivo qui non è il risultato — è il permesso di pagare il passo 3.
+**Attenzione al bias:** questa simulazione ri-embedda solo il pool, mentre una re-ingestione vera cambierebbe *tutti* i chunk dell'indice, inclusi i concorrenti che oggi non vediamo. È quindi **ottimistica per costruzione**: va usata per *falsificare* H1 (se non migliora nemmeno qui, è morta), non per confermarla. Un risultato positivo qui non è il risultato: è il permesso di pagare il passo 3.
 
-### Passo 3 — Ablation vera *(~6–7 h GPU, solo se il passo 2 è positivo)*
+### Passo 3: Ablation vera *(~6–7 h GPU, solo se il passo 2 è positivo)*
 
-**La modifica.** In `src/ingestion/pipeline_table_heavy.py`, `chunk_document()`: anteporre il `section_path` corrente al testo del chunk quando è non vuoto. Dietro un flag, mai come default — il default resta ciò che è già stato misurato in R-07.
+**La modifica.** In `src/ingestion/pipeline_table_heavy.py`, `chunk_document()`: anteporre il `section_path` corrente al testo del chunk quando è non vuoto. Dietro un flag, mai come default: il default resta ciò che è già stato misurato in R-07.
 
 **Perché lì e non altrove:** `section_path` è già calcolato da `_first_heading()` (I-05) ed ereditato dai chunk tabella; è già nel payload. Serve solo farlo entrare in `Chunk.text`, che è ciò che `embed.py` vede.
 
-**Nota sui `chunk_id`:** non cambiano — sono sequenziali e non dipendono dal testo. Quindi il confronto è pulitissimo: stessi id, stessa segmentazione, **una sola differenza**.
+**Nota sui `chunk_id`:** non cambiano: sono sequenziali e non dipendono dal testo. Quindi il confronto è pulitissimo: stessi id, stessa segmentazione, **una sola differenza**.
 
 ```bash
 # costruisce una terza collection, non tocca le esistenti
@@ -183,7 +183,7 @@ python scripts/eval.py --dataset ledger --collection ledger_routed_ctx \
   --pipeline-mode routed --doc-aggregate --limit 200
 ```
 
-**Il confronto è `ledger_routed_ctx` contro `ledger_routed`** — *non* contro `ledger` generic. Fra routed_ctx e routed cambia una cosa sola (§15). Fra routed_ctx e generic ne cambiano tre, e il delta non sarebbe attribuibile. Il comparator della dashboard lo dice da solo: selezionando i due run deve comparire *"Cambia un parametro solo"*.
+**Il confronto è `ledger_routed_ctx` contro `ledger_routed`**, *non* contro `ledger` generic. Fra routed_ctx e routed cambia una cosa sola (§15). Fra routed_ctx e generic ne cambiano tre, e il delta non sarebbe attribuibile. Il comparator della dashboard lo dice da solo: selezionando i due run deve comparire *"Cambia un parametro solo"*.
 
 **Cosa guardare, in ordine:**
 
@@ -208,18 +208,18 @@ python scripts/eval.py --dataset ledger --collection ledger_routed_ctx \
 | profondità di valutazione | `src/eval/harness.py`, `eval_depth` |
 | test appaiato | `src/eval/paired.py`, `scripts/compare_runs.py` |
 | misure di questa nota | le originali con `client.scroll`, usa e getta; quelle di R-10 in `scripts/probe_routing_depth.py`, `probe_routing_failures.py`, `probe_section_context.py`, `probe_ann_recall.py` |
-| ricerca esatta vs approssimata | `scripts/probe_ann_recall.py` — `SearchParams(exact=True)` e `hnsw_ef` |
+| ricerca esatta vs approssimata | `scripts/probe_ann_recall.py`: `SearchParams(exact=True)` e `hnsw_ef` |
 | esplorazione interattiva | dashboard → Failure Explorer e Retrieval Playground (tab A/B) |
 
 ---
 
-## OQ-02 — I prefissi `query:` / `passage:` di E5 non vengono mai aggiunti
+## OQ-02: I prefissi `query:` / `passage:` di E5 non vengono mai aggiunti
 
 
 > **Misurata il 2026-08-12 (I-08): non si vede.** Su indice ridotto, 1.903 query appaiate: doc@1 +0,0100 (p=0,0503), doc@3 **−0,0016**, doc@5 +0,0005. Sfiora la soglia solo dove c'è più margine, cambia segno più in profondità. La deviazione dalla model card resta reale; il suo costo su questo corpus non è dimostrato, e **I-09 non è giustificata da questi dati**. Dettagli in `progress.md`.
 **DECISA, NON CHIUSA (2026-08-12).** Notata il 2026-08-11 durante l'audit delle librerie contro la loro documentazione ufficiale. Riferimento: I-07, E-03, e per estensione ogni numero dense del progetto.
 
-> **Cosa significa «decisa, non chiusa».** La domanda *«quanto ci costa?»* ha una risposta misurata: su questo corpus, niente di dimostrabile. La deviazione dalla model card invece **resta**, ed è vera. Non c'è lavoro pendente, ma se un domani si cambiasse embedder o corpus la misura andrebbe rifatta — non ereditata.
+> **Cosa significa «decisa, non chiusa».** La domanda *«quanto ci costa?»* ha una risposta misurata: su questo corpus, niente di dimostrabile. La deviazione dalla model card invece **resta**, ed è vera. Non c'è lavoro pendente, ma se un domani si cambiasse embedder o corpus la misura andrebbe rifatta, non ereditata.
 
 ### Il fatto
 
@@ -227,7 +227,7 @@ La model card ufficiale di `intfloat/multilingual-e5-large` è esplicita:
 
 > *"Each input text should start with `query: ` or `passage: `, even for non-English texts. [...] This is how the model is trained, otherwise you will see a performance degradation."*
 
-`src/index/embed.py` non li aggiunge mai — né sui chunk, né sulle query — e non è un'omissione compensata dalla libreria. Verificato sul sorgente della versione installata (fastembed 0.8.0):
+`src/index/embed.py` non li aggiunge mai (né sui chunk, né sulle query), e non è un'omissione compensata dalla libreria. Verificato sul sorgente della versione installata (fastembed 0.8.0):
 
 - il modello è servito dalla classe `PooledEmbedding` (`fastembed/text/pooled_embedding.py`);
 - quella classe sovrascrive solo `_get_worker_class`, `mean_pooling`, `_list_supported_models`, `_post_process_onnx_output`;
@@ -241,11 +241,11 @@ Che aggiungerli migliori i nostri numeri. La model card afferma un degrado in ge
 
 ### Perché è grave se lo è
 
-Tocca il percorso dense, cioè **tutto**: R-07 e la conclusione sull'affermazione 2 del §0, le soglie di astensione di C-04 (calibrate su punteggi coseno dense), il contesto su cui poggiano C-01 e C-03. Non invalida i confronti *interni* — ogni ablation ha confrontato configurazioni che condividevano lo stesso difetto — ma sposterebbe il livello assoluto di ogni misura.
+Tocca il percorso dense, cioè **tutto**: R-07 e la conclusione sull'affermazione 2 del §0, le soglie di astensione di C-04 (calibrate su punteggi coseno dense), il contesto su cui poggiano C-01 e C-03. Non invalida i confronti *interni* (ogni ablation ha confrontato configurazioni che condividevano lo stesso difetto), ma sposterebbe il livello assoluto di ogni misura.
 
 Nota anche che i prefissi sono **asimmetrici**: query e passaggi ricevono stringhe diverse. Un difetto simmetrico si semplifica in un confronto, uno asimmetrico no.
 
-### Protocollo per misurarlo — *senza* re-ingestione completa
+### Protocollo per misurarlo, *senza* re-ingestione completa
 
 Una re-ingestione costa 618 minuti di GPU (misurati in R-07) e non serve per rispondere alla domanda.
 
@@ -254,23 +254,23 @@ Una re-ingestione costa 618 minuti di GPU (misurati in R-07) e non serve per ris
 3. **Confronto appaiato** con `scripts/compare_runs.py`, criterio binario "almeno un documento rilevante nei primi 5".
 4. **Non fare la variante mista** (query con prefisso contro indice senza) se non come curiosità: è una terza configurazione, non la correzione.
 
-Se il delta è reale e positivo, la correzione è una re-ingestione completa e una ri-misura di tutta la Fase 3 — cioè un task del ROADMAP, non una patch.
+Se il delta è reale e positivo, la correzione è una re-ingestione completa e una ri-misura di tutta la Fase 3, cioè un task del ROADMAP, non una patch.
 
 ---
 
-## OQ-03 — Il retrieval "BM25" non è BM25
+## OQ-03: Il retrieval "BM25" non è BM25
 
 **CHIUSA (2026-08-13).** Notata il 2026-08-11 nell'audit delle librerie. Riferimento: E-06 (baseline C), R-01 (hybrid RRF).
 
-> **Fatto 1 — chiuso da R-08.** `modifier=IDF` è attivo su tutte e sette le collection, applicato in place. L'effetto è **opposto nei due dataset** e sta in [`progress.md`](progress.md) → *R-08*. La misura ha aperto **OQ-06**.
+> **Fatto 1: chiuso da R-08.** `modifier=IDF` è attivo su tutte e sette le collection, applicato in place. L'effetto è **opposto nei due dataset** e sta in [`progress.md`](progress.md) → *R-08*. La misura ha aperto **OQ-06**.
 >
-> **Fatto 2 — chiuso da R-09, con risultato nullo.** Le query passano da `query_embed()`. Effetto massimo: **4 query discordanti su 10.000**. Il motivo è aritmetico e non statistico — il punteggio sparso è un prodotto scalare, e nell'87–94% dei casi le due codifiche differiscono per un solo fattore di scala, che non cambia l'ordinamento. Dettagli in `progress.md` → *R-09*.
+> **Fatto 2: chiuso da R-09, con risultato nullo.** Le query passano da `query_embed()`. Effetto massimo: **4 query discordanti su 10.000**. Il motivo è aritmetico e non statistico: il punteggio sparso è un prodotto scalare, e nell'87–94% dei casi le due codifiche differiscono per un solo fattore di scala, che non cambia l'ordinamento. Dettagli in `progress.md` → *R-09*.
 >
 > **Quindi tutto il guadagno di OQ-03 è l'IDF, nella misura 100 a 0.** È l'informazione che si sarebbe persa correggendo le due metà insieme, ed è ciò che il §15 comprava.
 >
-> **La previsione scritta qui sotto il 2026-08-11 era metà giusta, ed è utile sapere quale metà.** Diceva: *«su LEDGER a discriminare sono token rari, cioè esattamente ciò che l'IDF pesa»*. A livello di **documento** ha colto in pieno — doc@5 da 0,6411 a 0,9196, +27,9 punti su 10.000 query. A livello di **chunk** ha sbagliato segno: −1,31 punti, p<0,0001. Trovare il documento giusto e trovare il passaggio giusto non sono la stessa cosa, e la previsione non distingueva fra i due.
+> **La previsione scritta qui sotto il 2026-08-11 era metà giusta, ed è utile sapere quale metà.** Diceva: *«su LEDGER a discriminare sono token rari, cioè esattamente ciò che l'IDF pesa»*. A livello di **documento** ha colto in pieno: doc@5 da 0,6411 a 0,9196, +27,9 punti su 10.000 query. A livello di **chunk** ha sbagliato segno: −1,31 punti, p<0,0001. Trovare il documento giusto e trovare il passaggio giusto non sono la stessa cosa, e la previsione non distingueva fra i due.
 >
-> **E una previsione mancava del tutto:** che il fatto 2, pur essendo una deviazione reale dalla documentazione, non potesse quasi muovere niente. Bastava guardare l'aritmetica del prodotto scalare — nessuna misura era necessaria per sospettarlo. Non ci abbiamo pensato, e l'abbiamo scoperto misurando.
+> **E una previsione mancava del tutto:** che il fatto 2, pur essendo una deviazione reale dalla documentazione, non potesse quasi muovere niente. Bastava guardare l'aritmetica del prodotto scalare: nessuna misura era necessaria per sospettarlo. Non ci abbiamo pensato, e l'abbiamo scoperto misurando.
 
 ### I due fatti
 
@@ -303,7 +303,7 @@ Su LEDGER lo sparse crolla, e trascina l'hybrid **sotto** il dense:
 
 Su open_ragbench invece lo sparse regge (0.9700) e l'hybrid aiuta.
 
-La direzione combacia con il difetto: LEDGER è fatto di bilanci, dove a discriminare sono token rari — nomi di voci, sigle, cifre — cioè esattamente ciò che l'IDF pesa e la sola frequenza di termine no. Su paper accademici il vocabolario è più uniforme e l'assenza di IDF costa meno.
+La direzione combacia con il difetto: LEDGER è fatto di bilanci, dove a discriminare sono token rari (nomi di voci, sigle, cifre) cioè esattamente ciò che l'IDF pesa e la sola frequenza di termine no. Su paper accademici il vocabolario è più uniforme e l'assenza di IDF costa meno.
 
 **Non è dimostrato** che correggere i due difetti ribalti il risultato. È dimostrato che l'esperimento non ha misurato ciò che dichiarava: E-06 si chiama *"baseline C: retrieval lessicale BM25"* e non era BM25, e R-01 ha fuso quel braccio.
 
@@ -311,8 +311,8 @@ La direzione combacia con il difetto: LEDGER è fatto di bilanci, dove a discrim
 
 Nessuna re-embeddatura dei chunk: i vettori sparsi sono già su disco e sono corretti così com'è (la componente TF è quella giusta). Serve
 
-- ~~ricreare l'indice sparso con `modifier=models.Modifier.IDF`~~ — **fatto (R-08)**, e senza ricrearlo: `update_collection` lo aggiunge in place;
-- ~~una riga in `encode_sparse()` per il percorso query~~ — **fatto (R-09)**: funzione separata `encode_sparse_query()`, e quattro percorsi query aggiornati.
+- ~~ricreare l'indice sparso con `modifier=models.Modifier.IDF`~~, **fatto (R-08)**, e senza ricrearlo: `update_collection` lo aggiunge in place;
+- ~~una riga in `encode_sparse()` per il percorso query~~, **fatto (R-09)**: funzione separata `encode_sparse_query()`, e quattro percorsi query aggiornati.
 
 Entrambe misurate appaiate con `scripts/probe_sparse_paired.py` (`--vary idf` e `--vary query_embed`) sulla golden intera. **Non su un campione**: a 200 query l'effetto dell'IDF su open_ragbench era `p=0,7266`, cioè invisibile, e a 3.045 è `p<0,0001`.
 
@@ -333,15 +333,15 @@ Non correggere i due difetti insieme e misurare una volta sola (§15: *mai due c
 
 ---
 
-## OQ-04 — Metà del testo di un chunk non entra nell'embedding
+## OQ-04: Metà del testo di un chunk non entra nell'embedding
 
 
-> **Misurata il 2026-08-12 (I-10): l'effetto c'è.** Su indice ridotto, 1.903 query appaiate: doc@1 +0,0126 (**p=0,0384**), doc@3 +0,0079 (p=0,0400), doc@5 +0,0074 (p=0,0336) — stessa direzione a tutte le profondità. Il prezzo è **4,05× i chunk**. Resta da decidere se valga una re-ingestione (I-11). Su LEDGER non misurabile: doc@5 è già a 0,9950. Dettagli in `progress.md`.
+> **Misurata il 2026-08-12 (I-10): l'effetto c'è.** Su indice ridotto, 1.903 query appaiate: doc@1 +0,0126 (**p=0,0384**), doc@3 +0,0079 (p=0,0400), doc@5 +0,0074 (p=0,0336), stessa direzione a tutte le profondità. Il prezzo è **4,05× i chunk**. Resta da decidere se valga una re-ingestione (I-11). Su LEDGER non misurabile: doc@5 è già a 0,9950. Dettagli in `progress.md`.
 
-> **E non adottata (I-11, stesso giorno).** Il tetto non cambia la generazione — formato identico dopo il parser (p=1,0000), astensione non peggiorata — e gli +11 punti di `citation_precision` che sembravano sostenerlo erano **la lunghezza della premessa**: dentro un solo braccio l'accettazione cala da 79,2% a 57,8% al crescere del chunk. Nessun guadagno di qualità contro 618 minuti di re-ingestione e un indice ×4. Restano da riconsiderare alla prossima re-ingestione la latenza (−44%) e le premesse spezzate azzerate.
+> **E non adottata (I-11, stesso giorno).** Il tetto non cambia la generazione (formato identico dopo il parser (p=1,0000), astensione non peggiorata), e gli +11 punti di `citation_precision` che sembravano sostenerlo erano **la lunghezza della premessa**: dentro un solo braccio l'accettazione cala da 79,2% a 57,8% al crescere del chunk. Nessun guadagno di qualità contro 618 minuti di re-ingestione e un indice ×4. Restano da riconsiderare alla prossima re-ingestione la latenza (−44%) e le premesse spezzate azzerate.
 **DECISA, NON CHIUSA (2026-08-12).** Notata il 2026-08-11 controllando perché I-03 e I-04 non hanno un criterio di accettazione. Riferimento: I-03, I-04, I-07, e per estensione ogni misura di retrieval denso.
 
-> **Cosa significa «decisa, non chiusa».** Qui l'effetto sul retrieval **c'è** ed è misurato; quello che non c'è è un guadagno sulla generazione che giustifichi il prezzo. Il troncamento continua quindi a esistere in ogni indice del progetto, per scelta consapevole. Le due voci da riconsiderare alla prossima re-ingestione — latenza −44% e premesse spezzate — sono lavoro reale, ma condizionato a un evento che non è ancora in programma.
+> **Cosa significa «decisa, non chiusa».** Qui l'effetto sul retrieval **c'è** ed è misurato; quello che non c'è è un guadagno sulla generazione che giustifichi il prezzo. Il troncamento continua quindi a esistere in ogni indice del progetto, per scelta consapevole. Le due voci da riconsiderare alla prossima re-ingestione (latenza −44% e premesse spezzate) sono lavoro reale, ma condizionato a un evento che non è ancora in programma.
 
 ### Il fatto
 
@@ -379,7 +379,7 @@ Su open_ragbench **il chunk giusto mancato è quasi tre volte più lungo di quel
 
 Su LEDGER non si vede niente, e non è la stessa cosa che non esserci: là **il 90-96% dei chunk giusti supera i 512 token in entrambi i gruppi**. Il confronto è fra troncato e troncato, quindi la variabile è quasi costante e il test non ha nulla da separare. Assenza di potenza, non evidenza di assenza.
 
-**Resta descrittivo.** La lunghezza correla con altro — genere della sezione, posizione nel documento, quanto è specifica la domanda — e da qui non si separa. È il motivo per cui I-10 esiste comunque: questo dice che vale la pena di misurarlo, non lo sostituisce.
+**Resta descrittivo.** La lunghezza correla con altro (genere della sezione, posizione nel documento, quanto è specifica la domanda), e da qui non si separa. È il motivo per cui I-10 esiste comunque: questo dice che vale la pena di misurarlo, non lo sostituisce.
 
 ### Il dato che tocca OQ-01
 
@@ -388,9 +388,9 @@ Su LEDGER non si vede niente, e non è la stessa cosa che non esserci: là **il 
 | ledger | 881 tok | 82,1% |
 | **ledger_routed** | **243 tok** | **5,8%** |
 
-`ledger_routed` entra quasi interamente nella finestra dell'embedder — **e perde di 17 punti**. La congettura registrata in `progress.md` (*«sub-chunking aggressivo → chunk troppo piccoli, IDF diluito»*) punta nella direzione opposta a questo dato: la pipeline generica vince **nonostante** sia troncata all'82%.
+`ledger_routed` entra quasi interamente nella finestra dell'embedder, **e perde di 17 punti**. La congettura registrata in `progress.md` (*«sub-chunking aggressivo → chunk troppo piccoli, IDF diluito»*) punta nella direzione opposta a questo dato: la pipeline generica vince **nonostante** sia troncata all'82%.
 
-Non risolve OQ-01. Elimina però l'ipotesi più intuitiva — che generic vinca perché porta più testo nell'indice — perché in proporzione ne porta **meno**. La domanda si stringe: da dove viene il vantaggio di generic, se non dalla quantità di testo indicizzato?
+Non risolve OQ-01. Elimina però l'ipotesi più intuitiva (che generic vinca perché porta più testo nell'indice) perché in proporzione ne porta **meno**. La domanda si stringe: da dove viene il vantaggio di generic, se non dalla quantità di testo indicizzato?
 
 ### Protocollo
 
@@ -409,7 +409,7 @@ Che rispettare la finestra migliori il retrieval. `ledger_routed` è la prova ch
 
 ---
 
-## OQ-05 — Cosa serve per verificare una citazione numerica contro una tabella
+## OQ-05: Cosa serve per verificare una citazione numerica contro una tabella
 
 > **CHIUSA il 2026-08-12.** Decisa con l'opzione 2 e il vincolo del nome, implementata come **C-09**: `numeric_citation_precision` 0,7328 su LEDGER contro lo 0,2374 dell'NLI sulle stesse coppie, copertura 39,6%. Le due metriche restano separate, come il vincolo imponeva. Il resoconto è in [`progress.md`](progress.md), C-09; quel che segue è la nota che ha portato alla decisione e resta per come ci si è arrivati.
 
@@ -419,35 +419,35 @@ Che rispettare la finestra migliori il retrieval. `ledger_routed` è la prova ch
 
 Su LEDGER `citation_precision` vale 0,3656 e non è interpretabile come proprietà del generatore. La diagnosi aveva due metà:
 
-1. le premesse sono markup di tabelle OCR — mediana **26,5%** di token di markup, peggiore 77,2%;
+1. le premesse sono markup di tabelle OCR: mediana **26,5%** di token di markup, peggiore 77,2%;
 2. il **96,7%** dei claim è numerico, cioè valori estratti da quelle tabelle.
 
 **C-08 ha testato la prima ed è stata falsificata.** Rendendo le tabelle in righe `cella | cella` sulle stesse 331 coppie: 0,3656 → 0,3263, **35 citazioni perse contro 22 guadagnate, p = 0,1112**. La variazione di P(entailment) è simmetrica (mediana +0,0000, 132 giù e 125 su): il verificatore è **indifferente alla forma superficiale** della tabella.
 
 ### Cosa resta, e perché è una decisione più grande
 
-Resta la seconda metà, che nessuna riformattazione tocca: un modello NLI addestrato su prosa deve giudicare se *«i ricavi 2017 sono 1.234»* è implicato da una tabella di bilancio. Non è un problema di come la tabella è scritta — è che l'operazione richiesta è **una ricerca in una griglia più un confronto numerico**, non un'inferenza linguistica.
+Resta la seconda metà, che nessuna riformattazione tocca: un modello NLI addestrato su prosa deve giudicare se *«i ricavi 2017 sono 1.234»* è implicato da una tabella di bilancio. Non è un problema di come la tabella è scritta: è che l'operazione richiesta è **una ricerca in una griglia più un confronto numerico**, non un'inferenza linguistica.
 
 Il ROADMAP §8 diceva: *«prendere ora quella decisione significherebbe costruire un secondo strumento per aggirare un difetto rimediabile nel primo»*. Ora sappiamo che il difetto **non è rimediabile nel primo**, quindi l'obiezione cade e la decisione è giustificata.
 
-### Quanto sbaglia lo strumento attuale — misurato il 2026-08-12
+### Quanto sbaglia lo strumento attuale: misurato il 2026-08-12
 
 Prima di scegliere serviva sapere **quanto sbaglia il verificatore sulle tabelle**, che era la cosa che la sezione qui sotto dichiarava non dimostrata. Ora è misurata, e senza spendere GPU: i punteggi sono nei verdetti salvati, i testi in Qdrant, e *«il numero asserito è nel chunk»* è una ricerca di stringa. Riproducibile con `scripts/probe_table_floor.py`.
 
-Su claim i cui numeri distintivi stanno **tutti** nel chunk citato — cioè affermazioni che il chunk quantomeno contiene:
+Su claim i cui numeri distintivi stanno **tutti** nel chunk citato, cioè affermazioni che il chunk quantomeno contiene:
 
 | | coppie | accettate a soglia 0,5 | P(entailment) mediana |
 |---|---|---|---|
-| **open_ragbench** (prosa) | 29 | **58,6%** | **0,580** — sopra soglia |
-| **ledger** (tabelle) | 161 | **28,0%** | **0,276** — ben sotto |
+| **open_ragbench** (prosa) | 29 | **58,6%** | **0,580**: sopra soglia |
+| **ledger** (tabelle) | 161 | **28,0%** | **0,276**: ben sotto |
 
 Stesso tipo di affermazione, stesso verificatore, stessa soglia: **lo strumento è circa la metà sensibile sul genere tabellare.** Su LEDGER dà 0,276 di mediana a claim i cui numeri sono dimostrabilmente lì.
 
 Quindi `citation_precision` 0,3656 è dominata dal **pavimento dello strumento**, non dal generatore. E la differenza fra i due dataset (0,657 contro 0,366) riflette in buona parte la differenza fra i due pavimenti (0,586 contro 0,280), non due modi diversi di citare.
 
-**Il numero che questa misura NON dà.** La presenza del numero non prova che il claim sia corretto: `1.234` può stare nella riga sbagliata o nell'anno sbagliato. È un proxy direzionale. Ma per la decisione basta: qualunque sia la verità su quei 161 claim, **il verificatore attuale non la sta misurando** — dà 0,276 sia quando il numero c'è sia quando non c'è (mediana 0,283 sui 5 casi in cui manca, troppo pochi per un test ma non incoraggianti).
+**Il numero che questa misura NON dà.** La presenza del numero non prova che il claim sia corretto: `1.234` può stare nella riga sbagliata o nell'anno sbagliato. È un proxy direzionale. Ma per la decisione basta: qualunque sia la verità su quei 161 claim, **il verificatore attuale non la sta misurando**, dà 0,276 sia quando il numero c'è sia quando non c'è (mediana 0,283 sui 5 casi in cui manca, troppo pochi per un test ma non incoraggianti).
 
-**Nota su cosa questo non autorizza:** abbassare la soglia. A 0,276 si accetterebbe metà del gruppo "presenti", ma sarebbe una soglia tarata sugli stessi dati su cui si riporta la metrica — la trappola che `config.py` documenta e che C-03 ha evitato di proposito. E cambierebbe anche open_ragbench, dove il problema non c'è.
+**Nota su cosa questo non autorizza:** abbassare la soglia. A 0,276 si accetterebbe metà del gruppo "presenti", ma sarebbe una soglia tarata sugli stessi dati su cui si riporta la metrica: la trappola che `config.py` documenta e che C-03 ha evitato di proposito. E cambierebbe anche open_ragbench, dove il problema non c'è.
 
 ### Le opzioni, e cosa costa sbagliarle
 
@@ -455,7 +455,7 @@ Quindi `citation_precision` 0,3656 è dominata dal **pavimento dello strumento**
 |---|---|---|
 | **Riga muta**: `citation_precision` riportata solo su open_ragbench | zero lavoro | metà della prima affermazione del §0 resta senza numero, e C-06 avrà una curva di scaling con una riga vuota |
 | **Verificatore numerico per il genere tabellare**: il claim è supportato se i valori che asserisce compaiono nel chunk citato, con la loro etichetta di riga | scrivibile senza modelli nuovi | un numero che compare da qualche parte in una tabella non è il valore asserito: serve l'associazione riga/colonna, ed è lì che il lavoro vero sta |
-| **Verificatore diverso per dataset** | massima fedeltà | due strumenti che producono la stessa metrica con definizioni diverse — **i due dataset smettono di essere confrontabili**, che è precisamente ciò che il §3.1 vieta |
+| **Verificatore diverso per dataset** | massima fedeltà | due strumenti che producono la stessa metrica con definizioni diverse: **i due dataset smettono di essere confrontabili**, che è precisamente ciò che il §3.1 vieta |
 
 La terza è la trappola: sembra la più rigorosa ed è quella che rompe il contratto. Se si va in quella direzione, la metrica va rinominata per dataset, non chiamata `citation_precision` in entrambi i casi.
 
@@ -465,11 +465,11 @@ Vale ancora ciò che il §8 diceva: se C-06 gira senza aver risolto questo, la c
 
 ### Cosa NON è dimostrato
 
-Che un verificatore numerico farebbe meglio. Il floor test di C-03 mostrava che il verificatore attuale, **su prosa**, mancava un terzo dei claim copiati alla lettera: la soglia 0,5 lo rende pessimista per scelta. Prima di costruire un secondo strumento va misurato quanto quello attuale sbaglia **su tabelle**, e il controllo dai qrels lì produce **3 sole coppie** — troppo poche. Serve prima un floor test costruito apposta per il genere tabellare.
+Che un verificatore numerico farebbe meglio. Il floor test di C-03 mostrava che il verificatore attuale, **su prosa**, mancava un terzo dei claim copiati alla lettera: la soglia 0,5 lo rende pessimista per scelta. Prima di costruire un secondo strumento va misurato quanto quello attuale sbaglia **su tabelle**, e il controllo dai qrels lì produce **3 sole coppie**: troppo poche. Serve prima un floor test costruito apposta per il genere tabellare.
 
 ---
 
-## OQ-06 — L'IDF porta al documento giusto e allontana dal chunk giusto
+## OQ-06: L'IDF porta al documento giusto e allontana dal chunk giusto
 
 **PASSI 1–2 FATTI (2026-08-13). Il meccanismo è confermato e più preciso dell'ipotesi; il rimedio che il protocollo proponeva è invece falsificato.** Emersa lo stesso giorno dalla misura di R-08.
 
@@ -477,19 +477,19 @@ Che un verificatore numerico farebbe meglio. Il floor test di C-03 mostrava che 
 >
 > | | ripetizioni del ticker |
 > |---|---|
-> | chunk **d'oro** — quello che risponde | **0,64 – 1,04** |
+> | chunk **d'oro**: quello che risponde | **0,64 – 1,04** |
 > | chunk in cima, IDF spento | 0,77 – 0,91 |
 > | chunk in cima, **IDF acceso** | **2,79 – 3,16** |
 >
-> L'IDF sposta il retrieval verso i chunk che **ripetono il nome dell'azienda**, di 3–4 volte, **in entrambi i gruppi** — sia dove guadagna sia dove perde. È una forza sola con due effetti, e questo spiega il segno opposto: *fra* i documenti il nome porta a quello giusto (+27,9 doc@5), *dentro* il documento porta alla modulistica invece che alla risposta (−1,31 chunk@5). Il paragrafo che risponde ripete **l'argomento**, non l'entità.
+> L'IDF sposta il retrieval verso i chunk che **ripetono il nome dell'azienda**, di 3–4 volte, **in entrambi i gruppi**: sia dove guadagna sia dove perde. È una forza sola con due effetti, e questo spiega il segno opposto: *fra* i documenti il nome porta a quello giusto (+27,9 doc@5), *dentro* il documento porta alla modulistica invece che alla risposta (−1,31 chunk@5). Il paragrafo che risponde ripete **l'argomento**, non l'entità.
 >
-> **Cosa sono i chunk promossi**, leggendone 30 per gruppo: elenchi di allegati (*«Incorporated by reference to Exhibit 10.1…»*), certificazioni Sarbanes-Oxley, elenchi di controllate, `Note 1 — Organization and Business`, lettere agli azionisti. Tutta modulistica: è lì che la ragione sociale compare a ripetizione.
+> **Cosa sono i chunk promossi**, leggendone 30 per gruppo: elenchi di allegati (*«Incorporated by reference to Exhibit 10.1…»*), certificazioni Sarbanes-Oxley, elenchi di controllate, `Note 1: Organization and Business`, lettere agli azionisti. Tutta modulistica: è lì che la ragione sociale compare a ripetizione.
 >
-> **Il 61% delle query perse resta nel documento d'oro** — il guasto è «chunk sbagliato del documento giusto», come l'ipotesi prevedeva.
+> **Il 61% delle query perse resta nel documento d'oro**: il guasto è «chunk sbagliato del documento giusto», come l'ipotesi prevedeva.
 >
 > ⚠️ **Il rimedio proposto al passo 2 non funziona.** Il protocollo diceva: *«se prevale il primo caso, la correzione non è l'IDF ma il filtro sul `content_type`»*. Ma la modulistica ha `content_type` **`text`/`mixed`, esattamente come il contenuto vero**: quel campo non li separa. Un filtro lì non toglierebbe gli allegati e toglierebbe risposte.
 >
-> **Il passo 3 resta aperto e il suo esito non è più scontato.** Spegnere l'IDF su LEDGER salverebbe 1,3 punti di chunk@5 e ne costerebbe 27,9 di doc@5. Quale dei due conti dipende da cosa consuma il retrieval — la generazione legge chunk — ed è una decisione con una misura sua, non un corollario di questa.
+> **Il passo 3 resta aperto e il suo esito non è più scontato.** Spegnere l'IDF su LEDGER salverebbe 1,3 punti di chunk@5 e ne costerebbe 27,9 di doc@5. Quale dei due conti dipende da cosa consuma il retrieval (la generazione legge chunk), ed è una decisione con una misura sua, non un corollario di questa.
 
 ### Il fatto
 
@@ -506,21 +506,21 @@ Dopo la fusione RRF il danno sul chunk **non si attenua, peggiora**: `hybrid` ch
 
 ### L'ipotesi
 
-Su LEDGER i token rari sono cifre e identificativi. Con l'IDF dominano il punteggio e tirano verso il documento che contiene quella cifra, ma verso il chunk che la *nomina* — un indice, un sommario, un rimando — invece che verso quello che risponde. Senza IDF domina la frequenza di termine, che premia i chunk che ripetono i termini della domanda.
+Su LEDGER i token rari sono cifre e identificativi. Con l'IDF dominano il punteggio e tirano verso il documento che contiene quella cifra, ma verso il chunk che la *nomina* (un indice, un sommario, un rimando) invece che verso quello che risponde. Senza IDF domina la frequenza di termine, che premia i chunk che ripetono i termini della domanda.
 
 **Non è misurata.** È coerente con i segni osservati e con quello che LEDGER è, ma "coerente con" non è "dimostrata da".
 
 ### Protocollo
 
-1. ~~Estrarre le query discordanti a `sparse` chunk@5~~ — **fatto**: 482 perse e 352 guadagnate, `scripts/probe_idf_discordant.py`.
-2. ~~Leggerne 30 per gruppo~~ — **fatto, e l'ipotesi regge**: la modulistica prevale. Ma la seconda metà della frase era sbagliata: `content_type` **non** separa la modulistica dal contenuto, sono entrambi `text`/`mixed`.
-3. **Ancora da fare**, e non è più un corollario: misurare l'IDF per genere significa scegliere fra 1,3 punti di chunk@5 e 27,9 di doc@5 su LEDGER. Vuole una misura sua, e va deciso cosa conta — la generazione consuma chunk.
+1. ~~Estrarre le query discordanti a `sparse` chunk@5~~, **fatto**: 482 perse e 352 guadagnate, `scripts/probe_idf_discordant.py`.
+2. ~~Leggerne 30 per gruppo~~ (**fatto, e l'ipotesi regge**): la modulistica prevale. Ma la seconda metà della frase era sbagliata: `content_type` **non** separa la modulistica dal contenuto, sono entrambi `text`/`mixed`.
+3. **Ancora da fare**, e non è più un corollario: misurare l'IDF per genere significa scegliere fra 1,3 punti di chunk@5 e 27,9 di doc@5 su LEDGER. Vuole una misura sua, e va deciso cosa conta: la generazione consuma chunk.
 
-> **Nota su come il protocollo ha retto.** Scritto prima di guardare i dati, ha indovinato il meccanismo e sbagliato il rimedio. È la stessa forma di R-10: pre-registrare protegge dallo scegliere il test dopo aver visto i dati, non dall'aver previsto la cura sbagliata. Il passo 2 è stato eseguito com'era scritto, e quello che ha aggiunto è la misura meccanica delle ripetizioni del ticker — un numero al posto di trenta impressioni di lettura.
+> **Nota su come il protocollo ha retto.** Scritto prima di guardare i dati, ha indovinato il meccanismo e sbagliato il rimedio. È la stessa forma di R-10: pre-registrare protegge dallo scegliere il test dopo aver visto i dati, non dall'aver previsto la cura sbagliata. Il passo 2 è stato eseguito com'era scritto, e quello che ha aggiunto è la misura meccanica delle ripetizioni del ticker: un numero al posto di trenta impressioni di lettura.
 
 ### Perché conta più di due punti di `hit@5`
 
-Perché è materia dell'**affermazione 2 del §0** — *«il routing automatico per genere documentale batte una pipeline generica»* — e per una volta il candidato al routing non è la pipeline di chunking ma un parametro dell'indice. È la quarta volta che il genere emerge come variabile dominante in questo progetto.
+Perché è materia dell'**affermazione 2 del §0** (*«il routing automatico per genere documentale batte una pipeline generica»*), e per una volta il candidato al routing non è la pipeline di chunking ma un parametro dell'indice. È la quarta volta che il genere emerge come variabile dominante in questo progetto.
 
 ### Trappola
 
@@ -528,7 +528,7 @@ Attivare l'IDF per genere **senza** i passi 1–2 sarebbe scegliere la configura
 
 ---
 
-## OQ-07 — Il segno di un numero appartiene al prospetto, non alla grandezza
+## OQ-07: Il segno di un numero appartiene al prospetto, non alla grandezza
 
 **Nuova (2026-08-20).** Osservata durante la revisione di U-04, guardando una risposta su LEDGER nella demo. Riferimento: C-09, OQ-05. Riproducibile con `scripts/probe_sign_convention.py`, che non tocca la GPU.
 
@@ -541,11 +541,11 @@ Attivare l'IDF per genere **senza** i passi 1–2 sarebbe scegliere la configura
 | celle numeriche | 157.716 |
 | **fra parentesi** | **28.228 (17,9%)** |
 | documenti con almeno una cella fra parentesi | 118 (98%) |
-| documenti in cui la **stessa grandezza** compare in tutte e due le forme | **52 (43%)** — mediana 2 per documento, massimo 69 |
+| documenti in cui la **stessa grandezza** compare in tutte e due le forme | **52 (43%)**: mediana 2 per documento, massimo 69 |
 
-Il caso da cui è nata, verificabile a mano: in `NYSE_SHW_2019` il valore `222.8` compare **tre volte** — `222.8` nella Selected Financial Data, `(222.8)` nello Statement of Cash Flows, `222.8` nella tabella per segmento. Il segno è una proprietà del prospetto, non della quantità: in un rendiconto una spesa in conto capitale è un *deflusso*, e la notazione contabile lo scrive fra parentesi.
+Il caso da cui è nata, verificabile a mano: in `NYSE_SHW_2019` il valore `222.8` compare **tre volte**: `222.8` nella Selected Financial Data, `(222.8)` nello Statement of Cash Flows, `222.8` nella tabella per segmento. Il segno è una proprietà del prospetto, non della quantità: in un rendiconto una spesa in conto capitale è un *deflusso*, e la notazione contabile lo scrive fra parentesi.
 
-**2. Nelle risposte già generate.** Sui sei dump LEDGER in `eval/results/generations`, fra il **4% e il 7%** delle risposte non astenute porta un numero decimale fra parentesi dentro la prosa — **43 casi** in tutto. Testualmente:
+**2. Nelle risposte già generate.** Sui sei dump LEDGER in `eval/results/generations`, fra il **4% e il 7%** delle risposte non astenute porta un numero decimale fra parentesi dentro la prosa: **43 casi** in tutto. Testualmente:
 
 > The capital expenditures for The Sherwin-Williams in 2017 were `$(222.8)$` million dollars [5].
 > …a dividend of `"($319.0)"` in millions of dollars [1].
@@ -556,9 +556,9 @@ Il caso da cui è nata, verificabile a mano: in `NYSE_SHW_2019` il valore `222.8
 
 ### L'ipotesi
 
-Il modello copia la cella fedelmente e la trapianta in prosa, dove la convenzione contabile non vale più: `(222.8)` in un rendiconto significa «deflusso di 222,8», in una frase significa «meno 222,8». **La citazione resta corretta** — il numero è nel chunk citato, con l'etichetta di riga giusta e l'anno giusto — mentre l'affermazione no.
+Il modello copia la cella fedelmente e la trapianta in prosa, dove la convenzione contabile non vale più: `(222.8)` in un rendiconto significa «deflusso di 222,8», in una frase significa «meno 222,8». **La citazione resta corretta** (il numero è nel chunk citato, con l'etichetta di riga giusta e l'anno giusto), mentre l'affermazione no.
 
-Se è vero, è una classe di errore che **nessuna delle due metriche di citazione vede**. `numeric_citation_precision` conferma, perché cerca il valore con la sua etichetta e lo trova. L'NLI nega, ma su tabelle nega anche i claim corretti — OQ-05 ha misurato quel pavimento a 0,276 di mediana su claim i cui numeri sono dimostrabilmente presenti — quindi il suo «no» non è un segnale.
+Se è vero, è una classe di errore che **nessuna delle due metriche di citazione vede**. `numeric_citation_precision` conferma, perché cerca il valore con la sua etichetta e lo trova. L'NLI nega, ma su tabelle nega anche i claim corretti (OQ-05 ha misurato quel pavimento a 0,276 di mediana su claim i cui numeri sono dimostrabilmente presenti) quindi il suo «no» non è un segnale.
 
 È il caso limite che OQ-05 dichiarava e non copriva: lì il caveat era *«`1.234` può stare nella riga sbagliata o nell'anno sbagliato»*. Qui riga e anno sono **giusti**, e la frase è sbagliata lo stesso.
 
@@ -566,19 +566,19 @@ Se è vero, è una classe di errore che **nessuna delle due metriche di citazion
 
 ### Protocollo
 
-1. **Classificare a mano i 43 casi** dai dump esistenti — nessuna GPU, sono già su disco — in *trapianto* (grandezza positiva, segno preso dal prospetto) contro *negativo vero*. Il criterio è la riga del chunk citato, che `probe_table_floor.py --rows` sa già risalire.
+1. **Classificare a mano i 43 casi** dai dump esistenti (nessuna GPU, sono già su disco) in *trapianto* (grandezza positiva, segno preso dal prospetto) contro *negativo vero*. Il criterio è la riga del chunk citato, che `probe_table_floor.py --rows` sa già risalire.
 2. Se i trapianti prevalgono, misurare l'accordo fra i due verificatori su quel sottoinsieme contro un campione di controllo. L'ipotesi prevede che il disaccordo *numerico conferma / NLI nega* sia lì più frequente che altrove. È un test appaiato, e il suo esito può falsificare l'ipotesi: se il disaccordo è distribuito uguale, questi 43 casi non sono una classe.
-3. Solo allora il rimedio, e le direzioni sono due: dirlo al modello — riportare la grandezza, non la notazione del prospetto — oppure insegnarlo al controllo numerico, per cui le parentesi in una cella sono un segno e riportarle in prosa afferma un negativo.
+3. Solo allora il rimedio, e le direzioni sono due: dirlo al modello (riportare la grandezza, non la notazione del prospetto), oppure insegnarlo al controllo numerico, per cui le parentesi in una cella sono un segno e riportarle in prosa afferma un negativo.
 
 ### Trappole
 
-**Attribuirlo al prompt.** È la spiegazione più comoda, ed è **verificata falsa**: la frase su Sherwin-Williams è identica nel dump del 12 agosto, e il prompt archiviato accanto a quel dump non ha nessuna sezione OUTPUT FORMAT — né la riga sul LaTeX che U-14 ha aggiunto il 19, né altro. Il comportamento precede di una settimana la regola a cui verrebbe naturale darne la colpa.
+**Attribuirlo al prompt.** È la spiegazione più comoda, ed è **verificata falsa**: la frase su Sherwin-Williams è identica nel dump del 12 agosto, e il prompt archiviato accanto a quel dump non ha nessuna sezione OUTPUT FORMAT, né la riga sul LaTeX che U-14 ha aggiunto il 19, né altro. Il comportamento precede di una settimana la regola a cui verrebbe naturale darne la colpa.
 
-**Aggiustarlo nel renderer.** U-04 ha tolto il carattere matematico da `$(222.8)$`, ed è una correzione tipografica: le parentesi restano stampate, e devono — il modello le ha scritte. Il rendering non è il posto dove un'affermazione diventa vera o falsa.
+**Aggiustarlo nel renderer.** U-04 ha tolto il carattere matematico da `$(222.8)$`, ed è una correzione tipografica: le parentesi restano stampate, e devono, il modello le ha scritte. Il rendering non è il posto dove un'affermazione diventa vera o falsa.
 
 **Contare il bacino come se fosse l'errore.** I 43 casi sono quanti *potrebbero* esserlo, non quanti lo sono. Il passo 1 esiste per questo, e va fatto prima di citare un numero.
 
-### L'esito del passo 1 (2026-08-22) — 4 trapianti su 13, non 43
+### L'esito del passo 1 (2026-08-22): 4 trapianti su 13, non 43
 
 Riproducibile con `python scripts/probe_sign_convention.py --righe`, che risale
 dalla cella citata alla sua etichetta di riga.
@@ -586,7 +586,7 @@ dalla cella citata alla sua etichetta di riga.
 **Prima cosa, e non è un dettaglio: i casi distinti sono 13, non 43.** Il conto
 originale sommava le stesse domande viste in nove run. Il bacino era gonfiato di
 **3,3 volte**, e la trappola «contare il bacino come se fosse l'errore» aveva una
-seconda forma che non avevo previsto — non solo *quanti di questi lo sono*, ma
+seconda forma che non avevo previsto, non solo *quanti di questi lo sono*, ma
 *quanti di questi sono lo stesso*.
 
 **Il criterio della classificazione è nell'etichetta di riga**, e si legge nei
@@ -614,19 +614,19 @@ l'informazione.
 
 **4 trapianti, 9 negativi veri.** L'ipotesi è confermata come *fenomeno* e
 smentita come *prevalenza*: il trapianto esiste ed è esattamente quello descritto
-— una grandezza positiva che si porta dietro la notazione del rendiconto — ma è
+(una grandezza positiva che si porta dietro la notazione del rendiconto), ma è
 la minoranza dei casi, e i nove negativi veri sono risposte corrette in cui le
 parentesi ci vogliono.
 
 **I quattro trapianti hanno una firma stretta**: stessa società, e due sole
-etichette di riga — spese in conto capitale e dividendi pagati. Sono le due voci
+etichette di riga: spese in conto capitale e dividendi pagati. Sono le due voci
 in cui un rendiconto scrive un esborso come negativo mentre la domanda chiede
 «quanto avete speso», che è una grandezza. Non è una proprietà di `ledger` nel
 suo insieme: è una proprietà di quel tipo di riga.
 
 #### Il passo 2 non si fa, e il protocollo lo prevedeva
 
-Il passo 2 era condizionato — *«se i trapianti prevalgono, misurare l'accordo fra
+Il passo 2 era condizionato: *«se i trapianti prevalgono, misurare l'accordo fra
 i due verificatori su quel sottoinsieme»*. Non prevalgono, e quattro casi non
 reggono un test appaiato: qualunque differenza di accordo su quattro elementi
 sarebbe indistinguibile da qualsiasi cosa. La condizione era scritta prima di
@@ -636,14 +636,14 @@ niente.
 #### Un reperto che non stavo cercando
 
 `SHW_capex_2017` compare **due volte con due numeri diversi**: `(222.8)` in una
-run e `(251.0)` in un'altra. Non sono due letture della stessa cella — sono due
+run e `(251.0)` in un'altra. Non sono due letture della stessa cella: sono due
 **colonne** diverse. Il chunk citato nel primo caso ha l'intestazione
 2019/2018/2017 e la riga `(328.9) (251.0) (222.8)`, quindi 222,8 è il 2017 ed è
 giusto; il chunk del secondo ha 2020/2019/2018 con `(303.8) (328.9) (251.0)`,
 quindi 251,0 è il **2018**, e la domanda chiedeva il 2017.
 
-È l'errore che il caveat di OQ-05 dichiarava — *«`1.234` può stare nella riga
-sbagliata o nell'anno sbagliato»* — colto qui in flagrante, e con una condizione
+È l'errore che il caveat di OQ-05 dichiarava (*«`1.234` può stare nella riga
+sbagliata o nell'anno sbagliato»*) colto qui in flagrante, e con una condizione
 aggravante: **la stessa grandezza esiste in due chunk con intestazioni di anno
 sfalsate**, quindi la colonna giusta dipende da quale chunk il recupero ha
 pescato. Non è una cosa che il prompt possa risolvere.
@@ -657,8 +657,8 @@ quelli che avrei dato prima:
   costerebbe una riga di prompt e vale per 4 casi su ~900 risposte, cioè meno di
   mezzo punto percentuale. E D-3 ha appena mostrato che una modifica al prompt si
   misura contro una linea di rumore di ~1 punto: **non sarebbe misurabile**.
-- **Insegnarlo al controllo numerico** — le parentesi in una cella sono un segno,
-  riportarle in prosa afferma un negativo — resta la direzione sensata, perché
+- **Insegnarlo al controllo numerico** (le parentesi in una cella sono un segno,
+  riportarle in prosa afferma un negativo) resta la direzione sensata, perché
   non tocca la generazione e non ha una linea di rumore da superare. Ma non è
   urgente: quattro casi.
 
@@ -669,27 +669,27 @@ affermava» è la stessa osservazione detta in modo che si possa decidere.
 
 ### Perché conta
 
-Perché è il limite onesto di «citazione verificata», che è l'**affermazione 1 del §0**: una frase può citare perfettamente — chunk giusto, riga giusta, anno giusto — ed essere sbagliata lo stesso, e qui nessuna delle due metriche se ne accorge. Non è un difetto di uno dei due verificatori: è una cosa che nessuno dei due sta guardando.
+Perché è il limite onesto di «citazione verificata», che è l'**affermazione 1 del §0**: una frase può citare perfettamente (chunk giusto, riga giusta, anno giusto), ed essere sbagliata lo stesso, e qui nessuna delle due metriche se ne accorge. Non è un difetto di uno dei due verificatori: è una cosa che nessuno dei due sta guardando.
 
 E la variabile che decide è ancora una volta il **genere del documento**. Su `open_ragbench` questa domanda non si pone: la notazione contabile è una convenzione dei bilanci, e la stessa cifra in un paper non cambia segno cambiando tabella.
 
 ---
 
-## OQ-08 — 498 chunk di LEDGER non hanno niente da leggere, e li pesca quasi nessuno
+## OQ-08: 498 chunk di LEDGER non hanno niente da leggere, e li pesca quasi nessuno
 
 **Chiusa il 2026-08-22 dal passo 1 del protocollo.** Il titolo originale diceva
 «e nessuno li pesca», ed era troppo generoso: qualcuno li pesca. La conclusione
-però non cambia — vedi «L'esito» in fondo.
+però non cambia, vedi «L'esito» in fondo.
 
 **Nuova (2026-08-20), e per metà già risolta dai dati su disco.** Osservata costruendo la mappa dell'esploratore (U-06). Riproducibile con `scripts/probe_chunk_vuoti.py`, che non tocca la GPU.
 
-> **La metà allarmante è falsificata.** L'intuizione era «spazzatura nell'indice → spazzatura nelle risposte». Sui sei dump di generazione già su disco — **4.000 chunk mandati in contesto su 900 query** — quelli senza contenuto sono **zero**. Non è uno zero dimostrato (i dump coprono 900 query delle 10.000 del golden set, con `top_k=5`) ma è un limite superiore stretto, ed è costato niente perché la misura era già stata pagata.
+> **La metà allarmante è falsificata.** L'intuizione era «spazzatura nell'indice → spazzatura nelle risposte». Sui sei dump di generazione già su disco (**4.000 chunk mandati in contesto su 900 query**) quelli senza contenuto sono **zero**. Non è uno zero dimostrato (i dump coprono 900 query delle 10.000 del golden set, con `top_k=5`) ma è un limite superiore stretto, ed è costato niente perché la misura era già stata pagata.
 >
 > Quello che resta è più piccolo e più noioso: **498 punti morti nell'indice**, che occupano memoria e nodi del grafo HNSW senza servire a nessuno.
 
 ### Il fatto
 
-Il pezzo più piccolo di `NYSE_SHW_2017` sulla mappa era largo 19 caratteri, e conteneva `![](images/0_0.jpg)`. Quello di `NASDAQ_LOOP_2017` ne aveva 32: `Powered by TCPDF (www.tcpdf.org)`. Non sono chunk piccoli — sono **pagine di servizio del PDF**, indicizzate ed embeddate come tutte le altre.
+Il pezzo più piccolo di `NYSE_SHW_2017` sulla mappa era largo 19 caratteri, e conteneva `![](images/0_0.jpg)`. Quello di `NASDAQ_LOOP_2017` ne aveva 32: `Powered by TCPDF (www.tcpdf.org)`. Non sono chunk piccoli: sono **pagine di servizio del PDF**, indicizzate ed embeddate come tutte le altre.
 
 Contati sui `.mmd`, che sono la sorgente (il loader generico produce un chunk per pagina non vuota, quindi il conto non è campionato):
 
@@ -699,7 +699,7 @@ Contati sui `.mmd`, che sono la sorgente (il loader generico produce un chunk pe
 | **senza contenuto** | **498 (1,06%)** |
 | documenti che ne hanno almeno uno | **218 su 494** |
 
-E le forme sono poche e ricorrenti — un elenco chiuso, non una coda lunga:
+E le forme sono poche e ricorrenti: un elenco chiuso, non una coda lunga:
 
 | | |
 |---|---|
@@ -707,7 +707,7 @@ E le forme sono poche e ricorrenti — un elenco chiuso, non una coda lunga:
 | solo un riferimento a un'immagine | 106 |
 | `[THIS PAGE INTENTIONALLY LEFT BLANK]` e varianti | 127 |
 
-Su `open_ragbench` il fenomeno non c'è: i chunk corti sono lo 0,23% e sono veri — ringraziamenti, conflitti di interesse, sezioni brevi davvero. **È una proprietà del genere**, come tutto ciò che in questo progetto si è rivelato dominante.
+Su `open_ragbench` il fenomeno non c'è: i chunk corti sono lo 0,23% e sono veri (ringraziamenti, conflitti di interesse, sezioni brevi davvero). **È una proprietà del genere**, come tutto ciò che in questo progetto si è rivelato dominante.
 
 ### L'ipotesi che resta
 
@@ -721,10 +721,10 @@ Che togliere quei 498 punti non cambi nessuna metrica e serva solo a non tenere 
 ### Protocollo
 
 1. **Cercarli nei dump di recupero** invece che in quelli di generazione, a profondità 10 e su tutte le query disponibili. Nessuna GPU: sono `chunk_id` contro un insieme.
-2. Se non compaiono nemmeno lì, la questione è chiusa come igiene: si toglie il filtro all'ingestione — una riga nel loader di `ledger` — e si ri-ingesta **quando c'è un'altra ragione per farlo**, non prima. Cancellarli dall'indice vivo si può (`delete` con filtro), ma cambierebbe il numero di punti sotto misure già registrate.
+2. Se non compaiono nemmeno lì, la questione è chiusa come igiene: si toglie il filtro all'ingestione (una riga nel loader di `ledger`), e si ri-ingesta **quando c'è un'altra ragione per farlo**, non prima. Cancellarli dall'indice vivo si può (`delete` con filtro), ma cambierebbe il numero di punti sotto misure già registrate.
 3. Se invece compaiono, la domanda diventa un'altra e più interessante: quanto costa a `doc_R@5` avere 498 nodi morti in un indice la cui banda di similarità è larga 0,0085.
 
-### L'esito (2026-08-22) — compaiono, e non costa quasi niente
+### L'esito (2026-08-22): compaiono, e non costa quasi niente
 
 Passo 1 eseguito su `20260813_155520_ledger_generic_dense.jsonl`: **10.000 query
 a profondità 10**, cioè il golden set intero alla profondità con cui si valuta.
@@ -741,27 +741,27 @@ Riproducibile con `python scripts/probe_chunk_vuoti.py`.
 **La domanda si divide in due, e le due risposte sono diverse.** «Non vengono mai
 recuperati» è **falso**: uno arriva primo, e sedici entrano nella profondità che
 va al modello. «Toglierli non cambia nessuna metrica» è **vero**, e ora è
-misurato invece che sperato: simulando la rimozione — si tolgono dalla lista, si
-riprende il top-5 — entra un chunk d'oro che prima non c'era in **una** query su
+misurato invece che sperato: simulando la rimozione (si tolgono dalla lista, si
+riprende il top-5) entra un chunk d'oro che prima non c'era in **una** query su
 diecimila. È 0,01 punti di `R@5`, cioè sotto qualunque soglia di rumore che
 questo progetto abbia mai usato.
 
 I due dubbi che il protocollo elencava sono quindi risolti nel modo meno
-drammatico: il primo (*potrebbero comparire in fondo a un top-10*) era fondato —
-30 dei 46 stanno fra il rango 6 e il 10 — e irrilevante, perché lì non li legge
+drammatico: il primo (*potrebbero comparire in fondo a un top-10*) era fondato
+(30 dei 46 stanno fra il rango 6 e il 10), e irrilevante, perché lì non li legge
 nessuno. Il secondo (*498 nodi morti in una banda di 0,0085*) resta senza
 risposta diretta e senza urgenza: se il grafo ne soffrisse, si vedrebbe come
 risultati peggiori, e i risultati sono quelli di sempre.
 
 **Sono concentrati, ed è la parte che vale la pena ricordare.** Dei 16 in top-5,
-**dieci vengono da un solo documento** — `NASDAQ_USEG_2017` — e gli altri sei da
+**dieci vengono da un solo documento** (`NASDAQ_USEG_2017`), e gli altri sei da
 tre. Non è spazzatura sparsa uniformemente sul corpus: sono pochi PDF il cui OCR
 ha prodotto molte pagine di servizio, e le loro query ne pagano il prezzo tutte
 insieme. Un rimedio mirato a quei documenti varrebbe quanto uno globale, e
 costerebbe meno.
 
 **La decisione resta quella del passo 2**: è igiene. Si toglie il filtro
-all'ingestione — una riga nel loader di `ledger` — e si ri-ingesta **quando ci
+all'ingestione (una riga nel loader di `ledger`), e si ri-ingesta **quando ci
 sarà un'altra ragione per farlo**. Cancellarli dall'indice vivo cambierebbe il
 numero di punti sotto misure già registrate, e comprerebbe un centesimo di punto.
 
@@ -769,15 +769,15 @@ numero di punti sotto misure già registrate, e comprerebbe un centesimo di punt
 
 **Chiamarla una causa.** È l'errore che OQ-01 ha già fatto pagare: «sub-chunking aggressivo → IDF diluito» era una congettura scritta senza misura. Qui la misura c'è per metà e dice **di no**; il resto va misurato prima di toccare l'ingestione.
 
-**Toglierli dalla mappa dell'esploratore.** Sono nell'indice, e la mappa dice cosa c'è nell'indice: nasconderli farebbe sembrare il corpus più pulito di com'è. Nella mappa non dettano la scala — quello sì, perché era un artefatto che decideva la dimensione di tutto il resto — ma restano disegnati.
+**Toglierli dalla mappa dell'esploratore.** Sono nell'indice, e la mappa dice cosa c'è nell'indice: nasconderli farebbe sembrare il corpus più pulito di com'è. Nella mappa non dettano la scala (quello sì, perché era un artefatto che decideva la dimensione di tutto il resto), ma restano disegnati.
 
 ### Perché conta lo stesso
 
-Perché è la seconda volta che una proprietà dell'OCR di `ledger` emerge guardando l'interfaccia e non le metriche: la prima è **OQ-07**, il segno contabile fra parentesi. Le metriche aggregate non le avrebbero mostrate né l'una né l'altra — `citation_precision` e `doc_R@5` sono medie, e una media non dice mai *cosa* c'è dentro un chunk. Disegnare il corpus è stato un modo di leggerlo.
+Perché è la seconda volta che una proprietà dell'OCR di `ledger` emerge guardando l'interfaccia e non le metriche: la prima è **OQ-07**, il segno contabile fra parentesi. Le metriche aggregate non le avrebbero mostrate né l'una né l'altra: `citation_precision` e `doc_R@5` sono medie, e una media non dice mai *cosa* c'è dentro un chunk. Disegnare il corpus è stato un modo di leggerlo.
 
 ---
 
-## OQ-09 — L'ANN di `ledger` rende dodici punti meno di nove giorni fa
+## OQ-09: L'ANN di `ledger` rende dodici punti meno di nove giorni fa
 
 **Nuova (2026-08-22), osservata girando D-4.** Il fatto è misurato; la causa no.
 Si riproduce in 85 s con `scripts/eval.py --dataset ledger --retrieval-mode
@@ -786,7 +786,7 @@ già su disco.
 
 ### Il fatto
 
-Stesso `config_hash` — **`5c3c7fa2`** su tutt'e due — stesse 10.000 query, stessa
+Stesso `config_hash` (**`5c3c7fa2`** su tutt'e due) stesse 10.000 query, stessa
 macchina, due numeri diversi:
 
 | `ledger`, dense, ricerca approssimata | 13 ago | 22 ago | |
@@ -818,7 +818,7 @@ ricerca esatta. I tre controlli dicono tutti **niente cambiato**:
 | `ledger` dense **esatta**, `doc_R@5` | 0,896183 | 0,896183 | identico a sei decimali |
 
 Il primo esclude il codice, il modello d'embedding e la macchina: se una qualunque
-di quelle si fosse mossa, `open_ragbench` si sarebbe mosso con lei — e non si è
+di quelle si fosse mossa, `open_ragbench` si sarebbe mosso con lei, e non si è
 mosso su nessuna delle sette metriche. Il secondo esclude il lato sparso, che da
 un grafo non passa. **Il terzo esclude il contenuto dell'indice**: la ricerca
 esatta legge gli stessi vettori ignorando il grafo, e restituisce le stesse sei
@@ -833,7 +833,7 @@ cioè con la ricerca esatta di oggi:
 | richiamo@10 dell'ANN sul vero top-10 | **0,9754** | **0,8369** |
 | il vero primo esce primo | 97,4% | 82,7% |
 | top-10 identico al vero | 86,3% | 66,6% |
-| primo restituito con punteggio più basso di nove giorni fa | — | 1659 query (contro 119 più alto) |
+| primo restituito con punteggio più basso di nove giorni fa | n/d | 1659 query (contro 119 più alto) |
 
 L'ultima riga è la forma pura del fenomeno: per 1659 query la ricerca **si ferma
 su un candidato peggiore**, e i vettori sono gli stessi.
@@ -850,8 +850,8 @@ Qdrant non tiene la storia dei segmenti.
 ### L'ipotesi
 
 **A-07, il 14 agosto**, ha aggiunto gli indici payload su `doc_id` e `chunk_id` a
-tutte e sette le collection. La riga scritta allora — «un indice payload si
-aggiunge a una collection viva **senza rifare i vettori**» — era vera ed è ancora
+tutte e sette le collection. La riga scritta allora («un indice payload si
+aggiunge a una collection viva **senza rifare i vettori**») era vera ed è ancora
 vera: i vettori infatti sono gli stessi, lo dimostra la ricerca esatta. Ma un
 indice payload nuovo fa lavorare l'ottimizzatore, e i **segmenti** si rifanno: il
 grafo HNSW è per segmento, quindi si ricostruisce con essi. La data cade dentro
@@ -860,7 +860,7 @@ la finestra.
 **È una correlazione con un meccanismo plausibile, non una prova**, e ha già una
 crepa: gli indici payload sono andati su tutte e sette le collection, e
 `open_ragbench` non si è mosso di un decimale. La risposta candidata è che
-`open_ragbench` **non avesse spazio per perdere** — R-11 ne aveva misurato il
+`open_ragbench` **non avesse spazio per perdere**: R-11 ne aveva misurato il
 richiamo dell'ANN al 99,94% del vero top-5, contro il 98,92% di `ledger`, che vive
 in una banda di similarità larga 0,0085 (OQ-01). In una banda così stretta un
 grafo ricostruito diversamente arriva altrove. Ma è una risposta candidata, non
@@ -869,21 +869,21 @@ conteggio da solo non distingue chi ha perso da chi non aveva niente da perdere.
 
 ### Protocollo
 
-**Passo 1 — allargare il fatto. ~3 minuti, niente generazione.** Rimisurare
+**Passo 1: allargare il fatto. ~3 minuti, niente generazione.** Rimisurare
 `ledger_routed` in ANN e in esatta. R-11 aveva lasciato 0,6744 e 0,7590: se anche
 lì l'ANN è sceso, il fenomeno riguarda le collection dense e non una sola, e il
 divario ANN↔esatta è la grandezza da guardare.
 
-**Passo 2 — la prova della causa, e perché non si fa.** Cancellare i due indici
+**Passo 2 (la prova della causa, e perché non si fa.** Cancellare i due indici
 payload da `ledger` e rimisurare sarebbe questione di secondi, ed è **ambiguo per
-costruzione**: cancellare un indice fa lavorare lo stesso ottimizzatore che si
+costruzione**): cancellare un indice fa lavorare lo stesso ottimizzatore che si
 sospetta, quindi un ANN che risale non distingue *«l'indice payload faceva male»*
 da *«i segmenti si sono rifatti di nuovo, e stavolta meglio»*. La prova pulita è
-ricostruire la collection da zero senza quegli indici — ore di re-ingestione — e
+ricostruire la collection da zero senza quegli indici (ore di re-ingestione), e
 non vale il prezzo di una domanda che non cambia nessuna decisione: qualunque sia
 la causa, ciò che si fa è già deciso (sotto).
 
-**Passo 3 — quello che costa zero e serve davvero.** `probe_ann_recall.py
+**Passo 3: quello che costa zero e serve davvero.** `probe_ann_recall.py
 --dataset ledger` **prima** di ogni run che pubblichi numeri in ANN. Un minuto, e
 dice se l'indice approssimato di oggi è quello di ieri.
 
@@ -914,7 +914,7 @@ finché nessuno tocca la collection, e niente registra che qualcuno l'ha toccata
 
 ---
 
-## OQ-10 — Il gate d'astensione non è mai stato calibrato contro una domanda *plausibile*
+## OQ-10: Il gate d'astensione non è mai stato calibrato contro una domanda *plausibile*
 
 **Nuova (2026-08-23), osservata scegliendo gli esempi di D-17.** Il fatto è
 misurato su un campione piccolo e dichiarato tale; quanto sia generale, no.
@@ -945,23 +945,23 @@ come si vorrebbe: sono tutte e quattro assenti allo stesso modo.
 **La soglia è stata calibrata su domande che non somigliano a queste.** Le 35
 query non rispondibili di E-02 sono costruite **incrociando i corpus**: quelle di
 `ledger` sono domande accademiche, quelle di `open_ragbench` sono domande di
-bilancio. Sono lontane nello spazio degli embedding — e infatti su `ledger` il
+bilancio. Sono lontane nello spazio degli embedding, e infatti su `ledger` il
 gate le chiude su 34 su 35.
 
 Il caso vero della demo, e di chiunque usi il sistema, è l'altro: una domanda
 **del dominio giusto** su un fatto che il corpus non ha. Lì il recupero trova
-cinque chunk che parlano proprio di quello — stessa azienda, stessa voce di
-bilancio, anno sbagliato — e il punteggio non ha ragione di scendere.
+cinque chunk che parlano proprio di quello (stessa azienda, stessa voce di
+bilancio, anno sbagliato), e il punteggio non ha ragione di scendere.
 
 > Il numero che serve non è «quanto separa le rispondibili dalle non
-> rispondibili» — quello è 0,9995 di AUC su `ledger` (C-04) e sembra ottimo. È
+> rispondibili»: quello è 0,9995 di AUC su `ledger` (C-04) e sembra ottimo. È
 > **su quale popolazione di non rispondibili** è stato calcolato.
 
 ### Perché conta più di quanto sembri
 
 1. **Tocca una decisione dichiarata in codice.** Il §15 dice che l'astensione la
    decide la soglia, non il modello. Se la soglia lascia passare il caso
-   realistico, a decidere è il modello — che è D-19, e che il progetto ha scelto
+   realistico, a decidere è il modello, che è D-19, e che il progetto ha scelto
    di non lasciar decidere.
 2. **Tocca l'affermazione 1.** Una risposta costruita su cinque chunk della
    azienda giusta e dell'anno sbagliato è la condizione ideale per una citazione
@@ -973,18 +973,18 @@ bilancio, anno sbagliato — e il punteggio non ha ragione di scendere.
 
 ### Protocollo
 
-**Passo 1 — costruire la popolazione che manca. Zero GPU per la costruzione.**
+**Passo 1: costruire la popolazione che manca. Zero GPU per la costruzione.**
 Da `eval/golden/ledger.jsonl`, generare domande *plausibili e assenti* per
 sostituzione meccanica sulle query d'oro esistenti: stessa azienda e stessa voce,
 **anno fuori intervallo**; e stessa voce e stesso anno, **azienda fuori corpus**.
 Sono due famiglie con due difficoltà diverse e vanno tenute separate, perché il
 fatto qui sopra suggerisce che il gate le tratti in modo diverso.
 
-**Passo 2 — misurare, ~2 minuti di recupero.** Il tasso di chiusura del gate su
+**Passo 2: misurare, ~2 minuti di recupero.** Il tasso di chiusura del gate su
 ognuna delle due famiglie, contro il 97% che ottiene sulla popolazione
 cross-corpus di E-02. Il confronto fra i tre numeri **è** il risultato.
 
-**Passo 3 — solo se il passo 2 conferma.** Non ricalibrare subito: una soglia più
+**Passo 3, solo se il passo 2 conferma.** Non ricalibrare subito: una soglia più
 alta comprerebbe astensioni sui casi plausibili e ne pagherebbe sulle
 rispondibili, e il bilancio va guardato prima di sceglierlo. C-04 ha lo strumento
 (`calibrate_abstention.py`); quello che manca è il set su cui farlo girare, ed è
@@ -994,7 +994,7 @@ il passo 1.
 
 **Chiamarlo un difetto della calibrazione.** Non lo è: C-04 ha calibrato
 correttamente sulla popolazione che aveva, e quella popolazione è quella che E-02
-ha costruito. Il difetto, se c'è, sta un piano più su — nella **definizione** di
+ha costruito. Il difetto, se c'è, sta un piano più su: nella **definizione** di
 «non rispondibile» adottata dal golden set, che è una scelta di costruzione del
 dataset e non un errore di misura.
 
