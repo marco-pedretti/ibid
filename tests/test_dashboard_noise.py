@@ -303,7 +303,7 @@ class TestShortRunLabel:
 class TestActiveFlags:
     def test_none_active(self):
         from dashboard.eval_store import active_flags
-        assert active_flags({"rerank": False}) == "—"
+        assert active_flags({"rerank": False}) == "n/d"
 
     def test_lists_active(self):
         from dashboard.eval_store import active_flags
@@ -315,7 +315,7 @@ class TestActiveFlags:
 
     def test_empty_config(self):
         from dashboard.eval_store import active_flags
-        assert active_flags({}) == "—"
+        assert active_flags({}) == "n/d"
 
 
 class TestRunRows:
@@ -338,7 +338,7 @@ class TestRunRows:
 
     def test_missing_config_degrades_to_dash(self):
         from dashboard.eval_store import run_rows
-        assert run_rows([_run(config={})])[0]["retrieval"] == "—"
+        assert run_rows([_run(config={})])[0]["retrieval"] == "n/d"
 
     def test_commit_is_shortened(self):
         from dashboard.eval_store import run_rows

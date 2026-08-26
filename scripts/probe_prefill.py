@@ -256,7 +256,7 @@ def main() -> None:
         )
 
     print(
-        f"riscaldamento ({prompts[0][0]}) — carica il modello, non si conta...",
+        f"riscaldamento ({prompts[0][0]}): carica il modello, non si conta...",
         flush=True,
     )
     chiedi(base, args.model, SYSTEM, prompts[0][1], args.num_ctx, args.num_batch)

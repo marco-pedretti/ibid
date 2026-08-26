@@ -41,7 +41,7 @@ def _format_metrics(df: pd.DataFrame) -> pd.DataFrame:
     Raw floats render at wildly different widths (0 next to 0.6033333333333332),
     which is most of why the metrics table was hard to scan.
     """
-    return df.map(lambda v: "—" if isinstance(v, float) and math.isnan(v) else f"{v:.4f}")
+    return df.map(lambda v: "n/d" if isinstance(v, float) and math.isnan(v) else f"{v:.4f}")
 
 
 def _render_single(run, floors) -> None:
@@ -73,7 +73,7 @@ def _render_delta(sel, table, floor) -> None:
     if len(changed) == 0:
         st.info("Stessa configurazione: il delta è puro rumore di esecuzione.")
     elif len(changed) == 1:
-        st.success(f"Cambia un parametro solo: **{changed[0]}** — delta attribuibile.")
+        st.success(f"Cambia un parametro solo: **{changed[0]}**: delta attribuibile.")
     else:
         st.warning(
             f"Cambiano **{len(changed)}** parametri ({', '.join(changed)}): il delta "

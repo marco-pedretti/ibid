@@ -82,13 +82,13 @@ def render_run_detail(run) -> None:
     r2[2].metric("Config hash", run.config_hash)
     r3 = st.columns(3)
     r3[0].metric("Temperatura", run.temperature)
-    r3[1].metric("Context window", run.context_window if run.context_window else "—")
+    r3[1].metric("Context window", run.context_window if run.context_window else "n/d")
     r3[2].metric("Reasoning", "✅" if run.reasoning_enabled else "❌")
     if run.config:
         r4 = st.columns(3)
-        r4[0].metric("Retrieval", run.config.get("retrieval_mode", "—"))
-        r4[1].metric("Collection", run.config.get("collection", "—"))
-        r4[2].metric("top_k", run.config.get("top_k", "—"))
+        r4[0].metric("Retrieval", run.config.get("retrieval_mode", "n/d"))
+        r4[1].metric("Collection", run.config.get("collection", "n/d"))
+        r4[2].metric("top_k", run.config.get("top_k", "n/d"))
         from dashboard.eval_store import active_flags
 
         st.caption(f"Flag attivi: {active_flags(run.config)}")
@@ -190,9 +190,9 @@ def render_hits(
         is_notable = bool(golden_ids and h.chunk_id in golden_ids)
         with st.expander(header, expanded=is_notable or h.rank == 1):
             meta = st.columns(4)
-            meta[0].write(f"**Pipeline:** {p.get('pipeline', '—')}")
-            meta[1].write(f"**Pagina:** {p.get('page', '—')}")
-            meta[2].write(f"**content_type:** {p.get('content_type', '—')}")
+            meta[0].write(f"**Pipeline:** {p.get('pipeline', 'n/d')}")
+            meta[1].write(f"**Pagina:** {p.get('page', 'n/d')}")
+            meta[2].write(f"**content_type:** {p.get('content_type', 'n/d')}")
             meta[3].write(f"**Caratteri:** {len(p.get('text', ''))}")
             st.caption(f"`{h.chunk_id}`")
             if p.get("section_path"):

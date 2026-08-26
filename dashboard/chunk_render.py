@@ -58,7 +58,7 @@ def render_chunk(text: str, max_chars: int | None = None) -> None:
         rows = parse_html_table(segment)
         if not rows:
             # Never silently drop content: show the markup rather than nothing.
-            st.caption("Tabella non interpretabile — markup grezzo:")
+            st.caption("Tabella non interpretabile, markup grezzo:")
             st.code(segment[:2000], language="html")
             continue
 

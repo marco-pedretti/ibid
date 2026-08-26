@@ -84,7 +84,7 @@ def main() -> None:
 
     runs = []
     print(
-        f"\nE-07: {args.n_runs} runs — mode={args.mode}, dataset={args.dataset}, "
+        f"\nE-07: {args.n_runs} runs, mode={args.mode}, dataset={args.dataset}, "
         f"retrieval={retrieval_label}",
         flush=True,
     )

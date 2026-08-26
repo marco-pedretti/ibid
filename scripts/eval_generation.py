@@ -71,7 +71,7 @@ def main() -> None:
             print(f"[ERROR] {golden_path} not found. Run build_golden.py first.")
             sys.exit(1)
 
-        print(f"\n=== Baseline {args.baseline} — {dataset_id} ===", flush=True)
+        print(f"\n=== Baseline {args.baseline}: {dataset_id} ===", flush=True)
 
         # The population is part of the file's identity: a baseline run over the
         # unanswerable set measures something else entirely.

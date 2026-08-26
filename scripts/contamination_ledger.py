@@ -217,7 +217,7 @@ def main() -> None:
     try:
         urllib.request.urlopen("http://localhost:11434/", timeout=5)
     except Exception:
-        print("ERROR: Ollama non raggiungibile — avvialo prima di procedere.", file=sys.stderr)
+        print("ERROR: Ollama non raggiungibile, avvialo prima di procedere.", file=sys.stderr)
         sys.exit(1)
 
     all_results: list[dict] = []
@@ -237,11 +237,11 @@ def main() -> None:
     print(f"Controlli positivi corretti: {sum(1 for r in controls if r['correct'])} / {len(controls)}")
 
     if contaminated:
-        print("\nATTENZIONE — risposte corrette senza contesto:")
+        print("\nATTENZIONE: risposte corrette senza contesto:")
         for r in contaminated:
             print(f"  {r['id']} [{r['model']}]: {r['response'][:80]}")
 
-    verdict = "APPROVATO" if len(contaminated) == 0 else f"ATTENZIONE — {len(contaminated)} corrette"
+    verdict = "APPROVATO" if len(contaminated) == 0 else f"ATTENZIONE: {len(contaminated)} corrette"
     print(f"\nEsito: {verdict}")
 
     # Save
