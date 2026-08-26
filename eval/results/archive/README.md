@@ -5,7 +5,7 @@ retrieval. Sono archiviati, non cancellati: le conclusioni in `docs/progress.md`
 li citano, e una parte delle loro metriche è tuttora corretta.
 
 Il caricatore della dashboard legge solo `eval/results/*.json`, non questa
-sottocartella — quindi il comparator non mescola più numeri validi e invalidi.
+sottocartella, quindi il comparator non mescola più numeri validi e invalidi.
 
 ## Il difetto
 
@@ -21,7 +21,7 @@ Misurato su open_ragbench, 100 query, dense:
 | 10 | 0.7800 | **0.8600** | **0.7004** | **0.6499** | 0.5500 |
 | 20 | 0.7800 | 0.8600 | 0.7004 | 0.6499 | 0.5500 |
 
-In tutti e 16 i file `R@10 == R@5` esattamente — non è una proprietà dei dati.
+In tutti e 16 i file `R@10 == R@5` esattamente, e non è una proprietà dei dati.
 
 ## Cosa resta valido qui dentro
 
@@ -58,15 +58,15 @@ documento; quelli ORB sono sezioni sparse su documenti diversi.
 
 ### Conseguenze sulle conclusioni già scritte in `progress.md`
 
-- **R-07** (+4% ORB / −20% LEDGER) — **numeri da sostituire**. La direzione
+- **R-07** (+4% ORB / −20% LEDGER): **numeri da sostituire**. La direzione
   regge (ORB su, LEDGER giù) ed è stabile su tutte le varianti provate, ma
   entrambe le magnitudini erano gonfiate. Valori corretti in `progress.md`.
-- **R-05** (chunk R@5 0.80 vs doc R@5 0.96) — il confronto **regge come
+- **R-05** (chunk R@5 0.80 vs doc R@5 0.96): il confronto **regge come
   direzione** (doc-recall ≫ chunk-recall), la magnitudine no: `doc_R@5` era
   sottostimata, quindi il divario reale è più ampio, non più stretto.
-- **R-03** (query rewrite, −10.4% su nDCG@10) — direzione plausibile,
+- **R-03** (query rewrite, −10.4% su nDCG@10): direzione plausibile,
   **magnitudine inaffidabile**
-- **R-04** (filtri metadata) — la parte `R@5 −5.0%` regge, la parte
+- **R-04** (filtri metadata): la parte `R@5 −5.0%` regge, la parte
   `nDCG@10 −4.1%` no
 
 ## Secondo limite: non si sa su quante query girarono

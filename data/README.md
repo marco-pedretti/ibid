@@ -21,18 +21,18 @@ Da qui due regole operative:
 
 1. **L'attribuzione viaggia con l'artefatto, non solo col repository.** Chi scarica uno snapshot da una release può non aver mai aperto questo file. Il corpo della release e un `ATTRIBUTION.md` dentro l'archivio devono dire da quali dataset viene e sotto quali termini.
 
-2. **CC-BY-4.0 chiede di segnalare le modifiche**, e noi ne facciamo: il corpus viene spezzato in chunk, arricchito con `doc_genre` e `pipeline`, e in una variante re-indicizzato con una segmentazione diversa (`_routed`). Va detto — «derivato da …, suddiviso in chunk e indicizzato» — non lasciato dedurre.
+2. **CC-BY-4.0 chiede di segnalare le modifiche**, e noi ne facciamo: il corpus viene spezzato in chunk, arricchito con `doc_genre` e `pipeline`, e in una variante re-indicizzato con una segmentazione diversa (`_routed`). Va detto («derivato da …, suddiviso in chunk e indicizzato»), non lasciato dedurre.
 
 ## Cosa è ridistribuibile, e cosa conviene
 
 - **`open_ragbench` e `ledger`**: sì, ed è il piano di U-08.
-- **Le varianti `_routed`**: tecnicamente sì, ma sono 2,1 GB e servono all'ablation R-07 — cioè a chi riproduce le misure, e chi riproduce ingerisce da sé.
+- **Le varianti `_routed`**: tecnicamente sì, ma sono 2,1 GB e servono all'ablation R-07, cioè a chi riproduce le misure, e chi riproduce ingerisce da sé.
 - **Il golden set** (`eval/golden/`): sono query e qrels derivati dagli stessi corpus, quindi seguono le stesse licenze.
 - **I risultati** (`eval/results/`): sono nostre misure, non dati altrui. Vanno con il codice.
 
 ## Il legame che uno snapshot non può perdere
 
-Un indice è legato al **modello di embedding** che lo ha prodotto: interrogarlo con un altro restituisce risultati plausibili e privi di senso, senza nessun errore (è la stessa ragione per cui `RequestConfig` non contiene `embedding_model` — vedi `src/config.py`). Quindi ogni artefatto pubblicato dichiara, nel corpo della release:
+Un indice è legato al **modello di embedding** che lo ha prodotto: interrogarlo con un altro restituisce risultati plausibili e privi di senso, senza nessun errore (è la stessa ragione per cui `RequestConfig` non contiene `embedding_model`: vedi `src/config.py`). Quindi ogni artefatto pubblicato dichiara, nel corpo della release:
 
 - il **commit** da cui è stato generato;
 - il **modello di embedding** e la sua dimensione (oggi `intfloat/multilingual-e5-large`, 1024);
