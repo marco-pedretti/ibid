@@ -131,7 +131,9 @@ def _primo_movimento(files: list[Path], passo_ms: int) -> float:
     soglia = riferimento.width * riferimento.height * _QUOTA_DIVERSA
     for i, f in enumerate(files[i0 + 1 :], start=i0 + 1):
         im = Image.open(f).convert("L")
-        diversi = sum(1 for p in ImageChops.difference(im, riferimento).getdata() if p > 12)
+        # L'istogramma invece di contare i pixel a uno a uno: stessa risposta,
+        # e non tocca `getdata()`, che Pillow ha deprecato.
+        diversi = sum(ImageChops.difference(im, riferimento).histogram()[13:])
         if diversi > soglia:
             return max(0.0, i * passo_ms / 1000 - _MARGINE_S)
     return 0.0
