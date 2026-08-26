@@ -4941,3 +4941,227 @@ La pagina **non ripete i risultati**: quelli stanno nel README, e due copie degl
 stessi numeri divergono al primo aggiornamento. Non copre la Fase 9 (X-xx), che
 non esiste ancora, e non descrive l'interfaccia schermata per schermata: U-19 e'
 la pagina che lo fa, e dentro l'applicazione.
+
+### U-10: il video, e il taglio che si fa da solo
+
+Il criterio dice **≤ 90 secondi** e **niente tagli che nascondano la latenza
+reale**. La seconda meta' e' quella che decide come si lavora, e la scelta e'
+stata di Marco fra tre strade: la ripresa la esegue **uno script**, non una
+mano. `npm run video` apre l'applicazione vera con Playwright, fa il copione dal
+vivo e tiene la registrazione aperta dal primo clic all'ultimo. Non c'e' un
+montaggio da cui togliere qualcosa.
+
+Il vantaggio che non si vede nel file finito: **la GIF si rifa' con un
+comando**. U-13, U-17, U-18 e U-19 cambieranno le tre colonne, e una ripresa a
+mano si rifa' solo rifacendola.
+
+| | |
+|---|---|
+| durata | **18,3 s** la chat, **23,5 s** l'apertura della fonte (ripresa unica, 45,1 s) |
+| peso | 3,49 + 5,29 MB in italiano, 3,34 + 4,78 in inglese |
+| formato | **1280 x 800** (nativo), 12 fps, **256 colori**, tema scuro |
+| fotogrammi | 239 e 281 estratti, 153 e 133 distinti: gli identici si fondono |
+| tempi mostrati a schermo | recupero 0,20 s, generazione 7,77 s, verifica 0,82 s, **totale 8,80 s** |
+
+#### La trappola: un taglio senza forbici
+
+Ollama tiene la cache del prompt, e **una domanda gia' fatta non paga il
+prefill**. Sulla domanda del copione, nello stesso pomeriggio:
+
+| stato del motore | `generation` |
+|---|---|
+| prima volta, modello caricato | 16,9 s |
+| dopo qualche ripetizione | **3,9 s** |
+| modello scaricato e ricaricato con un'altra domanda | 8,0 s |
+
+La riga di mezzo e' la prima versione della ripresa, ed e' quella che ha fatto
+capire il problema: **avrebbe scritto «generation 3,91 s» a schermo senza che
+nessuno tagliasse un fotogramma**. Il criterio sarebbe stato rispettato alla
+lettera e violato nella sostanza.
+
+Il primo tentativo di rimedio (scaldare con una domanda diversa) **non e'
+bastato**: le cache sono piu' d'una e quella del copione sopravvive. La
+correzione e' scaricare il modello (`keep_alive: 0`) e ricaricarlo con una
+domanda che nel video non compare. E' l'unico punto in cui il progetto parla
+all'API nativa del motore invece che a `/v1`, quindi **si tenta e non si
+pretende**: con `llama-server` l'operazione non esiste, e lo script lo dice
+invece di fingere.
+
+L'errore opposto e' altrettanto facile: a freddo la stessa domanda costa **24,8
+s contro 14,3**, e sarebbe una latenza gonfiata da un caricamento che non e'
+la pipeline. Riscaldare e' quindi obbligatorio quanto svuotare la cache.
+
+#### Tre dettagli che hanno deciso la resa
+
+- **Il puntatore e' disegnato nel DOM.** Playwright non registra il cursore di
+  sistema: senza un surrogato i clic sembrano accadere da soli. Nello scatto
+  fermo viene tolto, perche' li' non spiega niente.
+- **Si aspettano gli eventi, non i secondi.** La fine della generazione e' la
+  scomparsa del comando «Ferma», che esiste solo mentre lo stream scorre: una
+  risposta lenta il doppio allunga la ripresa invece di finire tagliata.
+- **La guida di U-20 si salta dal deposito**, perche' un profilo di browser
+  nuovo la mostrerebbe a ogni ripresa.
+
+#### La GIF, e le tre scelte che ne decidono il peso
+
+`scripts/video_gif.py` la costruisce con Pillow: l'ffmpeg che Playwright si
+porta dietro ha **dodici filtri e nessun encoder GIF**, quindi serve solo a
+decodificare in PNG. Misurato sulla stessa ripresa:
+
+| | peso |
+|---|---|
+| 1000 px, 128 colori, senza dithering | **4,5 MB** (scelto) |
+| 1000 px, 128 colori, con dithering | 8,0 MB |
+| `disposal=2` invece di `1` | **40,5 MB** |
+
+Il dithering su colori piatti aggiunge rumore che LZW non comprime. Il
+`disposal` e' la leva grossa: con `1` si riscrive solo il rettangolo che cambia,
+e su una schermata ferma quel rettangolo e' vuoto.
+
+#### La quarta trappola: uno schermo fermo, nel video, non esiste
+
+Segnalazione di Marco: *«e' un po' brutto che la gif parta che sta ancora
+finendo di caricare l'interfaccia»*. Aveva ragione, e la causa non era il punto
+di taglio.
+
+**Il filmato riceve un fotogramma solo quando la pagina ne dipinge uno**, e per
+il resto ripete l'ultimo che ha. Un'interfaccia appena caricata e **ferma** non
+dipinge niente: il video continuava a mostrare lo scheletro del caricamento fino
+al primo clic. Misurato: la ripresa registra lo stato vuoto a 3,00 s e il video
+lo mostra a 6,50; allungando la pausa a 6,5 s la comparsa si e' spostata a
+10,13, cioe' di nuovo esattamente al clic. **Era il gesto a dipingere, non
+l'applicazione.**
+
+Il rimedio e' una pausa che respira: il puntatore disegnato si sposta di un
+pixel ogni 250 ms, un ridisegno per battito. Adesso la GIF si apre
+sull'interfaccia carica, si ferma **2,7 secondi** e parte la domanda.
+
+**E questo corregge la correzione di prima.** Nel commit precedente avevo
+scritto che il rilevatore del taglio sbagliava e che andavano usate le battute:
+sbagliato al contrario. Il rilevatore trovava il momento giusto (il primo
+fotogramma diverso da quello del caricamento); e' **la prima battuta** a non
+corrispondere a quel che il video mostra, e solo quella: tutte le altre cadono
+dove devono, verificate una per una. Il taglio in testa torna a cercarsi nei
+fotogrammi, le battute restano buone per ogni altro punto, e adesso il perche' e'
+scritto.
+
+#### Due difetti del montaggio, trovati guardando il primo fotogramma
+
+**Il taglio in testa non si puo' prendere dall'orologio.** La ripresa scrive le
+proprie battute in un file accanto al video, e sembrava naturale tagliare alla
+prima: «stato vuoto», 3,0 s. Guardando il risultato, la GIF si apriva lo stesso
+sullo scheletro. La traccia video **non e' allineata all'orologio dello
+script**, e lo scarto cambia da una ripresa all'altra: fra due consecutive,
+0,25 s e 3,4 s. Il taglio ora si trova guardando i fotogrammi (finche'
+l'applicazione carica non cambia un pixel), e il margine e' **zero**: il primo
+fotogramma di una GIF e' la locandina che si vede ferma, e deve essere
+l'applicazione.
+
+**La tavolozza non si prende dal primo fotogramma.** Preso da li' produceva una
+GIF di **1,4 kB e un fotogramma solo**: il primo e' la pagina ancora bianca, la
+sua tavolozza ha due colori, ogni fotogramma successivo ci finiva dentro
+appiattito fino a diventare identico agli altri, e Pillow li fondeva tutti.
+Adesso il campione e' un mosaico di sedici fotogrammi presi a intervalli
+regolari, cosi' dentro ci sono la conversazione, l'esploratore e l'astensione.
+
+Tutti e due si sono visti **aprendo il file finito**, non dai numeri che lo
+strumento stampava: 41,0 s e 3,48 MB erano plausibili in tutt'e due i casi.
+
+#### Due GIF invece di una, e una convinzione sbagliata smontata per strada
+
+**Idea di Marco**: quaranta secondi sono un ciclo lungo, e chi guarda una GIF in
+cima a un README ne vede i primi dieci. Spezzata in due (la chat con le
+citazioni in cima, l'apertura della fonte in «Come funziona») ogni pezzo ha una
+tesi sola. Il peso totale non cambia: 4,6 MB la coppia contro 4,4 il file unico.
+
+**Sono due ritagli di una ripresa sola, e non due riprese.** Registrarne due
+obbligherebbe la seconda a partire da una risposta gia' pronta, cioe' a mostrare
+la schermata senza l'attesa che l'ha prodotta: il criterio aggirato senza
+tagliare niente, di nuovo. Cosi' invece la garanzia si rafforza, e il confine
+cade a 22,9 s, un secondo e quattro prima che l'esploratore compaia: il primo
+pezzo finisce sulla risposta, il secondo comincia dallo stesso fotogramma.
+
+**E qui e' caduta una cosa che avevo scritto in cinque posti.** Per tagliare la
+testa serviva sapere dove comincia il copione, e il primo tentativo (leggere la
+prima battuta dal file dei tempi) sembrava dare il punto sbagliato: da li' avevo
+concluso che *«la traccia video non e' allineata all'orologio dello script, e lo
+scarto cambia da una ripresa all'altra: 0,25 s e 3,4 s»*. **Non e' vero.** Lo
+sbaglio era del mio rilevatore: cerca il primo fotogramma diverso da quello del
+caricamento, e in tema scuro la comparsa dell'applicazione sposta meno pixel,
+la soglia non scatta e il punto scivola al movimento successivo. Cercando invece
+i **cambi di schermata piu' grossi** dell'intero filmato, cadono a 7,25 / 24,33
+/ 33,42 s contro 7,25 / 24,34 / 33,44 registrati dalla ripresa: **i due orologi
+coincidono**. Le battute si usano dirette, e la ricerca nei fotogrammi resta
+solo come ripiego per un video senza il suo file dei tempi.
+
+Vale la pena notare come si e' visto: **non da una misura in piu', ma aprendo il
+file finito** e guardando l'ultimo fotogramma del primo pezzo, che mostrava
+l'esploratore invece della risposta. E' la stessa lezione di `hardware.md`
+(«quando una spiegazione e' pronta, la prima ipotesi da scartare e' che si stia
+misurando altro»), ripetuta a spese mie.
+
+#### Il tema scuro, e la terza trappola che ha tirato fuori
+
+Le prime riprese erano in tema chiaro; **Marco ha chiesto lo scuro**, e le due
+riprese rifatte in scuro hanno impiegato **26 secondi** per la stessa risposta
+che prima ne prendeva otto. Il tema non c'entrava: erano i contatori GPU per
+processo a dirlo, con **5,1 GB in memoria condivisa** e 10,1 dedicata.
+
+| | dedicata | condivisa | la stessa domanda |
+|---|---|---|---|
+| dopo mezza giornata di sessione | 10,1 GB | **5,1 GB** | **26,0 s** |
+| dopo aver riavviato il backend | 5,9 GB | 1,1 GB | **7,8 s** |
+
+Le sessioni ONNX del backend (embedder, reranker, verificatore, ~4,5 GB
+insieme) restano residenti per tutta la vita del processo, e su una scheda da
+12 GB spingono il resto fuori. E' lo stesso confonditore di `hardware.md`, con
+la stessa regola: **liberare batte ridurre**. Il riavvio del backend e' entrato
+nel pre-volo, e la ripresa **avvisa da sola** quando la risposta supera i
+quindici secondi, invece di lasciar pubblicare una latenza che non e' quella
+del sistema.
+
+Vale la pena notare in che direzione sbagliano le tre trappole: la cache del
+prefill **abbassa** la latenza mostrata, la VRAM contesa e il freddo la
+**alzano**. Nessuna delle tre e' la latenza del sistema.
+
+#### «Sono molto compresse»: dov'era il difetto
+
+Osservazione di Marco, e aveva ragione. Il colpevole non era la tavolozza ma
+**la riscalatura**: 1280 px ridotti a 1000 ricampionano ogni lettera, e su un
+testo da dodici pixel il ricampionamento e' esattamente cio' che si legge come
+«compressione». Il video sorgente invece regge: ritagliato a 1:1 il testo e'
+pulito, quindi la perdita era tutta nel montaggio.
+
+| | peso |
+|---|---|
+| **1280 px, 256 colori** | **3,21 MB** (scelto) |
+| 1280 px, 128 colori | 2,77 MB |
+| 1000 px, 256 colori | 2,03 MB |
+| 1000 px, 128 colori | 1,77 MB (com'era) |
+| WebP 1280 px, qualita' 90 | 2,94 MB |
+| APNG senza perdita | 18,7 MB |
+
+Dimensione nativa e 256 colori (il massimo del formato) costano il 79% in piu' e
+si vedono. **WebP peserebbe meno a parita' di qualita' ed e' a 24 bit**, ma una
+GIF la disegna qualunque cosa apra un README: un'immagine rotta in cima alla
+pagina costa piu' del megabyte risparmiato.
+
+**E una cosa contro-intuitiva, misurata:** abbassare i fotogrammi al secondo
+**non** alleggerisce. Sulla seconda GIF: 12 fps 4,90 MB, 10 fps 4,99, 8 fps
+5,31, 15 fps 5,41, 20 fps 6,38. Sotto i dodici i campioni cadono piu' lontani
+fra loro, si somigliano di meno, se ne fondono meno e ognuno porta un rettangolo
+di differenza piu' grande. Dodici e' il minimo della curva, non un compromesso.
+
+Il totale passa da 9,2 a **16,9 MB**, nove per pagina. E' il prezzo della
+dimensione nativa, pagato di proposito.
+
+#### Cosa e' entrato nel repository, e cosa no
+
+Dentro: le due GIF, le due schermate (2560 x 1600, ~300 kB), i due script e la
+riga di `playwright` in `STACK.md` (Apache-2.0, dipendenza di sviluppo, non
+entra nel bundle). Fuori: i `.webm` grezzi, che si rifanno a comando e
+peserebbero 2,7 MB ciascuno per un file che nessuno apre.
+
+**Con lo screenshot si chiude anche la prima delle due cose che U-11 aveva
+lasciato indietro.** Resta la descrizione «About» del repo, che si imposta su
+GitHub e non da qui.

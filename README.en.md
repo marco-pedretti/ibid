@@ -8,6 +8,10 @@ Every claim the system produces carries a pointer to the chunk it came from, and
 
 This is not a demo with links at the bottom of the answer. It is a measurement bench, built around three claims: **two hold, one was refuted by the numbers**. The refuted one stayed on this page, with the table that disproves it: it is the most interesting finding in the project.
 
+![A question, the answer with verified citations, and the source opened at the cited chunk](docs/demo.en.gif)
+
+<sub>No cuts: the **eight seconds of waiting are the real ones**, and the timings row above the answer splits them into retrieval, generation and verification. The continuation, where the source opens at the cited chunk, is under «How it works»: same recording, cut in two.</sub>
+
 ---
 
 ## Getting started
@@ -43,6 +47,10 @@ QDRANT_URL=http://10.0.0.5:6333 LLM_BASE_URL=http://10.0.0.7:11434/v1 make api
 ## What it demonstrates
 
 Three claims. Each appears below with its own table, **always per dataset and never averaged across the two**: they are different document genres, and an arithmetic mean would have hidden the project's main result.
+
+![The answer with citation markers, per-sentence verdicts and the sources column](docs/screenshot.en.png)
+
+<sub>Every citation carries its own verdict, and the sources the model did not cite stay in the column marked as such instead of disappearing.</sub>
 
 ### 1. Verified attribution is measurable, and small models fail systematically ✅
 
@@ -148,6 +156,10 @@ question → rewrite → hybrid retrieval (dense + BM25, RRF fusion)
          → generation with enforced markers → parser → entailment check
          → answer with clickable citations, each resolved to its chunk
 ```
+
+![From the citation to the cited chunk inside the document, and a question outside the corpus that gets no answer](docs/fonte.en.gif)
+
+<sub>The continuation of the recording above, from the same video: the source opens at the chunk that was cited, and the out-of-corpus question closes the gate in half a second, before the model is ever asked.</sub>
 
 | | |
 |---|---|

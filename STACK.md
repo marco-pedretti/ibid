@@ -291,12 +291,15 @@ Frontend (`ui/`, introdotto in U-00 il 2026-08-14). Licenze lette dai `package.j
 | @types/react, @types/react-dom | 19.2.x | MIT | sì: solo tipi |
 | katex | 0.18.4 | MIT | sì: nel bundle, font compresi |
 | **lightningcss** | 1.32.0 | **MPL-2.0** | sì, **ma va detto**, vedi sotto |
+| playwright, playwright-core | 1.62.1 | Apache-2.0 | sì: solo sviluppo, vedi sotto |
 
 **`lightningcss` è l'unica dipendenza copyleft dell'albero**, tirata dentro da Tailwind 4 come trasformatore CSS. È MPL-2.0, cioè copyleft **a livello di file**: obbliga a mantenere sotto MPL i file di *quella* libreria se modificati e ridistribuiti, e non si propaga al progetto che la usa. Non è nella lista vietata (GPL / AGPL / LGPL-static), è una dipendenza di *build* che non finisce nel bundle servito, e il CSS che produce è un output, non un'opera derivata dei suoi sorgenti. Resta segnalata qui perché la regola dice di segnalare, non di valutare in silenzio: toglierla richiederebbe rinunciare a Tailwind, che STACK indica come scelta di stile.
 
 **`katex` è l'unica dipendenza che finisce davvero nel bundle servito** (U-02, 2026-08-14), e porta con sé i propri font. È una deroga dichiarata al «tutti font di sistema» del §12: quella regola esiste perché U-08 vuole il profilo `demo` avviabile **senza rete**, e i font di KaTeX sono file locali emessi da `vite build` accanto al bundle, nessuna richiesta a un CDN. La ragione per cui non si usa invece MathML col font matematico di sistema è la stessa per cui i simboli dell'interfaccia sono disegnati e non scritti: un carattere risolto dal sistema è diverso su ogni macchina, e una formula lo è in modo molto più visibile di un caret. Costo misurato: +260 kB di JS e +190 kB di font sul bundle (147 kB gzip il JS). L'unica dipendenza a runtime di katex è `commander` (MIT), che serve al suo eseguibile da riga di comando e non al browser.
 
-Nessuna GPL, AGPL o LGPL nell'albero: 56 pacchetti MIT, 4 Apache-2.0, 3 ISC, 2 MPL-2.0 (lo stesso `lightningcss` e il suo binario per piattaforma), 1 BSD-3-Clause.
+**`playwright` e' entrato con U-10** (2026-08-26) e serve a una cosa sola: registrare il video del README eseguendo il copione dal vivo, cosi' che la ripresa si rifaccia con un comando quando l'interfaccia cambia. E' una dipendenza di **sviluppo**, non compare in nessun import di `src/` e non finisce nel bundle; il browser che scarica (~150 MB) sta nella cache dell'utente, fuori dal repository. Porta con se' un solo pacchetto, `playwright-core`, con la stessa licenza.
+
+Nessuna GPL, AGPL o LGPL nell'albero. Conteggio del 2026-08-26 leggendo il campo `license` di ogni `package.json` sotto `node_modules`, 71 pacchetti: **59 MIT, 6 Apache-2.0, 3 ISC, 2 MPL-2.0** (lo stesso `lightningcss` e il suo binario per piattaforma), **1 BSD-3-Clause**.
 
 **Verifica T-07 (2026-08-04):** tutte le dipendenze in `pyproject.toml` controllate; nessuna copyleft in albero. Licenze confermate da LICENSE file nelle dist-info: pydantic MIT, uvicorn/starlette BSD-3-Clause, ruff MIT, pytest MIT.
 

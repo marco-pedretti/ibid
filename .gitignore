@@ -18,3 +18,10 @@ logs/
 # I campioni dei probe si rigenerano con `probe_index_variants.py sample` ed e'
 # deterministico: committarli aggiungerebbe peso senza aggiungere riproducibilita'.
 eval/results/probe_samples/
+
+# La ripresa grezza di U-10 e i suoi tempi: `ui/scripts/video.mjs` li rifa' a
+# comando, e la GIF che ne esce e' l'unico artefatto che il README mostra.
+# Committare anche il .webm raddoppierebbe il peso per una cosa che nessuno
+# apre: 2,7 MB contro i 3,5 della GIF, per ogni lingua.
+docs/*.webm
+docs/*.tempi.json
