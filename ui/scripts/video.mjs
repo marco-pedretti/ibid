@@ -12,8 +12,9 @@
  * rifa' con un comando, che e' la differenza fra aggiornare la GIF quando U-13
  * sposta la corsia e lasciarla vecchia.
  *
- *   npm run video              # italiano
+ *   npm run video              # italiano, tema scuro
  *   npm run video -- --en      # inglese
+ *   npm run video -- --chiaro  # tema chiaro
  *
  * Servono il backend e Vite gia' accesi (`make dev`) e l'indice costruito. Il
  * copione, i tempi misurati e i controlli da fare prima stanno in
@@ -49,6 +50,9 @@ const LINGUA = args.includes("--en") ? "en" : "it";
 /** `--scatto` prende l'immagine ferma invece del video: stesso copione,
  *  fermato alla battuta in cui c'e' tutto da vedere. */
 const SCATTO = args.includes("--scatto");
+/** Il tema della ripresa. **Scuro di default**, che e' come il progetto si
+ *  mostra nei due README; `--chiaro` per l'altro. */
+const TEMA = args.includes("--chiaro") ? "light" : "dark";
 const URL = valore("--url") ?? "http://localhost:5173";
 const USCITA = valore("--out") ?? join(RADICE, "docs");
 
@@ -264,21 +268,31 @@ async function main() {
     deviceScaleFactor: SCATTO ? 2 : 1,
     ...(SCATTO ? {} : { recordVideo: { dir: tmp, size: { width: 1280, height: 800 } } }),
     locale: LINGUA === "it" ? "it-IT" : "en-US",
+    // Il tema lo decide il deposito, non la media query. Questo serve al resto:
+    // barre di scorrimento e controlli nativi, che altrimenti restano chiari
+    // dentro una pagina scura.
+    colorScheme: TEMA,
   });
 
   // Il deposito prima che l'app lo legga: la guida gia' fatta (U-20) e la lingua
   // scelta. Il dataset non si tocca: il primo interrogabile e' `open_ragbench`,
   // che e' quello del copione.
+  // I valori sono stringhe nude e non JSON: e' il formato che il deposito usa
+  // davvero (`leggiLingua` confronta con l'elenco delle lingue, e lo script in
+  // testa a `index.html` legge il tema prima che React parta). Scritti fra
+  // virgolette JSON non corrispondevano a niente e venivano ignorati in
+  // silenzio: la lingua tornava giusta solo perche' la decideva il `locale`.
   await context.addInitScript(
-    ([lingua]) => {
+    ([lingua, tema]) => {
       try {
         window.localStorage.setItem("ibid.avvio", "fatto");
-        window.localStorage.setItem("ibid.lang", JSON.stringify(lingua));
+        window.localStorage.setItem("ibid.lang", lingua);
+        window.localStorage.setItem("ibid.theme", tema);
       } catch {
         /* un deposito negato non deve fermare la ripresa */
       }
     },
-    [LINGUA],
+    [LINGUA, TEMA],
   );
 
   const page = await context.newPage();
@@ -362,6 +376,22 @@ ${png}`);
   await attesa(LEGGI.coda);
 
   const durata = (Date.now() - t0) / 1000;
+
+  // Quanto e' costata la risposta, dedotto dalle battute. **Sopra i quindici
+  // secondi il sospetto non e' il modello, e' la memoria**: con le sessioni ONNX
+  // del backend residenti in VRAM, su una scheda da 12 GB il motore finisce a
+  // copiare invece che a calcolare, e la stessa domanda passa da 8 a 26 secondi
+  // (misurato tutte e due). Non e' una latenza da pubblicare: e' una macchina in
+  // contesa, e la diagnosi sta in `docs/hardware.md`.
+  const fonti = battute.find((b) => b.nome === "fonti arrivate");
+  const finita = battute.find((b) => b.nome === "risposta finita");
+  if (fonti !== undefined && finita !== undefined && finita.s - fonti.s > 15) {
+    console.warn(
+      `\n  ! la risposta ha impiegato ${(finita.s - fonti.s).toFixed(1)} s.\n` +
+        "    Di solito ne bastano otto: prima di tenere questa ripresa, riavvia il\n" +
+        "    backend per liberare la VRAM delle sessioni ONNX. Vedi docs/video.md.",
+    );
+  }
   await context.close();
   await browser.close();
 

@@ -4957,11 +4957,11 @@ mano si rifa' solo rifacendola.
 
 | | |
 |---|---|
-| durata | **44,6 s** (ripresa 48,0 s, meno il caricamento in testa) |
-| peso | 4,04 MB italiano, 4,17 MB inglese |
-| formato | 1000 x 625, 12 fps, 128 colori |
-| fotogrammi | 537 estratti, **407 distinti**: gli identici si fondono |
-| tempi mostrati a schermo | recupero 0,11 s, generazione 7,73 s, verifica 2,53 s, **totale 10,37 s** |
+| durata | **39,8 s** (ripresa 46,5 s, meno il caricamento in testa) |
+| peso | 4,40 MB italiano, 4,44 MB inglese |
+| formato | 1000 x 625, 12 fps, 128 colori, **tema scuro** |
+| fotogrammi | 480 estratti, **277 distinti**: gli identici si fondono |
+| tempi mostrati a schermo | recupero 0,20 s, generazione 7,77 s, verifica 0,82 s, **totale 8,80 s** |
 
 #### La trappola: un taglio senza forbici
 
@@ -5039,6 +5039,30 @@ regolari, cosi' dentro ci sono la conversazione, l'esploratore e l'astensione.
 
 Tutti e due si sono visti **aprendo il file finito**, non dai numeri che lo
 strumento stampava: 41,0 s e 3,48 MB erano plausibili in tutt'e due i casi.
+
+#### Il tema scuro, e la terza trappola che ha tirato fuori
+
+Le prime riprese erano in tema chiaro; **Marco ha chiesto lo scuro**, e le due
+riprese rifatte in scuro hanno impiegato **26 secondi** per la stessa risposta
+che prima ne prendeva otto. Il tema non c'entrava: erano i contatori GPU per
+processo a dirlo, con **5,1 GB in memoria condivisa** e 10,1 dedicata.
+
+| | dedicata | condivisa | la stessa domanda |
+|---|---|---|---|
+| dopo mezza giornata di sessione | 10,1 GB | **5,1 GB** | **26,0 s** |
+| dopo aver riavviato il backend | 5,9 GB | 1,1 GB | **7,8 s** |
+
+Le sessioni ONNX del backend (embedder, reranker, verificatore, ~4,5 GB
+insieme) restano residenti per tutta la vita del processo, e su una scheda da
+12 GB spingono il resto fuori. E' lo stesso confonditore di `hardware.md`, con
+la stessa regola: **liberare batte ridurre**. Il riavvio del backend e' entrato
+nel pre-volo, e la ripresa **avvisa da sola** quando la risposta supera i
+quindici secondi, invece di lasciar pubblicare una latenza che non e' quella
+del sistema.
+
+Vale la pena notare in che direzione sbagliano le tre trappole: la cache del
+prefill **abbassa** la latenza mostrata, la VRAM contesa e il freddo la
+**alzano**. Nessuna delle tre e' la latenza del sistema.
 
 #### Cosa e' entrato nel repository, e cosa no
 

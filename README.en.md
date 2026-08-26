@@ -10,7 +10,7 @@ This is not a demo with links at the bottom of the answer. It is a measurement b
 
 ![A question, the answer with verified citations, and the source opened at the cited chunk](docs/demo.en.gif)
 
-<sub>Single take, no cuts: the **nine seconds of waiting are the real ones**, and the timings row above the answer splits them into retrieval, generation and verification. It is re-recorded with one command, <code>npm run video -- --en</code>.</sub>
+<sub>Single take, no cuts: the **eight seconds of waiting are the real ones**, and the timings row above the answer splits them into retrieval, generation and verification. It is re-recorded with one command, <code>npm run video -- --en</code>.</sub>
 
 ---
 

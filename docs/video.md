@@ -1,4 +1,4 @@
-# Il video di U-10: come si rifà, e le due trappole che nasconde
+# Il video di U-10: come si rifà, e le tre trappole che nasconde
 
 Il criterio di U-10 è breve e vincola più di quanto sembri:
 
@@ -15,8 +15,9 @@ dal vivo, con la registrazione aperta dal primo clic all'ultimo.
 
 ```bash
 cd ui
-npm run video              # italiano  -> docs/demo.webm
-npm run video -- --en      # inglese   -> docs/demo.en.webm
+npm run video              # italiano, tema scuro -> docs/demo.webm
+npm run video -- --en      # inglese              -> docs/demo.en.webm
+npm run video -- --chiaro  # tema chiaro
 npm run video -- --scatto  # la schermata ferma invece del video
 
 cd ..
@@ -54,17 +55,30 @@ di funzionare, la ripresa mostra un'astensione dove dovrebbe esserci una
 risposta. Prima di D-17 è già successo che la demo si astenesse su una domanda
 che proponeva lei.
 
-### La macchina
+### La macchina, e il riavvio che vale tre volte la velocità
 
-Il backend tiene circa 3,5 GB fra embedder, reranker e verificatore. Con
-`gemma4:latest` (E4B, 3,3 GB) ci si sta comodi; con il 12B no, e il sintomo non
-è un errore ma una risposta lenta il doppio. Il conto e il comando che lo
-verifica stanno in [`hardware.md`](hardware.md), sezione «Il budget di una
-scheda da 12 GB».
+**Riavviare il backend prima di registrare.** Non è scaramanzia: le sessioni
+ONNX (embedder, reranker, verificatore) restano residenti in VRAM per tutta la
+vita del processo, e su una scheda da 12 GB spingono il resto nella memoria
+condivisa. Misurato durante questo lavoro, con i contatori per processo:
+
+| | dedicata | condivisa | la stessa domanda |
+|---|---|---|---|
+| dopo mezza giornata di sessione | 10,1 GB | **5,1 GB** | **26,0 s** |
+| subito dopo aver riavviato il backend | 5,9 GB | 1,1 GB | **7,8 s** |
+
+Il sintomo non è un errore: la risposta arriva, giusta, e ci mette tre volte
+tanto. È lo stesso confonditore descritto in [`hardware.md`](hardware.md),
+sezione «Il budget di una scheda da 12 GB», e la regola che ne era uscita vale
+anche qui: **liberare batte ridurre**.
+
+Da qui una riga di protocollo e un controllo automatico: se la risposta ha
+impiegato più di quindici secondi, `npm run video` lo dice a fine ripresa
+invece di lasciare pubblicare una latenza che non è quella del sistema.
 
 ---
 
-## 2. Le due trappole, che sono la parte interessante
+## 2. Le trappole, che sono la parte interessante
 
 ### La cache del prefill: un taglio senza forbici
 
@@ -88,7 +102,14 @@ della domanda del copione sopravvive. Perciò lo script **scarica il modello**
 un'operazione dell'API nativa di Ollama, quindi si tenta e non si pretende: con
 `llama-server` non esiste, e in quel caso lo script avvisa invece di fingere.
 
-### Il freddo, che è l'errore opposto
+### La VRAM occupata, che è l'errore nella direzione opposta
+
+Se la cache regala una latenza più bassa del vero, la memoria contesa ne
+produce una più alta: 26 secondi contro 8, per la ragione del paragrafo qui
+sopra. **Nessuna delle due è la latenza del sistema**, e pubblicarle sarebbe
+sbagliato in tutti e due i versi.
+
+### Il freddo, che è l'altro modo di gonfiarla
 
 La prima domanda dopo una pausa costa circa il doppio, e non per colpa della
 pipeline: **24,8 s a freddo contro 14,3 s subito dopo**, stessa domanda. Anche
@@ -110,15 +131,15 @@ questi sono quelli della ripresa italiana del 2026-08-26.
 | a | battuta | cosa si vede |
 |---|---|---|
 | 3,0 s | stato vuoto | l'applicazione ha finito di caricare: le tre domande d'esempio, con la query vera in mono sotto la traduzione |
-| 7,3 s | domanda inviata | clic sul primo esempio (MLMM e RMSE) |
-| 7,6 s | fonti arrivate | **la colonna delle fonti si riempie prima che il modello scriva una parola** |
-| 18,1 s | risposta finita | dieci secondi di attesa veri, con i marcatori nel testo e i verdetti per frase |
-| 25,8 s | fonte aperta | la scheda fonte apre l'esploratore sul documento, con il chunk citato evidenziato |
-| 34,9 s | conversazione nuova | si torna e si ricomincia |
-| 36,5 s | astensione | la domanda fuori corpus: **il gate chiude in mezzo secondo**, e dice perché |
-| 48,0 s | fine | |
+| 7,2 s | domanda inviata | clic sul primo esempio (MLMM e RMSE) |
+| 8,1 s | fonti arrivate | **la colonna delle fonti si riempie prima che il modello scriva una parola** |
+| 16,5 s | risposta finita | otto secondi di attesa veri, con i marcatori nel testo e i verdetti per frase |
+| 24,3 s | fonte aperta | la scheda fonte apre l'esploratore sul documento, con il chunk citato evidenziato |
+| 33,4 s | conversazione nuova | si torna e si ricomincia |
+| 35,0 s | astensione | la domanda fuori corpus: **il gate chiude in mezzo secondo**, e dice perché |
+| 46,5 s | fine | |
 
-La GIF che ne esce dura **44,6 secondi**, la metà del tetto. Il margine non è
+La GIF che ne esce dura **39,8 secondi**, meno della metà del tetto. Il margine non è
 sprecato: è ciò che permette a una risposta lenta il doppio di restare dentro il
 criterio senza toccare niente.
 
@@ -126,8 +147,8 @@ I tempi che il video mostra a schermo, letti dal fotogramma:
 
 | | recupero | generazione | verifica | totale |
 |---|---|---|---|---|
-| ripresa italiana | 0,11 s | 7,73 s | 2,53 s | **10,37 s** |
-| ripresa inglese | 0,19 s | 7,78 s | 0,93 s | **8,90 s** |
+| ripresa italiana | 0,20 s | 7,77 s | 0,82 s | **8,80 s** |
+| ripresa inglese | 0,15 s | 7,71 s | 0,59 s | **8,45 s** |
 
 Le due riprese sono due esecuzioni diverse, quindi i numeri non coincidono: è
 esattamente ciò che ci si aspetta da una latenza misurata invece che
@@ -151,7 +172,7 @@ fuori dal repository.
 
 ```bash
 python scripts/video_gif.py docs/demo.webm
-# docs\demo.gif  4.04 MB  44.6 s  taglio a 3.24 s, 537 fotogrammi -> 407 distinti  1000x625, 128 colori
+# docs\demo.gif  4.40 MB  39.8 s  taglio a 6.47 s, 480 fotogrammi -> 277 distinti  1000x625, 128 colori
 ```
 
 **Il solo taglio è in testa**: la registrazione si apre sull'applicazione che
@@ -198,14 +219,19 @@ il copione, non si abbassa la qualità: una GIF illeggibile non dimostra niente.
 
 | file | dove | peso |
 |---|---|---|
-| `docs/demo.gif` | `README.md`, subito dopo i paragrafi di apertura | 4,04 MB |
-| `docs/demo.en.gif` | `README.en.md`, nello stesso punto | 4,17 MB |
+| `docs/demo.gif` | `README.md`, subito dopo i paragrafi di apertura | 4,40 MB |
+| `docs/demo.en.gif` | `README.en.md`, nello stesso punto | 4,44 MB |
 | `docs/screenshot.png` | `README.md`, in cima a «Cosa dimostra» | 0,31 MB |
 | `docs/screenshot.en.png` | `README.en.md`, in cima a «What it demonstrates» | 0,30 MB |
 
 Due riprese e non una: il README principale è italiano e quello accanto è
 inglese, e mostrare un'interfaccia nell'altra lingua a chi legge la propria è
 proprio la cosa che i due README esistono per evitare.
+
+**Tutte e quattro in tema scuro**, che è la scelta di Marco per come il progetto
+si presenta. Il chiaro resta a un flag di distanza (`--chiaro`), e il tema si
+scrive nel deposito prima che la pagina si dipinga: lo stesso valore che legge
+lo script in testa a `index.html`, così non c'è il lampo bianco all'avvio.
 
 La didascalia sotto la GIF dice che l'attesa è vera. Non è decorazione: è la
 frase che rende verificabile ciò che il criterio protegge, e il video la
