@@ -10,7 +10,7 @@ Non è una demo con dei link in fondo alla risposta. È un banco di misura, cost
 
 ![Una domanda, la risposta con le citazioni verificate, e la fonte aperta sul chunk citato](docs/demo.gif)
 
-<sub>Ripresa unica, nessun taglio: gli **undici secondi di attesa sono quelli veri**, e la riga dei tempi sopra la risposta li scompone in recupero, generazione e verifica. Si rifà con un comando, <code>npm run video</code>.</sub>
+<sub>Ripresa unica, nessun taglio: i **dieci secondi di attesa sono quelli veri**, e la riga dei tempi sopra la risposta li scompone in recupero, generazione e verifica. Si rifà con un comando, <code>npm run video</code>.</sub>
 
 ---
 

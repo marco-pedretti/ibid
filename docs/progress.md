@@ -4957,11 +4957,11 @@ mano si rifa' solo rifacendola.
 
 | | |
 |---|---|
-| durata | **41,0 s** (ripresa 44,1 s, meno il caricamento in testa) |
-| peso | 3,48 MB italiano, 3,57 MB inglese |
+| durata | **44,6 s** (ripresa 48,0 s, meno il caricamento in testa) |
+| peso | 4,04 MB italiano, 4,17 MB inglese |
 | formato | 1000 x 625, 12 fps, 128 colori |
-| fotogrammi | 494 estratti, **315 distinti**: gli identici si fondono |
-| tempi mostrati a schermo | recupero 0,19 s, generazione 8,03 s, verifica 2,6 s, **totale 10,82 s** |
+| fotogrammi | 537 estratti, **407 distinti**: gli identici si fondono |
+| tempi mostrati a schermo | recupero 0,11 s, generazione 7,73 s, verifica 2,53 s, **totale 10,37 s** |
 
 #### La trappola: un taglio senza forbici
 
@@ -5017,6 +5017,28 @@ decodificare in PNG. Misurato sulla stessa ripresa:
 Il dithering su colori piatti aggiunge rumore che LZW non comprime. Il
 `disposal` e' la leva grossa: con `1` si riscrive solo il rettangolo che cambia,
 e su una schermata ferma quel rettangolo e' vuoto.
+
+#### Due difetti del montaggio, trovati guardando il primo fotogramma
+
+**Il taglio in testa non si puo' prendere dall'orologio.** La ripresa scrive le
+proprie battute in un file accanto al video, e sembrava naturale tagliare alla
+prima: «stato vuoto», 3,0 s. Guardando il risultato, la GIF si apriva lo stesso
+sullo scheletro. La traccia video **non e' allineata all'orologio dello
+script**, e lo scarto cambia da una ripresa all'altra: fra due consecutive,
+0,25 s e 3,4 s. Il taglio ora si trova guardando i fotogrammi (finche'
+l'applicazione carica non cambia un pixel), e il margine e' **zero**: il primo
+fotogramma di una GIF e' la locandina che si vede ferma, e deve essere
+l'applicazione.
+
+**La tavolozza non si prende dal primo fotogramma.** Preso da li' produceva una
+GIF di **1,4 kB e un fotogramma solo**: il primo e' la pagina ancora bianca, la
+sua tavolozza ha due colori, ogni fotogramma successivo ci finiva dentro
+appiattito fino a diventare identico agli altri, e Pillow li fondeva tutti.
+Adesso il campione e' un mosaico di sedici fotogrammi presi a intervalli
+regolari, cosi' dentro ci sono la conversazione, l'esploratore e l'astensione.
+
+Tutti e due si sono visti **aprendo il file finito**, non dai numeri che lo
+strumento stampava: 41,0 s e 3,48 MB erano plausibili in tutt'e due i casi.
 
 #### Cosa e' entrato nel repository, e cosa no
 

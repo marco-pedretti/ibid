@@ -92,7 +92,12 @@ const LEGGI = {
   verdetti: 7000, // i verdetti per frase, a risposta finita
   fonte: 7500, // il chunk citato dentro il documento
   astensione: 6500, // il rifiuto, e la ragione
-  coda: 1200, // un respiro prima di fermare la registrazione
+  // La traccia video puo' finire **prima** dell'orologio dello script, e di
+  // quanto cambia da una ripresa all'altra: fra due consecutive, 0,25 s e
+  // 3,4 s. Quel che manca lo paga l'ultima battuta, quindi la coda e' larga.
+  // Non costa niente nel file finito: i fotogrammi identici si fondono, e
+  // cinque secondi di schermata ferma diventano un fotogramma solo.
+  coda: 5000,
 };
 
 const attesa = (ms) => new Promise((r) => setTimeout(r, ms));

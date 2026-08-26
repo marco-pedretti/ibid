@@ -110,24 +110,28 @@ questi sono quelli della ripresa italiana del 2026-08-26.
 | a | battuta | cosa si vede |
 |---|---|---|
 | 3,0 s | stato vuoto | l'applicazione ha finito di caricare: le tre domande d'esempio, con la query vera in mono sotto la traduzione |
-| 7,2 s | domanda inviata | clic sul primo esempio (MLMM e RMSE) |
-| 8,0 s | fonti arrivate | **la colonna delle fonti si riempie prima che il modello scriva una parola** |
-| 18,5 s | risposta finita | dieci secondi di attesa veri, con i marcatori nel testo e i verdetti per frase |
-| 26,3 s | fonte aperta | la scheda fonte apre l'esploratore sul documento, con il chunk citato evidenziato |
-| 35,4 s | conversazione nuova | si torna e si ricomincia |
-| 36,4 s | astensione | la domanda fuori corpus: **il gate chiude in mezzo secondo**, e dice perché |
-| 44,1 s | fine | |
+| 7,3 s | domanda inviata | clic sul primo esempio (MLMM e RMSE) |
+| 7,6 s | fonti arrivate | **la colonna delle fonti si riempie prima che il modello scriva una parola** |
+| 18,1 s | risposta finita | dieci secondi di attesa veri, con i marcatori nel testo e i verdetti per frase |
+| 25,8 s | fonte aperta | la scheda fonte apre l'esploratore sul documento, con il chunk citato evidenziato |
+| 34,9 s | conversazione nuova | si torna e si ricomincia |
+| 36,5 s | astensione | la domanda fuori corpus: **il gate chiude in mezzo secondo**, e dice perché |
+| 48,0 s | fine | |
 
-**Quarantaquattro secondi**, la metà del tetto. Il margine non è sprecato: è ciò
-che permette a una risposta lenta il doppio di restare dentro il criterio senza
-toccare niente.
+La GIF che ne esce dura **44,6 secondi**, la metà del tetto. Il margine non è
+sprecato: è ciò che permette a una risposta lenta il doppio di restare dentro il
+criterio senza toccare niente.
 
 I tempi che il video mostra a schermo, letti dal fotogramma:
 
 | | recupero | generazione | verifica | totale |
 |---|---|---|---|---|
-| ripresa italiana | 0,19 s | 8,03 s | 2,6 s | **10,82 s** |
-| ripresa inglese | 0,11 s | 7,76 s | 2,12 s | **9,99 s** |
+| ripresa italiana | 0,11 s | 7,73 s | 2,53 s | **10,37 s** |
+| ripresa inglese | 0,19 s | 7,78 s | 0,93 s | **8,90 s** |
+
+Le due riprese sono due esecuzioni diverse, quindi i numeri non coincidono: è
+esattamente ciò che ci si aspetta da una latenza misurata invece che
+dichiarata.
 
 ### Cosa il copione non fa
 
@@ -147,13 +151,20 @@ fuori dal repository.
 
 ```bash
 python scripts/video_gif.py docs/demo.webm
-# docs\demo.gif  3.48 MB  41.0 s  494 fotogrammi -> 315 distinti  1000x625, 128 colori
+# docs\demo.gif  4.04 MB  44.6 s  taglio a 3.24 s, 537 fotogrammi -> 407 distinti  1000x625, 128 colori
 ```
 
-**Il solo taglio è in testa**, e non si indovina: si parte dalla battuta «stato
-vuoto», cioè da quando l'applicazione ha finito di caricare, e il momento esatto
-lo dichiara il `*.tempi.json` che la ripresa lascia accanto al video. Dentro il
-copione non si taglia niente.
+**Il solo taglio è in testa**: la registrazione si apre sull'applicazione che
+carica, e quei secondi di scheletro non sono il copione. Dentro il copione non
+si taglia niente.
+
+Il punto si trova **guardando i fotogrammi**, non l'orologio. Il primo tentativo
+usava le battute che la ripresa scrive in `*.tempi.json`, ed era sbagliato: la
+traccia video non è allineata all'orologio dello script, e lo scarto cambia da
+una ripresa all'altra (misurate 0,25 s e 3,4 s su due consecutive). Finché
+l'applicazione carica non cambia un pixel, quindi si taglia sul **primo
+fotogramma diverso da quello del caricamento**, che è anche la locandina che
+GitHub mostra ferma finché l'animazione non parte.
 
 L'`ffmpeg` che Playwright si porta dietro ha **dodici filtri e nessun encoder
 GIF**: serve solo a decodificare in PNG, e palette e animazione le fa Pillow,
@@ -187,8 +198,8 @@ il copione, non si abbassa la qualità: una GIF illeggibile non dimostra niente.
 
 | file | dove | peso |
 |---|---|---|
-| `docs/demo.gif` | `README.md`, subito dopo i paragrafi di apertura | 3,48 MB |
-| `docs/demo.en.gif` | `README.en.md`, nello stesso punto | 3,57 MB |
+| `docs/demo.gif` | `README.md`, subito dopo i paragrafi di apertura | 4,04 MB |
+| `docs/demo.en.gif` | `README.en.md`, nello stesso punto | 4,17 MB |
 | `docs/screenshot.png` | `README.md`, in cima a «Cosa dimostra» | 0,31 MB |
 | `docs/screenshot.en.png` | `README.en.md`, in cima a «What it demonstrates» | 0,30 MB |
 
