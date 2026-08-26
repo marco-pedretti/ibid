@@ -4958,8 +4958,8 @@ mano si rifa' solo rifacendola.
 | | |
 |---|---|
 | durata | **19,8 s** la chat, **23,3 s** l'apertura della fonte (ripresa unica, 46,5 s) |
-| peso | 1,79 + 2,84 MB in italiano, 1,92 + 2,64 in inglese |
-| formato | 1000 x 625, 12 fps, 128 colori, **tema scuro** |
+| peso | 3,18 + 4,90 MB in italiano, 3,41 + 4,63 in inglese |
+| formato | **1280 x 800** (nativo), 12 fps, **256 colori**, tema scuro |
 | fotogrammi | 239 e 281 estratti, 153 e 133 distinti: gli identici si fondono |
 | tempi mostrati a schermo | recupero 0,20 s, generazione 7,77 s, verifica 0,82 s, **totale 8,80 s** |
 
@@ -5096,6 +5096,37 @@ del sistema.
 Vale la pena notare in che direzione sbagliano le tre trappole: la cache del
 prefill **abbassa** la latenza mostrata, la VRAM contesa e il freddo la
 **alzano**. Nessuna delle tre e' la latenza del sistema.
+
+#### «Sono molto compresse»: dov'era il difetto
+
+Osservazione di Marco, e aveva ragione. Il colpevole non era la tavolozza ma
+**la riscalatura**: 1280 px ridotti a 1000 ricampionano ogni lettera, e su un
+testo da dodici pixel il ricampionamento e' esattamente cio' che si legge come
+«compressione». Il video sorgente invece regge: ritagliato a 1:1 il testo e'
+pulito, quindi la perdita era tutta nel montaggio.
+
+| | peso |
+|---|---|
+| **1280 px, 256 colori** | **3,21 MB** (scelto) |
+| 1280 px, 128 colori | 2,77 MB |
+| 1000 px, 256 colori | 2,03 MB |
+| 1000 px, 128 colori | 1,77 MB (com'era) |
+| WebP 1280 px, qualita' 90 | 2,94 MB |
+| APNG senza perdita | 18,7 MB |
+
+Dimensione nativa e 256 colori (il massimo del formato) costano il 79% in piu' e
+si vedono. **WebP peserebbe meno a parita' di qualita' ed e' a 24 bit**, ma una
+GIF la disegna qualunque cosa apra un README: un'immagine rotta in cima alla
+pagina costa piu' del megabyte risparmiato.
+
+**E una cosa contro-intuitiva, misurata:** abbassare i fotogrammi al secondo
+**non** alleggerisce. Sulla seconda GIF: 12 fps 4,90 MB, 10 fps 4,99, 8 fps
+5,31, 15 fps 5,41, 20 fps 6,38. Sotto i dodici i campioni cadono piu' lontani
+fra loro, si somigliano di meno, se ne fondono meno e ognuno porta un rettangolo
+di differenza piu' grande. Dodici e' il minimo della curva, non un compromesso.
+
+Il totale passa da 9,2 a **16,1 MB**, otto per pagina. E' il prezzo della
+dimensione nativa, pagato di proposito.
 
 #### Cosa e' entrato nel repository, e cosa no
 

@@ -51,21 +51,33 @@ solo a decodificare in PNG; la palette e l'animazione le fa Pillow, che c'e'
 gia' come dipendenza di Streamlit. Se sul PATH c'e' un `ffmpeg` completo viene
 preferito.
 
-## Le tre scelte che decidono il peso
+## Le scelte che decidono qualita' e peso
 
-Misurate su questa ripresa, 44 secondi a 1280x800:
+Misurate sui venti secondi della prima GIF:
 
-    1000 px, 128 colori, senza dithering   4,5 MB   <- scelta
-    1000 px, 128 colori, con dithering     8,0 MB
-    1000 px,  64 colori, senza dithering   3,6 MB
-    disposal=2 invece di 1                40,5 MB
+    1280 px, 256 colori, senza dithering   3,21 MB   <- scelta
+    1280 px, 128 colori                    2,77 MB
+    1000 px, 256 colori                    2,03 MB
+    1000 px, 128 colori                    1,77 MB   <- com'era
+    disposal=2 invece di 1                    x10
+    APNG senza perdita                    18,7 MB
+
+**La larghezza conta piu' dei colori.** Ridurre 1280 a 1000 ricampiona ogni
+lettera, ed e' cio' che faceva sembrare le GIF «compresse»: a dimensione nativa
+il testo e' quello che il browser ha disegnato. I 256 colori sono il massimo che
+il formato regge e tolgono le bande dalle superfici scure, che con 128 si
+appiattivano l'una sull'altra.
 
 Il **dithering** su un'interfaccia di colori piatti aggiunge rumore che LZW non
 sa comprimere, e in cambio non migliora niente: raddoppia il file. Il
 **disposal** e' la scelta grossa: con `1` (lascia il fotogramma precedente)
 Pillow scrive solo il rettangolo che cambia, e su una schermata ferma quel
-rettangolo e' vuoto. Con `2` riscrive tutto ogni volta, e la GIF diventa dieci
-volte piu' grande.
+rettangolo e' vuoto. Con `2` riscrive tutto ogni volta.
+
+**Perche' GIF e non WebP**, che a parita' di qualita' peserebbe meno (2,94 MB a
+qualita' 90) ed e' a 24 bit: perche' una GIF la disegna qualunque cosa apra un
+README, e un'immagine rotta in cima alla pagina costa piu' di quanto valga il
+megabyte risparmiato. APNG sarebbe senza perdita e pesa sei volte tanto.
 
 E i **fotogrammi identici si fondono** invece di ripetersi: durante le pause di
 lettura non cambia un pixel, e una pausa di sette secondi costa un fotogramma
@@ -199,7 +211,14 @@ def _estrai(ff: str, video: Path, dove: Path, da: float, fps: int, larghezza: in
     cmd = [ff, "-hide_banner", "-loglevel", "error", "-i", str(video)]
     if da > 0:
         cmd += ["-ss", f"{da:.2f}"]
-    cmd += ["-r", str(fps), "-vf", f"scale={larghezza}:-1", "-y", str(dove / "%05d.png")]
+    cmd += ["-r", str(fps)]
+    # Zero significa **niente riscalatura**: e' il difetto, ed e' la differenza
+    # che si vede di piu'. Ridurre 1280 a 1000 ricampiona ogni lettera, e su un
+    # testo di dodici pixel il ricampionamento e' proprio cio' che fa sembrare
+    # una GIF «compressa».
+    if larghezza > 0:
+        cmd += ["-vf", f"scale={larghezza}:-1"]
+    cmd += ["-y", str(dove / "%05d.png")]
     subprocess.run(cmd, check=True)
     return sorted(dove.glob("*.png"))
 
@@ -251,8 +270,8 @@ def main() -> None:
     p.add_argument("--da", help="secondo o battuta da cui partire (default: dedotto, vedi sopra)")
     p.add_argument("--a", help="secondo o battuta a cui fermarsi (default: la fine)")
     p.add_argument("--fps", type=int, default=12)
-    p.add_argument("--larghezza", type=int, default=1000)
-    p.add_argument("--colori", type=int, default=128)
+    p.add_argument("--larghezza", type=int, default=0, help="0 = quella della ripresa")
+    p.add_argument("--colori", type=int, default=256, help="il massimo che il formato GIF regge")
     args = p.parse_args()
 
     video: Path = args.video
@@ -293,8 +312,14 @@ def main() -> None:
 
     peso = out.stat().st_size / 1e6
     durata = sum(durate) / 1000
+    # `relative_to` solleva quando la GIF finisce fuori dal repository, che
+    # capita provando parametri diversi in una cartella temporanea.
+    try:
+        nome = out.relative_to(ROOT)
+    except ValueError:
+        nome = out
     print(
-        f"{out.relative_to(ROOT) if out.is_absolute() else out}  "
+        f"{nome}  "
         f"{peso:.2f} MB  {durata:.1f} s  "
         f"da {da:.2f} a {da + durata:.2f} s, {len(files)} fotogrammi -> {len(tavolozza)} distinti  "
         f"{tavolozza[0].width}x{tavolozza[0].height}, {args.colori} colori"

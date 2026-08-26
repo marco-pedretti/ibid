@@ -175,8 +175,8 @@ fuori dal repository.
 ```bash
 python scripts/video_gif.py docs/demo.webm --a "fonte aperta-1.4" -o docs/demo.gif
 python scripts/video_gif.py docs/demo.webm --da "fonte aperta-1.4" -o docs/fonte.gif
-# docs\demo.gif   1.79 MB  19.8 s  da  3.00 a 22.84 s
-# docsonte.gif  2.84 MB  23.3 s  da 22.94 a 46.26 s
+# docs\demo.gif   3.18 MB  19.8 s  da  3.00 a 22.84 s  1280x800, 256 colori
+# docsonte.gif  4.90 MB  23.3 s  da 22.94 a 46.26 s  1280x800, 256 colori
 ```
 
 **Due GIF, una ripresa sola.** Il README mostra la chat con le citazioni in
@@ -213,16 +213,30 @@ GIF**: serve solo a decodificare in PNG, e palette e animazione le fa Pillow,
 che c'è già come dipendenza di Streamlit. Se sul PATH c'è un `ffmpeg` completo
 viene preferito.
 
-### Le tre scelte che decidono il peso
+### Le scelte che decidono qualità e peso
 
-Misurate su questa ripresa:
+Misurate sui venti secondi della prima GIF:
 
 | | peso |
 |---|---|
-| 1000 px, 128 colori, **senza dithering** | **4,5 MB** (la scelta) |
-| 1000 px, 128 colori, con dithering | 8,0 MB |
-| 1000 px, 64 colori, senza dithering | 3,6 MB |
-| `disposal=2` invece di `1` | **40,5 MB** |
+| **1280 px, 256 colori, senza dithering** | **3,21 MB** (la scelta) |
+| 1280 px, 128 colori | 2,77 MB |
+| 1000 px, 256 colori | 2,03 MB |
+| 1000 px, 128 colori | 1,77 MB (com'era) |
+| WebP 1280 px, qualità 90 | 2,94 MB |
+| APNG 1280 px, senza perdita | 18,7 MB |
+| `disposal=2` invece di `1` | dieci volte tanto |
+
+**La larghezza conta più dei colori.** Ridurre 1280 a 1000 ricampiona ogni
+lettera, ed è ciò che faceva sembrare le GIF «compresse»: a dimensione nativa il
+testo è esattamente quello che il browser ha disegnato. I 256 colori sono il
+massimo che il formato regge, e tolgono le bande dalle superfici scure, che con
+128 si appiattivano l'una sull'altra.
+
+**Non WebP, che a parità di qualità pesa meno ed è a 24 bit**: perché una GIF la
+disegna qualunque cosa apra un README, e un'immagine rotta in cima alla pagina
+costa più del megabyte risparmiato. APNG sarebbe senza perdita e pesa sei volte
+tanto.
 
 Il **dithering** su un'interfaccia di colori piatti aggiunge rumore che LZW non
 comprime, e in cambio non migliora niente. Il **disposal** è la leva grossa: con
@@ -230,6 +244,13 @@ comprime, e in cambio non migliora niente. Il **disposal** è la leva grossa: co
 rettangolo è vuoto; con `2` riscrive tutto ogni volta. E i **fotogrammi identici
 si fondono**: una pausa di sette secondi costa un fotogramma lungo invece di
 ottantaquattro uguali.
+
+**Meno fotogrammi al secondo non vuol dire meno peso**, ed è il contrario di
+quello che sembra. Sulla seconda GIF: 12 fps 4,90 MB, 10 fps 4,99, 8 fps 5,31,
+15 fps 5,41, 20 fps 6,38. Sotto i dodici i campioni cadono più lontani fra loro,
+quindi **si somigliano di meno**: se ne fondono meno e ognuno porta un rettangolo
+di differenza più grande. Dodici è il minimo di quella curva, non un
+compromesso.
 
 Il tetto che lo script segnala è **10 MB**. Se una ripresa lo supera si accorcia
 il copione, non si abbassa la qualità: una GIF illeggibile non dimostra niente.
@@ -240,17 +261,19 @@ il copione, non si abbassa la qualità: una GIF illeggibile non dimostra niente.
 
 | file | dove | durata | peso |
 |---|---|---|---|
-| `docs/demo.gif` | `README.md`, dopo i paragrafi di apertura | 19,8 s | 1,79 MB |
-| `docs/fonte.gif` | `README.md`, in «Come funziona» | 23,3 s | 2,84 MB |
-| `docs/demo.en.gif` | `README.en.md`, stesso punto | 19,8 s | 1,92 MB |
-| `docs/fonte.en.gif` | `README.en.md`, stesso punto | 22,3 s | 2,64 MB |
+| `docs/demo.gif` | `README.md`, dopo i paragrafi di apertura | 19,8 s | 3,18 MB |
+| `docs/fonte.gif` | `README.md`, in «Come funziona» | 23,3 s | 4,90 MB |
+| `docs/demo.en.gif` | `README.en.md`, stesso punto | 19,8 s | 3,41 MB |
+| `docs/fonte.en.gif` | `README.en.md`, stesso punto | 22,3 s | 4,63 MB |
 | `docs/screenshot.png` | `README.md`, in cima a «Cosa dimostra» | | 0,31 MB |
 | `docs/screenshot.en.png` | `README.en.md`, stesso punto | | 0,30 MB |
 
 Due lingue e non una: il README principale è italiano e quello accanto è
 inglese, e mostrare un'interfaccia nell'altra lingua a chi legge la propria è
-proprio la cosa che i due README esistono per evitare. Quattro file, quindi, ma
-il peso totale è quello di prima: spezzare non aggiunge byte, li divide.
+proprio la cosa che i due README esistono per evitare. **Sedici megabyte in
+tutto**, otto per pagina: è il prezzo della dimensione nativa, ed è stato pagato
+di proposito dopo che le prime versioni, a 1000 px, si leggevano come
+compresse.
 
 **Tutte e quattro in tema scuro**, che è la scelta di Marco per come il progetto
 si presenta. Il chiaro resta a un flag di distanza (`--chiaro`), e il tema si
