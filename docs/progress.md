@@ -4788,3 +4788,85 @@ invece di allungarsi.
   segnaposto rotto in una vetrina è peggio della sua assenza.
 - **La descrizione «About» del repo**, che il §1 rende obbligatoria. Si imposta
   su GitHub e non vive in nessun file.
+
+
+### Il trattino lungo esce da tutto cio' che si legge
+
+Marco, guardando il README appena mergiato: *«risulta come uno sgradevole
+artefatto da ia»*. Ha ragione, e la cosa interessante e' che il carattere non
+era arrivato per caso: e' il segno con cui questo quaderno separa un inciso da
+quel che lo circonda, e lo faceva **1.450 volte** fra i due README, ROADMAP,
+STACK, CLAUDE e `docs/`, piu' una quarantina di stringhe fra interfaccia, riga
+di comando e dashboard.
+
+#### La domanda vera era il perimetro, non la sostituzione
+
+Le due letture erano lontane: la vetrina piu' le stringhe (un centinaio di
+posti, mezz'ora) oppure tutti i `.md` pubblici (millequattrocento, ore). Chiesto,
+perche' la differenza cambiava il lavoro di un ordine di grandezza, e Marco ha
+scelto il perimetro largo. La ragione regge: `ROADMAP.md` e `progress.md` sono
+linkati dal README e si leggono da GitHub come tutto il resto.
+
+#### Un `sed` avrebbe peggiorato il testo
+
+Il trattino lungo non e' un segno solo travestito da tanti: fa lavori diversi, e
+renderli tutti con lo stesso sostituto lascia frasi grammaticali e brutte. I
+conti, che tornano a 1.450:
+
+| lavoro | esito | quante |
+|---|---|---|
+| inciso bilaterale, `X --- a, b --- Y` | `X (a, b) Y` | 268 incisi (536 trattini) |
+| apposizione o stacco | due punti | 551 |
+| legatura, la coda comincia con una congiunzione | virgola | 297 |
+| coda a elenco dove i due punti erano gia' spesi | parentesi | 50 |
+| reggicartello, `X --- OK` | il trattino sparisce | 8 |
+| cella vuota di tabella | `n/d` | 8 |
+
+Le prime tre regole erano prevedibili. **Le altre tre sono nate leggendo il
+risultato**, ed e' il motivo per cui il convertitore e' stato rilanciato da capo
+sui file originali cinque volte invece di correggere il proprio output: una
+regola sbagliata applicata su un testo gia' toccato non si distingue piu' dal
+testo.
+
+#### I quattro difetti trovati guardando, e cosa avevano in comune
+
+1. **Il punto di `noise_floor.py` chiudeva la frase.** Serviva a rispondere
+   «questo periodo ha gia' i due punti?», e con la finestra tagliata a meta' la
+   risposta era no: usciva `Rumore di fondo: noise_floor.py: compute_noise_floor
+   calcola...`, due volte i due punti in una riga sola.
+2. **I due punti di `https://` contavano come punteggiatura**, e producevano
+   l'errore opposto: una virgola dove nel periodo di due punti non ce n'erano.
+3. **La ricerca dell'inciso gemello scavalcava le voci di un elenco**, e apriva
+   una parentesi in una riga chiudendola in quella dopo. Si vedeva solo a occhio,
+   in un elenco di quattro link del README.
+4. **Con i due punti gia' spesi, una coda fatta a elenco appesa con la virgola si
+   confondeva con cio' che veniva prima**: *«i chunk corti sono lo 0,23% e sono
+   veri, ringraziamenti, conflitti di interesse»* legge «veri» come primo
+   elemento della lista. Quella coda prende le parentesi.
+
+Tutti e quattro sono la stessa cosa: **il confine di frase non e' dove il
+carattere di punteggiatura suggerisce**. E' lo stesso errore che il progetto ha
+gia' fatto altrove, in altra veste, quando un'euristica plausibile e' stata data
+per buona senza guardare il caso reale.
+
+#### Le verifiche, tutte fatte dopo
+
+Zero trattini rimasti; blocchi di codice e numero di colonne di ogni tabella
+identici a prima (le due sole righe cambiate dentro un blocco sono commenti,
+cioe' prosa); righe invariate in tutti e nove i file; parentesi in pari in ogni
+blocco, tranne una gia' spaiata da prima che non e' un refuso, `[da, a)` e' un
+intervallo semiaperto. Piu' le due suite, verdi.
+
+#### Tre posti tengono il carattere, per ragioni diverse
+
+- **Le espressioni regolari** di `citations.py` e `citation_format.py`: li'
+  `[2]---[3]` e' una delle varianti che il parser ripara. E' input da
+  riconoscere, non testo da leggere.
+- **I prompt** di `prompt.py` e `query_rewrite.py`: non li legge un utente, li
+  legge il modello, e cambiarli sposta `prompt_hash` e `config_hash`. Ogni misura
+  gia' a disco smetterebbe di essere confrontabile con quelle successive, che e'
+  il §15 in forma pura. Un ritocco di stile non paga quel prezzo.
+- **I commenti nel codice**, esclusi da Marco quando ha scelto il perimetro.
+
+La regola sta in `CLAUDE.md` perche' un lavoro fatto una volta su millequattro-
+cento posti si disfa da solo se chi scrive la riga successiva non la conosce.

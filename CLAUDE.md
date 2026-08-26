@@ -128,6 +128,30 @@ This rule has been violated on E-01 and E-03 (committed directly to main). It mu
 - The abstention threshold and the citation format are decided in code, never left to the model.
 - Don't declare an improvement without comparing it against the noise baseline (task E-07).
 
+## Prose style: no em dash (agreed 2026-08-26)
+
+**The em dash (`—`, U+2014) does not appear in anything a reader sees**: not in the two
+READMEs, `ROADMAP.md`, `STACK.md`, this file or `docs/`, and not in user-facing
+strings (UI, CLI, API errors, dashboard). Marco's reason, and it is the whole
+rule: *«risulta come uno sgradevole artefatto da ia»*. It was swept out of 1,450
+places on 2026-08-26; re-introducing one puts the tell back.
+
+Use the punctuation that fits the job instead: parentheses for a two-sided
+aside, a colon where what follows explains, a comma where it merely joins, a
+full stop where the clause stands alone. An en dash (`–`) in a numeric range is
+correct typography and stays.
+
+Two places keep the character on purpose, and they are not prose: the regexes in
+`src/generation/citations.py` and `citation_format.py`, where `[2]—[3]` is an
+input variant the parser repairs, and the prompt text in
+`src/generation/prompt.py` / `src/retrieval/query_rewrite.py`, which only a model
+reads and whose hash names every measurement already on disk. Code comments are
+out of scope.
+
+The two occurrences of the character in this section are the rule naming what it
+forbids; they are the only ones left in the documentation, and they are the
+reason a "zero occurrences" check on this file returns two.
+
 ## Eval procedure during active development (agreed 2026-08-06)
 
 Full eval runs (3045 queries × N configs) take 1–2 hours each and block development. Use this procedure instead:
