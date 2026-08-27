@@ -12,6 +12,7 @@ from __future__ import annotations
 import io
 import json
 import sys
+import urllib.error
 from pathlib import Path
 from unittest.mock import patch
 
@@ -19,6 +20,7 @@ import pytest
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
+from src.generation import chat
 from src.generation.chat import Completion, generate, generate_detailed
 
 
@@ -150,3 +152,50 @@ class TestGenerateWrapper:
         with patch("urllib.request.urlopen", side_effect=boom), \
              pytest.raises(RuntimeError, match="LLM HTTP 400"):
             generate(base_url="http://x/v1", model="m", system="S", user="U")
+
+
+class TestModelloIrraggiungibile:
+    """U-08: cosa vede chi prova la demo senza un motore di inferenza acceso.
+
+    **Visto davvero**, il 2026-08-27 sull'Arch: il profilo `demo` avvia Qdrant e
+    il backend, non un LLM, e il primo clic su una domanda d'esempio finiva in
+    `URLError: <urlopen error [Errno 111] Connection refused>` stampato nella
+    pagina. Le fonti erano arrivate, quindi il sistema funzionava: a mancare era
+    solo la frase che lo dicesse.
+    """
+
+    ERRORE = urllib.error.URLError(ConnectionRefusedError(111, "Connection refused"))
+
+    def _rifiuta(self, *a, **k):
+        raise self.ERRORE
+
+    def test_la_generazione_dice_dove_ha_provato_e_cosa_funziona(self, monkeypatch):
+        monkeypatch.setattr(chat.urllib.request, "urlopen", self._rifiuta)
+        with pytest.raises(RuntimeError) as e:
+            chat.generate_detailed(
+                "http://host.docker.internal:11434/v1", "gemma4:latest", "sistema", "ciao"
+            )
+        messaggio = str(e.value)
+        assert "http://host.docker.internal:11434/v1/chat/completions" in messaggio
+        assert "LLM_BASE_URL" in messaggio, "dire quale variabile cambia l'indirizzo"
+        assert "ricerca nel corpus funziona" in messaggio, "dire cosa continua a funzionare"
+
+    def test_anche_lo_stream_lo_dice(self, monkeypatch):
+        """Le due strade sono due `urlopen` diversi, e la demo usa **questa**."""
+        monkeypatch.setattr(chat.urllib.request, "urlopen", self._rifiuta)
+        with pytest.raises(RuntimeError) as e:
+            list(
+                chat.generate_stream("http://127.0.0.1:11434/v1", "gemma4:latest", "sistema", "ciao")
+            )
+        assert "Nessun modello raggiungibile" in str(e.value)
+
+    def test_niente_gergo_di_python_nel_messaggio(self, monkeypatch):
+        """Il difetto era proprio questo: un'eccezione di Python in faccia a chi
+        non l'ha scritta."""
+        monkeypatch.setattr(chat.urllib.request, "urlopen", self._rifiuta)
+        with pytest.raises(RuntimeError) as e:
+            chat.generate_detailed(
+                "http://127.0.0.1:11434/v1", "gemma4:latest", "sistema", "ciao"
+            )
+        for gergo in ("URLError", "urlopen error", "Traceback"):
+            assert gergo not in str(e.value), gergo

@@ -131,6 +131,8 @@ def generate_detailed(
     except urllib.error.HTTPError as e:
         body = e.read().decode(errors="replace")[:300]
         raise RuntimeError(f"LLM HTTP {e.code}: {body}") from e
+    except (urllib.error.URLError, OSError) as e:
+        raise _irraggiungibile(url, e) from e
 
     choice = data["choices"][0]
     return Completion(
@@ -238,6 +240,8 @@ def generate_stream(
     except urllib.error.HTTPError as e:
         body = e.read().decode(errors="replace")[:300]
         raise RuntimeError(f"LLM HTTP {e.code}: {body}") from e
+    except (urllib.error.URLError, OSError) as e:
+        raise _irraggiungibile(url, e) from e
 
     yield Delta(final=True, finish_reason=finish_reason, completion_tokens=completion_tokens)
 
@@ -262,6 +266,27 @@ def collect(deltas: Iterator[Delta]) -> Completion:
         content="".join(pezzi).strip(),
         finish_reason=ultimo.finish_reason,
         completion_tokens=ultimo.completion_tokens,
+    )
+
+
+def _irraggiungibile(url: str, e: Exception) -> RuntimeError:
+    """L'errore che vede **chi guarda**, quando il modello non risponde.
+
+    Non e' un caso raro: e' il primo che incontra chi prova la demo. Il profilo
+    `demo` di U-08 avvia Qdrant e il backend, non un motore di inferenza,
+    quindi su una macchina senza Ollama la prima domanda finisce qui. Prima ci
+    finiva come `URLError: <urlopen error [Errno 111] Connection refused>`,
+    cioe' un'eccezione di Python in faccia a chi non l'ha scritta:
+    **visto davvero**, sull'Arch, al primo clic su una domanda d'esempio.
+
+    Dice tre cose, e servono tutte e tre: dove ha provato, che il resto
+    funziona, e quale variabile cambia l'indirizzo.
+    """
+    motivo = getattr(e, "reason", None) or e
+    return RuntimeError(
+        f"Nessun modello raggiungibile su {url} ({motivo}). "
+        "La ricerca nel corpus funziona lo stesso: per generare le risposte serve un "
+        "endpoint OpenAI-compatibile, e l'indirizzo si cambia con LLM_BASE_URL."
     )
 
 

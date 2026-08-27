@@ -245,6 +245,12 @@ def il_throughput() -> str | None:
 
     from src.index import embed
 
+    # **Due giri, e il primo si butta.** Alcuni provider compilano il grafo alla
+    # prima esecuzione: su MIGraphX sono stati **279 secondi su 281**, e un
+    # numero solo li avrebbe spalmati sui 32 chunk facendo leggere 0,1 embed/s
+    # per un provider che a regime va. E' l'artefatto di A-05 (*«tempi di prima
+    # query, cioe' caricamento riportato come costo per richiesta»*), e si evita
+    # nell'unico modo che funziona: misurare la seconda volta.
     t0 = time.perf_counter()
     try:
         embed.encode(testi, cfg.EMBEDDING_MODEL, batch_size=cfg.EMBEDDING_BATCH)
@@ -255,12 +261,26 @@ def il_throughput() -> str | None:
         ultima = str(e).strip().splitlines()[-1] if str(e).strip() else type(e).__name__
         riga("errore", ultima[:160])
         return ultima
+    primo = time.perf_counter() - t0
 
-    durata = time.perf_counter() - t0
+    t0 = time.perf_counter()
+    embed.encode(testi, cfg.EMBEDDING_MODEL, batch_size=cfg.EMBEDDING_BATCH)
+    regime = time.perf_counter() - t0
+
     lunghezza = sum(len(t) for t in testi) // len(testi)
     riga("testi", f"{len(testi)} chunk, {lunghezza} caratteri in media")
-    riga("tempo", f"{durata:.1f} s")
-    riga("throughput", f"{len(testi) / durata:.1f} embed/s", "noti: ~10 DirectML, ~2,4 CPU (I-07)")
+    riga("prima esecuzione", f"{primo:.1f} s", "compilazione del grafo compresa")
+    riga("a regime", f"{regime:.1f} s")
+    riga(
+        "throughput",
+        f"{len(testi) / regime:.1f} embed/s",
+        "noti: ~10 DirectML, ~2,4 CPU (I-07)",
+    )
+    if primo > regime * 3:
+        print(f"\n  La prima esecuzione e' costata {primo / regime:.0f} volte la seconda: questo")
+        print("  provider compila il grafo, e il costo si paga una volta per processo.")
+        print("  Per un servizio che resta acceso non conta; per uno script che parte e")
+        print("  finisce, e' il costo dominante.")
     return None
 
 
