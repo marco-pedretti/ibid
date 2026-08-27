@@ -556,10 +556,13 @@ export const it = {
   // A-09 è uscita.
   "about.not.context":
     "Quanto testo entra nel modello non lo decide ibid: lo decide il motore di inferenza, da come è stato avviato. Qui si sceglie chi risponde e come si cerca, non quanta memoria ha chi risponde.",
-  // Il punto che il piano chiede di dire qui, per nome: è l'unica differenza fra
-  // com'è configurata la demo e com'è configurata la valutazione.
+  // Il punto che il piano chiede di dire qui, per nome. Non più «la differenza è
+  // una»: col profilo `demo` di U-08 ce n'è una seconda, ed è la riga qui sotto,
+  // che compare solo dove è vera.
   "about.not.exact":
-    "Non è configurata esattamente come la valutazione, e la differenza è una: qui la ricerca nell'indice è esatta invece che approssimata. Su un indice fitto quella approssimata salta qualcosa, e una dimostrazione finirebbe per mostrare quel difetto credendo di mostrare il recupero.",
+    "Non è configurata esattamente come la valutazione: qui la ricerca nell'indice è esatta invece che approssimata. Su un indice fitto quella approssimata salta qualcosa, e una dimostrazione finirebbe per mostrare quel difetto credendo di mostrare il recupero.",
+  "about.not.reduced":
+    "E l'indice è un ritaglio dei corpus veri, {chunk} chunk invece del corpus intero: costruirli per intero costa due ore di GPU, e nessuno prova un progetto a quel prezzo. Le tabelle del README vengono da quelli.",
 
   "about.who.title": "Chi l'ha fatto",
   "about.who":
@@ -930,7 +933,9 @@ export const en: Record<Chiave, string> = {
   "about.not.context":
     "How much text fits into the model is not ibid's decision: it is the inference engine's, from the way it was started. Here you choose who answers and how the corpus is searched, not how much memory the one who answers has.",
   "about.not.exact":
-    "It is not configured exactly the way the evaluation is, and there is one difference: here the index is searched exactly rather than approximately. On a dense index the approximate search misses things, and a demonstration would end up showing that flaw while believing it was showing retrieval.",
+    "It is not configured exactly the way the evaluation is: here the index is searched exactly rather than approximately. On a dense index the approximate search misses things, and a demonstration would end up showing that flaw while believing it was showing retrieval.",
+  "about.not.reduced":
+    "And the index is a cut-out of the real corpora, {chunk} chunks instead of the whole thing: building them in full costs two GPU hours, and nobody tries a project at that price. The README's tables come from those.",
 
   "about.who.title": "Who made it",
   "about.who":

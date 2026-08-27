@@ -122,6 +122,13 @@ services:
       # verso il proprio indice, e la demo non deve finirci dentro per una riga
       # rimasta in una shell.
       QDRANT_URL: ${DEMO_QDRANT_URL:-http://qdrant-demo:6333}
+      # **La demo cerca in esatta**, ed è l'unico punto in cui non è configurata
+      # come la valutazione: la pagina «Che cos'è» lo dice per nome. La ragione
+      # è OQ-09: l'ANN di `ledger` ha reso dodici punti in meno a configurazione
+      # identica, da solo, sotto un task che non lo toccava. Una dimostrazione
+      # che qualcuno riavvia fra sei mesi ha più bisogno di riprodursi bit per
+      # bit di quanta ne abbia la valutazione, che i propri numeri li rifà.
+      SEARCH_EXACT: "1"
     depends_on:
       seed-demo:
         # Non `service_healthy`: `seed-demo` **finisce**. Aspettare che l'indice

@@ -189,6 +189,14 @@ class TestProfiloDemo:
         cambiare dei dati."""
         assert "./data/demo:/app/data/demo:ro" in blocco_del_servizio("seed-demo")
 
+    def test_la_demo_cerca_in_esatta(self):
+        """L'unico punto in cui la demo non è configurata come la valutazione, e
+        la pagina «Che cos'è» lo dice **per nome**: senza questa riga quella
+        frase sarebbe una dichiarazione non verificata. La ragione è OQ-09,
+        l'ANN di `ledger` che ha reso dodici punti in meno a configurazione
+        identica, da solo."""
+        assert 'SEARCH_EXACT: "1"' in blocco_del_servizio("api-demo")
+
     def test_i_tre_servizi_condividono_una_build_sola(self):
         """Senza un nome d'immagine esplicito, compose costruirebbe la stessa
         immagine tre volte."""
