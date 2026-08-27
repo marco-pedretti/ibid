@@ -14,7 +14,8 @@ della Fase 8 e' *un* consumatore dell'API, non il suo scopo.
 
 from __future__ import annotations
 
-from collections.abc import Iterator
+from collections.abc import AsyncIterator, Iterator
+from contextlib import asynccontextmanager
 
 import src.config as cfg
 from fastapi import FastAPI, HTTPException, Query, Request
@@ -50,11 +51,30 @@ from src.service import (
     model_catalog,
     retrieve_chunks,
 )
+from src.service import warmup
+
+
+@asynccontextmanager
+async def ciclo(_: FastAPI) -> AsyncIterator[None]:
+    """L'avvio scalda i modelli **senza aspettarli** (D-21).
+
+    Due righe, e la seconda e' quella che conta: `in_sottofondo` torna subito,
+    quindi uvicorn comincia ad accettare richieste mentre i ~2,5 GB di pesi si
+    caricano. `/health` risponde da subito e continua a voler dire «vivo, e
+    nient'altro»: e' cio' che `depends_on: service_healthy` di U-09 usa per
+    l'ordine di avvio, e non deve diventare «pronto a rispondere bene».
+
+    Il perche' e i limiti stanno in `src/service/warmup.py`.
+    """
+    warmup.in_sottofondo()
+    yield
+
 
 app = FastAPI(
     title="ibid",
     summary="RAG con citazioni verificate a livello di frase",
     version="0.1.0",
+    lifespan=ciclo,
 )
 
 
