@@ -14,11 +14,14 @@ della Fase 8 e' *un* consumatore dell'API, non il suo scopo.
 
 from __future__ import annotations
 
-from collections.abc import Iterator
+from collections.abc import AsyncIterator, Iterator
+from contextlib import asynccontextmanager
+from pathlib import Path
 
 import src.config as cfg
 from fastapi import FastAPI, HTTPException, Query, Request
 from fastapi.responses import JSONResponse, StreamingResponse
+from fastapi.staticfiles import StaticFiles
 from qdrant_client.http.exceptions import ResponseHandlingException
 from src.api.schema import (
     AnswerResponse,
@@ -50,11 +53,30 @@ from src.service import (
     model_catalog,
     retrieve_chunks,
 )
+from src.service import warmup
+
+
+@asynccontextmanager
+async def ciclo(_: FastAPI) -> AsyncIterator[None]:
+    """L'avvio scalda i modelli **senza aspettarli** (D-21).
+
+    Due righe, e la seconda e' quella che conta: `in_sottofondo` torna subito,
+    quindi uvicorn comincia ad accettare richieste mentre i ~2,5 GB di pesi si
+    caricano. `/health` risponde da subito e continua a voler dire «vivo, e
+    nient'altro»: e' cio' che `depends_on: service_healthy` di U-09 usa per
+    l'ordine di avvio, e non deve diventare «pronto a rispondere bene».
+
+    Il perche' e i limiti stanno in `src/service/warmup.py`.
+    """
+    warmup.in_sottofondo()
+    yield
+
 
 app = FastAPI(
     title="ibid",
     summary="RAG con citazioni verificate a livello di frase",
     version="0.1.0",
+    lifespan=ciclo,
 )
 
 
@@ -266,3 +288,49 @@ def effective_config() -> dict:
     chiunque.
     """
     return ConfigView.of(cfg.RequestConfig.from_defaults()).model_dump()
+
+
+# ---------------------------------------------------------------------------
+# Il frontend, quando c'e'
+# ---------------------------------------------------------------------------
+
+#: Il frontend costruito. Nell'immagine ci arriva da uno stadio Node
+#: (`Dockerfile`); in un clone non esiste, e Vite serve la sua copia col proxy.
+DIST = Path(__file__).parent.parent.parent / "ui" / "dist"
+
+# **Ultimo, e non e' un dettaglio di stile.** Starlette prova le rotte
+# nell'ordine in cui sono dichiarate: un montaggio su `/` scritto piu' in alto
+# si prenderebbe `/datasets` e `/query` prima che questo file li veda, e l'API
+# risponderebbe 404 su se stessa.
+#
+# `html=True` serve la `index.html` per le richieste che non trovano un file:
+# l'interfaccia e' una pagina sola, e chi ricarica su un percorso qualunque deve
+# ricevere l'applicazione invece di un 404.
+#
+# Il montaggio e' condizionale perche' **lo stesso codice gira in due posti**:
+# nel container, dove `ui/dist` c'e' e questa e' l'unica origine; e in sviluppo,
+# dove non c'e' e il frontend sta dietro Vite sulla sua porta. Un montaggio
+# incondizionato fallirebbe all'avvio proprio nel secondo caso.
+def monta_frontend(
+    applicazione: FastAPI,
+    dist: Path = DIST,
+    attivo: bool = False,
+) -> bool:
+    """Monta `ui/dist` su `/`. `False` se non c'e' niente da montare.
+
+    Una funzione e non due righe in fondo al modulo perche' cosi' si puo'
+    provare: il difetto da cui difendersi -- il montaggio che si prende anche le
+    rotte dell'API -- e' invisibile a occhio e si vede solo interrogando
+    l'applicazione montata.
+
+    `attivo` e non la sola presenza della cartella: vedi `SERVE_UI` in
+    `config.py`. Una `ui/dist` in un clone e' costruita per il proxy di Vite, e
+    servirla da qui darebbe una pagina che si carica e non parla col backend.
+    """
+    if not attivo or not dist.is_dir():
+        return False
+    applicazione.mount("/", StaticFiles(directory=dist, html=True), name="ui")
+    return True
+
+
+monta_frontend(app, attivo=cfg.SERVE_UI)

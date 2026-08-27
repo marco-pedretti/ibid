@@ -16,6 +16,22 @@ This is not a demo with links at the bottom of the answer. It is a measurement b
 
 ## Getting started
 
+Two commands, for two different needs. Confusing them is what makes a project hard to try.
+
+### Seeing it work
+
+You need **Docker**, and nothing else.
+
+```bash
+make demo                # docker compose --profile demo up
+```
+
+The interface is at `http://localhost:8000`. Inside is a **reduced index, committed to the repository**: 1,758 chunks cut out of the two real corpora, with the original vectors rather than recomputed ones. No corpus to download, no GPU: measured, **17.9 seconds** from the command to a page that answers.
+
+It is there to **show, not to reproduce**, and the interface says so while it runs: the numbers on this page come from the full index, which is the section below. Generating answers also needs a model (`LLM_BASE_URL`, below); without one you can browse the corpus and retrieval still answers: only generation falls away.
+
+### Touching the code, and redoing the measurements
+
 You need **Docker** and an **OpenAI-compatible** endpoint with a model loaded: [Ollama](https://ollama.com) or llama.cpp's `llama-server` both work. The project never calls an inference engine directly: it always goes through `LLM_BASE_URL`, which is what makes it runnable on any machine.
 
 ```bash
@@ -39,8 +55,6 @@ No address is hard-coded in `compose.yml`: moving Qdrant or the model to another
 ```bash
 QDRANT_URL=http://10.0.0.5:6333 LLM_BASE_URL=http://10.0.0.7:11434/v1 make api
 ```
-
-> **The short path ships with the release.** `docker compose --profile demo up` will mount a tiny index committed to the repository, so that step 3 (the two GPU hours) disappears. The profile is already in `compose.yml`; what it lacks is the index.
 
 ---
 

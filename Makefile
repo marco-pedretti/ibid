@@ -1,4 +1,5 @@
-.PHONY: fetch-datasets ingest eval eval-generation eval-citations noise-floor dashboard demo \n	api api-local dev ui ui-types ui-check up down logs
+.PHONY: fetch-datasets ingest eval eval-generation eval-citations noise-floor \
+	dashboard demo demo-index api api-local dev ui ui-types ui-check up down logs
 
 fetch-datasets:
 	python scripts/fetch_dataset.py
@@ -28,8 +29,25 @@ noise-floor:
 dashboard:
 	python -m streamlit run dashboard/app.py
 
+# La consegna (U-08): Qdrant, l'indice ridotto e l'API che serve anche
+# l'interfaccia, su http://localhost:8000. Serve Docker, e basta -- niente
+# corpus da scaricare, niente GPU. La prima volta costruisce l'immagine.
+#
+# **Non tocca l'indice completo**: il profilo ha un Qdrant suo, con un volume
+# suo, e il caricamento si rifiuta comunque di scrivere su una collection che
+# non porta il suo cartellino.
+#
+# Senza un LLM raggiungibile si sfoglia il corpus e il recupero risponde: cade
+# solo la generazione. L'indirizzo e' `LLM_BASE_URL`.
 demo:
 	docker compose --profile demo up
+
+# Ritaglia l'indice ridotto dall'indice completo e lo riscrive in `data/demo/`.
+# **Si esegue una volta**, da una macchina che ha l'indice vero, e il risultato
+# si committa: chi clona esegue il profilo qui sopra, non questo.
+demo-index:
+	python scripts/build_demo_index.py
+	python scripts/verify_esempi.py
 
 # --- Il servizio (A-05) ------------------------------------------------------
 #

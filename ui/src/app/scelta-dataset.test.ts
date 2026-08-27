@@ -4,7 +4,7 @@ import type { DatasetView } from "../api/types";
 import { interrogabili, sceltaIniziale } from "./scelta-dataset";
 
 function ds(dataset_id: string, n_chunks: number, ready = n_chunks > 0): DatasetView {
-  return { dataset_id, collection: `${dataset_id}_c`, ready, n_chunks };
+  return { dataset_id, collection: `${dataset_id}_c`, ready, n_chunks, ridotto: false };
 }
 
 const PRONTI = [ds("open_ragbench", 18840), ds("ledger", 47110)];

@@ -66,6 +66,29 @@ class TestNienteIndirizziCablati:
         assert cfg.LLM_BASE_URL.endswith("/v1")
 
 
+def blocco_del_servizio(nome: str) -> str:
+    """Le righe di un servizio di `compose.yml`, dalla sua intestazione al
+    servizio successivo.
+
+    **Serve perché cercare una stringa nel file intero non prova niente.** Il
+    controllo sull'healthcheck di Qdrant era scritto come `TESTO.split("qdrant:")`
+    e cadeva sulla prima occorrenza, che è dentro `${QDRANT_URL:-http://qdrant:6333}`
+    dell'API: leggeva un pezzo di ambiente e trovava, correttamente, nessun
+    `curl`. Passava per la ragione sbagliata, e avrebbe continuato a passare
+    anche con un healthcheck rotto.
+    """
+    testo = (ROOT / "compose.yml").read_text(encoding="utf-8")
+    righe = testo.splitlines()
+    for i, riga in enumerate(righe):
+        if riga == f"  {nome}:":
+            fine = next(
+                (j for j in range(i + 1, len(righe)) if re.match(r"^  \S", righe[j])),
+                len(righe),
+            )
+            return "\n".join(righe[i:fine])
+    raise AssertionError(f"compose.yml non ha un servizio «{nome}»")
+
+
 class TestCompose:
     TESTO = (ROOT / "compose.yml").read_text(encoding="utf-8")
 
@@ -85,7 +108,8 @@ class TestCompose:
         """Con `QDRANT_URL` che punta altrove, il profilo non parte — e la
         dipendenza non deve bloccare l'avvio dell'API."""
         assert "required: false" in self.TESTO
-        assert 'profiles: ["full", "eval", "demo"]' in self.TESTO
+        # `demo` non c'è più: da U-08 ha un Qdrant suo, con un volume suo.
+        assert 'profiles: ["full", "eval"]' in blocco_del_servizio("qdrant")
 
     def test_qdrant_e_pinnato(self):
         """`:latest` significa che due macchine possono avere due Qdrant
@@ -96,8 +120,16 @@ class TestCompose:
         """L'immagine di Qdrant non ha né curl né wget. Un healthcheck che non
         può girare lascia il servizio `starting` per sempre, e
         `depends_on: service_healthy` non parte mai."""
-        blocco = self.TESTO.split("qdrant:", 1)[1]
-        assert "curl" not in blocco.split("volumes:")[0]
+        definizione = self.TESTO.split("x-qdrant-salute:", 1)[1].split("\nservices:")[0]
+        # Il comando, non il blocco: il commento accanto **nomina** curl e wget
+        # per dire che non ci sono, e cercarli nel testo li troverebbe li'.
+        comando = next(r for r in definizione.splitlines() if r.strip().startswith("test:"))
+        assert "curl" not in comando and "wget" not in comando
+        assert "/qdrant/qdrant" in comando
+        # E che tutti e due i Qdrant la usino: una definizione giusta che un
+        # servizio non riferisce non controlla quel servizio.
+        for nome in ("qdrant", "qdrant-demo"):
+            assert "healthcheck: *qdrant-salute" in blocco_del_servizio(nome), nome
 
     def test_host_docker_internal_funziona_anche_su_linux(self):
         """Su Linux non esiste da solo: senza `extra_hosts` il default
@@ -108,6 +140,69 @@ class TestCompose:
         """~2,5 GB. Nell'immagine sarebbero layer, senza volume un download a
         ogni avvio prima della prima risposta."""
         assert "model_cache:/cache" in self.TESTO
+
+
+class TestProfiloDemo:
+    """U-08: `docker compose --profile demo up`, e i modi in cui potrebbe nuocere.
+
+    Il criterio del task è «in meno di due minuti senza download», e quello si
+    verifica avviandolo. Qui si verifica l'altra metà, che avviarlo non prova:
+    che non distrugga niente, e che non si scontri con la macchina di chi
+    sviluppa.
+    """
+
+    TESTO = (ROOT / "compose.yml").read_text(encoding="utf-8")
+
+    def test_ha_un_qdrant_suo_con_un_volume_suo(self):
+        """**La difesa che conta.** L'indice di `full` sono ore di GPU: un
+        profilo che ci scrivesse sopra i 1.758 chunk della demo li
+        distruggerebbe con un comando che sembra innocuo."""
+        assert "qdrant_demo_data:/qdrant/storage" in blocco_del_servizio("qdrant-demo")
+        assert "qdrant_data:/qdrant/storage" in blocco_del_servizio("qdrant")
+
+    def test_il_qdrant_della_demo_non_pubblica_la_porta(self):
+        """Nessuno ci parla da fuori, e pubblicarla la farebbe scontrare con il
+        Qdrant di sviluppo sulla 6333: un guasto al primo avvio, proprio sulla
+        macchina di chi sviluppa."""
+        assert "ports:" not in blocco_del_servizio("qdrant-demo")
+
+    def test_la_demo_non_eredita_un_qdrant_url_esportato(self):
+        """Chi sviluppa ce l'ha esportata verso il proprio indice, e la demo non
+        deve finirci dentro per una riga rimasta in una shell."""
+        for nome in ("api-demo", "seed-demo"):
+            assert "${DEMO_QDRANT_URL:-" in blocco_del_servizio(nome), nome
+            assert "${QDRANT_URL:-" not in blocco_del_servizio(nome), nome
+
+    def test_l_api_aspetta_che_l_indice_sia_carico(self):
+        """Non `service_healthy`: il caricamento **finisce**. Aprire la porta
+        prima mostrerebbe un dataset vuoto al primo colpo d'occhio."""
+        assert "condition: service_completed_successfully" in blocco_del_servizio("api-demo")
+
+    def test_il_caricamento_e_un_lavoro_non_un_servizio(self):
+        """`unless-stopped` lo rimetterebbe in piedi per sempre a ogni uscita
+        riuscita."""
+        assert 'restart: "no"' in blocco_del_servizio("seed-demo")
+
+    def test_l_indice_e_montato_in_sola_lettura(self):
+        """Il caricamento lo legge e basta, e sono ~21 MB che si rifanno con
+        `build_demo_index.py`: montarli evita di ricostruire l'immagine per
+        cambiare dei dati."""
+        assert "./data/demo:/app/data/demo:ro" in blocco_del_servizio("seed-demo")
+
+    def test_la_demo_cerca_in_esatta(self):
+        """L'unico punto in cui la demo non è configurata come la valutazione, e
+        la pagina «Che cos'è» lo dice **per nome**: senza questa riga quella
+        frase sarebbe una dichiarazione non verificata. La ragione è OQ-09,
+        l'ANN di `ledger` che ha reso dodici punti in meno a configurazione
+        identica, da solo."""
+        assert 'SEARCH_EXACT: "1"' in blocco_del_servizio("api-demo")
+
+    def test_i_tre_servizi_condividono_una_build_sola(self):
+        """Senza un nome d'immagine esplicito, compose costruirebbe la stessa
+        immagine tre volte."""
+        assert "image: ibid:local" in self.TESTO.split("services:", 1)[0]
+        for nome in ("api", "api-demo", "seed-demo"):
+            assert "<<: *api" in blocco_del_servizio(nome), nome
 
 
 class TestImmagine:

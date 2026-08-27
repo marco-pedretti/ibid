@@ -95,8 +95,10 @@ export function SelettoreDataset({ compatta = false }: { compatta?: boolean }) {
   const voci: Voce<string>[] = elenco.map((d) => ({
     valore: d.dataset_id,
     testo: d.dataset_id,
+    // Il secondo posto in cui la demo si dichiara (U-08): lo stato vuoto lo
+    // dice per esteso, ma sparisce dopo la prima domanda, e questa tendina no.
     dettaglio: interrogabile(d)
-      ? `${numero(d.n_chunks)} ${t("datasets.chunks")}`
+      ? `${numero(d.n_chunks)} ${t("datasets.chunks")}${d.ridotto ? ` · ${t("datasets.reduced")}` : ""}`
       : t("datasets.empty"),
     disabilitata: !interrogabile(d),
   }));

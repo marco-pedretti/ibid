@@ -197,13 +197,14 @@ L'orchestrazione che vi serve sta in ~300 righe leggibili. Usate le librerie per
 |---|---|---|
 | Container | **Docker Compose** con profili `demo` / `full` / `eval` | |
 | Entry point | **Makefile** | `make ingest`, `make eval`, `make demo`. Il README diventa tre righe |
-| Build | Dockerfile multi-stage con uv | |
+| Build | Dockerfile a tre stadi: `node:24-slim` per il frontend, `python:3.12-slim` con uv per l'ambiente, `python:3.12-slim` per eseguire | Node sta **solo nello stadio di build**: l'immagine finale contiene `ui/dist`, non `node_modules` |
 | Lint/format | **ruff** | Sostituisce black + isort + flake8 |
 | Type check | mypy sui moduli core | Opzionale, ma sui tipi dei chunk aiuta davvero |
 | Hook | pre-commit | ruff + controllo di non committare modelli o indici pesanti |
 | CI | GitHub Actions: lint + unit test | **Niente modelli in CI.** La valutazione gira in locale e i risultati si committano con l'hash del commit |
 | Golden set | JSON in git | È piccolo. Niente DVC |
-| Modelli e indici | Volumi, mai nell'immagine | Eccezione: il mini-indice del profilo `demo`, che va committato |
+| Modelli e indici | Volumi, mai nell'immagine | Eccezione: il mini-indice del profilo `demo`, committato in `data/demo/` (1.758 chunk, ~21 MB) e **montato**, non copiato: cambiarlo non ricostruisce l'immagine |
+| Frontend in produzione | `vite build` in uno stadio Node, e l'API serve `ui/dist` dalla stessa origine | È ciò che rende vera, invece che aspirazionale, la scelta di non avere CORS nel backend. In sviluppo resta il proxy di Vite |
 
 ## Struttura del repo
 

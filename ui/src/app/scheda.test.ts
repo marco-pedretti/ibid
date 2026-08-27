@@ -26,6 +26,7 @@ const DATASET: DatasetView = {
   collection: "ledger",
   ready: true,
   n_chunks: 228331,
+  ridotto: false,
 };
 
 describe("scheda", () => {

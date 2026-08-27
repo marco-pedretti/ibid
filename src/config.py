@@ -112,6 +112,18 @@ FASTEMBED_CACHE: str = os.getenv(
 #   ONNX_PROVIDERS=ROCMExecutionProvider,CPUExecutionProvider
 ONNX_PROVIDERS: str = os.getenv("ONNX_PROVIDERS", "")
 
+# Se l'API deve servire anche il frontend, dalla stessa origine (U-08).
+# **Acceso solo dentro l'immagine**, che e' l'unico posto dove `ui/dist` e'
+# costruito per questa origine: il `Dockerfile` compila con `VITE_API_BASE=""`,
+# cosi' il bundle chiama `/datasets` invece di `/api/datasets`.
+#
+# Spento di default, e non e' timidezza. Una `ui/dist` in un clone c'e' appena
+# qualcuno lancia `make ui-check`, ed e' costruita col default `/api`: servirla
+# da qui darebbe una pagina che si carica e non parla col backend, cioe' il
+# guasto peggiore da riconoscere. Fuori dal container il frontend sta dietro
+# Vite, che ha il suo proxy.
+SERVE_UI: bool = os.getenv("SERVE_UI", "").lower() in ("1", "true", "yes")
+
 # ---------------------------------------------------------------------------
 # Retrieval
 # ---------------------------------------------------------------------------

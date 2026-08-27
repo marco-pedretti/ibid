@@ -101,7 +101,7 @@ const AFFERMAZIONI: Affermazione[] = [
 const REPO = "https://github.com/marco-pedretti/ibid";
 
 export function Presentazione() {
-  const { t } = usaLingua();
+  const { t, lingua } = usaLingua();
   const { chiudi } = usaPresentazione();
   const { backend } = usaBackend();
   const { scelto } = usaDataset();
@@ -155,6 +155,16 @@ export function Presentazione() {
                   configurata la valutazione. Ed e' un «cosa non e'» a tutti gli
                   effetti, quindi sta in questo elenco invece che in una nota. */}
               <Limite>{t("about.not.exact")}</Limite>
+              {/* U-08. Solo dove e' vera: col profilo `demo` l'indice e' un
+                  ritaglio, con `make dev` e' quello completo, e una riga fissa
+                  sarebbe falsa in uno dei due casi. */}
+              {scelto?.ridotto === true && (
+                <Limite>
+                  {t("about.not.reduced", {
+                    chunk: scelto.n_chunks.toLocaleString(lingua === "it" ? "it-IT" : "en-US"),
+                  })}
+                </Limite>
+              )}
             </ul>
           </Sezione>
 

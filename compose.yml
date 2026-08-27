@@ -1,9 +1,9 @@
-# Il backend come servizio (A-05).
+# Il backend come servizio (A-05), e la demo che si avvia da sola (U-08).
 #
 # **Il punto di questo file è un'assenza**: non contiene un solo indirizzo
 # cablato. `QDRANT_URL` e `LLM_BASE_URL` arrivano dall'ambiente, e i default
-# servono il caso comune — Qdrant nella rete di compose, l'LLM sulla macchina
-# che ospita — senza impedire l'altro. Spostare Qdrant o l'LLM su un'altra
+# servono il caso comune (Qdrant nella rete di compose, l'LLM sulla macchina
+# che ospita) senza impedire l'altro. Spostare Qdrant o l'LLM su un'altra
 # macchina è una variabile, non una modifica al sorgente:
 #
 #     QDRANT_URL=http://10.0.0.5:6333 LLM_BASE_URL=http://10.0.0.7:11434/v1 \
@@ -13,68 +13,162 @@
 # scorciatoia: **dal punto di vista del container l'host È un'altra macchina**,
 # con un'altra interfaccia di rete e un altro `localhost`. È anche il motivo per
 # cui questo setup verifica il criterio pur girando tutto su un PC solo.
+#
+# ## Due profili, due destinatari
+#
+#     docker compose --profile demo up     chi vuole solo vederlo
+#     docker compose --profile full up     chi tocca il codice
+#
+# **Il profilo `demo` ha un Qdrant suo**, con il suo volume, e non è prudenza
+# eccessiva: l'indice di `full` sono ore di GPU, e un profilo che scrivesse i
+# 1.758 chunk della demo sopra i 66.000 veri li distruggerebbe con un comando
+# che sembra innocuo. La seconda difesa è nel caricamento
+# (`src/index/demo.py`), che si rifiuta di scrivere su una collection che non
+# porta il suo cartellino.
+#
+# La porta del Qdrant della demo **non si pubblica**: nessuno ci parla da fuori,
+# e pubblicarla la farebbe scontrare con il Qdrant di sviluppo sulla 6333, cioè
+# un guasto al primo avvio proprio sulla macchina di chi sviluppa.
+
+x-api: &api
+  # Un nome esplicito, così i tre servizi che ne hanno bisogno **condividono
+  # una build sola** invece di costruire la stessa immagine tre volte.
+  image: ibid:local
+  build:
+    context: .
+    dockerfile: Dockerfile
+  extra_hosts:
+    # Su Linux `host.docker.internal` non esiste da solo. Con questa riga il
+    # default sotto funziona sui tre sistemi invece che su due.
+    - "host.docker.internal:host-gateway"
+  volumes:
+    # I pesi dei modelli: ~2,5 GB fra embedding, reranker e verificatore NLI.
+    # Nell'immagine sarebbero layer; senza volume sarebbero un download a ogni
+    # avvio, prima della prima risposta.
+    - model_cache:/cache
+  restart: unless-stopped
+
+x-api-env: &api-env
+  # L'LLM non è un servizio di questo compose: gira su Ollama o llama.cpp,
+  # spesso già presente sulla macchina, e sempre con la GPU che questo
+  # container non ha. Passarlo per ambiente è ciò che tiene il backend
+  # portabile: vedi STACK.md, l'inferenza si raggiunge solo da qui.
+  LLM_BASE_URL: ${LLM_BASE_URL:-http://host.docker.internal:11434/v1}
+  LLM_MODEL: ${LLM_MODEL:-gemma4:latest}
+  # Manopole di piattaforma, non di richiesta (§3.4 e la classificazione di
+  # A-02): restano ambiente, e non compaiono nell'API.
+  ONNX_PROVIDERS: ${ONNX_PROVIDERS:-}
+
+x-api-salute: &api-salute
+  test: ["CMD", "curl", "-fsS", "http://localhost:8000/health"]
+  interval: 10s
+  timeout: 3s
+  start_period: 20s
+  retries: 5
+
+x-qdrant-salute: &qdrant-salute
+  # L'immagine di Qdrant non ha né curl né wget: il suo stesso binario sa dire
+  # se è vivo. Un healthcheck che non può girare lascia il servizio `starting`
+  # per sempre, e `depends_on: service_healthy` non parte mai.
+  test: ["CMD", "/qdrant/qdrant", "--version"]
+  interval: 10s
+  timeout: 5s
+  start_period: 10s
+  retries: 5
 
 services:
+  # --- chi tocca il codice ---------------------------------------------------
+
   api:
-    build:
-      context: .
-      dockerfile: Dockerfile
+    <<: *api
+    # `docker compose up api` lo avvia comunque: nominare un servizio ne abilita
+    # il profilo. È il motivo per cui `make api` continua a funzionare.
+    profiles: ["full", "eval"]
     ports:
       - "${API_PORT:-8000}:8000"
     environment:
+      <<: *api-env
       # Qdrant nella rete di compose quando il profilo lo avvia; un indirizzo
       # qualunque quando non lo fa.
       QDRANT_URL: ${QDRANT_URL:-http://qdrant:6333}
-      # L'LLM non è un servizio di questo compose: gira su Ollama o llama.cpp,
-      # spesso già presente sulla macchina, e sempre con la GPU che questo
-      # container non ha. Passarlo per ambiente è ciò che tiene il backend
-      # portabile — vedi STACK.md: l'inferenza si raggiunge solo da qui.
-      LLM_BASE_URL: ${LLM_BASE_URL:-http://host.docker.internal:11434/v1}
-      LLM_MODEL: ${LLM_MODEL:-gemma4:latest}
-      # Manopole di piattaforma, non di richiesta (§3.4 e la classificazione di
-      # A-02): restano ambiente, e non compaiono nell'API.
-      ONNX_PROVIDERS: ${ONNX_PROVIDERS:-}
-    extra_hosts:
-      # Su Linux `host.docker.internal` non esiste da solo. Con questa riga il
-      # default sopra funziona sui tre sistemi invece che su due.
-      - "host.docker.internal:host-gateway"
-    volumes:
-      # I pesi dei modelli: ~2,5 GB fra embedding, reranker e verificatore NLI.
-      # Nell'immagine sarebbero layer; senza volume sarebbero un download a ogni
-      # avvio, prima della prima risposta.
-      - model_cache:/cache
     depends_on:
       qdrant:
         condition: service_healthy
         # Qdrant è opzionale: con `QDRANT_URL` che punta altrove il profilo non
         # viene avviato, e questa dipendenza non deve bloccare l'avvio.
         required: false
-    healthcheck:
-      test: ["CMD", "curl", "-fsS", "http://localhost:8000/health"]
-      interval: 10s
-      timeout: 3s
-      start_period: 20s
-      retries: 5
-    restart: unless-stopped
+    healthcheck: *api-salute
 
   qdrant:
     image: qdrant/qdrant:v1.19.0
-    profiles: ["full", "eval", "demo"]
+    profiles: ["full", "eval"]
     ports:
       - "${QDRANT_PORT:-6333}:6333"
     volumes:
       - qdrant_data:/qdrant/storage
-    healthcheck:
-      # L'immagine di Qdrant non ha né curl né wget: il suo stesso binario sa
-      # dire se è vivo. Un healthcheck che non può girare lascia il servizio
-      # `starting` per sempre, e `depends_on: service_healthy` non parte mai.
-      test: ["CMD", "/qdrant/qdrant", "--version"]
-      interval: 10s
-      timeout: 5s
-      start_period: 10s
-      retries: 5
+    healthcheck: *qdrant-salute
+    restart: unless-stopped
+
+  # --- chi vuole solo vederlo (U-08) -----------------------------------------
+
+  api-demo:
+    <<: *api
+    profiles: ["demo"]
+    ports:
+      - "${API_PORT:-8000}:8000"
+    environment:
+      <<: *api-env
+      # Una variabile sua e non `QDRANT_URL`: chi sviluppa ce l'ha esportata
+      # verso il proprio indice, e la demo non deve finirci dentro per una riga
+      # rimasta in una shell.
+      QDRANT_URL: ${DEMO_QDRANT_URL:-http://qdrant-demo:6333}
+      # **La demo cerca in esatta**, ed è l'unico punto in cui non è configurata
+      # come la valutazione: la pagina «Che cos'è» lo dice per nome. La ragione
+      # è OQ-09: l'ANN di `ledger` ha reso dodici punti in meno a configurazione
+      # identica, da solo, sotto un task che non lo toccava. Una dimostrazione
+      # che qualcuno riavvia fra sei mesi ha più bisogno di riprodursi bit per
+      # bit di quanta ne abbia la valutazione, che i propri numeri li rifà.
+      SEARCH_EXACT: "1"
+    depends_on:
+      seed-demo:
+        # Non `service_healthy`: `seed-demo` **finisce**. Aspettare che l'indice
+        # sia caricato prima di aprire la porta evita l'unica schermata che chi
+        # prova il progetto non deve vedere, cioè un dataset vuoto al primo
+        # colpo d'occhio.
+        condition: service_completed_successfully
+    healthcheck: *api-salute
+
+  seed-demo:
+    <<: *api
+    profiles: ["demo"]
+    # Carica `data/demo/` su Qdrant e finisce. Nessuna GPU, nessuna rete: i
+    # vettori sono già quelli misurati, letti dall'indice completo da
+    # `scripts/build_demo_index.py`.
+    command: ["python", "-m", "src.index.demo"]
+    environment:
+      QDRANT_URL: ${DEMO_QDRANT_URL:-http://qdrant-demo:6333}
+    volumes:
+      # Montato, non copiato nell'immagine: sono ~21 MB che cambiano quando si
+      # rifà il ritaglio, e montarli evita di ricostruire l'immagine per
+      # cambiare dei dati. In sola lettura perché il caricamento li legge e
+      # basta.
+      - ./data/demo:/app/data/demo:ro
+    depends_on:
+      qdrant-demo:
+        condition: service_healthy
+    # Un lavoro che finisce, non un servizio: `unless-stopped` lo rimetterebbe
+    # in piedi per sempre a ogni uscita riuscita.
+    restart: "no"
+
+  qdrant-demo:
+    image: qdrant/qdrant:v1.19.0
+    profiles: ["demo"]
+    volumes:
+      - qdrant_demo_data:/qdrant/storage
+    healthcheck: *qdrant-salute
     restart: unless-stopped
 
 volumes:
   qdrant_data:
+  qdrant_demo_data:
   model_cache:
