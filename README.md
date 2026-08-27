@@ -16,6 +16,22 @@ Non è una demo con dei link in fondo alla risposta. È un banco di misura, cost
 
 ## Avvio
 
+Due comandi, per due bisogni diversi. Confonderli è ciò che rende un progetto difficile da provare.
+
+### Vederlo funzionare
+
+Serve **Docker**, e basta.
+
+```bash
+make demo                # docker compose --profile demo up
+```
+
+L'interfaccia è su `http://localhost:8000`. Dentro c'è un **indice ridotto, committato nel repository**: 1.758 chunk ritagliati dai due corpus veri, con i vettori originali invece che ricalcolati. Niente corpus da scaricare, niente GPU: misurato, **17,9 secondi** dal comando alla pagina pronta.
+
+Serve a **mostrare, non a riprodurre**, e l'interfaccia lo scrive mentre gira: i numeri di questa pagina vengono dall'indice completo, che è la sezione qui sotto. Per generare le risposte serve anche un modello (`LLM_BASE_URL`, sotto); senza, si sfoglia il corpus e il recupero risponde: cade solo la generazione.
+
+### Toccare il codice, e rifare le misure
+
 Servono **Docker** e un endpoint **OpenAI-compatibile** con un modello caricato: [Ollama](https://ollama.com) o `llama-server` di llama.cpp vanno bene entrambi. Il progetto non chiama mai un motore di inferenza direttamente: passa sempre da `LLM_BASE_URL`, ed è ciò che lo rende eseguibile su una macchina qualunque.
 
 ```bash
@@ -39,8 +55,6 @@ Nessun indirizzo è cablato in `compose.yml`: per portare Qdrant o il modello su
 ```bash
 QDRANT_URL=http://10.0.0.5:6333 LLM_BASE_URL=http://10.0.0.7:11434/v1 make api
 ```
-
-> **La via breve arriva con la consegna.** `docker compose --profile demo up` monterà un indice minimo committato nel repository, così che il punto 3 (le due ore di GPU) sparisca. Il profilo esiste già in `compose.yml`; gli manca l'indice.
 
 ---
 

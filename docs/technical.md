@@ -39,6 +39,7 @@ rifare una misura di recupero.
 
 | voglio | mi serve | non mi serve |
 |---|---|---|
+| **vederlo funzionare** | Docker | Python, GPU, corpus: l'indice ridotto è nel repo (§2.0) |
 | rileggere i risultati già misurati | Python e il repo | nient'altro: sono JSON in `eval/results/`, committati |
 | **rifare un confronto appaiato fra due run** | Python e il repo | nient'altro: anche i risultati per query sono committati (§5.7) |
 | **rifare una misura di recupero** | Qdrant con l'indice costruito | GPU, endpoint LLM |
@@ -88,6 +89,54 @@ generazione invece una GPU la vuole, ed è esattamente il motivo per cui esiste
 
 Quattro passi con il loro controllo, più uno facoltativo. Se un controllo non dà
 quello che c'è scritto, fermarsi lì: i passi dopo non lo aggiustano.
+
+Prima però conviene sapere che **per guardare non serve installare niente**.
+
+### 2.0 La via breve, se si vuole solo vedere
+
+```bash
+git clone <url> ibid && cd ibid
+docker compose --profile demo up          # oppure: make demo
+```
+
+`http://localhost:8000`, e serve solo Docker. Misurato con l'immagine già
+costruita e il volume azzerato: **17,9 secondi** dal comando alla pagina che
+risponde, di cui 3,7 per caricare l'indice. La prima volta l'immagine si
+costruisce (~45 s con la cache dei layer calda, qualche minuto senza).
+
+Dentro c'è un **indice ridotto committato nel repository**, `data/demo/`: 1.758
+chunk (658 di `open_ragbench`, 1.100 di `ledger`) ritagliati dai due corpus
+veri. I vettori sono **quelli originali, letti dall'indice completo e non
+ricalcolati**: un ritaglio riembeddato darebbe punteggi *simili*, e simile non
+basta, perché il margine con cui il terzo esempio di `ledger` chiude il gate di
+astensione è +0,0078, meno di quanto una versione diversa di `onnxruntime`
+sposti uno score.
+
+**Non riproduce nessuna misura, e lo dichiara mentre gira.** Con 658 punti
+invece di 18.840 il recupero ha meno concorrenti, quindi trova più facilmente; e
+il BM25 sparso cambia proprio i pesi, perché l'IDF lo calcola Qdrant sulle
+statistiche della collection. Il caricamento lascia su Qdrant una collection
+`ibid_demo` con dentro il manifesto (commit di provenienza, modello di
+embedding, conteggi), `/datasets` la legge e riporta `ridotto: true`, e
+l'interfaccia scrive *«Indice ridotto: questa demo cerca in 658 chunk, non nel
+corpus intero»*.
+
+Due cose che questo profilo **non** fa, e sono deliberate:
+
+- **non tocca l'indice completo.** Ha un Qdrant suo con un volume suo
+  (`qdrant_demo_data`), e il caricamento si rifiuta comunque di scrivere su una
+  collection che non porta il cartellino `ibid_demo`. Per la stessa ragione usa
+  `DEMO_QDRANT_URL` e non `QDRANT_URL`: chi sviluppa ha la seconda esportata
+  verso il proprio indice.
+- **non pubblica la porta del suo Qdrant.** Nessuno ci parla da fuori, e
+  pubblicarla la farebbe scontrare con il Qdrant di sviluppo sulla 6333.
+
+Per generare le risposte serve comunque un endpoint LLM (§2.3): senza, si
+sfoglia il corpus e il recupero risponde, cade solo la generazione.
+
+Il ritaglio si rifà con `make demo-index`, ma **solo da una macchina che ha
+l'indice completo**: legge da Qdrant, riscrive `data/demo/` e rilancia
+`verify_esempi.py`. Il risultato si committa.
 
 ### 2.1 Il codice e le dipendenze
 
@@ -176,8 +225,9 @@ Per il frontend, `cd ui && npm install && npm run test` (365 test) e
 risponda, poi avvia Vite, su http://localhost:5173. L'attesa non è cortesia: senza, la prima chiamata parte
 contro una porta chiusa e la pagina si apre già in stato di guasto, che chi
 guarda legge come un difetto del frontend. Non è il modo in cui il progetto si
-consegna (quello è `docker compose --profile demo up`, task U-08): serve a chi
-tocca il codice.
+consegna (quello è `docker compose --profile demo up`, §2.0): serve a chi tocca
+il codice. Nella consegna il proxy di Vite non esiste, perché l'API serve
+`ui/dist` dalla stessa origine.
 
 ---
 
@@ -204,6 +254,9 @@ stanno i servizi e su che piattaforma si gira.
 | `HNSW_EF` | default di Qdrant | quanto a fondo la ricerca approssimata cammina nel grafo |
 | `QUERY_REWRITE_MODEL` | vuoto | un modello dedicato alla riscrittura. Vuoto usa `LLM_MODEL` |
 | `ENTAILMENT_RENDER_TABLES` | spento | rende leggibili le tabelle OCR prima della verifica (C-08). **Cambiarlo cambia `citation_precision` già riportata** |
+| `WARMUP` | acceso | scalda embedder e verificatore all'avvio dell'API, in un thread di sottofondo. `WARMUP=0` per lavorare all'interfaccia mentre la GPU è occupata da una valutazione |
+| `SERVE_UI` | spento | fa servire `ui/dist` dall'API sulla stessa origine. **Acceso solo dentro l'immagine**: una `ui/dist` in un clone è costruita per il proxy di Vite, e servirla darebbe una pagina che si carica e non parla col backend |
+| `DEMO_QDRANT_URL` | `http://qdrant-demo:6333` | dove il profilo `demo` carica l'indice ridotto. Separata da `QDRANT_URL` apposta: chi sviluppa ha quella esportata verso il proprio indice |
 | `IBID_API_URL` | `http://localhost:8000` | dove la dashboard cerca il backend |
 | `API_PORT`, `QDRANT_PORT` | `8000`, `6333` | porte esposte sull'host |
 | `VITE_API_TARGET` | `http://127.0.0.1:8000` | dove il frontend manda le chiamate in sviluppo |

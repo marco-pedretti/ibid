@@ -1762,6 +1762,9 @@ typecheck verde, tipi TypeScript rigenerati.
 | U-05 | ✅ fatto (2026-08-20) | **Come il documento è stato riconosciuto e come è stato tagliato**, sulla scheda della fonte: `tabelle → taglio generico`, con l'accento solo quando una pipeline è stata scelta per il genere. Prima però il campo andava reso vero: i loader generici scrivevano il nome di una pipeline che **non aveva girato**, terza volta di quella famiglia dopo `reasoning_enabled` e `context_window`. Migrazione di payload su 65.950 punti, senza re-ingestione. **6 test Vitest** in più (225) e 2 Python (1711). Dettaglio sotto. |
 | U-06 | ✅ fatto (2026-08-20) | **L'esploratore del corpus**: i documenti, com'è stato spezzato quello aperto (una tessera per chunk, larga il doppio dove c'è una tabella), e il chunk scelto **per intero**, che è la ragione del task: la scheda ne mostra due righe e il chunk può essere lungo 6.302 caratteri. Nessun campo nuovo: `/documents` e `/document/{id}/chunks` esistevano dal A-04 e non li aveva mai chiamati nessuno. Il PDF non c'è su nessuno dei due corpus, e si dichiara. **11 test Vitest** in più (236). Dettaglio sotto. |
 | U-07 | ✅ fatto (2026-08-17) | Ogni citazione porta il **proprio verdetto**, sul marcatore in mezzo alla prosa e sulla scheda della fonte, e **nessuna è nascosta**. Cinque stati per il marcatore e sei per la scheda, distinti da glifo, colore e parola insieme (§12). Le frasi senza citazione sono sottolineate dove stanno. La corrispondenza frase↔marcatore è in funzioni pure: **38 test Vitest** in più (116 in tutto). Provato contro l'API viva su `open_ragbench` e `ledger`. Dettaglio sotto. |
+| U-08 | ✅ fatto (2026-08-27) | **La demo che sta in git**, con dentro **D-21**: `docker compose --profile demo up` in **17,9 s** (il criterio dice due minuti), con 1.758 chunk ritagliati dai corpus veri e i **vettori copiati, non ricalcolati**. Un Qdrant suo e un cartellino su Qdrant: la demo non puo' scrivere sull'indice vero, e **dichiara di essere una demo** in tre punti dell'interfaccia. Ci arriva anche `ui/dist` servito dall'API, che era una decisione di U-09. Dettaglio sotto. |
+| U-10 | ✅ fatto (2026-08-26) | **Il video**: due GIF da 18,3 e 23,5 s, in IT ed EN, tema scuro, 1280x800 nativi. Sono **due ritagli di una ripresa sola**, guidata da Playwright, senza montaggio. Quattro trappole della latenza trovate misurando, la prima delle quali (la cache del prefill: 16,9 s contro 3,9) avrebbe falsificato il numero a schermo **senza tagliare un fotogramma**. Dettaglio sotto. |
+| U-11 | ✅ fatto (2026-08-25) | **I due README** (IT ed EN, 237 righe ciascuno): le tre affermazioni con la propria tabella per dataset, e la seconda con ❌ accanto ai due ✅. Nessuna riga aggregata fra i due corpus. Lo screenshot e' arrivato con U-10. Resta fuori la descrizione «About» del repo, che si imposta su GitHub. Dettaglio sotto. |
 | U-13 | ✅ fatto (2026-08-17) | **Conversazione nuova e cronologia locale**: l'elenco nella corsia, persistenza in `localStorage`, e il ricaricamento riapre una conversazione *nuova*, con la cronologia accanto. Cosa si ricorda e come si rilegge è in funzioni pure: **17 test Vitest** in più (147 in tutto). Cancellare la cronologia c'è, a due tempi, ed è il primo posto in cui la palette ha un rosso: `danger`, solo per ciò che distrugge. Due giri di revisione. Dettaglio sotto. |
 | U-14 | ✅ fatto (2026-08-19) | **Markdown e LaTeX nella risposta**: il prompt li invita invece di vietarli, e l'interfaccia li disegna, come **intervalli sul testo grezzo**, così verdetti per frase e frasi scoperte restano allineati. **15 test Vitest** in più (172 in tutto). Debito dichiarato: `prompt_hash` cambia, C-01/C-02/C-07 da rimisurare. Dettaglio sotto. |
 | U-15 | ✅ fatto (2026-08-19) | **Con quali parametri e' stata data ogni risposta**: la configurazione che ha girato si rilegge nella conversazione, e fra una domanda e l'altra si vede cosa è cambiato. **Nessun campo nuovo**: `ConfigView` era già dentro ogni risposta e già nel deposito da U-13. **11 test Vitest** in più (183 in tutto). Dettaglio sotto. |
@@ -1771,6 +1774,8 @@ typecheck verde, tipi TypeScript rigenerati.
 | U-19 | ✅ fatto (2026-08-21) | **La pagina «Che cos'è»**: cosa fa il progetto, le tre affermazioni del §0 col verdetto che hanno oggi, cosa la demo non è, e chi l'ha fatta. Raggiungibile dalla corsia in tutti e due gli stati, in IT/EN. **Nessuna metrica scritta a mano**: i numeri non ci sono, e la pagina dice dove sono. **2 test Vitest** in più (300). Dettaglio sotto. |
 | U-20 | ✅ fatto (2026-08-21) | **L'avvio guidato**: cinque passi, e ognuno **circonda con un alone la zona di cui parla** (le fonti, la colonna delle risposte, la barra sotto il campo, il dataset nella corsia, «Che cos'è»). Il velo scurisce e sfoca il resto ma **non intercetta il puntatore**: si scrive e si manda con la guida aperta, e la lingua si cambia dalla scheda. Si salta con un comando, non torna, e il deposito ricorda il passo. **25 test Vitest** in più (325). Dettaglio sotto. |
 | U-21 | ✅ fatto (2026-08-21) | **Il telefono**: sotto una soglia **derivata dalle colonne** (200 di corsia + 390 di lavoro + 272 di fonti = 862 px) il telaio ha una colonna sola, e le due laterali diventano due strati che si aprono sopra il lavoro (la corsia da sinistra, le fonti da destra, con quante ne sono arrivate scritte sul comando). Il confronto si impila, l'esploratore diventa un affondo in due schermate, e la scheda della guida smette di finire sul campo in cui si scrive. **10 test Vitest** in più (335). Dettaglio sotto. |
+| U-22 | ✅ fatto (2026-08-26) | **Il manuale**: `docs/technical.md`, 907 righe, undici sezioni. Il criterio (*«chi arriva da GitHub rifa' una misura seguendo solo cio' che e' scritto li'»*) ha deciso il metodo: **ogni comando eseguito prima di essere scritto**, e le tabelle riportano cio' che ha stampato. Le due run dense riproducono a quattro decimali le cifre del README. Dettaglio sotto. |
+| U-23 | ✅ fatto (2026-08-23) | **Le domande d'esempio**, insieme a D-17: di ciascuna e' registrato **cosa deve succedere**, accanto alla domanda, e `scripts/verify_esempi.py` lo controlla contro l'indice vero. Da rilanciare a ogni cambio di indice, embedder o default: OQ-09 ha mostrato che l'indice cambia anche da solo. Dettaglio sotto. |
 
 ### U-00: il contratto esiste in due linguaggi, e uno dei due si genera
 
@@ -5165,3 +5170,183 @@ peserebbero 2,7 MB ciascuno per un file che nessuno apre.
 **Con lo screenshot si chiude anche la prima delle due cose che U-11 aveva
 lasciato indietro.** Resta la descrizione «About» del repo, che si imposta su
 GitHub e non da qui.
+
+---
+
+### U-08: la demo che sta in git, e le due volte in cui poteva far danno
+
+Il criterio e' *«`docker compose --profile demo up` in meno di due minuti senza
+download»*. Il problema che lo motiva sta in una riga: **chi arriva da GitHub
+trova il codice, non i vettori**, e rigenerarli costa ~2 ore di GPU piu' il
+download dei corpus. Un README che chiede quel prezzo sta dicendo «non
+provarlo».
+
+| | |
+|---|---|
+| dal comando alla pagina che risponde | **17,9 s** (immagine gia' costruita, volume azzerato) |
+| di cui caricamento dell'indice | 3,7 s |
+| costruzione dell'immagine | 44 s con la cache dei layer calda, una volta |
+| `data/demo/` | **1.758 chunk**: 658 di `open_ragbench` (30 documenti), 1.100 di `ledger` (10) |
+| peso | 20,7 MB nel working tree, **~10,2 MB in git** (i `.npy` densi non comprimono) |
+
+#### La decisione che conta: copiare i vettori, non ricalcolarli
+
+Un builder che riembeddasse il testo dei chunk sarebbe stato piu' semplice e
+avrebbe prodotto numeri **simili** a quelli misurati. Simile qui non basta: il
+terzo esempio di `ledger` chiude il gate di astensione per **+0,0078**, che e'
+meno di quanto una versione diversa di `onnxruntime` sposti uno score. Quindi
+`build_demo_index.py` **legge i punti dall'indice completo**, vettori compresi,
+e li riscrive su disco. Gira una volta, su una macchina che ha l'indice vero, e
+il risultato entra nel repository; chi clona esegue `seed_demo.py`, che non ha
+bisogno ne' di GPU ne' di rete.
+
+Ne segue una cosa che vale piu' della semplicita' persa: **la demo mostra gli
+stessi vettori su cui sono state prese le misure**.
+
+#### L'unita' di selezione e' il documento, non il chunk
+
+I chunk dichiarati in `esempi.ts` sono obbligatori (senza, il primo clic
+finisce in un'astensione: e' il difetto che D-17 ha gia' trovato una volta). Ma
+prendere **solo** quelli darebbe un corpus a groviera: l'esploratore di A-07
+mostra i documenti per intero, e una citazione aperta su un documento con tre
+chunk su venti si legge come un guasto.
+
+Quindi si prendono i documenti interi, in ordine (prima quelli degli esempi,
+poi quelli delle query d'oro) fino al budget. I distrattori arrivano gratis e
+sono i migliori possibili: chunk **dello stesso corpus e dello stesso genere**,
+spesso dello stesso documento della risposta giusta.
+
+#### I sei esempi reggono, e i gate si chiudono piu' larghi
+
+`QDRANT_URL=...:6399 python scripts/verify_esempi.py` contro l'indice ridotto:
+sei su sei fanno quel che dichiarano, in ANN e in esatta.
+
+| | dichiarato | sull'indice ridotto |
+|---|---|---|
+| `open_ragbench`, fuori corpus | +0,0227 | **+0,0452** |
+| `ledger`, fuori corpus | +0,0078 | **+0,0199** |
+
+Il verso e' quello buono e la ragione e' meccanica: con meno concorrenti il
+punteggio migliore e' piu' basso, quindi la soglia e' piu' lontana. Va
+sorvegliato lo stesso, perche' e' un margine che cambia con l'indice.
+
+#### La demo dichiara di essere una demo
+
+Le due collection si chiamano come quelle vere, e **deve** essere cosi': se si
+chiamassero altrimenti l'interfaccia non le troverebbe e i sei esempi
+andrebbero cambiati insieme al modo di avviare. Ma due collection con lo stesso
+nome e un ventesimo dei punti sono il modo perfetto di **misurare la cosa
+sbagliata**.
+
+Il caricamento lascia percio' una collection in piu', `ibid_demo`, senza
+vettori e con un punto solo: il manifesto (commit di provenienza, modello di
+embedding, conteggi). Da li' `/datasets` riporta `ridotto`, e l'interfaccia lo
+scrive in due posti che hanno vite diverse: **lo stato vuoto**, dove si clicca
+il primo esempio, e **la tendina dataset**, che resta dopo la prima domanda. Un
+terzo posto e' la pagina «Che cos'e'», dove la riga compare **solo dove e'
+vera**: con `make dev` l'indice e' completo e non c'e'.
+
+Il campo viaggia anche quando e' falso: uno che comparisse solo nella demo
+obbligherebbe il frontend a distinguere «non ridotto» da «backend di ieri».
+
+#### Le due volte in cui questo profilo poteva far danno
+
+**Scrivere sopra l'indice vero.** Sono ore di GPU, e un profilo che ci
+scrivesse sopra 1.758 chunk li distruggerebbe con un comando che sembra
+innocuo. Due difese, e sono due perche' la prima e' una riga di configurazione
+che qualcuno un giorno cambiera': il profilo ha un **Qdrant suo con un volume
+suo**, e il caricamento **rifiuta** una collection che non porta il cartellino.
+La seconda e' stata provata: `python scripts/seed_demo.py` contro il Qdrant di
+sviluppo si ferma e spiega perche'.
+
+**Scontrarsi con la macchina di chi sviluppa.** Il Qdrant della demo non
+pubblica la porta (sulla 6333 litigherebbe con quello di sviluppo), e il
+profilo legge `DEMO_QDRANT_URL` e non `QDRANT_URL`, che chi sviluppa ha
+esportata verso il proprio indice.
+
+#### D-21, dentro U-08 perche' e' l'unico posto da cui si vede che serve
+
+Prima, il primo caricamento dei modelli lo pagava **chi guardava**: l'embedder
+alla prima query, il verificatore NLI **in mezzo alla prima risposta**, alla
+prima citazione da verificare.
+
+| | |
+|---|---|
+| embedder `intfloat/multilingual-e5-large` | 2,4 s |
+| verificatore `MoritzLaurer/bge-m3-zeroshot-v2.0` | 3,1 s |
+| primo `/retrieve`, riscaldamento spento | **2,83 s** |
+| primo `/retrieve`, riscaldamento acceso | **0,34 s** |
+
+C'e' un secondo effetto che i secondi non mostrano: `hf_hub_download` contatta
+l'Hub **anche a cache piena**, per controllare la revisione. Quel warning ora
+compare all'avvio, dove si vede, invece che a meta' di una dimostrazione.
+
+I tre vincoli: **non blocca** (`Application startup complete` compare prima
+delle due righe di caricamento, e `/health` continua a voler dire «vivo, e
+nient'altro»), **non fa cadere niente** se un modello fallisce, e **scalda cio'
+che serve**, chiedendolo a `RequestConfig.from_defaults()` invece di tenere una
+lista sua: col reranker spento non carica ~1 GB di VRAM che nessuna richiesta
+toccherebbe. `WARMUP=0` lo spegne, per lavorare all'interfaccia mentre la GPU
+e' occupata da una valutazione.
+
+*Limite dichiarato*: rende **raro** il caso brutto, non impossibile. Garantirlo
+vorrebbe dire un endpoint di readiness separato da `/health`, cioe' toccare il
+contratto per un caso che dura trenta secondi una volta per avvio.
+
+Una correzione trovata guardando l'avvio: la prima versione era **muta proprio
+sotto uvicorn**. Le sue righe non uscivano perche' uvicorn lascia la radice
+senza gestori, e cercarli su `uvicorn.error` non basta: quel logger non ne ha
+di suoi, li eredita da `uvicorn`. Ora la catena si risale.
+
+#### Una decisione di U-09 arrivata qui, per necessita'
+
+Senza il frontend, `--profile demo up` avvia un'API e nessuna interfaccia: U-08
+consegna la demo, e la demo **e'** la pagina. Quindi uno stadio Node costruisce
+`ui/dist` e l'API lo serve dalla stessa origine, che e' la decisione scritta
+sotto U-09 fin dall'inizio. Con essa la ragione per cui il backend non ha CORS
+smette di essere un'aspirazione e diventa vera.
+
+Due punti che una versione plausibile sbaglierebbe:
+
+- **il montaggio va in fondo.** Starlette prova le rotte nell'ordine in cui
+  sono dichiarate: montare `/` piu' in alto seppellirebbe `/datasets` e
+  `/query`, e l'API risponderebbe 404 su se stessa. E' invisibile a occhio,
+  quindi il test interroga l'applicazione montata invece di leggere il codice.
+- **non basta che `ui/dist` esista.** `make ui-check` la lascia in ogni clone,
+  ed e' costruita per il proxy di Vite: servirla da `make api-local` darebbe una
+  pagina che si carica e non parla col backend. Percio' `SERVE_UI`, spento di
+  default e acceso **solo nel Dockerfile**, con due test che controllano proprio
+  quello.
+
+A U-09 restano i profili `full`/`eval` e il primo avvio su una macchina che non
+ha mai costruito l'immagine.
+
+#### La dichiarazione che non era vera
+
+`about.not.exact` diceva gia' *«qui la ricerca nell'indice e' esatta invece che
+approssimata»*, e `SEARCH_EXACT` **non era in `compose.yml`**: il profilo
+sarebbe girato col default. Una dichiarazione non verificata, nella pagina che
+spiega il progetto. Ora c'e', col suo test, e sul container `/config` risponde
+`search_exact: true`.
+
+E la stessa frase diceva «la differenza e' una»: con l'indice ridotto sono due,
+quindi quel pezzo e' caduto.
+
+#### Un test che passava per la ragione sbagliata
+
+Il controllo sull'healthcheck di Qdrant era `TESTO.split("qdrant:")`, e cadeva
+sulla **prima** occorrenza, che e' dentro `${QDRANT_URL:-http://qdrant:6333}`
+dell'API: leggeva un pezzo di ambiente e trovava, correttamente, nessun `curl`.
+Sarebbe passato anche con un healthcheck rotto. Adesso c'e'
+`blocco_del_servizio()` e i test guardano il servizio che nominano.
+
+#### Provata fino in fondo, non solo avviata
+
+La pagina si carica dalla stessa origine (nessun `/api` nel bundle, nessuna
+richiesta fallita, nessun errore di console), il selettore mostra
+`open_ragbench 658 · ridotto`, e una domanda d'esempio ha citato **esattamente
+il chunk che `esempi.ts` dichiara** (`open_ragbench:2401.07294v4:12`), con
+recupero 0,17 s e verifica 3,22 s, parlando con l'Ollama dell'host attraverso
+`host.docker.internal`.
+
+**1.795 test verdi**, ruff pulito, 365 Vitest, `tsc` e `prettier` puliti.
