@@ -213,14 +213,25 @@ def la_sessione_vera() -> list[str]:
     return effettivi
 
 
-def il_throughput() -> None:
-    """Embed/s su chunk veri, per stare accanto ai due numeri gia' noti."""
+def il_throughput() -> str | None:
+    """Embed/s su chunk veri. Restituisce l'errore se l'esecuzione **fallisce**.
+
+    **Creare una sessione e farla eseguire sono due cose diverse**, e la seconda
+    puo' fallire dove la prima e' riuscita. Su Arch, con MIGraphX imposto, la
+    sessione si lega al provider e poi l'inferenza muore: quel provider
+    ri-analizza il grafo da un buffer e cerca il file dei pesi esterni
+    (`model.onnx_data`, che `multilingual-e5-large` ha perche' supera i 2 GB)
+    nella directory corrente invece che accanto al modello.
+
+    Un'eccezione qui non e' un guasto dello script: **e' il risultato**. Prima
+    usciva come traceback, cioe' nel modo in cui un risultato non si legge.
+    """
     print("\n== il throughput ==")
     demo = ROOT / "data" / "demo"
     file = sorted(demo.glob("*.jsonl"))
     if not file:
         riga("saltato", "data/demo/ non c'e': niente testi con cui confrontarsi")
-        return
+        return None
 
     testi = []
     for f in file:
@@ -235,12 +246,22 @@ def il_throughput() -> None:
     from src.index import embed
 
     t0 = time.perf_counter()
-    embed.encode(testi, cfg.EMBEDDING_MODEL, batch_size=cfg.EMBEDDING_BATCH)
+    try:
+        embed.encode(testi, cfg.EMBEDDING_MODEL, batch_size=cfg.EMBEDDING_BATCH)
+    except Exception as e:  # noqa: BLE001 - qualunque cosa sia, e' il risultato
+        riga("esecuzione", "FALLITA: la sessione si e' creata ma non esegue")
+        # Solo l'ultima riga: l'eccezione di onnxruntime e' un muro di testo, e
+        # la riga che nomina il nodo o il file mancante e' quella in fondo.
+        ultima = str(e).strip().splitlines()[-1] if str(e).strip() else type(e).__name__
+        riga("errore", ultima[:160])
+        return ultima
+
     durata = time.perf_counter() - t0
     lunghezza = sum(len(t) for t in testi) // len(testi)
     riga("testi", f"{len(testi)} chunk, {lunghezza} caratteri in media")
     riga("tempo", f"{durata:.1f} s")
     riga("throughput", f"{len(testi) / durata:.1f} embed/s", "noti: ~10 DirectML, ~2,4 CPU (I-07)")
+    return None
 
 
 def non_nominati(offerti: list[str]) -> list[str]:
@@ -274,6 +295,7 @@ def verdetto(
     scelti: list[str],
     effettivi: list[str],
     distribuzioni: list[str] | None = None,
+    errore_esecuzione: str | None = None,
 ) -> int:
     # Il nome del provider CPU si chiede a `src/providers.py` invece di
     # scriverlo, ed e' la cucitura di Q-05 applicata a chi **riferisce** una
@@ -296,6 +318,18 @@ def verdetto(
         return 1
 
     primo = effettivi[0] if effettivi else ""
+
+    # **Legato ma non funzionante.** E' lo stato piu' insidioso dei tre, perche'
+    # le tre domande dicono tutte di si' e il sistema non gira lo stesso: la
+    # sessione si e' creata sul provider, e poi l'inferenza e' morta. Senza
+    # questa riga il verdetto direbbe «verificato» di un provider inutilizzabile.
+    if primo and primo != CPU and errore_esecuzione:
+        riga("acceleratore in uso", f"{primo}, ma NON esegue")
+        print(f"\n  La sessione si e' legata a {primo}, e l'inferenza e' fallita:")
+        print(f"    {errore_esecuzione[:160]}")
+        print("\n  D-10 **non** e' verificato per questo provider: legarsi non e' eseguire.")
+        return 1
+
     if primo and primo != CPU:
         riga("acceleratore in uso", primo)
         print("\n  D-10 per questo provider e' verificato: la sessione ci gira davvero.")
@@ -347,8 +381,8 @@ def main() -> None:
         return
 
     effettivi = la_sessione_vera()
-    il_throughput()
-    sys.exit(verdetto(offerti, scelti, effettivi, distribuzioni))
+    errore = il_throughput()
+    sys.exit(verdetto(offerti, scelti, effettivi, distribuzioni, errore))
 
 
 if __name__ == "__main__":

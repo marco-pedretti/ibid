@@ -76,6 +76,22 @@ class TestVerdetto:
         verdetto(offerti=["MIGraphXExecutionProvider", DML, CPU], scelti=[DML, CPU], effettivi=[DML])
         assert "offerti e non nominati" not in capsys.readouterr().out
 
+    def test_legato_ma_non_esegue_non_e_un_successo(self, capsys):
+        """Lo stato piu' insidioso dei tre, trovato su Arch il 2026-08-27: la
+        sessione **si lega** a MIGraphX e poi l'inferenza muore. Le tre domande
+        dicono tutte di si', e il sistema non gira lo stesso."""
+        codice = verdetto(
+            offerti=["MIGraphXExecutionProvider", CPU],
+            scelti=["MIGraphXExecutionProvider", CPU],
+            effettivi=["MIGraphXExecutionProvider", CPU],
+            errore_esecuzione="Failure opening file: model.onnx_data",
+        )
+        assert codice == 1
+        uscita = capsys.readouterr().out
+        assert "NON esegue" in uscita
+        assert "model.onnx_data" in uscita, "l'errore vero, non una parafrasi"
+        assert "legarsi non e' eseguire" in uscita
+
     def test_una_sessione_senza_provider_non_fa_esplodere_il_verdetto(self, capsys):
         """`get_providers()` che torna vuota non deve diventare un IndexError:
         il controllo serve proprio dove le cose non sono normali."""
