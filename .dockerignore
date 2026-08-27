@@ -29,9 +29,17 @@ __pycache__/
 .ruff_cache/
 
 # Consumatori che non sono questo servizio.
-ui/
 dashboard/
 notebooks/
+
+# Il frontend **entra**, e da U-08 e' il contrario di prima: uno stadio Node lo
+# costruisce e l'API serve `ui/dist` come file statici, cosi' nella consegna il
+# proxy di sviluppo non esiste e la stessa origine serve le due cose. Restano
+# fuori le sue dipendenze (~200 MB, che `npm ci` rifa' dentro l'immagine) e una
+# build vecchia, che verrebbe comunque sovrascritta.
+ui/node_modules/
+ui/dist/
+ui/scripts/
 
 # Segreti e configurazione locale: `compose.yml` li passa per ambiente, e una
 # copia dentro l'immagine sopravviverebbe a chi la riceve.

@@ -1,14 +1,39 @@
 # Il backend come immagine (A-05).
 #
-# Due stadi: il primo costruisce l'ambiente, il secondo porta solo il risultato.
-# Serve a non spedire `uv`, la cache dei wheel e gli header di compilazione in
-# un'immagine che deve solo eseguire.
+# Tre stadi: Node costruisce il frontend (U-08), il secondo costruisce l'ambiente
+# Python, il terzo porta solo i due risultati.
+# Serve a non spedire `uv`, la cache dei wheel, gli header di compilazione e i
+# ~200 MB di `node_modules` in un'immagine che deve solo eseguire.
 #
 # **Non installa il progetto**, lo copia. `pyproject.toml` e' configurato per
 # hatchling e `pip install -e .` funzionerebbe, ma oggi gli script di `scripts/`
 # mettono la radice del repo su `sys.path` a mano (vedi la nota su E402 in
 # `pyproject.toml`): finche' quel modo di lavorare regge fuori, cambiarlo qui
 # dentro creerebbe due layout diversi per lo stesso codice.
+
+# --- il frontend (U-08) ------------------------------------------------------
+#
+# **Nella consegna il proxy di sviluppo non esiste.** Vite ne ha uno che manda
+# `/api/...` al backend, e serve a chi sviluppa con due processi su due porte;
+# qui l'API serve `ui/dist` dalla **stessa origine**, che e' un container in meno
+# e soprattutto la ragione per cui il backend non ha CORS smette di essere
+# un'aspirazione e diventa vera.
+#
+# `VITE_API_BASE=""` e' cio' che lo rende possibile: il client ha `?? "/api"`
+# come default, e con la stringa vuota chiama `/datasets` invece di
+# `/api/datasets`. E' una variabile di **build**, non di esecuzione: finisce
+# dentro il bundle.
+FROM node:24-slim AS ui
+
+WORKDIR /ui
+# Prima il manifesto, poi il resto: cosi' `npm ci` si rifa' solo quando cambiano
+# le dipendenze, non a ogni riga di TypeScript.
+COPY ui/package.json ui/package-lock.json ./
+RUN npm ci
+COPY ui/ ./
+ENV VITE_API_BASE=""
+RUN npm run build
+
 
 FROM python:3.12-slim AS builder
 
@@ -66,6 +91,16 @@ ENV PATH="/opt/venv/bin:$PATH" \
 
 WORKDIR /app
 COPY src ./src
+
+# Il frontend costruito. **Non le sorgenti**: l'immagine esegue, non compila, e
+# `main.py` monta questa cartella solo se c'e' -- fuori dal container (`make
+# dev`) non c'e', e Vite serve la sua.
+COPY --from=ui /ui/dist ./ui/dist
+
+# **Qui e solo qui.** Fuori dal container `ui/dist` puo' esistere lo stesso (la
+# lascia `make ui-check`) ma e' costruita per il proxy di Vite: servirla darebbe
+# una pagina che si carica e non parla col backend. Vedi `SERVE_UI`.
+ENV SERVE_UI=1
 
 # I pesi dei modelli vivono qui, e **vanno montati** (vedi `compose.yml`).
 # Dentro l'immagine sarebbero ~2,5 GB di layer; ricreati a ogni avvio sarebbero
