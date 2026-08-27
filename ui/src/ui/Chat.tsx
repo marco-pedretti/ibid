@@ -169,6 +169,19 @@ function Vuoto({ conGuida }: { conGuida: boolean }) {
           pastiglia in fondo alla corsia, lontana e senza un nome scritto. Quella
           frase e' ora il suggerimento del selettore, dove «questo» si vede. */}
       {tradotti && <p className="mt-3 max-w-[62ch] text-[11px] text-muted">{t("example.lang")}</p>}
+
+      {/* U-08. **Sulla primissima schermata, non in una pagina di note**: e' qui
+          che si clicca il primo esempio, ed e' qui che va detto che il corpus
+          sotto e' un ritaglio. Compare solo quando lo e' -- `ridotto` arriva da
+          `/datasets`, che lo legge dal cartellino lasciato dal caricamento --
+          quindi in sviluppo, con l'indice completo, questa riga non c'e'. */}
+      {scelto?.ridotto === true && (
+        <p className="mt-3 max-w-[62ch] text-[11px] text-muted">
+          {t("chat.empty.reduced", {
+            chunk: scelto.n_chunks.toLocaleString(lingua === "it" ? "it-IT" : "en-US"),
+          })}
+        </p>
+      )}
     </div>
   );
 }

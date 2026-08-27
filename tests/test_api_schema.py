@@ -75,6 +75,10 @@ class TestU01SelettoreDataset:
             "collection": "ledger",
             "ready": True,
             "n_chunks": 47110,
+            # U-08: falso su un server normale, e viaggia lo stesso. Un campo
+            # che comparisse solo nella demo obbligherebbe il frontend a
+            # distinguere «non ridotto» da «backend di ieri».
+            "ridotto": False,
         }
 
     def test_vuoto_e_assente_restano_distinti(self):

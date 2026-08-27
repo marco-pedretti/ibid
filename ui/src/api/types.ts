@@ -166,6 +166,7 @@ export interface DatasetView {
   collection: string;
   ready: boolean;
   n_chunks: number;
+  ridotto: boolean;
 }
 
 /** Una collection e la forma del suo indice. */

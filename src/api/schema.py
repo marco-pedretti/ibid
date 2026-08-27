@@ -524,12 +524,18 @@ class DatasetView(BaseModel):
     `ready` e `n_chunks` separati: una collection che esiste ed e' vuota e' uno
     stato reale, e un frontend che lo confonde con l'assenza mostra un dataset
     che risponde sempre niente.
+
+    `ridotto` viaggia fin qui perche' e' una cosa che **chi guarda** deve
+    sapere, non chi amministra: l'indice della demo (U-08) si chiama come quello
+    vero e ha un ventesimo dei punti, e un'interfaccia che non lo dicesse
+    presenterebbe una dimostrazione come una misura.
     """
 
     dataset_id: str
     collection: str
     ready: bool
     n_chunks: int
+    ridotto: bool = False
 
     @classmethod
     def of(cls, info: DatasetInfo) -> "DatasetView":
@@ -538,6 +544,7 @@ class DatasetView(BaseModel):
             collection=info.collection,
             ready=info.ready,
             n_chunks=info.n_chunks,
+            ridotto=info.ridotto,
         )
 
 

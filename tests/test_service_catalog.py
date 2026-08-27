@@ -14,6 +14,7 @@ from types import SimpleNamespace
 import pytest
 import src.config as cfg
 from src.datasets import registry
+from src.index.demo import MARCATORE
 from src.service import (
     DocumentInfo,
     chunk,
@@ -30,13 +31,28 @@ class FakeInfo:
     points_count: int | None
 
 
+class _Punto:
+    def __init__(self, payload):
+        self.payload = payload
+
+
 class FakeClient:
     """Un Qdrant che sa solo quello che il test gli ha messo dentro."""
 
-    def __init__(self, collections: dict[str, int | None], payloads: dict | None = None):
-        self._collections = collections
+    def __init__(
+        self,
+        collections: dict[str, int | None],
+        payloads: dict | None = None,
+        manifesto: dict | None = None,
+    ):
+        self._collections = dict(collections)
         self._payloads = payloads or {}
+        self._manifesto = manifesto
         self.scrolled: list[tuple[str, str]] = []
+        # Il cartellino di U-08 e' una collection come le altre: un server che
+        # ha un manifesto ce l'ha, uno normale no.
+        if manifesto is not None:
+            self._collections[MARCATORE] = 1
 
     def collection_exists(self, name: str) -> bool:
         return name in self._collections
@@ -44,7 +60,17 @@ class FakeClient:
     def get_collection(self, name: str) -> FakeInfo:
         return FakeInfo(points_count=self._collections[name])
 
-    def scroll(self, collection_name, scroll_filter, limit, with_payload, with_vectors):
+    def scroll(
+        self,
+        collection_name,
+        scroll_filter=None,
+        limit=10,
+        with_payload=True,
+        with_vectors=False,
+        **kw,
+    ):
+        if collection_name == MARCATORE:
+            return [_Punto(self._manifesto)], None
         cond = scroll_filter.must[0]
         chunk_id = cond.match.value
         self.scrolled.append((collection_name, chunk_id))
@@ -52,11 +78,7 @@ class FakeClient:
         if payload is None:
             return [], None
 
-        class _Point:
-            def __init__(self, p):
-                self.payload = p
-
-        return [_Point(payload)], None
+        return [_Punto(payload)], None
 
 
 def payload(chunk_id: str) -> dict:
@@ -101,6 +123,25 @@ class TestDatasets:
         primo = registry.dataset_ids()[0]
         info = {d.dataset_id: d for d in datasets(FakeClient({primo: None}))}
         assert info[primo].n_chunks == 0
+
+    def test_senza_cartellino_nessun_dataset_e_ridotto(self):
+        """Il caso normale, ed e' quello che non deve costare niente: senza la
+        collection di U-08 la domanda ha comunque una risposta, ed e' «no»."""
+        client = FakeClient({d: 100 for d in registry.dataset_ids()})
+        assert all(not d.ridotto for d in datasets(client))
+
+    def test_il_cartellino_marca_solo_i_dataset_che_nomina(self):
+        """U-08. L'indice ridotto si chiama come quello vero: senza questo campo
+        658 punti e 18.840 sono distinguibili solo da chi sa gia' quale dei due
+        e' quello giusto."""
+        primo, secondo = registry.dataset_ids()[0], registry.dataset_ids()[1]
+        client = FakeClient(
+            {primo: 658, secondo: 47110},
+            manifesto={"datasets": [{"dataset_id": primo, "chunk": 658}]},
+        )
+        info = {d.dataset_id: d for d in datasets(client)}
+        assert info[primo].ridotto
+        assert not info[secondo].ridotto
 
 
 # --- dataset_of() / chunk() ------------------------------------------------

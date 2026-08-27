@@ -60,6 +60,7 @@ export const it = {
   "datasets.title": "Dataset",
   "datasets.empty": "indice vuoto",
   "datasets.chunks": "chunk",
+  "datasets.reduced": "ridotto",
   "datasets.change": "Cambia dataset",
   "datasets.notQueryable": "indice vuoto: non interrogabile",
   "datasets.none": "Nessun indice pronto",
@@ -152,6 +153,11 @@ export const it = {
   "chat.empty.title": "Chiedi qualcosa al corpus.",
   "chat.empty.hint":
     "Ogni frase della risposta porta la fonte da cui viene, e le fonti compaiono prima del testo.",
+  // U-08. Compare solo col profilo `demo`: l'indice li' si chiama come quello
+  // vero e ha un ventesimo dei punti, e senza questa riga la dimostrazione si
+  // leggerebbe come la misura. Dice anche dove stanno i numeri veri.
+  "chat.empty.reduced":
+    "Indice ridotto: questa demo cerca in {chunk} chunk, non nel corpus intero. Mostra come funziona il sistema; le misure del README vengono da quello completo.",
   "chat.placeholder": "Scrivi una domanda…",
   "chat.send": "Invia",
   "chat.stop": "Ferma",
@@ -583,6 +589,7 @@ export const en: Record<Chiave, string> = {
   "datasets.title": "Datasets",
   "datasets.empty": "empty index",
   "datasets.chunks": "chunks",
+  "datasets.reduced": "reduced",
   "datasets.change": "Change dataset",
   "datasets.notQueryable": "empty index: not queryable",
   "datasets.none": "No index ready",
@@ -646,6 +653,8 @@ export const en: Record<Chiave, string> = {
   "chat.empty.title": "Ask the corpus something.",
   "chat.empty.hint":
     "Every sentence carries the source it came from, and the sources appear before the text does.",
+  "chat.empty.reduced":
+    "Reduced index: this demo searches {chunk} chunks, not the whole corpus. It shows how the system works; the numbers in the README come from the full one.",
   "chat.placeholder": "Type a question…",
   "chat.send": "Send",
   "chat.stop": "Stop",

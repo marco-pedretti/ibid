@@ -29,6 +29,7 @@ import src.config as cfg
 from src.datasets import registry
 from src.datasets.schema import Chunk
 from src.generation import chat
+from src.index import demo
 from src.index.store import (
     chunk_from_payload,
     get_by_chunk_id,
@@ -52,6 +53,12 @@ class DatasetInfo:
     collection: str
     ready: bool
     n_chunks: int
+    #: Vero quando questa collection e' l'indice ridotto di U-08 e non il corpus
+    #: intero. **Non e' una sfumatura da nascondere**: le due collection si
+    #: chiamano come quelle vere, e senza questo campo un indice da 658 punti
+    #: sarebbe indistinguibile da uno da 18.840 se non guardando il conteggio e
+    #: sapendo gia' quale dei due e' quello giusto.
+    ridotto: bool = False
 
 
 def datasets(client=None) -> list[DatasetInfo]:
@@ -63,6 +70,11 @@ def datasets(client=None) -> list[DatasetInfo]:
     if client is None:
         client = get_client(cfg.QDRANT_URL)
 
+    # Una domanda sola al server, non una per dataset: il cartellino di U-08 e'
+    # una collection, e chiederla dentro il ciclo la interrogherebbe due volte
+    # per dire la stessa cosa.
+    ridotti = demo.dataset_ridotti(client)
+
     out: list[DatasetInfo] = []
     for dataset_id in registry.dataset_ids():
         collection = dataset_id
@@ -73,6 +85,7 @@ def datasets(client=None) -> list[DatasetInfo]:
                 collection=collection,
                 ready=True,
                 n_chunks=info.points_count or 0,
+                ridotto=dataset_id in ridotti,
             ))
         else:
             out.append(DatasetInfo(
