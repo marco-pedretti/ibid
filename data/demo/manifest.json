@@ -1,0 +1,20 @@
+{
+  "generato": "2026-08-27T08:41:56Z",
+  "git_commit": "5400be90ced0b4dccdcfdd864eff867f4535c550",
+  "embedding_model": "intfloat/multilingual-e5-large",
+  "sparse_embedding_model": "Qdrant/bm25",
+  "datasets": [
+    {
+      "dataset_id": "open_ragbench",
+      "documenti": 30,
+      "chunk": 658,
+      "dense_size": 1024
+    },
+    {
+      "dataset_id": "ledger",
+      "documenti": 10,
+      "chunk": 1100,
+      "dense_size": 1024
+    }
+  ]
+}
