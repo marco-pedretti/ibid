@@ -150,6 +150,19 @@ pip install -e ".[gpu-directml]" # Windows con GPU DirectX 12
 pip install -e .                 # CPU, ovunque
 ```
 
+> **Su Debian e Ubuntu il primo comando non funziona**, e il messaggio d'errore
+> non è quello che ci si aspetta. Provato su una Ubuntu 26.04 appena installata:
+> `python3 -m venv` fallisce perché `ensurepip` non c'è, `python3 -m pip` non
+> esiste affatto, e `/usr/lib/python3.14/EXTERNALLY-MANAGED` vieta comunque di
+> installare nel Python di sistema (PEP 668). Serve una riga prima:
+>
+> ```bash
+> sudo apt install python3-venv     # oppure python3.14-venv, per la versione esatta
+> ```
+>
+> Su Arch, Fedora e macOS `venv` arriva con Python e questo passo non serve. È
+> l'unico punto della procedura che dipende dalla distribuzione.
+
 Gli acceleratori ONNX sono **extra che si escludono a vicenda**: forniscono
 tutti il modulo `onnxruntime`, e con due installati vince chi ha scritto i file
 per ultimo. Le tre varianti sono `gpu-directml` (Windows, qualunque GPU
