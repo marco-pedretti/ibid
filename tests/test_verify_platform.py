@@ -82,6 +82,34 @@ class TestVerdetto:
         assert verdetto(offerti=[], scelti=[CPU], effettivi=[]) == 0
 
 
+class TestNonNominati:
+    """La domanda che costa due secondi, e che su Arch non veniva fatta.
+
+    `--veloce` non calcola il verdetto, e la prima versione teneva questa riga
+    **dentro** il verdetto: sulla macchina di Marco non e' comparsa affatto, e
+    l'output diceva solo «onnx_providers() -> CPU» senza spiegare perche'.
+    """
+
+    def test_elenca_quelli_che_il_nostro_ordine_ignora(self, capsys):
+        from scripts.verify_platform import non_nominati
+
+        ignoti = non_nominati(["MIGraphXExecutionProvider", "DnnlExecutionProvider", CPU])
+        assert ignoti == ["MIGraphXExecutionProvider", "DnnlExecutionProvider"]
+        uscita = capsys.readouterr().out
+        assert "ONNX_PROVIDERS=MIGraphXExecutionProvider" in uscita, "dare il comando pronto"
+
+    def test_la_cpu_non_e_un_acceleratore_ignorato(self, capsys):
+        from scripts.verify_platform import non_nominati
+
+        assert non_nominati([CPU]) == []
+        assert capsys.readouterr().out == ""
+
+    def test_quelli_che_conosciamo_non_si_elencano(self, capsys):
+        from scripts.verify_platform import non_nominati
+
+        assert non_nominati([DML, CPU]) == []
+
+
 class TestModuloRotto:
     """Lo stato in cui `import onnxruntime` riesce e non c'e' niente dentro.
 

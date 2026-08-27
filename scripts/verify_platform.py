@@ -243,6 +243,32 @@ def il_throughput() -> None:
     riga("throughput", f"{len(testi) / durata:.1f} embed/s", "noti: ~10 DirectML, ~2,4 CPU (I-07)")
 
 
+def non_nominati(offerti: list[str]) -> list[str]:
+    """Gli acceleratori che la macchina offre e che il nostro ordine ignora.
+
+    Senza questa riga una macchina cosi' e' **indistinguibile da una senza
+    GPU**: si finisce su CPU e il verdetto dice «coerente». E' il caso vero di
+    Arch, dove `python-onnxruntime-rocm` espone il provider MIGraphX e
+    non il provider ROCm.
+
+    Sta fuori dal verdetto perche' serve anche a `--veloce`, che il verdetto non
+    lo calcola: **e' la domanda che vale la pena fare per prima**, e costa due
+    secondi invece di due caricamenti di modello. La prima versione la faceva
+    solo alla fine, e su Arch non e' comparsa affatto.
+    """
+    from src.providers import CPU, PREFERRED_ACCELERATORS
+
+    ignoti = [p for p in offerti if p != CPU and p not in PREFERRED_ACCELERATORS]
+    if ignoti:
+        riga("offerti e non nominati", ignoti)
+        print("\n  Questa macchina offre acceleratori che il nostro ordine di preferenza non")
+        print("  elenca, quindi non li prova nemmeno. Per provarne uno senza toccare il")
+        print("  codice basta imporlo (Q-05), e se regge va aggiunto a")
+        print("  PREFERRED_ACCELERATORS in `src/providers.py`:")
+        print(f"\n      ONNX_PROVIDERS={ignoti[0]},{CPU} python scripts/verify_platform.py\n")
+    return ignoti
+
+
 def verdetto(
     offerti: list[str],
     scelti: list[str],
@@ -277,20 +303,7 @@ def verdetto(
         return 0
 
     riga("acceleratore in uso", "nessuno: si gira su CPU")
-
-    # **Offerti che il nostro ordine non nomina.** Senza questa riga, una
-    # macchina che offre un acceleratore che `PREFERRED_ACCELERATORS` non elenca
-    # e' indistinguibile da una che non ne ha nessuno: si finisce su CPU e il
-    # verdetto dice «coerente». E' il caso di MIGraphX, che il pacchetto ROCm di
-    # Arch spedisce al posto del provider ROCm.
-    from src.providers import PREFERRED_ACCELERATORS
-
-    ignoti = [p for p in offerti if p != CPU and p not in PREFERRED_ACCELERATORS]
-    if ignoti:
-        riga("offerti e non nominati", ignoti)
-        print("\n  Questa macchina offre acceleratori che il nostro ordine di preferenza non")
-        print("  elenca, quindi non li prova nemmeno. Se uno di questi e' quello giusto,")
-        print("  va aggiunto a PREFERRED_ACCELERATORS in `src/providers.py`.")
+    non_nominati(offerti)
 
     voluti = [p for p in scelti if p != CPU]
     if not voluti:
@@ -323,10 +336,15 @@ def main() -> None:
     scelti = la_scelta()
 
     if args.veloce:
-        print("\n(--veloce: la sessione vera e il throughput non sono stati provati)")
-        # L'ambiente rotto si vede anche cosi', ed e' la cosa che vale la pena
-        # scoprire prima di aspettare due caricamenti di modello.
-        sys.exit(verdetto(offerti, scelti, [], distribuzioni) if len(distribuzioni) > 1 else 0)
+        # Le due cose che si vedono **senza caricare niente**, e sono quelle per
+        # cui `--veloce` esiste: un ambiente rotto, e un acceleratore che il
+        # nostro ordine non nomina.
+        if len(distribuzioni) > 1:
+            sys.exit(verdetto(offerti, scelti, [], distribuzioni))
+        print()
+        non_nominati(offerti)
+        print("(--veloce: la sessione vera e il throughput non sono stati provati)")
+        return
 
     effettivi = la_sessione_vera()
     il_throughput()
