@@ -277,6 +277,21 @@ def verdetto(
         return 0
 
     riga("acceleratore in uso", "nessuno: si gira su CPU")
+
+    # **Offerti che il nostro ordine non nomina.** Senza questa riga, una
+    # macchina che offre un acceleratore che `PREFERRED_ACCELERATORS` non elenca
+    # e' indistinguibile da una che non ne ha nessuno: si finisce su CPU e il
+    # verdetto dice «coerente». E' il caso di MIGraphX, che il pacchetto ROCm di
+    # Arch spedisce al posto del provider ROCm.
+    from src.providers import PREFERRED_ACCELERATORS
+
+    ignoti = [p for p in offerti if p != CPU and p not in PREFERRED_ACCELERATORS]
+    if ignoti:
+        riga("offerti e non nominati", ignoti)
+        print("\n  Questa macchina offre acceleratori che il nostro ordine di preferenza non")
+        print("  elenca, quindi non li prova nemmeno. Se uno di questi e' quello giusto,")
+        print("  va aggiunto a PREFERRED_ACCELERATORS in `src/providers.py`.")
+
     voluti = [p for p in scelti if p != CPU]
     if not voluti:
         print("\n  E' coerente: nessun acceleratore fra quelli offerti. Non e' un guasto,")

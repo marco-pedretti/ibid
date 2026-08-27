@@ -61,6 +61,21 @@ class TestVerdetto:
     def test_una_distribuzione_sola_non_disturba_il_verdetto(self, capsys):
         assert verdetto([DML, CPU], [DML, CPU], [DML, CPU], ["onnxruntime-directml 1.24"]) == 0
 
+    def test_un_acceleratore_che_non_conosciamo_non_passa_inosservato(self, capsys):
+        """Il caso di Arch: il pacchetto ROCm spedisce **MIGraphX** e non il
+        provider ROCm. Senza questa riga, una macchina cosi' e' indistinguibile
+        da una senza GPU: si finisce su CPU e il verdetto dice «coerente»."""
+        verdetto(offerti=["MIGraphXExecutionProvider", CPU], scelti=[CPU], effettivi=[CPU])
+        uscita = capsys.readouterr().out
+        assert "MIGraphXExecutionProvider" in uscita
+        assert "PREFERRED_ACCELERATORS" in uscita, "dire dove si aggiunge"
+
+    def test_su_un_acceleratore_che_funziona_la_riga_tace(self, capsys):
+        """Non e' un avviso da dare sempre: quando l'acceleratore c'e' ed e'
+        in uso, elencare il resto sarebbe rumore."""
+        verdetto(offerti=["MIGraphXExecutionProvider", DML, CPU], scelti=[DML, CPU], effettivi=[DML])
+        assert "offerti e non nominati" not in capsys.readouterr().out
+
     def test_una_sessione_senza_provider_non_fa_esplodere_il_verdetto(self, capsys):
         """`get_providers()` che torna vuota non deve diventare un IndexError:
         il controllo serve proprio dove le cose non sono normali."""

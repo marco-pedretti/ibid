@@ -209,8 +209,19 @@ lentamente.
 > sudo pacman -S python-onnxruntime-rocm
 > python -m venv --system-site-packages .venv && source .venv/bin/activate
 > pip install -e .                  # senza extra
-> pip uninstall -y onnxruntime      # la copia PyPI nel venv coprirebbe quella di sistema
 > ```
+>
+> Il pacchetto registra `onnxruntime-1.29.0.dist-info`, quindi pip lo considera
+> gia' soddisfatto e **non scarica quello di PyPI**: nessuna delle due
+> distribuzioni di troppo, e niente da disinstallare.
+>
+> **Una cosa resta da verificare sulla macchina, non dalla documentazione**: la
+> lista dei file di quel pacchetto contiene `libonnxruntime_providers_migraphx.so`
+> e **non** `libonnxruntime_providers_rocm.so`. Puo' voler dire che il provider
+> ROCm e' compilato dentro la libreria principale, oppure che quel build offre
+> MIGraphX al suo posto. La risposta la da' `verify_platform.py --veloce` in due
+> secondi, e nel secondo caso lo dice a chiare lettere: MIGraphX non e' in
+> `PREFERRED_ACCELERATORS`, quindi verrebbe ignorato in silenzio.
 
 Il controllo, che guarda **tre cose e non una**:
 
