@@ -67,6 +67,45 @@ class TestVerdetto:
         assert verdetto(offerti=[], scelti=[CPU], effettivi=[]) == 0
 
 
+class TestModuloRotto:
+    """Lo stato in cui `import onnxruntime` riesce e non c'e' niente dentro.
+
+    **Successo davvero**, su Arch, il 2026-08-27: dopo `pip uninstall -y
+    onnxruntime` con due distribuzioni installate, la cartella condivisa se n'e'
+    andata con la seconda arrivata. Lo script rispondeva con un `AttributeError`
+    a meta' pagina, cioe' con un traceback al posto della diagnosi, proprio nel
+    caso per cui esiste.
+    """
+
+    def test_dice_cosa_e_rotto_e_come_si_aggiusta(self, monkeypatch, capsys):
+        import importlib.metadata as meta
+        import sys as sistema
+        import types
+
+        from scripts import verify_platform
+
+        guscio = types.ModuleType("onnxruntime")  # senza get_available_providers
+        monkeypatch.setitem(sistema.modules, "onnxruntime", guscio)
+        monkeypatch.setattr(
+            meta, "version", lambda nome: "9.9.9" if nome == "onnxruntime-rocm" else _assente(nome)
+        )
+
+        with pytest.raises(SystemExit) as uscita:
+            verify_platform.onnx()
+        assert uscita.value.code == 1
+
+        stampato = capsys.readouterr().out
+        assert "ROTTO" in stampato
+        assert "force-reinstall" in stampato, "dire cos'e' rotto senza dire come si aggiusta"
+        assert "onnxruntime-rocm" in stampato, "il comando deve nominare la distribuzione giusta"
+
+
+def _assente(nome):
+    from importlib.metadata import PackageNotFoundError
+
+    raise PackageNotFoundError(nome)
+
+
 class TestSessioneDellEmbedder:
     """Frugare dentro fastembed e' fragile per costruzione, quindi deve fallire
     restituendo `None`: il chiamante ripiega sul verificatore NLI, che e' codice

@@ -136,6 +136,22 @@ def onnx() -> tuple[list[str], list[str]]:
 
     import onnxruntime
 
+    # **Un modulo che si importa non e' un modulo che funziona.** Dopo un
+    # `pip uninstall onnxruntime` fatto quando erano installate due
+    # distribuzioni, resta una cartella vuota: `import` riesce, `__file__` e'
+    # `None` e non c'e' nessuna funzione. Se questo controllo non ci fosse,
+    # l'unica cosa che si vedrebbe e' un `AttributeError` a meta' pagina, cioe'
+    # un traceback al posto della diagnosi -- ed e' successo davvero.
+    if not hasattr(onnxruntime, "get_available_providers"):
+        riga("modulo", "ROTTO: si importa ma e' vuoto")
+        print()
+        print(f"  La distribuzione {trovate[0]} risulta installata, ma i suoi file non ci sono.")
+        print("  Succede dopo `pip uninstall -y onnxruntime` quando erano installate in due:")
+        print("  la seconda arrivata possedeva i file condivisi, e toglierla li ha portati via.")
+        print("  Si rimette in piedi cosi', senza rifare l'ambiente:")
+        print(f"\n      pip install --force-reinstall --no-deps {trovate[0].split()[0]}\n")
+        sys.exit(1)
+
     offerti = list(onnxruntime.get_available_providers())
     riga("versione del modulo", onnxruntime.__version__)
     riga("offre", offerti)

@@ -172,15 +172,44 @@ lentamente.
 
 > **E `pip` ci arriva da solo, a due distribuzioni.** `fastembed` richiede
 > `onnxruntime` (quello CPU) per ogni versione di Python, quindi
-> `pip install -e ".[gpu-rocm]"` installa **anche** quello. Verificato col
-> risolutore di pip in un container Linux: ne escono `onnxruntime-rocm 1.22.2` e
-> `onnxruntime 1.29.0` insieme. Dopo l'extra serve quindi una riga in più, e
-> senza di essa l'acceleratore può sparire senza che nessuno abbia cambiato
-> niente:
+> `pip install -e ".[gpu-rocm]"` installa **anche** quello: ne escono
+> `onnxruntime-rocm` e `onnxruntime` insieme, e a quel punto **vince quella
+> CPU**, cioè l'acceleratore c'è e non si usa.
+>
+> **Togliere quella di troppo non basta**, ed è la parte che non si indovina.
+> Le due distribuzioni scrivono la *stessa* cartella `onnxruntime/`: la seconda
+> arrivata sovrascrive i file e ne diventa la proprietaria, quindi
+> `pip uninstall -y onnxruntime` **se li porta via tutti**. Resta una cartella
+> vuota: `import onnxruntime` riesce, `__file__` è `None`, e la prima chiamata
+> muore con `AttributeError: module 'onnxruntime' has no attribute
+> 'get_available_providers'`. La distribuzione GPU, intanto, continua a
+> risultare installata.
+>
+> Verificato riproducendo lo stato in un ambiente pulito. La sequenza che
+> funziona è di tre passi, e l'ultimo è quello che manca a chi si ferma prima:
 >
 > ```bash
 > pip install -e ".[gpu-rocm]"
-> pip uninstall -y onnxruntime      # lascia solo la distribuzione con la GPU
+> pip uninstall -y onnxruntime
+> pip install --force-reinstall --no-deps onnxruntime-rocm   # riscrive i suoi file
+> ```
+>
+> Lo stesso comando è anche la **riparazione** se ci si è già finiti dentro: non
+> serve rifare l'ambiente. `scripts/verify_platform.py` riconosce quello stato e
+> lo stampa invece di sollevare.
+
+> **Su Arch conviene il pacchetto della distribuzione, non il wheel.** Il wheel
+> di PyPI (`onnxruntime-rocm` 1.22.2) è compilato contro ROCm 6 e cerca
+> `libamdhip64.so.6`, mentre Arch è a ROCm 7.2.4: `extra/python-onnxruntime-rocm`
+> è alla **1.29.0**, costruito contro la ROCm del sistema, e dichiara di fornire
+> `python-onnxruntime`. Il venv lo vede se lo si crea con
+> `--system-site-packages`, e non serve nessun extra:
+>
+> ```bash
+> sudo pacman -S python-onnxruntime-rocm
+> python -m venv --system-site-packages .venv && source .venv/bin/activate
+> pip install -e .                  # senza extra
+> pip uninstall -y onnxruntime      # la copia PyPI nel venv coprirebbe quella di sistema
 > ```
 
 Il controllo, che guarda **tre cose e non una**:
@@ -226,6 +255,16 @@ Qdrant appena avviato la lista è vuota: la si riempie nel §4.
 > **I target `make` sono scorciatoie.** Su Windows `make` spesso non c'è: accanto
 > a ognuno, qui, sta il comando che esegue, e quello funziona ovunque.
 
+> **`docker compose` è un plugin, e su alcune distribuzioni si installa a parte.**
+> Il sintomo è un `docker` che risponde ma non conosce il sottocomando. Su Arch
+> servono tre cose e la terza chiede di rientrare nella sessione:
+>
+> ```bash
+> sudo pacman -S docker docker-compose docker-buildx
+> sudo systemctl enable --now docker
+> sudo usermod -aG docker $USER      # poi logout/login, oppure `newgrp docker`
+> ```
+
 ### 2.3 L'endpoint LLM (solo se si genera)
 
 ```bash
@@ -249,10 +288,17 @@ dipende dalla taglia del modello: su E4B sposta il motore ma non l'orologio, sul
 ### 2.4 La suite
 
 ```bash
+pip install pytest ruff      # non arrivano con `pip install -e .`: vedi sotto
 python -m pytest -q
 ```
 
-**1752 test, ~52 secondi** (misurato il 2026-08-26 sul commit corrente). La suite
+**`pytest` e `ruff` stanno in `[tool.uv] dev-dependencies`**, che è una sezione
+di `uv` e **pip non la legge**: con pip vanno chiesti a mano, e chi non lo fa
+riceve `No module named pytest` dopo un'installazione andata a buon fine. Con
+`uv sync` arrivano da soli.
+
+**1808 test, ~31 secondi** (misurato il 2026-08-27 sul commit corrente; 1808
+anche su Linux x86_64 con Python 3.12, dentro l'immagine). La suite
 **non ha bisogno né di Qdrant né dell'LLM** e non carica nessun modello ONNX: se
 passa, l'installazione Python è completa, e un fallimento qui è un problema di
 dipendenze e non di configurazione.
