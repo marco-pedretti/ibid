@@ -151,24 +151,52 @@ pip install -e .                 # CPU, ovunque
 ```
 
 Gli acceleratori ONNX sono **extra che si escludono a vicenda**: forniscono
-tutti il modulo `onnxruntime`, e installandone due l'import si rompe. Le tre
-varianti sono `gpu-directml` (Windows, qualunque GPU DirectX 12), `gpu-rocm`
-(Linux e AMD) e `gpu-cuda` (NVIDIA). **Solo la prima è provata**: le altre due
-sono dichiarate perché i provider corrispondenti sono in elenco, e verificarle
-davvero è il task U-12. Senza nessun extra, `fastembed` tira comunque
-`onnxruntime` per CPU e tutto funziona, più lentamente.
+tutti il modulo `onnxruntime`, e con due installati vince chi ha scritto i file
+per ultimo. Le tre varianti sono `gpu-directml` (Windows, qualunque GPU
+DirectX 12), `gpu-rocm` (Linux e AMD) e `gpu-cuda` (NVIDIA). Senza nessun extra,
+`fastembed` tira comunque `onnxruntime` per CPU e tutto funziona, più
+lentamente.
 
-Il controllo:
+> **E `pip` ci arriva da solo, a due distribuzioni.** `fastembed` richiede
+> `onnxruntime` (quello CPU) per ogni versione di Python, quindi
+> `pip install -e ".[gpu-rocm]"` installa **anche** quello. Verificato col
+> risolutore di pip in un container Linux: ne escono `onnxruntime-rocm 1.22.2` e
+> `onnxruntime 1.29.0` insieme. Dopo l'extra serve quindi una riga in più, e
+> senza di essa l'acceleratore può sparire senza che nessuno abbia cambiato
+> niente:
+>
+> ```bash
+> pip install -e ".[gpu-rocm]"
+> pip uninstall -y onnxruntime      # lascia solo la distribuzione con la GPU
+> ```
+
+Il controllo, che guarda **tre cose e non una**:
 
 ```bash
-python -c "import src.providers as p; print(p.describe())"
+python scripts/verify_platform.py            # tutto
+python scripts/verify_platform.py --veloce   # solo l'ambiente, nessun modello
 ```
 
-Stampa quale acceleratore è stato scelto: `ONNX: DmlExecutionProvider` sulla
-macchina di sviluppo, `ONNX: CPUExecutionProvider` senza. Se dice CPU su una
-macchina che ha una GPU, l'extra non è installato o il provider non è visibile a
-`onnxruntime`: è un guasto silenzioso che costa sei ore di ingestione, quindi
-vale la pena guardarlo adesso.
+Le tre cose sono diverse fra loro, ed è il motivo per cui il controllo esiste:
+cosa la macchina **offre** (`onnxruntime.get_available_providers()`), cosa il
+progetto **sceglie** (`src/providers.py`), e su cosa la sessione è **finita**
+(`InferenceSession.get_providers()`). Solo la terza è una misura: onnxruntime
+scarta in silenzio un provider che non riesce a inizializzare, quindi esiste uno
+stato in cui le prime due dicono ROCm e la terza dice CPU. Lo script esce con 1
+in quel caso, e anche quando trova due distribuzioni insieme.
+
+Stampa anche il throughput sui chunk veri di `data/demo/`, confrontabile con i
+due numeri noti: **10,0 embed/s** misurati su DirectML mentre questa pagina
+veniva scritta, contro i ~10 di I-07 e i ~2,4 su CPU. Se dice CPU su una
+macchina che ha una GPU, l'extra non è installato, il provider non è visibile a
+`onnxruntime`, oppure le distribuzioni sono due: è un guasto silenzioso che
+costa sei ore di ingestione, quindi vale la pena guardarlo adesso.
+
+**`gpu-rocm` e `gpu-cuda` restano dichiarati e non verificati** finché U-12 non
+li prova su una macchina che ha quell'hardware. Ciò che è verificato oggi è che
+esistono, per quali Python e con quale glibc: `onnxruntime-gpu` 1.29.0
+(manylinux_2_28), `onnxruntime-rocm` 1.22.2 (manylinux_2_34, cioè Ubuntu 22.04 o
+più recente).
 
 ### 2.2 Qdrant
 

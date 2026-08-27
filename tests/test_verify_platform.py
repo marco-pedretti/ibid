@@ -42,6 +42,25 @@ class TestVerdetto:
         assert "ATTENZIONE" in uscita
         assert ROCM in uscita
 
+    def test_due_distribuzioni_insieme_sono_un_ambiente_rotto(self, capsys):
+        """**Prima di ogni altra cosa**, perche' rende inaffidabile ogni altra
+        cosa: due distribuzioni scrivono lo stesso modulo, e vince chi arriva
+        ultimo. Verificato col risolutore di pip in un container Linux:
+        `fastembed` + `onnxruntime-rocm` ne installa due."""
+        codice = verdetto(
+            offerti=[ROCM, CPU],
+            scelti=[ROCM, CPU],
+            effettivi=[ROCM, CPU],
+            distribuzioni=["onnxruntime-rocm 1.22.2", "onnxruntime 1.29.0"],
+        )
+        assert codice == 1, "un ambiente rotto non e' un successo, neanche con l'acceleratore"
+        uscita = capsys.readouterr().out
+        assert "ROTTO" in uscita
+        assert "pip uninstall" in uscita, "dire cos'e' rotto senza dire come si aggiusta"
+
+    def test_una_distribuzione_sola_non_disturba_il_verdetto(self, capsys):
+        assert verdetto([DML, CPU], [DML, CPU], [DML, CPU], ["onnxruntime-directml 1.24"]) == 0
+
     def test_una_sessione_senza_provider_non_fa_esplodere_il_verdetto(self, capsys):
         """`get_providers()` che torna vuota non deve diventare un IndexError:
         il controllo serve proprio dove le cose non sono normali."""

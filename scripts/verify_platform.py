@@ -108,8 +108,16 @@ def le_variabili() -> None:
         riga(nome, valore if valore else "(non impostata)")
 
 
-def onnx() -> tuple[str, list[str]]:
-    """Quale distribuzione fornisce `onnxruntime`, e cosa dichiara di offrire."""
+def onnx() -> tuple[list[str], list[str]]:
+    """Quali distribuzioni forniscono `onnxruntime`, e cosa dichiarano di offrire.
+
+    **Al plurale di proposito.** `fastembed` richiede `onnxruntime` (quello CPU)
+    per ogni versione di Python, quindi `pip install -e ".[gpu-rocm]"` ne
+    installa **due**: verificato col risolutore di pip in un container Linux, e
+    ne escono `onnxruntime-rocm 1.22.2` e `onnxruntime 1.29.0` insieme. Le due
+    scrivono lo stesso modulo, vince chi arriva ultimo, e il sintomo e' una GPU
+    che sparisce senza che nessuno abbia cambiato niente.
+    """
     from importlib.metadata import PackageNotFoundError, version
 
     print("\n== onnxruntime ==")
@@ -121,11 +129,9 @@ def onnx() -> tuple[str, list[str]]:
             continue
     if not trovate:
         riga("distribuzione", "NESSUNA: onnxruntime non e' installato")
-        return "", []
+        return [], []
     riga("distribuzione", trovate[0])
     if len(trovate) > 1:
-        # Non un dettaglio: e' il difetto che `pyproject.toml` avverte di
-        # evitare, e da fuori si vede solo come un acceleratore che sparisce.
         riga("ATTENZIONE", f"{len(trovate)} distribuzioni insieme: {trovate}")
 
     import onnxruntime
@@ -133,7 +139,7 @@ def onnx() -> tuple[str, list[str]]:
     offerti = list(onnxruntime.get_available_providers())
     riga("versione del modulo", onnxruntime.__version__)
     riga("offre", offerti)
-    return trovate[0], offerti
+    return trovate, offerti
 
 
 def la_scelta() -> list[str]:
@@ -221,7 +227,12 @@ def il_throughput() -> None:
     riga("throughput", f"{len(testi) / durata:.1f} embed/s", "noti: ~10 DirectML, ~2,4 CPU (I-07)")
 
 
-def verdetto(offerti: list[str], scelti: list[str], effettivi: list[str]) -> int:
+def verdetto(
+    offerti: list[str],
+    scelti: list[str],
+    effettivi: list[str],
+    distribuzioni: list[str] | None = None,
+) -> int:
     # Il nome del provider CPU si chiede a `src/providers.py` invece di
     # scriverlo, ed e' la cucitura di Q-05 applicata a chi **riferisce** una
     # scelta invece di compierla. Un test guarda che nessun modulo fuori di li'
@@ -229,6 +240,19 @@ def verdetto(offerti: list[str], scelti: list[str], effettivi: list[str]) -> int
     from src.providers import CPU
 
     print("\n== verdetto ==")
+
+    # **Prima di tutto il resto, perche' rende inaffidabile tutto il resto**: con
+    # due distribuzioni il modulo importato e' quello che ha scritto i file per
+    # ultimo, e le righe qui sopra descrivono uno stato che il prossimo
+    # `pip install` puo' cambiare da solo.
+    if distribuzioni and len(distribuzioni) > 1:
+        riga("ambiente", "ROTTO: due distribuzioni di onnxruntime insieme")
+        print(f"\n  {distribuzioni}")
+        print("  Forniscono lo stesso modulo e si escludono a vicenda: vince chi ha scritto")
+        print("  i file per ultimo. `pip install -e \".[gpu-...]\"` ci arriva da solo, perche'")
+        print("  fastembed richiede `onnxruntime`. Togline una:  pip uninstall -y onnxruntime")
+        return 1
+
     primo = effettivi[0] if effettivi else ""
     if primo and primo != CPU:
         riga("acceleratore in uso", primo)
@@ -264,16 +288,18 @@ def main() -> None:
 
     la_macchina()
     le_variabili()
-    _, offerti = onnx()
+    distribuzioni, offerti = onnx()
     scelti = la_scelta()
 
     if args.veloce:
         print("\n(--veloce: la sessione vera e il throughput non sono stati provati)")
-        return
+        # L'ambiente rotto si vede anche cosi', ed e' la cosa che vale la pena
+        # scoprire prima di aspettare due caricamenti di modello.
+        sys.exit(verdetto(offerti, scelti, [], distribuzioni) if len(distribuzioni) > 1 else 0)
 
     effettivi = la_sessione_vera()
     il_throughput()
-    sys.exit(verdetto(offerti, scelti, effettivi))
+    sys.exit(verdetto(offerti, scelti, effettivi, distribuzioni))
 
 
 if __name__ == "__main__":
