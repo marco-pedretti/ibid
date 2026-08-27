@@ -5350,3 +5350,31 @@ recupero 0,17 s e verifica 3,22 s, parlando con l'Ollama dell'host attraverso
 `host.docker.internal`.
 
 **1.795 test verdi**, ruff pulito, 365 Vitest, `tsc` e `prettier` puliti.
+
+#### La revisione di Marco: le strade erano tre, e restano due
+
+Guardando U-08 finito: *«come revisione di roadmap questa versione di demo e'
+piu' che sufficiente, non faremo la versione con l'indice completo»*. Cade la
+**via di mezzo** del piano, cioe' lo snapshot Qdrant pubblicato come asset di
+Release (~160 MB, «provare sul dataset vero senza aspettare due ore di GPU»).
+
+Restano i due bisogni veri: chi vuole vedere e' servito in 17,9 secondi, chi
+vuole misurare deve comunque ingerire, perche' **e' l'ingestione a produrre i
+vettori** su cui poggia ogni numero di questo file. In mezzo c'era chi vuole
+interrogare il corpus intero senza misurare niente: un pubblico che non
+abbiamo, per 160 MB da tenere allineati a ogni cambio di embedder o di
+chunking, con la garanzia che il giorno in cui divergono nessuno se ne accorge
+(un indice interrogato con un altro embedder risponde **spazzatura senza
+errore**).
+
+Cosa **non** si butta con la via di mezzo: la verifica sulle licenze, fatta per
+lo snapshot ma valida per qualunque indice che esca di qui, perche' un indice
+contiene il **testo dei chunk** e non solo i vettori. I 1.758 chunk committati
+sono esattamente quel caso, e `data/README.md` e' l'attribuzione accanto ai
+dati. Anche il vincolo *«nessun indice senza il commit e l'embedder che l'hanno
+prodotto»* resta, ed e' `manifest.json`.
+
+Il *«accanto all'artefatto e non solo nel repo»* invece si scioglie da se':
+senza release **l'artefatto e' il repository**. Aggiornati `ROADMAP.md` (§U-08,
+la tappa 5, la decisione 1 del 2026-08-20 che dipendeva a meta' dagli asset di
+Release, e il punto 2 sulle collection instradate) e `data/README.md`.

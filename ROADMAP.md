@@ -533,40 +533,37 @@ Controlla anche i servizi, e **non allo stesso modo**: senza indice non funziona
 
 **Nella consegna il proxy non esiste.** Il frontend viene costruito (`vite build`) dentro l'immagine con uno stadio Node, e **l'API serve `ui/dist` come file statici**: stessa origine, un container in meno, e soprattutto la ragione per cui il backend non ha CORS smette di essere un'aspirazione e diventa vera. È una decisione di U-09, e va scritta ora perché è ciò che rende legittimo il proxy di sviluppo di U-00: un proxy che nascondesse un problema di CORS destinato a ripresentarsi in produzione sarebbe un debito, non una comodità.
 
-### U-08 in dettaglio, come e quando si pubblica l'indice
+### U-08 in dettaglio: quale indice riceve chi arriva, e quale no
 
 **Il problema, detto una volta.** Chi arriva da GitHub trova il codice, non i vettori. Rigenerarli costa ~2 ore di GPU più il download dei corpus da HuggingFace. Nessuno prova un progetto a quel prezzo, e un README che lo chiede sta dicendo «non provarlo».
 
-**Le tre strade non sono alternative: sono tre bisogni diversi**, e vanno tutte e tre documentate perché chi arriva non sa quale è la sua.
+**Le strade erano tre, e sono due.** Decisione di Marco il **2026-08-27**, rivedendo U-08 finito: *«come revisione di roadmap questa versione di demo è più che sufficiente, non faremo la versione con l'indice completo»*. La via di mezzo, lo snapshot Qdrant pubblicato come asset di Release, **non si fa**.
 
 | bisogno | cosa riceve | costo | dove sta |
 |---|---|---|---|
 | **vedere com'è** | indice `demo` committato | < 2 min, zero rete | in git, `data/demo/` |
-| **provare sul dataset vero** | snapshot Qdrant | ~160 MB da scaricare | asset di **GitHub Release** |
 | **riprodurre le misure** | ingestione completa | ~2 h di GPU | `make fetch-datasets && make ingest` |
 
-Solo la terza rigenera i vettori, ed è quella su cui poggia ogni numero in `docs/progress.md`. Le prime due servono a **mostrare**, e vanno dichiarate come tali: un demo che sembra riprodurre le misure è peggio di nessun demo.
+**Perché regge senza la via di mezzo.** Lo snapshot serviva a un bisogno intermedio, «provare sul dataset vero senza aspettare due ore di GPU», e quel bisogno si è rivelato più stretto di come sembrava a scriverlo: chi vuole solo vedere è servito in 17,9 secondi, chi vuole misurare deve comunque ingerire, perché **è l'ingestione a produrre i vettori su cui poggia ogni numero** di `docs/progress.md`. In mezzo restava chi vuole interrogare il corpus intero senza misurare niente: un pubblico che non abbiamo, per 160 MB da mantenere allineati a ogni cambio di embedder o di chunking, con la garanzia che il giorno in cui divergono nessuno se ne accorge (un indice interrogato con un altro embedder risponde **spazzatura senza errore**).
 
-**I vettori densi non comprimono** (1024 dimensioni × 4 byte per punto): lo snapshot compresso di `open_ragbench` è il 76% dell'originale. Ogni piano che assuma una compressione migliore è sbagliato. Le taglie misurate stanno in [`progress.md`](docs/progress.md).
+Ne resta un solo confine da tenere netto, ed è quello di sempre: solo l'ingestione rigenera i vettori. `data/demo/` serve a **mostrare**, e va dichiarato come tale: un demo che sembra riprodurre le misure è peggio di nessun demo. Nell'interfaccia lo dicono il campo `ridotto`, lo stato vuoto e la pagina «Che cos'è».
 
-**La licenza permette di ridistribuire, ed è la prima cosa da verificare.** Uno snapshot contiene **il testo dei chunk**, non solo i vettori: non è un artefatto derivato opaco, è il corpus riorganizzato.
+**La verifica sulle licenze resta valida, e adesso riguarda `data/demo/`.** Era stata fatta per lo snapshot, ma il ragionamento non dipendeva dal formato: un indice contiene **il testo dei chunk**, non solo i vettori, quindi non è un artefatto derivato opaco, è il corpus riorganizzato. I 1.758 chunk committati sono esattamente quello.
 
 | dataset | licenza | ridistribuibile | obbligo |
 |---|---|---|---|
 | `vectara/open_ragbench` | Apache 2.0 | sì | licenza + NOTICE accanto all'artefatto |
 | `artefactory/ledger-long-context-KPI-QA` | CC-BY-4.0 | sì | attribuzione accanto all'artefatto |
 
-**«Accanto all'artefatto» e non solo nel repo**: chi scarica uno snapshot da una release può non aver mai visto `data/README.md`. L'attribuzione va nel corpo della release e in un file dentro l'archivio.
+**«Accanto all'artefatto»** era la parte delicata quando l'artefatto era un archivio scaricabile: chi lo prende da una release può non aver mai visto `data/README.md`. Senza release il problema si scioglie da sé: **l'artefatto è il repository**, e l'attribuzione sta nel file accanto ai dati.
 
-**Il meccanismo.** Qdrant ripristina direttamente da un URL (`POST /collections/{nome}/snapshots/recover` con `{"location": "https://…/open_ragbench.snapshot"}`), quindi non c'è nessun file da maneggiare a mano. Si pubblicano `open_ragbench` e `ledger`; **non** le varianti `_routed`: servono all'ablation R-07, cioè a chi riproduce, e chi riproduce ingerisce.
+**I vettori densi non comprimono** (1024 dimensioni × 4 byte per punto). Vale ancora, e adesso si vede sul peso di `data/demo/`: 20,7 MB nel working tree e ~10,2 in git, quasi tutti nei due `.npy`, che sono float32 quasi incomprimibili. Ogni piano che assuma una compressione migliore è sbagliato.
 
-**Quando.** L'indice `demo` dentro U-08, perché è ciò che quel task consegna: costruito dai chunk d'oro di ~30 query più distrattori, ordine di 1.500–2.000 chunk, che stanno in git senza LFS (`dataset_id: "demo"` è già nello schema `Chunk` del §3, era previsto). Lo snapshot su Release al primo tag pubblico, insieme a U-11: prima non ha destinatari, e uno snapshot pubblicato prima delle misure definitive invecchia male.
+**Cosa non fare, e perché** (le prime due sono la ragione per cui `data/demo/` è un ritaglio piccolo e non un indice intero):
 
-**Cosa non fare, e perché:**
-
-- **Committare lo snapshot in git.** GitHub rifiuta i file oltre 100 MB, e anche sotto quella soglia un binario nella storia la gonfia per sempre: si cancella dal working tree, non dai commit.
+- **Committare uno snapshot in git.** GitHub rifiuta i file oltre 100 MB, e anche sotto quella soglia un binario nella storia la gonfia per sempre: si cancella dal working tree, non dai commit.
 - **Git LFS sul piano gratuito.** 1 GB di banda al mese: si esaurisce dopo sei cloni, e dal settimo chi clona vede un errore invece del dataset. È il modo peggiore di fallire: sembra funzionare finché il progetto non interessa a nessuno.
-- **Pubblicare uno snapshot senza dire da quale commit e con quale modello di embedding è stato costruito.** Un indice è legato al modello che l'ha prodotto: interrogarlo con un altro embedder restituisce spazzatura *senza errore*. Il tag della release e il nome del modello vanno nel corpo della release.
+- **Distribuire un indice senza dire da quale commit e con quale modello di embedding è stato costruito.** Un indice è legato al modello che l'ha prodotto: interrogarlo con un altro restituisce spazzatura *senza errore*. È il `manifest.json` di `data/demo/`, che porta commit, embedder denso e sparso, e i conteggi per dataset.
 
 **U-12 è più piccolo di quanto sembri, e non è rinviabile.** Il criterio di U-09 è «primo avvio pulito su macchina vergine», e una macchina Linux è una macchina vergine: un progetto MIT pensato per essere provato da altri non è presentabile se gira su un sistema operativo solo. `src/index/embed.py` sceglie già il provider DirectML solo se disponibile e ripiega su CPU, quindi su Linux il codice **gira già**; mancano l'ordine di preferenza dei provider Linux (senza, si finisce su CPU anche con GPU capace) e la dipendenza GPU dichiarata in `pyproject.toml` invece che solo nella tabella di `STACK.md`. L'inferenza LLM non è coinvolta: Ollama gira su Vulkan, che è lo stesso codice llama.cpp sui due sistemi. Cosa resta da **provare** e non solo da elencare è in **D-10**.
 
@@ -634,7 +631,7 @@ Ogni voce dice **cosa fare**, non solo cosa manca. Un debito senza il comando ch
 
 **Quattro decisioni prese il 2026-08-20**, e ognuna toglie lavoro invece che aggiungerlo:
 
-1. **Il repository è pubblico.** Ne segue che gli asset di Release sono scaricabili senza autenticazione, quindi U-08 può fare ciò per cui è stato scritto, e l'immagine può stare su un registro pubblico invece che dentro un file da 2 GB.
+1. **Il repository è pubblico.** Ne segue che l'immagine può stare su un registro pubblico invece che dentro un file da 2 GB. *Valeva anche per gli asset di Release, scaricabili senza autenticazione: quella metà è decaduta il 2026-08-27, quando la via dello snapshot pubblicato è stata tolta da U-08. L'indice della demo sta in git.*
 2. **Niente demo ospitata**, e non per pigrizia: verificato il 2026-08-20. Non esiste GPU gratuita: il modello andrebbe preso in prestito da un endpoint OpenAI-compatibile (che l'architettura permetterebbe senza toccare `src/`, ed è il pregio di `LLM_BASE_URL`), ma **il limite che morde è 6.000 token al minuto**, e una query RAG con cinque chunk ne consuma quattro o cinque mila: circa **una domanda al minuto**. In più ogni piano gratuito dorme, e chi arriva per primo paga il caricamento di ~2,5 GB di modelli ONNX. Un link lento e a quota è peggio di nessun link. Si consegna `docker compose --profile demo up` (U-08) e il video di U-10; l'hosting è **X-06**, in Fase 9.
 3. **Niente RASD e Design Document formali.** Si consegnano il README (U-11) e la documentazione tecnica (U-22). **Il README principale è in italiano**, con un secondo in inglese accanto (`README.en.md`) e un rimando reciproco in cima a entrambi: il progetto è scritto in italiano (ROADMAP, `progress.md`, i commenti nel codice), e un README inglese davanti a un quaderno italiano prometterebbe una cosa che il repo non mantiene. `ROADMAP.md`, `progress.md` e `open-questions.md` restano in italiano e non si traducono: sono il quaderno di lavoro, non la vetrina.
 4. **Nessuna scadenza.** Le tappe che seguono sono ordinate per **dipendenza e per rischio**, non compresse: nessuna di esse va tagliata a metà per far entrare la successiva.
@@ -647,7 +644,7 @@ Ogni voce dice **cosa fare**, non solo cosa manca. Un debito senza il comando ch
 | **2** | ✅ **Fatta** (2026-08-23) | **D-3**, **D-4**, i due passi a costo zero di **OQ-07** e **OQ-08**, e l'**affermazione 3** a tre punti. In più, non previsti: **OQ-09** (l'ANN di `ledger` cambiato sotto ai piedi) e le due manopole del motore che valevano un fattore tre | Era l'unica tappa vincolata dalla GPU, ed è andata in parallelo alla 1 come previsto: `make dev` ha retto mentre la scheda era occupata |
 | **3** | ✅ **Fatta** (2026-08-25) | **Q-07**, e tre voci fuori lista che il mandato di Marco ha aperto | Il momento era quello giusto per la ragione scritta: a comportamento fermo il gate si può verificare davvero, e il CSS identico a `main` è la prova che si poteva pretendere solo qui |
 | **4** | **I documenti** | **U-11**, **U-22**, **U-10** | Qui i numeri esistono già, arrivati dalla tappa 2. Scrivere il README prima significherebbe citare misure fatte con un prompt che non è più quello in vigore |
-| **5** | **La consegna** | **U-08**, **U-09**, **U-12** (e **D-10**: provare i provider Linux invece di elencarli), l'immagine pubblica su registro, le attribuzioni accanto agli artefatti | U-12 non è un extra: il container **è** Linux, e il criterio di U-09 dice «primo avvio pulito su macchina vergine» |
+| **5** | **La consegna** | **U-08**, **U-09**, **U-12** (e **D-10**: provare i provider Linux invece di elencarli), l'immagine pubblica su registro. Le attribuzioni stanno in `data/README.md`, accanto ai dati: senza snapshot pubblicati l'artefatto e' il repository | U-12 non è un extra: il container **è** Linux, e il criterio di U-09 dice «primo avvio pulito su macchina vergine» |
 | **6** | **Extra** | Fase 9, §13 | Solo se avanza voglia |
 
 ### Le tre affermazioni, allo stato dei fatti
@@ -687,7 +684,7 @@ python scripts/eval_citations.py --dataset open_ragbench --model gemma4:12b --li
 `open_ragbench_routed` (98.312 punti, 683 MB) e `ledger_routed` (228.331, 1,4 GB) non sono materiale di scarto: **sono il secondo braccio di R-07**, cioè l'unica misura che decide l'affermazione 2. Tre decisioni, e la terza è quella che non era ovvia.
 
 1. **Non si cancellano.** Liberano 2,1 GB e costano la riproducibilità: senza, R-07 non si rifà se non re-ingerendo, che è ordine di due ore di GPU. Un numero nel README di cui non esiste più il modo di rifare la misura è un numero che vale meno.
-2. **Non si pubblicano** (già deciso in U-08): 2,1 GB servono a chi riproduce, e chi riproduce ingerisce. Sulle Release vanno solo le due generiche.
+2. **Non si pubblicano**, e dal 2026-08-27 non si pubblica piu' niente: la via di mezzo (snapshot Qdrant su Release) e' stata tolta rivedendo U-08. Questi 2,1 GB servivano comunque a chi riproduce, e chi riproduce ingerisce.
 3. **Nell'interfaccia non entrano**: deciso il **2026-08-24**, ed è la chiusura di **D-18**. Il debito chiedeva *come* presentarle senza raddoppiare l'elenco dei corpus, e la risposta è che non si presentano: in ricerca esatta il routing **perde 13,72 punti** su `ledger` e ne guadagna **1,06** su `open_ragbench`, e un elenco che offre due strade dichiara da solo che sono alternative alla pari. Confutabile il routing lo è dove è **misurato** (R-07, che mette i due bracci sulla stessa riga), mentre la demo mostra una risposta per volta e non sa confrontare niente: sarebbe una scelta in più che non decide nulla, davanti a chi non ha modo di sapere quale delle due è peggio. La targhetta di U-05 resta costante su «taglio generico», ed è vero.
 
 > **Con questa decisione cade anche la ragione principale per cui la demo doveva girare in ricerca esatta**, e vale la pena tenerla scritta perché era l'argomento forte. Su `ledger_routed` l'ANN restituisce l'84,8% del vero top-5 e più di una query su tre riceve un top-5 sbagliato (R-11): esposte col default, quelle collection avrebbero fatto vedere il routing **più il difetto dell'indice** (l'errore che R-11 ha trovato in R-07, stavolta mostrato a chi guarda invece che scritto in una tabella), e sarebbe sembrato peggiore di com'è di otto punti. Fuori dall'interfaccia, quel rischio non esiste più.
