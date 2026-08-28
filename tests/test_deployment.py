@@ -89,8 +89,19 @@ def blocco_del_servizio(nome: str) -> str:
     raise AssertionError(f"compose.yml non ha un servizio «{nome}»")
 
 
+def codice_del_servizio(nome: str) -> str:
+    """Come sopra, ma senza i commenti: la stessa trappola un livello piu' in
+    la'. Un commento che **nomina** una direttiva per spiegare perche' non c'e'
+    la fa trovare a chi cerca nel testo, e la decisione si legge al rovescio."""
+    righe = blocco_del_servizio(nome).splitlines()
+    return "\n".join(r for r in righe if not r.strip().startswith("#"))
+
+
+TESTO_COMPOSE = (ROOT / "compose.yml").read_text(encoding="utf-8")
+
+
 class TestCompose:
-    TESTO = (ROOT / "compose.yml").read_text(encoding="utf-8")
+    TESTO = TESTO_COMPOSE
 
     @pytest.mark.parametrize("variabile", ["QDRANT_URL", "LLM_BASE_URL"])
     def test_l_indirizzo_e_interpolato_non_scritto(self, variabile):
@@ -140,6 +151,43 @@ class TestCompose:
         """~2,5 GB. Nell'immagine sarebbero layer, senza volume un download a
         ogni avvio prima della prima risposta."""
         assert "model_cache:/cache" in self.TESTO
+
+
+class TestLaDemoNonSopravviveAlRiavvio:
+    """Trovato su Arch il 2026-08-28, dopo un riavvio: `localhost:8000`
+    rispondeva **senza che nessuno avesse avviato niente**.
+
+    `restart: unless-stopped` dice al demone di rimettere in piedi il container
+    quando riparte, ed e' esattamente cio' che si vuole da un servizio. Da una
+    demo no: chi la prova una volta se la ritrova accesa a ogni avvio, con la
+    porta 8000 occupata, senza ricordarsi di averlo chiesto. La differenza fra i
+    due profili e' una decisione, quindi ha un test invece di un commento.
+    """
+
+    @pytest.mark.parametrize("servizio", ["api-demo", "seed-demo", "qdrant-demo"])
+    def test_il_profilo_demo_non_torna_su_da_solo(self, servizio):
+        # **Senza i commenti**, che nominano `unless-stopped` proprio per dire
+        # che li' non lo si vuole: cercarlo nel testo intero ritroverebbe la
+        # spiegazione e leggerebbe la decisione al contrario.
+        blocco = codice_del_servizio(servizio)
+        assert "unless-stopped" not in blocco, (
+            f"«{servizio}» tornerebbe su a ogni riavvio della macchina"
+        )
+        assert 'restart: "no"' in blocco, (
+            f"«{servizio}» eredita la politica dall'ancora: va sovrascritta"
+        )
+
+    def test_il_servizio_vero_invece_torna_su(self):
+        """Il rovescio, senza il quale il test sopra si soddisferebbe togliendo
+        `unless-stopped` da tutto il file.
+
+        `api` non ce l'ha scritto: lo eredita dall'ancora `x-api`, ed e' proprio
+        per questo che `api-demo` deve sovrascriverlo invece di ometterlo.
+        """
+        assert "unless-stopped" in codice_del_servizio("qdrant")
+        pezzo = TESTO_COMPOSE.split("x-api: &api", 1)[1]
+        ancora = pezzo.split("x-api-env")[0]
+        assert "restart: unless-stopped" in ancora
 
 
 class TestProfiloDemo:
