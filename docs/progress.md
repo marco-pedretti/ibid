@@ -5597,3 +5597,49 @@ volta**, soppresso invece che corretto.
 **La regola generale che ne esce**: accendere una regola in un repo che ha gia'
 300 test e un'interfaccia rivista a mano non e' igiene, e' una decisione su come
 si scrive qui. Le due che ho acceso le ha nominate il debito; le altre no.
+
+---
+
+### Tappa 5: l'immagine su un registro, e perche' il default non e' quella
+
+Ultima voce del piano di chiusura, e la piu' piccola: discende dalla decisione 1
+del 2026-08-20 (repository pubblico, quindi l'immagine puo' stare su un registro
+pubblico invece che dentro un file da 2 GB).
+
+**Il guadagno non e' il tempo, e vale la pena dirlo**: costruire ci mette meno
+di mezzo minuto, e scaricare qualche centinaio di megabyte non e' piu' veloce.
+Il guadagno sono i byte fermi. La costruzione risolve le dipendenze dalla rete a
+ogni giro e questo repo **non ha un lockfile Python**, cosa che il `Dockerfile`
+gia' dichiarava: due build a distanza di mesi possono risolvere versioni
+diverse, quindi chi costruisce fra un anno non costruisce l'immagine che e'
+stata provata. E' lo stesso ragionamento con cui la demo cerca in esatta invece
+che in approssimata (OQ-09).
+
+**Il default resta `make demo`**, che costruisce. Se `image:` puntasse al
+registro, un clone senza rete verso `ghcr.io` smetterebbe di avviarsi, e «primo
+avvio pulito su macchina vergine» e' il criterio di U-09, appena chiuso su una
+macchina vera. La strada nuova e' `make demo-pull`, e ha `--no-build` e `--pull
+always` scritti a mano: con una sezione `build` accanto a `image`, quale delle
+due vinca dipende da default che cambiano fra versioni di compose, e qui non
+deve dipendere da niente. Il bersaglio ha un test che controlla proprio quei due
+flag.
+
+Il workflow parte **sui tag e a mano, non a ogni push**: un `latest` che si
+muove sotto i piedi darebbe alla demo lo stesso problema che il registro serve a
+togliere. Prima di pubblicare costruisce l'immagine e **la avvia**: la suite non
+ci gira dentro, perche' l'immagine porta `src` e `ui/dist` e non `tests/` ne'
+`pytest`, ma che risponda su `/health` e' il guasto che un'immagine rotta
+produce per primo, e verificarlo costa trenta secondi.
+
+Un errore silenzioso evitato per strada, e scritto nel workflow perche' e' del
+tipo che non fallisce mai rumorosamente:
+`type=raw,value=latest,enable={{is_default_branch}}` sembra giusto e non avrebbe
+marcato `latest` **una volta sola**, perche' su un push di tag il ref e'
+`refs/tags/...` e non il ramo. Il comportamento predefinito di
+`metadata-action` (`latest=auto`) lo fa gia', quindi la riga giusta e' nessuna
+riga.
+
+**Cosa non e' verificato**, e va detto: qui il demone Docker era spento, quindi
+la configurazione e' validata (`docker compose config` con e senza
+`IBID_IMAGE`) ma il comportamento reale del pull no, e il workflow non ha
+ancora girato una volta. Si sapra' al primo tag.

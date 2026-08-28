@@ -104,6 +104,28 @@ costruita e il volume azzerato: **17,9 secondi** dal comando alla pagina che
 risponde, di cui 3,7 per caricare l'indice. La prima volta l'immagine si
 costruisce (~45 s con la cache dei layer calda, qualche minuto senza).
 
+C'è una seconda strada, che scarica l'immagine invece di costruirla:
+
+```bash
+make demo-pull
+```
+
+**La differenza non è il tempo.** Costruire ci mette meno di mezzo minuto, e
+scaricare qualche centinaio di megabyte non è più veloce. La differenza è che la
+costruzione risolve le dipendenze dalla rete a ogni giro, e questo repository
+non ha un lockfile Python (il `Dockerfile` lo dichiara): due build a distanza di
+mesi possono risolvere versioni diverse, quindi chi costruisce fra un anno non
+costruisce l'immagine che è stata provata. L'immagine pubblicata sono byte
+fermi. È lo stesso ragionamento per cui la demo cerca in esatta invece che in
+approssimata.
+
+Il default resta la costruzione locale di proposito: se puntasse al registro, un
+clone senza rete verso `ghcr.io` smetterebbe di avviarsi, e «primo avvio pulito
+su macchina vergine» è il criterio di U-09. L'immagine è pubblicata da
+`.github/workflows/immagine.yml`, che parte **sui tag e a mano**, non a ogni
+push: un `latest` che si muove sotto i piedi darebbe alla demo lo stesso
+problema che il registro serve a togliere. È costruita per `linux/amd64`.
+
 Dentro c'è un **indice ridotto committato nel repository**, `data/demo/`: 1.758
 chunk (658 di `open_ragbench`, 1.100 di `ledger`) ritagliati dai due corpus
 veri. I vettori sono **quelli originali, letti dall'indice completo e non
