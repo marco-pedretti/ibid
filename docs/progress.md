@@ -5527,3 +5527,73 @@ esse ha rotto la sua installazione; un altro giro l'ho fatto sprecare dicendogli
 `git pull` senza controllare che il commit fosse sul remoto (non lo era: io
 committo, il push lo fa lui). Il costo di un'istruzione sbagliata non e' il tempo
 di correggerla: e' il riavvio di qualcun altro.
+
+---
+
+### D-13: un linter che non poteva essere eslint, e 67 cose che non decido io
+
+Il debito diceva *«nessun linter per il TypeScript, e cio' che troverebbe
+qualcosa e' `react-hooks/exhaustive-deps`»*. Aveva ragione su tutte e due le
+meta': il linter non c'era, e quella regola trova due cose.
+
+#### Perche' non eslint
+
+`typescript-eslint` **non parte** su TypeScript 7, che e' la versione in albero:
+
+```
+Error: typescript-eslint does not support TS 7.0.
+```
+
+Nessuna versione pubblicata lo supporta (il peer si ferma a `<6.1.0`), e la via
+che l'errore stesso indica e' affiancare l'API di TypeScript 6 alla 7 gia'
+installata, cioe' tenere **due compilatori** in un progetto per far girare un
+linter. Provato prima di dedurlo, e la cosa buona di quel risultato e' che il
+rifiuto e' esplicito: un misparse silenzioso avrebbe prodotto avvisi sbagliati
+invece di un errore.
+
+`oxlint` il TypeScript lo analizza da solo. Nessuna dipendenza (`dependencies:
+{}`, letto in `node_modules`), nessun vincolo di peer, MIT, e non entra nel
+bundle. Registrato in `STACK.md` come vuole la regola sulle dipendenze nuove.
+
+#### I due rilievi del debito, tutti e due veri
+
+**`dataset.tsx`**: `backend.stato === "pronto" ? backend.capabilities.datasets : []`
+costruisce un array **nuovo a ogni render**, quindi il `useMemo` sotto si
+rifaceva ogni volta finche' il backend non era pronto. Memoizzava contro una
+dipendenza che cambiava sempre, cioe' faceva il lavoro di non memoizzare niente
+piu' il lavoro di sembrare che lo facesse. Ora il vuoto e' una costante di
+modulo.
+
+**`esploratore.tsx`**: `chiesto` sta fuori dalle dipendenze **di proposito**, e
+il commento che lo spiegava finiva cosi':
+
+> *«In questo repo le liste di dipendenze sono scritte a mano (D-13), quindi la
+> deroga si dichiara qui invece che a un linter che non c'e'.»*
+
+Adesso c'e'. La deroga e' una riga che il linter legge, e ho verificato che
+sopprima davvero: togliendola l'errore torna. Una nota in prosa che diventa
+falsa non fa niente; una soppressione che diventa inutile fa fallire
+`npm run lint`.
+
+#### Cosa resta, e perche' non l'ho deciso
+
+`oxlint` con tutti i plugin e le categorie predefinite trova **67 rilievi**, piu'
+18 se si accende `rules-of-hooks`. Sono qui invece che zittiti in blocco: una
+configurazione che accende tutto e poi silenzia tutto sarebbe **D-12 un'altra
+volta**, soppresso invece che corretto.
+
+| quanti | regola | verdetto |
+|---|---|---|
+| 18 | `react-hooks/rules-of-hooks` | **Non sono difetti.** La regola pretende che un hook si chiami `use*`; qui si chiamano `usaBackend`, `usaForma`, `usaAvvio`. E' una collisione fra la convenzione del progetto (che scrive in italiano, dai commit ai nomi) e quella dello strumento. Le due uscite sono rinominare tutto in `useX` o tenere la regola spenta, e la seconda ha un costo vero: una violazione autentica (un hook chiamato dentro un `if`) non verrebbe vista |
+| 9 | `unicorn/no-array-sort` | `.sort()` muta l'array sul posto. Da guardare uno per uno: dove l'array e' gia' una copia non e' un difetto |
+| 9 | `react/no-array-index-key` | L'indice come `key`. Vero dove la lista si riordina, innocuo dove non lo fa |
+| 8 | `react/exhaustive-effect-dependencies` | Dipendenze **di troppo**: effetti che ripartono piu' spesso del necessario. Il rovescio di `exhaustive-deps` |
+| 7 | `eslint/no-shadow` | Nomi che coprono quelli esterni (`contesto`, `t`, `forma`). Leggibilita', non comportamento |
+| 5 | `react/jsx-no-constructed-context-values` | **Il piu' probabile fra i difetti veri**: l'oggetto passato a un `Provider` ricostruito a ogni render fa ri-renderizzare ogni consumatore, e annulla le memoizzazioni a valle. E' lo stesso difetto trovato in `dataset.tsx`, un livello piu' su |
+| 11 | `jsx-a11y/*` | Quasi tutti riguardano `Selettore.tsx`, che implementa il pattern ARIA con il fuoco sul bottone e `aria-activedescendant`: le opzioni **non devono** essere focalizzabili, quindi quegli avvisi sono falsi positivi per questo pattern. Uno solo merita un'occhiata (`aria-activedescendant` su un `button` invece che su un `role="combobox"`), ed e' semantica di accessibilita': decisione d'interfaccia |
+| 4 | `react/set-state-in-effect`, `preserve-manual-memoization` | Comportamento d'interfaccia |
+| 10 | il resto | `oxc/no-map-spread`, `consistent-function-scoping`, `no-new-array`, `no-array-reverse`, `no-await-in-loop`, `promise/always-return`, import vari |
+
+**La regola generale che ne esce**: accendere una regola in un repo che ha gia'
+300 test e un'interfaccia rivista a mano non e' igiene, e' una decisione su come
+si scrive qui. Le due che ho acceso le ha nominate il debito; le altre no.

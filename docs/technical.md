@@ -354,8 +354,20 @@ anche su Linux x86_64 con Python 3.12, dentro l'immagine). La suite
 passa, l'installazione Python è completa, e un fallimento qui è un problema di
 dipendenze e non di configurazione.
 
-Per il frontend, `cd ui && npm install && npm run test` (365 test) e
-`npm run build`.
+Per il frontend, `cd ui && npm install`, poi:
+
+```bash
+npm run test        # 365 test Vitest
+npm run typecheck   # tsc, senza emettere
+npm run lint        # oxlint (D-13)
+npm run build
+```
+
+`npm run lint` esce 0 e deve restare così: la regola accesa è
+`react-hooks/exhaustive-deps`, e in questo repo le liste di dipendenze degli hook
+sono scritte a mano. Cosa `oxlint` trova oltre a quella, e perché non è acceso,
+è in `docs/progress.md` sotto D-13. **Non è `eslint`**: `typescript-eslint` non
+parte su TypeScript 7.
 
 ### 2.5 L'interfaccia, se si vuole guardarla
 

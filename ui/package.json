@@ -10,6 +10,7 @@
     "video": "node scripts/video.mjs",
     "test": "vitest run",
     "typecheck": "tsc",
+    "lint": "oxlint src",
     "format": "prettier --write .",
     "format:check": "prettier --check ."
   },
@@ -23,6 +24,7 @@
     "@types/react": "^19.2.18",
     "@types/react-dom": "^19.2.4",
     "@vitejs/plugin-react": "^6.0.5",
+    "oxlint": "^1.80.0",
     "playwright": "^1.62.1",
     "prettier": "3.9.6",
     "tailwindcss": "^4.3.3",

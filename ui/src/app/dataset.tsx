@@ -38,11 +38,18 @@ interface Dataset {
 
 const Contesto = createContext<Dataset | null>(null);
 
+//: L'elenco vuoto, una volta sola. Vedi il commento in `ProvvedeDataset`.
+const VUOTO: DatasetView[] = [];
+
 export function ProvvedeDataset({ children }: { children: ReactNode }) {
   const { backend } = usaBackend();
   const [ricordato, setRicordato] = useState<string | null>(leggiSalvato);
 
-  const elenco = backend.stato === "pronto" ? backend.capabilities.datasets : [];
+  // **`VUOTO` e non `[]`.** Un letterale qui e' un array nuovo a ogni render,
+  // quindi il `useMemo` sotto si rifaceva ogni volta finche' il backend non era
+  // pronto: memoizzava contro una dipendenza che cambiava sempre. Trovato da
+  // `react-hooks/exhaustive-deps` (D-13), che e' il difetto per cui esiste.
+  const elenco = backend.stato === "pronto" ? backend.capabilities.datasets : VUOTO;
 
   const scelto = useMemo(() => {
     const id = sceltaIniziale(elenco, ricordato);
