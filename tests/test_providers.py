@@ -129,3 +129,28 @@ class TestNobodyPicksProvidersAlone:
             "scelgono l'acceleratore per conto proprio invece di chiedere a "
             f"src/providers.py: {offenders}"
         )
+
+
+class TestMigraphxNonEUnaDimenticanza:
+    """D-10, 2026-08-28: il provider **piu' veloce** dei tre misurati e' l'unico
+    che questo elenco non nomina, e la ragione non e' la velocita'.
+
+    Su Arch, RX 6750 XT: **26,3 embed/s** contro 10,0 (DirectML) e 2,4 (CPU).
+    Ma MIGraphX cerca i pesi esterni del modello nella directory corrente, e
+    senza quelli l'inferenza muore **dopo** che la sessione si e' legata al
+    provider senza lamentarsi. Sceglierlo da soli sposterebbe la rottura dalla
+    partenza alla prima query.
+    """
+
+    def test_offerto_da_solo_non_viene_scelto(self, monkeypatch):
+        _offers(monkeypatch, "MIGraphXExecutionProvider", providers.CPU)
+        with pytest.warns(providers.NoAcceleratorWarning):
+            assert providers.onnx_providers() == [providers.CPU]
+
+    def test_ma_resta_raggiungibile_con_la_variabile(self, monkeypatch):
+        """La strada dichiarata: chi conosce i due costi puo' prenderla, e il
+        modulo non gliela sbarra."""
+        monkeypatch.setattr(
+            cfg, "ONNX_PROVIDERS", f"MIGraphXExecutionProvider,{providers.CPU}"
+        )
+        assert providers.onnx_providers()[0] == "MIGraphXExecutionProvider"

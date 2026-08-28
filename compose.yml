@@ -129,6 +129,13 @@ services:
       # che qualcuno riavvia fra sei mesi ha più bisogno di riprodursi bit per
       # bit di quanta ne abbia la valutazione, che i propri numeri li rifà.
       SEARCH_EXACT: "1"
+    # **Sovrascrive l'ancora, di proposito.** `unless-stopped` significa «rimetti
+    # in piedi al riavvio del demone», ed e' giusto per un servizio: e' il
+    # profilo `full` che deve tornare su da solo dopo un riavvio della macchina.
+    # Per la demo e' un difetto, trovato su Arch il 2026-08-28: chi l'ha provata
+    # una volta se la ritrova accesa a ogni avvio, con la porta 8000 occupata,
+    # senza ricordarsi di averlo chiesto. Una demo si guarda e si chiude.
+    restart: "no"
     depends_on:
       seed-demo:
         # Non `service_healthy`: `seed-demo` **finisce**. Aspettare che l'indice
@@ -166,7 +173,9 @@ services:
     volumes:
       - qdrant_demo_data:/qdrant/storage
     healthcheck: *qdrant-salute
-    restart: unless-stopped
+    # Come `api-demo`: se questo tornasse su da solo, la demo sarebbe accesa a
+    # meta' a ogni avvio, con un Qdrant in ascolto e nessuna API davanti.
+    restart: "no"
 
 volumes:
   qdrant_data:

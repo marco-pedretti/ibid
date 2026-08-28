@@ -29,10 +29,16 @@ scelto. Le varianti GPU sono extra opzionali di `pyproject.toml`, una per
 piattaforma, perche' si escludono a vicenda -- forniscono tutte il modulo
 `onnxruntime` e installarne due insieme rompe l'import.
 
-**ROCm e CUDA sono dichiarati ma non verificati**: qui si sviluppa su Windows.
-Provarli davvero e' U-12, in Fase 8, che chiede la suite verde su Linux x86_64.
-Averli in elenco non li rende testati; li rende *raggiungibili* senza toccare
-questo file.
+**Provati su Linux il 2026-08-28** (D-10, dentro U-12), su Arch con una RX 6750
+XT. Il risultato non e' quello che l'elenco lasciava prevedere: il pacchetto
+ROCm della distribuzione **non spedisce `libonnxruntime_providers_rocm.so`**, e
+quindi `ROCMExecutionProvider` non compare fra i disponibili e non viene scelto.
+Spedisce invece **MIGraphX**, che questo elenco non nomina: senza `ONNX_PROVIDERS`
+quella macchina finisce su CPU pur avendo una GPU capace.
+
+Perche' MIGraphX non e' qui sotto, pur essendo il piu' veloce dei tre misurati,
+e' scritto accanto all'elenco. CUDA resta dichiarato e non verificato: qui non
+c'e' hardware NVIDIA.
 """
 
 from __future__ import annotations
@@ -56,6 +62,27 @@ CPU_ONLY: list[str] = [CPU]
 #: DirectML per primo perche' e' l'unico provato su questo hardware (AMD RX 6750
 #: XT, ~10 embed/s via DirectX 12). ROCm e CUDA seguono per Linux, dove DirectML
 #: non esiste.
+#:
+#: **MIGraphX non e' in questo elenco, ed e' una scelta, non una dimenticanza.**
+#: Sulla stessa GPU, su Arch, fa **26,3 embed/s** contro i 10,0 di DirectML e i
+#: 2,4 della CPU: e' il piu' veloce dei tre misurati. Non e' qui per una ragione
+#: che il numero non mostra. Quel provider ri-analizza il grafo da un buffer, e
+#: cosi' facendo perde la cartella del modello: cerca i pesi esterni
+#: (`model.onnx_data`, che `multilingual-e5-large` ha perche' supera i 2 GB)
+#: nella **directory corrente**. Se non ce li trova l'inferenza muore, dopo che
+#: la sessione si e' legata al provider senza lamentarsi. Metterlo qui lo
+#: farebbe scegliere da solo su ogni macchina che lo offre, e la rottura
+#: arriverebbe alla prima query invece che all'avvio.
+#:
+#: Resta raggiungibile dove il costo si conosce, con la variabile che esiste
+#: apposta:
+#:
+#:     ONNX_PROVIDERS=MIGraphXExecutionProvider,CPUExecutionProvider
+#:
+#: e un `model.onnx_data` nella CWD. Il secondo costo, da sapere prima: la
+#: **prima** esecuzione compila il grafo e costa ~278 s, la seconda 1,2. Per un
+#: servizio acceso si paga una volta; per uno script che parte e finisce e' il
+#: costo dominante.
 PREFERRED_ACCELERATORS: tuple[str, ...] = (
     "DmlExecutionProvider",
     "ROCMExecutionProvider",

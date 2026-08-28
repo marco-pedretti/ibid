@@ -150,25 +150,146 @@ pip install -e ".[gpu-directml]" # Windows con GPU DirectX 12
 pip install -e .                 # CPU, ovunque
 ```
 
-Gli acceleratori ONNX sono **extra che si escludono a vicenda**: forniscono
-tutti il modulo `onnxruntime`, e installandone due l'import si rompe. Le tre
-varianti sono `gpu-directml` (Windows, qualunque GPU DirectX 12), `gpu-rocm`
-(Linux e AMD) e `gpu-cuda` (NVIDIA). **Solo la prima è provata**: le altre due
-sono dichiarate perché i provider corrispondenti sono in elenco, e verificarle
-davvero è il task U-12. Senza nessun extra, `fastembed` tira comunque
-`onnxruntime` per CPU e tutto funziona, più lentamente.
+> **Su Debian e Ubuntu il primo comando non funziona**, e il messaggio d'errore
+> non è quello che ci si aspetta. Provato su una Ubuntu 26.04 appena installata:
+> `python3 -m venv` fallisce perché `ensurepip` non c'è, `python3 -m pip` non
+> esiste affatto, e `/usr/lib/python3.14/EXTERNALLY-MANAGED` vieta comunque di
+> installare nel Python di sistema (PEP 668). Serve una riga prima:
+>
+> ```bash
+> sudo apt install python3-venv     # oppure python3.14-venv, per la versione esatta
+> ```
+>
+> Su Arch, Fedora e macOS `venv` arriva con Python e questo passo non serve. È
+> l'unico punto della procedura che dipende dalla distribuzione.
 
-Il controllo:
+Gli acceleratori ONNX sono **extra che si escludono a vicenda**: forniscono
+tutti il modulo `onnxruntime`, e con due installati vince chi ha scritto i file
+per ultimo. Le tre varianti sono `gpu-directml` (Windows, qualunque GPU
+DirectX 12), `gpu-rocm` (Linux e AMD) e `gpu-cuda` (NVIDIA). Senza nessun extra,
+`fastembed` tira comunque `onnxruntime` per CPU e tutto funziona, più
+lentamente.
+
+> **E `pip` ci arriva da solo, a due distribuzioni.** `fastembed` richiede
+> `onnxruntime` (quello CPU) per ogni versione di Python, quindi
+> `pip install -e ".[gpu-rocm]"` installa **anche** quello: ne escono
+> `onnxruntime-rocm` e `onnxruntime` insieme, e a quel punto **vince quella
+> CPU**, cioè l'acceleratore c'è e non si usa.
+>
+> **Togliere quella di troppo non basta**, ed è la parte che non si indovina.
+> Le due distribuzioni scrivono la *stessa* cartella `onnxruntime/`: la seconda
+> arrivata sovrascrive i file e ne diventa la proprietaria, quindi
+> `pip uninstall -y onnxruntime` **se li porta via tutti**. Resta una cartella
+> vuota: `import onnxruntime` riesce, `__file__` è `None`, e la prima chiamata
+> muore con `AttributeError: module 'onnxruntime' has no attribute
+> 'get_available_providers'`. La distribuzione GPU, intanto, continua a
+> risultare installata.
+>
+> Verificato riproducendo lo stato in un ambiente pulito. La sequenza che
+> funziona è di tre passi, e l'ultimo è quello che manca a chi si ferma prima:
+>
+> ```bash
+> pip install -e ".[gpu-rocm]"
+> pip uninstall -y onnxruntime
+> pip install --force-reinstall --no-deps onnxruntime-rocm   # riscrive i suoi file
+> ```
+>
+> Lo stesso comando è anche la **riparazione** se ci si è già finiti dentro: non
+> serve rifare l'ambiente. `scripts/verify_platform.py` riconosce quello stato e
+> lo stampa invece di sollevare.
+
+> **Su Arch conviene il pacchetto della distribuzione, non il wheel.** Il wheel
+> di PyPI (`onnxruntime-rocm` 1.22.2) è compilato contro ROCm 6 e cerca
+> `libamdhip64.so.6`, mentre Arch è a ROCm 7.2.4: `extra/python-onnxruntime-rocm`
+> è alla **1.29.0**, costruito contro la ROCm del sistema, e dichiara di fornire
+> `python-onnxruntime`. Il venv lo vede se lo si crea con
+> `--system-site-packages`, e non serve nessun extra:
+>
+> ```bash
+> sudo pacman -S python-onnxruntime-rocm
+> python -m venv --system-site-packages .venv && source .venv/bin/activate
+> pip install -e .                  # senza extra
+> ```
+>
+> Il pacchetto registra `onnxruntime-1.29.0.dist-info`, quindi pip lo considera
+> gia' soddisfatto e **non scarica quello di PyPI**: nessuna delle due
+> distribuzioni di troppo, e niente da disinstallare.
+>
+> **Verificato sulla macchina il 2026-08-28, e la risposta e' la seconda.** Il
+> pacchetto contiene `libonnxruntime_providers_migraphx.so` e **non**
+> `libonnxruntime_providers_rocm.so`: `ROCMExecutionProvider` non compare fra i
+> disponibili, e quel build offre **MIGraphX** al suo posto. Siccome MIGraphX
+> non e' in `PREFERRED_ACCELERATORS`, una macchina cosi' **finisce su CPU pur
+> avendo ROCm installato e una GPU capace**, senza che nulla lo dica. Cosa fare
+> e' nella sezione qui sotto.
+
+Il controllo, che guarda **tre cose e non una**:
 
 ```bash
-python -c "import src.providers as p; print(p.describe())"
+python scripts/verify_platform.py            # tutto
+python scripts/verify_platform.py --veloce   # solo l'ambiente, nessun modello
 ```
 
-Stampa quale acceleratore è stato scelto: `ONNX: DmlExecutionProvider` sulla
-macchina di sviluppo, `ONNX: CPUExecutionProvider` senza. Se dice CPU su una
-macchina che ha una GPU, l'extra non è installato o il provider non è visibile a
-`onnxruntime`: è un guasto silenzioso che costa sei ore di ingestione, quindi
-vale la pena guardarlo adesso.
+Le tre cose sono diverse fra loro, ed è il motivo per cui il controllo esiste:
+cosa la macchina **offre** (`onnxruntime.get_available_providers()`), cosa il
+progetto **sceglie** (`src/providers.py`), e su cosa la sessione è **finita**
+(`InferenceSession.get_providers()`). Solo la terza è una misura: onnxruntime
+scarta in silenzio un provider che non riesce a inizializzare, quindi esiste uno
+stato in cui le prime due dicono ROCm e la terza dice CPU. Lo script esce con 1
+in quel caso, e anche quando trova due distribuzioni insieme.
+
+Stampa anche il throughput sui chunk veri di `data/demo/`, confrontabile con i
+due numeri noti: **10,0 embed/s** misurati su DirectML mentre questa pagina
+veniva scritta, contro i ~10 di I-07 e i ~2,4 su CPU. **Misura due volte e butta
+la prima**, perché alcuni provider compilano il grafo alla prima esecuzione: su
+MIGraphX erano 278 secondi su 279, e un giro solo li avrebbe spalmati sui 32
+chunk facendo leggere 0,1 embed/s per un provider che a regime ne fa 26. Se dice CPU su una
+macchina che ha una GPU, l'extra non è installato, il provider non è visibile a
+`onnxruntime`, oppure le distribuzioni sono due: è un guasto silenzioso che
+costa sei ore di ingestione, quindi vale la pena guardarlo adesso.
+
+#### AMD su Linux: cosa si ottiene davvero, e a che prezzo
+
+Provato il 2026-08-28 su Arch con una RX 6750 XT (D-10). Tre numeri sulla stessa
+GPU, sugli stessi 32 chunk di `data/demo/`:
+
+| provider | embed/s | dove |
+|---|---|---|
+| MIGraphX | **26,3** | Arch, `python-onnxruntime-rocm` 1.29.0 |
+| DirectML | 10,0 | Windows, stessa scheda |
+| CPU | 2,4 | ovunque |
+
+MIGraphX è il più veloce dei tre **e non viene scelto da solo**. Le ragioni sono
+due, e vanno sapute prima di prendere questa strada:
+
+1. **Cerca i pesi esterni nella directory corrente.** `multilingual-e5-large`
+   supera i 2 GB, quindi ha un `model.onnx_data` accanto al modello; MIGraphX
+   ri-analizza il grafo da un buffer, perde la cartella di partenza e cerca quel
+   file dove si è lanciato il comando. Se non lo trova, l'inferenza muore **dopo**
+   che la sessione si è legata al provider senza lamentarsi.
+2. **La prima esecuzione compila il grafo**, e costa ~278 secondi contro gli 1,2
+   della seconda. Per l'API, che resta accesa, si paga una volta all'avvio; per
+   uno script che parte e finisce è il costo dominante, e a quel punto la CPU
+   conviene.
+
+Chi accetta entrambe le cose la prende così:
+
+```bash
+ln -sf "$(find ~/.cache/fastembed -name model.onnx_data | head -1)" .
+export HSA_OVERRIDE_GFX_VERSION=10.3.0     # solo per una gfx1031, vedi sotto
+export ONNX_PROVIDERS=MIGraphXExecutionProvider,CPUExecutionProvider
+python scripts/verify_platform.py
+```
+
+`HSA_OVERRIDE_GFX_VERSION` serve perché la RX 6750 XT è `gfx1031`, che ROCm non
+supporta ufficialmente: la variabile la fa passare per `gfx1030`, che è
+supportata. Non è un dettaglio da omettere quando si riporta un numero: **è la
+condizione che lo rende vero**, e una misura di cui non si registra la
+condizione abilitante non si ripete.
+
+**`gpu-cuda` resta dichiarato e non verificato**: qui non c'è hardware NVIDIA.
+Ciò che è verificato è che l'extra esiste, per quali Python e con quale glibc:
+`onnxruntime-gpu` 1.29.0 (manylinux_2_28).
 
 ### 2.2 Qdrant
 
@@ -184,6 +305,16 @@ Qdrant appena avviato la lista è vuota: la si riempie nel §4.
 
 > **I target `make` sono scorciatoie.** Su Windows `make` spesso non c'è: accanto
 > a ognuno, qui, sta il comando che esegue, e quello funziona ovunque.
+
+> **`docker compose` è un plugin, e su alcune distribuzioni si installa a parte.**
+> Il sintomo è un `docker` che risponde ma non conosce il sottocomando. Su Arch
+> servono tre cose e la terza chiede di rientrare nella sessione:
+>
+> ```bash
+> sudo pacman -S docker docker-compose docker-buildx
+> sudo systemctl enable --now docker
+> sudo usermod -aG docker $USER      # poi logout/login, oppure `newgrp docker`
+> ```
 
 ### 2.3 L'endpoint LLM (solo se si genera)
 
@@ -208,10 +339,17 @@ dipende dalla taglia del modello: su E4B sposta il motore ma non l'orologio, sul
 ### 2.4 La suite
 
 ```bash
+pip install pytest ruff      # non arrivano con `pip install -e .`: vedi sotto
 python -m pytest -q
 ```
 
-**1752 test, ~52 secondi** (misurato il 2026-08-26 sul commit corrente). La suite
+**`pytest` e `ruff` stanno in `[tool.uv] dev-dependencies`**, che è una sezione
+di `uv` e **pip non la legge**: con pip vanno chiesti a mano, e chi non lo fa
+riceve `No module named pytest` dopo un'installazione andata a buon fine. Con
+`uv sync` arrivano da soli.
+
+**1808 test, ~31 secondi** (misurato il 2026-08-27 sul commit corrente; 1808
+anche su Linux x86_64 con Python 3.12, dentro l'immagine). La suite
 **non ha bisogno né di Qdrant né dell'LLM** e non carica nessun modello ONNX: se
 passa, l'installazione Python è completa, e un fallimento qui è un problema di
 dipendenze e non di configurazione.
@@ -928,6 +1066,49 @@ container sta usando, e il formato dello storage non si legge all'indietro.
 eredita un volume da un'installazione precedente, va allineata a quella che lo ha
 scritto. È successo il 2026-08-26 con un pin fermo alla `v1.12.4` su un volume
 scritto dalla `v1.19.0`.
+
+**Le fonti arrivano, la risposta no**, e l'interfaccia dice «Nessun modello
+raggiungibile su ...». È lo stato normale di chi ha avviato la demo senza un
+endpoint LLM: il recupero funziona (le cinque fonti coi punteggi **sono** il
+sistema che gira), manca chi scriva la frase. Serve un server
+OpenAI-compatibile, e va detto al progetto dove sta:
+
+```bash
+ollama serve                                     # su questa macchina
+export LLM_MODEL=gemma3:12b                      # uno che si ha davvero
+```
+
+Il default di `LLM_MODEL` è `gemma4:latest`: se `ollama list` non lo contiene,
+il server risponde ma con un errore sul modello. Con Docker, l'indirizzo di
+default punta a `host.docker.internal`, che è l'host visto da dentro il
+container e su Linux funziona grazie a `extra_hosts` in `compose.yml`.
+
+**`localhost:8000` risponde senza aver avviato niente**, dopo un riavvio della
+macchina. È un container della demo creato **prima del 2026-08-28**: fino a
+quella data il profilo `demo` ereditava `restart: unless-stopped`, e Docker
+conserva la politica di riavvio **dentro il container**, non nel file. Cambiare
+`compose.yml` vale per i container nuovi, non per quelli che esistono già. Si
+ricreano una volta sola:
+
+```bash
+docker compose --profile demo down
+docker compose --profile demo up      # ricreati con `restart: "no"`
+```
+
+Da lì in poi la demo non torna su da sola: si guarda e si chiude.
+
+**La porta 8000 è occupata** e l'avvio fallisce. Di solito è un `uvicorn`
+lasciato acceso a mano, o una demo aperta in un altro terminale. Chi la tiene:
+
+```powershell
+$c = Get-NetTCPConnection -LocalPort 8000 -State Listen -ErrorAction SilentlyContinue
+if ($c) { $c.OwningProcess | ForEach-Object { Get-Process -Id $_ } }
+else { "la porta 8000 e' libera" }
+```
+
+```bash
+ss -ltnp 'sport = :8000'
+```
 
 **`Connection refused` su :6333.** Qdrant non è acceso, o è su un'altra porta
 (`QDRANT_PORT`). Dall'interno di un container l'host non è `localhost` ma
