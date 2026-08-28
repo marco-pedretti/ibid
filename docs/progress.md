@@ -1763,8 +1763,10 @@ typecheck verde, tipi TypeScript rigenerati.
 | U-06 | ✅ fatto (2026-08-20) | **L'esploratore del corpus**: i documenti, com'è stato spezzato quello aperto (una tessera per chunk, larga il doppio dove c'è una tabella), e il chunk scelto **per intero**, che è la ragione del task: la scheda ne mostra due righe e il chunk può essere lungo 6.302 caratteri. Nessun campo nuovo: `/documents` e `/document/{id}/chunks` esistevano dal A-04 e non li aveva mai chiamati nessuno. Il PDF non c'è su nessuno dei due corpus, e si dichiara. **11 test Vitest** in più (236). Dettaglio sotto. |
 | U-07 | ✅ fatto (2026-08-17) | Ogni citazione porta il **proprio verdetto**, sul marcatore in mezzo alla prosa e sulla scheda della fonte, e **nessuna è nascosta**. Cinque stati per il marcatore e sei per la scheda, distinti da glifo, colore e parola insieme (§12). Le frasi senza citazione sono sottolineate dove stanno. La corrispondenza frase↔marcatore è in funzioni pure: **38 test Vitest** in più (116 in tutto). Provato contro l'API viva su `open_ragbench` e `ledger`. Dettaglio sotto. |
 | U-08 | ✅ fatto (2026-08-27) | **La demo che sta in git**, con dentro **D-21**: `docker compose --profile demo up` in **17,9 s** (il criterio dice due minuti), con 1.758 chunk ritagliati dai corpus veri e i **vettori copiati, non ricalcolati**. Un Qdrant suo e un cartellino su Qdrant: la demo non puo' scrivere sull'indice vero, e **dichiara di essere una demo** in tre punti dell'interfaccia. Ci arriva anche `ui/dist` servito dall'API, che era una decisione di U-09. Dettaglio sotto. |
+| U-09 | ✅ fatto (2026-08-28) | **Il primo avvio su una macchina vergine**, che era tutto cio' che restava dopo U-08: una Arch che non aveva mai visto il progetto ha costruito l'immagine e fatto partire `docker compose --profile demo up` **senza una modifica al sorgente**, con 1.758 chunk seminati in 1,2 s e la pagina servita. Il resto (immagine unica, due profili, healthcheck sui quattro servizi, `ui/dist` dalla stessa origine) era arrivato dentro U-08. Chiuso insieme a U-12, perche' e' la stessa macchina e la stessa prova. |
 | U-10 | ✅ fatto (2026-08-26) | **Il video**: due GIF da 18,3 e 23,5 s, in IT ed EN, tema scuro, 1280x800 nativi. Sono **due ritagli di una ripresa sola**, guidata da Playwright, senza montaggio. Quattro trappole della latenza trovate misurando, la prima delle quali (la cache del prefill: 16,9 s contro 3,9) avrebbe falsificato il numero a schermo **senza tagliare un fotogramma**. Dettaglio sotto. |
 | U-11 | ✅ fatto (2026-08-25) | **I due README** (IT ed EN, 237 righe ciascuno): le tre affermazioni con la propria tabella per dataset, e la seconda con ❌ accanto ai due ✅. Nessuna riga aggregata fra i due corpus. Lo screenshot e' arrivato con U-10. Resta fuori la descrizione «About» del repo, che si imposta su GitHub. Dettaglio sotto. |
+| U-12 | ✅ fatto (2026-08-28) | **La portabilita' Linux, provata invece che dichiarata**, con dentro **D-10**: 1.814 test verdi su Arch (Python 3.14) e `docker compose --profile demo up` su macchina vergine, senza toccare il sorgente. `src/` era gia' portabile: **i sette guasti erano tutti nell'impacchettamento e nella scelta del provider**, e nessuno si sarebbe visto rileggendo le istruzioni. Il piu' caro l'ho causato io consigliando un `pip uninstall` che rompe l'installazione. D-10 ribalta la sua ipotesi: `ROCMExecutionProvider` non esiste sulla macchina che lo dovrebbe avere, e il provider piu' veloce dei tre misurati (**26,3 embed/s**) e' quello che teniamo **fuori** dall'elenco. Dettaglio sotto. |
 | U-13 | ✅ fatto (2026-08-17) | **Conversazione nuova e cronologia locale**: l'elenco nella corsia, persistenza in `localStorage`, e il ricaricamento riapre una conversazione *nuova*, con la cronologia accanto. Cosa si ricorda e come si rilegge è in funzioni pure: **17 test Vitest** in più (147 in tutto). Cancellare la cronologia c'è, a due tempi, ed è il primo posto in cui la palette ha un rosso: `danger`, solo per ciò che distrugge. Due giri di revisione. Dettaglio sotto. |
 | U-14 | ✅ fatto (2026-08-19) | **Markdown e LaTeX nella risposta**: il prompt li invita invece di vietarli, e l'interfaccia li disegna, come **intervalli sul testo grezzo**, così verdetti per frase e frasi scoperte restano allineati. **15 test Vitest** in più (172 in tutto). Debito dichiarato: `prompt_hash` cambia, C-01/C-02/C-07 da rimisurare. Dettaglio sotto. |
 | U-15 | ✅ fatto (2026-08-19) | **Con quali parametri e' stata data ogni risposta**: la configurazione che ha girato si rilegge nella conversazione, e fra una domanda e l'altra si vede cosa è cambiato. **Nessun campo nuovo**: `ConfigView` era già dentro ogni risposta e già nel deposito da U-13. **11 test Vitest** in più (183 in tutto). Dettaglio sotto. |
@@ -5378,3 +5380,143 @@ Il *«accanto all'artefatto e non solo nel repo»* invece si scioglie da se':
 senza release **l'artefatto e' il repository**. Aggiornati `ROADMAP.md` (§U-08,
 la tappa 5, la decisione 1 del 2026-08-20 che dipendeva a meta' dagli asset di
 Release, e il punto 2 sulle collection instradate) e `data/README.md`.
+
+---
+
+### U-12: la portabilita' non era nel codice, ed e' per questo che non si vedeva
+
+**Il criterio si e' chiuso in tutti e due i punti**, su una macchina Arch che non
+aveva mai visto il progetto:
+
+```
+pytest -q                          1.814 passati, 1 saltato   (Python 3.14)
+docker compose --profile demo up   costruita, 1.758 chunk in 1,2 s, pagina servita
+```
+
+Nell'immagine, che e' l'altra meta' del criterio: 1.808 passati su Python 3.12.
+**Senza una modifica al sorgente**, che era la parte del criterio che poteva
+fallire davvero.
+
+Ed e' il risultato meno interessante di U-12. `src/` non aveva assunzioni su
+Windows: Q-05 aveva gia' tolto la scelta del provider da cinque posti, e i
+percorsi passavano tutti da `pathlib`. **I sette guasti erano fuori dal codice**,
+e nessuno di essi si sarebbe visto rileggendo le istruzioni: si sono visti
+eseguendole su macchine vere.
+
+#### I sette, in ordine di comparsa
+
+1. **Su Debian/Ubuntu il passo 2.1 non si esegue proprio.** Niente `pip`, niente
+   `python3-venv`, e PEP 668 che rifiuta l'installazione di sistema. La pagina
+   partiva da un `python -m venv` che su quella famiglia e' un errore.
+2. **`pytest` e `ruff` non si installavano.** Stavano in `[tool.uv]
+   dev-dependencies`, che e' una sezione che pip ignora: chiunque non usasse `uv`
+   arrivava al passo «esegui la suite» senza la suite.
+3. **`docker compose` e' un pacchetto separato su Arch.** Il sintomo e' un
+   `docker` che risponde e non conosce il sottocomando.
+4. **`pip install -e ".[gpu-rocm]"` installa due distribuzioni di
+   `onnxruntime`.** `fastembed` dipende da quella liscia, l'extra porta quella
+   ROCm, e forniscono lo stesso modulo: vince chi arriva ultimo. **Il consiglio
+   che ho dato per uscirne ha rotto l'installazione di Marco**: `pip uninstall -y
+   onnxruntime` porta via la cartella condivisa e lascia un namespace vuoto, che
+   si importa senza errori e non ha dentro niente. Riprodotto in un venv usa e
+   getta per capire il meccanismo; la riparazione e' `pip install
+   --force-reinstall --no-deps <distribuzione-gpu>`, e su Arch la strada giusta
+   evita il problema del tutto (il pacchetto della distribuzione registra
+   `onnxruntime-1.29.0.dist-info`, quindi pip non scarica niente da PyPI).
+5. **Il pacchetto ROCm di Arch non spedisce il provider ROCm.** Vedi D-10 qui
+   sotto: e' il guasto piu' silenzioso dei sette.
+6. **MIGraphX si lega e poi l'inferenza muore**, se `model.onnx_data` non e'
+   nella directory corrente. Lo stato piu' insidioso, perche' le tre domande
+   dello script rispondono tutte di si' e il sistema non gira lo stesso.
+7. **La prima cosa che un estraneo vedeva dopo il recupero era un'eccezione di
+   Python.** Vedi sotto.
+
+#### D-10: provati, e l'ipotesi si e' rovesciata
+
+L'elenco `PREFERRED_ACCELERATORS` nominava `ROCMExecutionProvider` per Linux.
+Sulla macchina che lo dovrebbe avere, **quel provider non esiste**: il pacchetto
+`python-onnxruntime-rocm` di Arch contiene
+`libonnxruntime_providers_migraphx.so` e non quello ROCm. Il nome in elenco non
+veniva quindi mai scelto, e la macchina finiva su CPU **con ROCm installato e una
+GPU capace**, senza che nulla lo dicesse. E' esattamente il guasto che Q-05
+doveva chiudere, sopravvissuto sotto un altro nome.
+
+Tre numeri sulla stessa RX 6750 XT, sugli stessi 32 chunk di `data/demo/`:
+
+| provider | embed/s | dove |
+|---|---|---|
+| MIGraphX | **26,3** | Arch, pacchetto della distribuzione |
+| DirectML | 10,0 | Windows, stessa scheda |
+| CPU | 2,4 | ovunque |
+
+**Il piu' veloce dei tre e' quello che resta fuori dall'elenco**, e la ragione
+non e' nel numero: MIGraphX ri-analizza il grafo da un buffer, perde la cartella
+del modello e cerca i pesi esterni nella CWD. Metterlo in elenco lo farebbe
+scegliere da solo su ogni macchina Arch, e sposterebbe la rottura dall'avvio alla
+prima query. Resta raggiungibile con `ONNX_PROVIDERS`, che esiste per questo, coi
+due costi scritti accanto (il file nella CWD, e 278 s di compilazione del grafo
+alla prima esecuzione contro 1,2 alla seconda).
+
+CUDA resta dichiarato e non verificato. Scrivere il contrario sarebbe la stessa
+deduzione che questa voce smonta.
+
+#### L'artefatto di A-05, tornato di persona
+
+La prima misura di MIGraphX diceva **0,1 embed/s**, cioe' venti volte peggio
+della CPU, e la conclusione ovvia era «non vale niente». Erano 279 secondi di cui
+**278 di compilazione del grafo**, spalmati sui 32 chunk. E' parola per parola
+l'artefatto di A-05 (*«tempi di prima query, cioe' caricamento riportato come
+costo per richiesta»*), e si evita nell'unico modo che funziona: misurare due
+volte e buttare la prima. Ora `il_throughput()` fa cosi', e quando il primo giro
+supera il terzo del secondo **spiega perche'**, invece di lasciare al lettore un
+rapporto di 230 volte da interpretare.
+
+Senza quella correzione, D-10 si sarebbe chiuso in negativo su un numero
+sbagliato di due ordini di grandezza.
+
+#### `scripts/verify_platform.py`: tre domande, non una
+
+Lo strumento con cui tutto questo si e' visto. Guarda tre cose che non sono la
+stessa cosa:
+
+```
+cosa la macchina offre          onnxruntime.get_available_providers()
+cosa il progetto sceglie        src.providers.onnx_providers()
+su cosa la sessione e' finita   InferenceSession.get_providers()
+```
+
+Solo la terza e' una misura: onnxruntime **scarta in silenzio** un provider che
+non riesce a inizializzare, quindi esiste uno stato in cui le prime due dicono
+ROCm e la terza dice CPU. Chi guardasse solo la prima scriverebbe che funziona.
+
+Lo script e' crollato **tre volte** su macchine vere prima di essere utile, e
+ogni volta rispondeva con un traceback invece che con una diagnosi, proprio nel
+caso per cui esiste: `AttributeError` sul modulo vuoto del punto 4; la riga sui
+provider ignorati che sotto `--veloce` non veniva stampata affatto; e
+l'eccezione di MIGraphX del punto 6. Tutte e tre sono diventate un verdetto.
+
+#### La prima cosa che vede un estraneo
+
+Una query della demo, sulla macchina di Marco: le cinque fonti arrivano coi loro
+punteggi, il pannello si popola, e al posto della risposta compare
+
+```
+interrupted · pipeline
+URLError: <urlopen error [Errno 111] Connection refused>
+```
+
+**Il sistema funzionava.** `src/generation/chat.py` catturava `HTTPError` e non
+`URLError`, in tutte e due le strade di generazione, quindi l'assenza di un
+endpoint LLM usciva come un'eccezione di Python invece che come una frase. Ora
+dice cosa manca, cosa funziona lo stesso e come si cambia, e un test verifica che
+in quel messaggio non compaiano ne' `URLError`, ne' `urlopen error`, ne'
+`Traceback`.
+
+#### Sul metodo, perche' e' costato
+
+Ogni tentativo su Arch costava a Marco **un riavvio**. Le prime istruzioni le ho
+date senza verificarle contro la documentazione delle distribuzioni, e una di
+esse ha rotto la sua installazione; un altro giro l'ho fatto sprecare dicendogli
+`git pull` senza controllare che il commit fosse sul remoto (non lo era: io
+committo, il push lo fa lui). Il costo di un'istruzione sbagliata non e' il tempo
+di correggerla: e' il riavvio di qualcun altro.
