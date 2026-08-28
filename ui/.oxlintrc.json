@@ -1,0 +1,29 @@
+{
+  "$schema": "./node_modules/oxlint/configuration_schema.json",
+
+  // D-13. **Non eslint**: `typescript-eslint` rifiuta di partire su TypeScript 7
+  // ("typescript-eslint does not support TS 7.0"), e la strada che indica e'
+  // affiancare una seconda copia di TypeScript alla 7 gia' installata. `oxlint`
+  // il TypeScript lo analizza da solo e non ha quel vincolo.
+  //
+  // **Una regola sola, accesa di proposito.** Il debito nomina esattamente
+  // questa: in questo repo le liste di dipendenze degli hook sono scritte a
+  // mano, e una dimenticata non si vede rileggendo. Le altre 68 cose che
+  // `oxlint` trova sono in `docs/progress.md`, triate una per una: alcune sono
+  // difetti veri, altre chiedono di cambiare una convenzione del progetto
+  // (18 su 70 sono gli hook chiamati `usaX` invece che `useX`), e nessuna si
+  // accende senza una decisione. Accenderle tutte e poi zittirle in massa
+  // sarebbe D-12 un'altra volta: soppresso invece che corretto.
+  "plugins": ["react"],
+  "categories": {},
+  "ignorePatterns": ["dist/**", "coverage/**"],
+  "rules": {
+    "react-hooks/exhaustive-deps": "error",
+
+    // Accese di default dal plugin `react`, e non ancora decise: 5 effetti che
+    // chiamano `setState` e una memoizzazione che il React Compiler non
+    // conserva. Sono comportamento d'interfaccia, quindi non le tocco qui.
+    "react/set-state-in-effect": "off",
+    "react/preserve-manual-memoization": "off"
+  }
+}

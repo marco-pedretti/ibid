@@ -293,6 +293,9 @@ Frontend (`ui/`, introdotto in U-00 il 2026-08-14). Licenze lette dai `package.j
 | katex | 0.18.4 | MIT | sì: nel bundle, font compresi |
 | **lightningcss** | 1.32.0 | **MPL-2.0** | sì, **ma va detto**, vedi sotto |
 | playwright, playwright-core | 1.62.1 | Apache-2.0 | sì: solo sviluppo, vedi sotto |
+| oxlint | 1.80.0 | MIT | sì: solo sviluppo, vedi sotto |
+
+**`oxlint` è entrato con D-13** (2026-08-28) ed è il linter TypeScript che il progetto non aveva: `prettier` formatta e basta, e ciò che trova qualcosa è `react-hooks/exhaustive-deps`, perché qui le liste di dipendenze degli hook sono scritte a mano. **Non è `eslint`**, e la ragione è misurata, non preferita: `typescript-eslint` rifiuta di partire su TypeScript 7 (*«typescript-eslint does not support TS 7.0»*, provato il 2026-08-28), e la strada che indica lui stesso è affiancare una seconda copia di TypeScript alla 7 già in albero. `oxlint` è un binario unico che il TypeScript lo analizza da solo: **nessuna dipendenza** (`dependencies: {}`, verificato in `node_modules`; le 19 `optionalDependencies` sono lo stesso binario compilato per 19 piattaforme, e npm ne installa uno), nessun vincolo di peer, e non entra nel bundle.
 
 **`lightningcss` è l'unica dipendenza copyleft dell'albero**, tirata dentro da Tailwind 4 come trasformatore CSS. È MPL-2.0, cioè copyleft **a livello di file**: obbliga a mantenere sotto MPL i file di *quella* libreria se modificati e ridistribuiti, e non si propaga al progetto che la usa. Non è nella lista vietata (GPL / AGPL / LGPL-static), è una dipendenza di *build* che non finisce nel bundle servito, e il CSS che produce è un output, non un'opera derivata dei suoi sorgenti. Resta segnalata qui perché la regola dice di segnalare, non di valutare in silenzio: toglierla richiederebbe rinunciare a Tailwind, che STACK indica come scelta di stile.
 

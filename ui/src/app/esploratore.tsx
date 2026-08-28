@@ -120,8 +120,10 @@ export function ProvvedeEsploratore({ children }: { children: ReactNode }) {
     // `chiesto` sta fuori dalle dipendenze di proposito: e' il chunk **di questa
     // apertura**, e va letto quando la risposta arriva, non inseguito. Elencarlo
     // qui rifarebbe la richiesta a ogni apertura che cambia solo la selezione.
-    // In questo repo le liste di dipendenze sono scritte a mano (D-13), quindi
-    // la deroga si dichiara qui invece che a un linter che non c'e'.
+    // Il linter adesso c'e' (D-13), quindi la deroga smette di essere una nota e
+    // diventa una riga che lui legge: se un giorno smettesse di essere vera,
+    // toglierla fa fallire `npm run lint` invece di non fare niente.
+    // oxlint-disable-next-line react-hooks/exhaustive-deps
   }, [doc_id, dataset_id, documento.stato]);
 
   /**
