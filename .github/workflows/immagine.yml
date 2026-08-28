@@ -1,0 +1,93 @@
+# Pubblica l'immagine su GHCR (tappa 5 del piano di chiusura).
+#
+# **Perche' un registro invece del solo `build`**: la costruzione scarica
+# pacchetti dalla rete ogni volta, e quella rete cambia. Questo repo non ha
+# lockfile per Python (il `Dockerfile` lo dichiara), quindi due build a distanza
+# di mesi possono risolvere versioni diverse: chi prova il progetto fra un anno
+# non costruisce l'immagine che e' stata provata. Un'immagine pubblicata sono
+# byte fermi.
+#
+# **Non parte a ogni push.** Un `latest` che si muove sotto i piedi darebbe alla
+# demo lo stesso problema che si vuole togliere. Parte sui tag e a mano.
+name: immagine
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  # Il solo permesso in piu' del default, e serve a scrivere su GHCR.
+  packages: write
+
+jobs:
+  pubblica:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: docker/setup-buildx-action@v3
+
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          # Il token che Actions crea da solo: nessun segreto da configurare.
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - id: nomi
+        uses: docker/metadata-action@v5
+        with:
+          images: ghcr.io/${{ github.repository }}
+          # `latest` non e' scritto qui: il comportamento predefinito
+          # (`flavor: latest=auto`) lo aggiunge quando c'e' un tag semver, e
+          # **non** quando il workflow parte a mano. Scriverlo con
+          # `enable={{is_default_branch}}` sarebbe stato un errore silenzioso:
+          # su un push di tag il ref e' `refs/tags/...`, non il ramo, quindi
+          # quella condizione non sarebbe mai stata vera.
+          tags: |
+            type=semver,pattern={{version}}
+            type=sha,format=long
+
+      # **Costruita e caricata, non ancora spinta**: la si prova prima di
+      # pubblicarla. Un solo `platform`, quindi `load` funziona.
+      - uses: docker/build-push-action@v6
+        with:
+          context: .
+          load: true
+          push: false
+          tags: ibid:prova
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      # La suite non gira qui dentro: l'immagine porta `src` e `ui/dist`, non
+      # `tests/` ne' `pytest` (vedi il `Dockerfile`). Cio' che si puo' chiedere a
+      # un'immagine prima di pubblicarla e' che **si avvii e risponda**, ed e' il
+      # guasto che un'immagine rotta produce per primo.
+      - name: l'immagine si avvia e risponde
+        run: |
+          docker run -d --name prova -p 8000:8000 -e WARMUP=0 ibid:prova
+          for i in $(seq 1 30); do
+            if curl -fsS http://localhost:8000/health; then
+              echo
+              echo "risponde dopo ${i}s"
+              docker rm -f prova
+              exit 0
+            fi
+            sleep 1
+          done
+          echo "nessuna risposta su /health in 30s"
+          docker logs prova
+          docker rm -f prova
+          exit 1
+
+      # Stessa costruzione, dalla cache: qui non si ricompila niente, si spinge.
+      - uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: true
+          tags: ${{ steps.nomi.outputs.tags }}
+          labels: ${{ steps.nomi.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
