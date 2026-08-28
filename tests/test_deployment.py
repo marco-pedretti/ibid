@@ -248,9 +248,29 @@ class TestProfiloDemo:
     def test_i_tre_servizi_condividono_una_build_sola(self):
         """Senza un nome d'immagine esplicito, compose costruirebbe la stessa
         immagine tre volte."""
-        assert "image: ibid:local" in self.TESTO.split("services:", 1)[0]
+        assert "image: ${IBID_IMAGE:-ibid:local}" in self.TESTO.split("services:", 1)[0]
         for nome in ("api", "api-demo", "seed-demo"):
             assert "<<: *api" in blocco_del_servizio(nome), nome
+
+    def test_il_default_resta_la_costruzione_locale(self):
+        """**La strada provata su una macchina vergine e' quella che non cambia.**
+        `IBID_IMAGE` aggiunge l'immagine pubblicata come alternativa; se il
+        default diventasse il registro, `docker compose --profile demo up` su un
+        clone senza rete smetterebbe di funzionare, e quello e' il criterio di
+        U-09."""
+        assert ":-ibid:local}" in self.TESTO, "il default non e' piu' la build locale"
+
+    def test_scaricare_invece_di_costruire_e_esplicito(self):
+        """`--no-build` e `--pull always` scritti a mano: con una sezione `build`
+        accanto a `image`, quale delle due vinca dipende da default che cambiano
+        fra versioni di compose. Il bersaglio non e' compose, e' il lettore."""
+        righe = (ROOT / "Makefile").read_text(encoding="utf-8").splitlines()
+        i = righe.index("demo-pull:")
+        ricetta = [r for r in righe[i + 1 :] if r.startswith("\t")]
+        assert ricetta, "il bersaglio demo-pull non ha una ricetta"
+        assert "--no-build" in ricetta[0] and "--pull always" in ricetta[0]
+        phony = righe[: righe.index("")]  # il blocco .PHONY, fino alla riga vuota
+        assert any("demo-pull" in r for r in phony), "manca da .PHONY"
 
 
 class TestImmagine:

@@ -1,5 +1,5 @@
 .PHONY: fetch-datasets ingest eval eval-generation eval-citations noise-floor \
-	dashboard demo demo-index api api-local dev ui ui-types ui-check up down logs
+	dashboard demo demo-pull demo-index api api-local dev ui ui-types ui-check up down logs
 
 fetch-datasets:
 	python scripts/fetch_dataset.py
@@ -41,6 +41,20 @@ dashboard:
 # solo la generazione. L'indirizzo e' `LLM_BASE_URL`.
 demo:
 	docker compose --profile demo up
+
+# La stessa demo **scaricando** l'immagine invece di costruirla.
+#
+# `--no-build` e `--pull always` sono espliciti di proposito: con una sezione
+# `build` accanto a `image`, quale delle due vinca dipende da default che
+# cambiano fra versioni di compose. Qui non dipende da niente.
+#
+# Il guadagno non e' il tempo (costruire ci mette meno di mezzo minuto): sono i
+# byte fermi. La costruzione risolve le dipendenze dalla rete a ogni giro, e
+# questo repo non ha un lockfile Python, quindi chi costruisce fra un anno non
+# costruisce l'immagine che e' stata provata.
+IBID_IMAGE ?= ghcr.io/marco-pedretti/ibid:latest
+demo-pull:
+	IBID_IMAGE=$(IBID_IMAGE) docker compose --profile demo up --no-build --pull always
 
 # Ritaglia l'indice ridotto dall'indice completo e lo riscrive in `data/demo/`.
 # **Si esegue una volta**, da una macchina che ha l'indice vero, e il risultato

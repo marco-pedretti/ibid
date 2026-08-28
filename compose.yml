@@ -33,7 +33,14 @@
 x-api: &api
   # Un nome esplicito, così i tre servizi che ne hanno bisogno **condividono
   # una build sola** invece di costruire la stessa immagine tre volte.
-  image: ibid:local
+  #
+  # **Il default resta la costruzione locale**, che è la strada provata su una
+  # macchina vergine (U-09). `IBID_IMAGE` la sostituisce con l'immagine
+  # pubblicata su GHCR, e `make demo-pull` è quella strada con il comando
+  # giusto: scaricare invece di costruire non è un dettaglio di comodità, è ciò
+  # che rende identici i byte che girano oggi e quelli che gireranno fra un
+  # anno, dato che questo repo non ha un lockfile Python.
+  image: ${IBID_IMAGE:-ibid:local}
   build:
     context: .
     dockerfile: Dockerfile
