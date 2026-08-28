@@ -1766,7 +1766,7 @@ typecheck verde, tipi TypeScript rigenerati.
 | U-09 | ✅ fatto (2026-08-28) | **Il primo avvio su una macchina vergine**, che era tutto cio' che restava dopo U-08: una Arch che non aveva mai visto il progetto ha costruito l'immagine e fatto partire `docker compose --profile demo up` **senza una modifica al sorgente**, con 1.758 chunk seminati in 1,2 s e la pagina servita. Il resto (immagine unica, due profili, healthcheck sui quattro servizi, `ui/dist` dalla stessa origine) era arrivato dentro U-08. Chiuso insieme a U-12, perche' e' la stessa macchina e la stessa prova. |
 | U-10 | ✅ fatto (2026-08-26) | **Il video**: due GIF da 18,3 e 23,5 s, in IT ed EN, tema scuro, 1280x800 nativi. Sono **due ritagli di una ripresa sola**, guidata da Playwright, senza montaggio. Quattro trappole della latenza trovate misurando, la prima delle quali (la cache del prefill: 16,9 s contro 3,9) avrebbe falsificato il numero a schermo **senza tagliare un fotogramma**. Dettaglio sotto. |
 | U-11 | ✅ fatto (2026-08-25) | **I due README** (IT ed EN, 237 righe ciascuno): le tre affermazioni con la propria tabella per dataset, e la seconda con ❌ accanto ai due ✅. Nessuna riga aggregata fra i due corpus. Lo screenshot e' arrivato con U-10. Resta fuori la descrizione «About» del repo, che si imposta su GitHub. Dettaglio sotto. |
-| U-12 | ✅ fatto (2026-08-28) | **La portabilita' Linux, provata invece che dichiarata**, con dentro **D-10**: 1.814 test verdi su Arch (Python 3.14) e `docker compose --profile demo up` su macchina vergine, senza toccare il sorgente. `src/` era gia' portabile: **i sette guasti erano tutti nell'impacchettamento e nella scelta del provider**, e nessuno si sarebbe visto rileggendo le istruzioni. Il piu' caro l'ho causato io consigliando un `pip uninstall` che rompe l'installazione. D-10 ribalta la sua ipotesi: `ROCMExecutionProvider` non esiste sulla macchina che lo dovrebbe avere, e il provider piu' veloce dei tre misurati (**26,3 embed/s**) e' quello che teniamo **fuori** dall'elenco. Dettaglio sotto. |
+| U-12 | ✅ fatto (2026-08-28) | **La portabilita' Linux, provata invece che dichiarata**, con dentro **D-10**: 1.814 test verdi su Arch (Python 3.14) e `docker compose --profile demo up` su macchina vergine, senza toccare il sorgente. `src/` era gia' portabile: **gli otto guasti erano tutti fuori dal codice**, e nessuno si sarebbe visto rileggendo le istruzioni. Il piu' caro l'ho causato io consigliando un `pip uninstall` che rompe l'installazione. D-10 ribalta la sua ipotesi: `ROCMExecutionProvider` non esiste sulla macchina che lo dovrebbe avere, e il provider piu' veloce dei tre misurati (**26,3 embed/s**) e' quello che teniamo **fuori** dall'elenco. Dettaglio sotto. |
 | U-13 | ✅ fatto (2026-08-17) | **Conversazione nuova e cronologia locale**: l'elenco nella corsia, persistenza in `localStorage`, e il ricaricamento riapre una conversazione *nuova*, con la cronologia accanto. Cosa si ricorda e come si rilegge è in funzioni pure: **17 test Vitest** in più (147 in tutto). Cancellare la cronologia c'è, a due tempi, ed è il primo posto in cui la palette ha un rosso: `danger`, solo per ciò che distrugge. Due giri di revisione. Dettaglio sotto. |
 | U-14 | ✅ fatto (2026-08-19) | **Markdown e LaTeX nella risposta**: il prompt li invita invece di vietarli, e l'interfaccia li disegna, come **intervalli sul testo grezzo**, così verdetti per frase e frasi scoperte restano allineati. **15 test Vitest** in più (172 in tutto). Debito dichiarato: `prompt_hash` cambia, C-01/C-02/C-07 da rimisurare. Dettaglio sotto. |
 | U-15 | ✅ fatto (2026-08-19) | **Con quali parametri e' stata data ogni risposta**: la configurazione che ha girato si rilegge nella conversazione, e fra una domanda e l'altra si vede cosa è cambiato. **Nessun campo nuovo**: `ConfigView` era già dentro ogni risposta e già nel deposito da U-13. **11 test Vitest** in più (183 in tutto). Dettaglio sotto. |
@@ -5399,11 +5399,11 @@ fallire davvero.
 
 Ed e' il risultato meno interessante di U-12. `src/` non aveva assunzioni su
 Windows: Q-05 aveva gia' tolto la scelta del provider da cinque posti, e i
-percorsi passavano tutti da `pathlib`. **I sette guasti erano fuori dal codice**,
+percorsi passavano tutti da `pathlib`. **Gli otto guasti erano fuori dal codice**,
 e nessuno di essi si sarebbe visto rileggendo le istruzioni: si sono visti
 eseguendole su macchine vere.
 
-#### I sette, in ordine di comparsa
+#### Gli otto, in ordine di comparsa
 
 1. **Su Debian/Ubuntu il passo 2.1 non si esegue proprio.** Niente `pip`, niente
    `python3-venv`, e PEP 668 che rifiuta l'installazione di sistema. La pagina
@@ -5424,12 +5424,19 @@ eseguendole su macchine vere.
    evita il problema del tutto (il pacchetto della distribuzione registra
    `onnxruntime-1.29.0.dist-info`, quindi pip non scarica niente da PyPI).
 5. **Il pacchetto ROCm di Arch non spedisce il provider ROCm.** Vedi D-10 qui
-   sotto: e' il guasto piu' silenzioso dei sette.
+   sotto: e' il guasto piu' silenzioso di tutti.
 6. **MIGraphX si lega e poi l'inferenza muore**, se `model.onnx_data` non e'
    nella directory corrente. Lo stato piu' insidioso, perche' le tre domande
    dello script rispondono tutte di si' e il sistema non gira lo stesso.
 7. **La prima cosa che un estraneo vedeva dopo il recupero era un'eccezione di
    Python.** Vedi sotto.
+8. **La demo sopravviveva a un riavvio della macchina.** `localhost:8000`
+   rispondeva senza che nessuno avesse avviato niente: il profilo ereditava
+   `restart: unless-stopped` dall'ancora, che e' giusto per il servizio e
+   sbagliato per una dimostrazione. Chi l'avesse provata una volta se la sarebbe
+   ritrovata accesa a ogni avvio, con la porta 8000 occupata. E' l'ottavo perche'
+   e' arrivato **dopo** che il criterio era gia' chiuso: per vederlo bisognava
+   riavviare la macchina, che e' una cosa che nessun test fa.
 
 #### D-10: provati, e l'ipotesi si e' rovesciata
 

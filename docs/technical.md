@@ -1083,9 +1083,22 @@ il server risponde ma con un errore sul modello. Con Docker, l'indirizzo di
 default punta a `host.docker.internal`, che è l'host visto da dentro il
 container e su Linux funziona grazie a `extra_hosts` in `compose.yml`.
 
-**La porta 8000 è occupata** e `docker compose --profile demo up` fallisce
-all'avvio, oppure il browser mostra un'altra applicazione. Di solito è un
-`uvicorn` lasciato acceso a mano. Chi occupa la porta:
+**`localhost:8000` risponde senza aver avviato niente**, dopo un riavvio della
+macchina. È un container della demo creato **prima del 2026-08-28**: fino a
+quella data il profilo `demo` ereditava `restart: unless-stopped`, e Docker
+conserva la politica di riavvio **dentro il container**, non nel file. Cambiare
+`compose.yml` vale per i container nuovi, non per quelli che esistono già. Si
+ricreano una volta sola:
+
+```bash
+docker compose --profile demo down
+docker compose --profile demo up      # ricreati con `restart: "no"`
+```
+
+Da lì in poi la demo non torna su da sola: si guarda e si chiude.
+
+**La porta 8000 è occupata** e l'avvio fallisce. Di solito è un `uvicorn`
+lasciato acceso a mano, o una demo aperta in un altro terminale. Chi la tiene:
 
 ```powershell
 $c = Get-NetTCPConnection -LocalPort 8000 -State Listen -ErrorAction SilentlyContinue
