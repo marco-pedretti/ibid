@@ -110,6 +110,15 @@ C'è una seconda strada, che scarica l'immagine invece di costruirla:
 make demo-pull
 ```
 
+Su Windows quella riga del `Makefile` non regge: `IBID_IMAGE=... docker compose`
+è un prefisso di variabile POSIX, e `make` senza una shell che lo capisca non lo
+esegue. Le due righe equivalenti sono:
+
+```powershell
+$env:IBID_IMAGE = "ghcr.io/marco-pedretti/ibid:latest"
+docker compose --profile demo up --no-build --pull always
+```
+
 **La differenza non è il tempo.** Costruire ci mette meno di mezzo minuto, e
 scaricare qualche centinaio di megabyte non è più veloce. La differenza è che la
 costruzione risolve le dipendenze dalla rete a ogni giro, e questo repository
@@ -125,6 +134,14 @@ su macchina vergine» è il criterio di U-09. L'immagine è pubblicata da
 `.github/workflows/immagine.yml`, che parte **sui tag e a mano**, non a ogni
 push: un `latest` che si muove sotto i piedi darebbe alla demo lo stesso
 problema che il registro serve a togliere. È costruita per `linux/amd64`.
+
+Da lì segue una dipendenza che conviene sapere prima di cercarla: `demo-pull`
+punta a **`latest`**, e `latest` lo produce solo un tag. Una run avviata a mano
+pubblica il solo `sha-<commit>`, che è esattamente ciò che serve per far
+esistere il pacchetto e poterlo rendere pubblico (la visibilità non si cambia su
+un pacchetto che non c'è, e il default di GHCR è privato), ma non basta a far
+funzionare questo comando. Pubblicata la `v0.1.0` il 2026-08-30: `0.1.0`,
+`latest` e `sha-3ecbba5` sono lo stesso digest.
 
 Dentro c'è un **indice ridotto committato nel repository**, `data/demo/`: 1.758
 chunk (658 di `open_ragbench`, 1.100 di `ledger`) ritagliati dai due corpus

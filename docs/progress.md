@@ -5639,7 +5639,35 @@ marcato `latest` **una volta sola**, perche' su un push di tag il ref e'
 `metadata-action` (`latest=auto`) lo fa gia', quindi la riga giusta e' nessuna
 riga.
 
-**Cosa non e' verificato**, e va detto: qui il demone Docker era spento, quindi
-la configurazione e' validata (`docker compose config` con e senza
-`IBID_IMAGE`) ma il comportamento reale del pull no, e il workflow non ha
-ancora girato una volta. Si sapra' al primo tag.
+**Cosa non era verificato alla consegna della tappa**, e va detto: il demone
+Docker era spento, quindi la configurazione era validata (`docker compose
+config` con e senza `IBID_IMAGE`) ma il comportamento reale del pull no, e il
+workflow non aveva mai girato.
+
+#### Com'e' andata (2026-08-30)
+
+Pubblicata la **`v0.1.0`**, in tre passi e in quest'ordine, che non e'
+intercambiabile:
+
+1. **Una run a mano prima del tag.** Serve a far *esistere* il pacchetto: la
+   visibilita' non si cambia su un pacchetto che non c'e', e il default di GHCR
+   e' privato (l'accesso si eredita dal repository collegato, la visibilita' no).
+   Partendo a mano il ref non e' un tag, quindi `type=semver` non produce niente
+   e viene spinto il solo `sha-<commit>`: **`latest` resta libero**, cioe'
+   nessuno puo' ancora puntarci contro un'immagine non collaudata.
+2. **Il pacchetto reso pubblico a mano**, che e' l'unico passo di sola andata.
+3. **Il tag**, che ha aggiunto `0.1.0` e `latest`.
+
+**Verificato da non autenticato**, che e' l'unico controllo che significhi
+qualcosa: un `docker pull` dalla macchina di chi pubblica riesce identico che il
+pacchetto sia pubblico o privato, perche' quel client e' loggato. Un token
+anonimo di `ghcr.io/token` accettato, `tags/list` che risponde `200`, e i tre
+tag che portano **lo stesso digest** (`sha256:33622d90...fd25fb`): `latest` non
+e' un'immagine diversa che ha preso quel nome, e' quella che ha superato lo
+smoke test nel passo 1.
+
+Una cosa era rimasta un commento e adesso e' una verifica: che `latest=auto`
+aggiunga `latest` per `type=semver` sta nella documentazione di
+`metadata-action`, e il tag l'ha confermato. Se non fosse stato cosi', la riga
+giusta sarebbe stata `type=raw,value=latest,enable=${{ github.ref_type == 'tag'
+}}`, che e' la condizione corretta al posto di quella scartata piu' sopra.
