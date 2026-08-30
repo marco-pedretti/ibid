@@ -22,24 +22,24 @@ Two commands, for two different needs. Confusing them is what makes a project ha
 
 You need **Docker**, and nothing else.
 
-```bash
-docker compose --profile demo up                 # builds and starts (~30 s the first time)
-```
-
-Or, pulling the published image instead of building it:
+**Without cloning anything**, in an empty directory:
 
 ```bash
-IBID_IMAGE=ghcr.io/marco-pedretti/ibid:latest   docker compose --profile demo up --no-build --pull always
+curl -fsSL https://raw.githubusercontent.com/marco-pedretti/ibid/main/demo.yml -o compose.yml
+docker compose up
 ```
 
-The two routes arrive at the same place: the first builds the image here, the second pulls the published one from `ghcr.io`. The difference is not speed, it is that a build resolves its dependencies from the network every time: the published image is the bytes that were actually tested.
+On Windows the same, with `curl.exe`. No flags and no variables: `up` pulls the image it cannot find. You do need a compose file, since that is what `docker compose` reads, but it is the **only** thing to fetch: the demo index travels inside the image, so there is nothing to mount and nothing to build. To shut it down and leave no volumes behind, `docker compose down -v` in the same directory.
 
-With `make` those are `make demo` and `make demo-pull`, which are exactly those two lines. On Windows PowerShell the variable goes on its own line, since the prefix is POSIX syntax:
+The empty directory is not a formality: `-o compose.yml` overwrites without asking.
 
-```powershell
-$env:IBID_IMAGE = "ghcr.io/marco-pedretti/ibid:latest"
-docker compose --profile demo up --no-build --pull always
+If you already have the repository, the same demo, building instead of pulling:
+
+```bash
+docker compose --profile demo up                 # ~30 s the first time; with make, `make demo`
 ```
+
+Both routes arrive at the same place, and the difference is not speed: a build resolves its dependencies from the network every time, and this repository has no Python lockfile, so whoever builds a year from now does not build the image that was tested. The published image is the bytes that were actually tested.
 
 The interface is at `http://localhost:8000`. Inside is a **reduced index, committed to the repository**: 1,758 chunks cut out of the two real corpora, with the original vectors rather than recomputed ones. No corpus to download, no GPU: measured, **17.9 seconds** from the command to a page that answers.
 

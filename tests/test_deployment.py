@@ -231,11 +231,29 @@ class TestProfiloDemo:
         riuscita."""
         assert 'restart: "no"' in blocco_del_servizio("seed-demo")
 
-    def test_l_indice_e_montato_in_sola_lettura(self):
-        """Il caricamento lo legge e basta, e sono ~21 MB che si rifanno con
-        `build_demo_index.py`: montarli evita di ricostruire l'immagine per
-        cambiare dei dati."""
-        assert "./data/demo:/app/data/demo:ro" in blocco_del_servizio("seed-demo")
+    def test_l_indice_sta_nell_immagine_e_non_e_montato(self):
+        """**Il difetto per cui l'immagine pubblicata non serviva a niente.**
+
+        Montato da `compose.yml`, `data/demo/` obbligava chi avvia la demo ad
+        avere una copia del repository, immagine scaricata compresa: senza il
+        mount `seed-demo` non trova i file e la demo parte vuota. Il `curl`
+        dell'immagine toglie di mezzo il clone solo se l'indice viaggia dentro.
+
+        Le due meta' si controllano insieme perche' e' il *paio* a essere
+        giusto: copiarlo lasciando il mount lo lascerebbe dipendere lo stesso.
+        """
+        assert "/app/data/demo" not in codice_del_servizio("seed-demo")
+        dockerfile = (ROOT / "Dockerfile").read_text(encoding="utf-8")
+        assert "COPY data/demo ./data/demo" in dockerfile
+
+    def test_l_indice_entra_nel_contesto_di_build(self):
+        """`.dockerignore` esclude `data/`, quindi senza l'eccezione la `COPY`
+        qui sopra fallisce alla costruzione: il guasto e' rumoroso, ma arriva in
+        CI invece che qui."""
+        ignore = (ROOT / ".dockerignore").read_text(encoding="utf-8")
+        assert "!data/demo/" in ignore
+        elenco = ignore.splitlines()
+        assert elenco.index("data/") < elenco.index("!data/demo/")
 
     def test_la_demo_cerca_in_esatta(self):
         """L'unico punto in cui la demo non è configurata come la valutazione, e
@@ -329,3 +347,98 @@ class TestEnvExample:
         vietate = ("TOP_K", "RETRIEVAL_MODE", "RERANK", "TEMPERATURE", "SEARCH_EXACT")
         presenti = [v for v in vietate if re.search(rf"^{v}=", self.TESTO, re.M)]
         assert presenti == [], f"configurazione di richiesta in .env.example: {presenti}"
+
+
+class TestIlFileSenzaClone:
+    """`demo.yml`: la stessa demo, per chi il repository non ce l'ha.
+
+    **Perche' sono due file e non uno.** I servizi di `compose.yml` hanno una
+    sezione `build`, e quelle due righe bastano a rendere impossibile avviarlo
+    senza un clone: con l'immagine assente compose prova a costruirla e muore su
+    un `Dockerfile` che non c'e', e con `--no-build` ripiega sul default
+    `ibid:local`, che su quella macchina non esiste.
+
+    Il prezzo di un secondo file e' che i due possano divergere, e la divergenza
+    non si vede leggendoli: si vede quando la demo scaricata si comporta
+    diversamente da quella che e' stata provata. Quindi qui si confrontano
+    **campo per campo**, e le sole tre differenze ammesse sono dichiarate una per
+    una piu' sotto.
+    """
+
+    @staticmethod
+    @pytest.fixture(scope="class")
+    def coppia() -> tuple[dict, dict]:
+        """I due file risolti, `<<:` compresi: `safe_load` espande le chiavi di
+        merge, quindi qui si confronta cio' che compose vedrebbe, non il testo.
+
+        `importorskip` perche' pyyaml qui e' una dipendenza transitiva e non
+        dichiarata: meglio un test che si salta dicendolo che uno che sparisce.
+        """
+        yaml = pytest.importorskip("yaml")
+
+        def leggi(nome: str) -> dict:
+            return yaml.safe_load((ROOT / nome).read_text(encoding="utf-8"))
+
+        return leggi("compose.yml"), leggi("demo.yml")
+
+    def test_gli_stessi_tre_servizi(self, coppia):
+        compose, demo = coppia
+        nel_profilo = {
+            n for n, s in compose["services"].items() if "demo" in (s.get("profiles") or [])
+        }
+        assert nel_profilo == set(demo["services"])
+
+    def test_ogni_campo_coincide_tranne_i_tre_voluti(self, coppia):
+        """Il test che paga il secondo file. Le tre chiavi tolte sono le
+        differenze che questo file **e'**: niente `build` e niente `profiles`
+        (cosi' `up` senza flag prende tutto), e un default d'immagine diverso.
+        """
+        compose, demo = coppia
+        voluti = {"build", "profiles", "image"}
+        for nome, servizio in demo["services"].items():
+            atteso = {k: v for k, v in compose["services"][nome].items() if k not in voluti}
+            trovato = {k: v for k, v in servizio.items() if k not in voluti}
+            assert trovato == atteso, nome
+
+    def test_le_variabili_sono_le_stesse_chiavi(self, coppia):
+        """Separato dal confronto qui sopra perche' e' la divergenza piu'
+        probabile: una variabile aggiunta a `compose.yml` e dimenticata qui
+        cambierebbe il comportamento senza cambiare niente di visibile."""
+        compose, demo = coppia
+        for nome, servizio in demo["services"].items():
+            mie = set((servizio.get("environment") or {}))
+            sue = set((compose["services"][nome].get("environment") or {}))
+            assert mie == sue, nome
+
+    def test_qui_non_si_costruisce_e_non_ci_sono_profili(self, coppia):
+        """Le due assenze sono il file. Reintrodurle, «per allinearlo», gli
+        toglierebbe la sola ragione di esistere."""
+        _, demo = coppia
+        for nome, servizio in demo["services"].items():
+            assert "build" not in servizio, nome
+            assert "profiles" not in servizio, nome
+
+    def test_il_default_dell_immagine_e_il_registro(self, coppia):
+        """L'altra differenza voluta, e va nel verso giusto: qui il registro,
+        perche' non c'e' niente da cui costruire; la' la costruzione locale,
+        perche' e' la strada provata su una macchina vergine (U-09)."""
+        compose, demo = coppia
+        assert "ghcr.io/marco-pedretti/ibid:latest" in demo["services"]["api-demo"]["image"]
+        assert "ibid:local" in compose["services"]["api-demo"]["image"]
+
+    def test_il_progetto_ha_un_nome_suo(self, coppia):
+        """Senza, il nome del progetto lo darebbe la cartella in cui si e'
+        scaricato il file, e `down -v` dipenderebbe da come si chiamava."""
+        _, demo = coppia
+        assert demo["name"] == "ibid-demo"
+
+    def test_i_volumi_con_nome_ci_sono_tutti(self, coppia):
+        """Un volume citato da un servizio e non dichiarato qui e' un avvio che
+        fallisce, e questo file non ha un repository accanto che lo spieghi."""
+        _, demo = coppia
+        citati = {
+            v.split(":")[0]
+            for s in demo["services"].values()
+            for v in (s.get("volumes") or [])
+        }
+        assert citati == set(demo["volumes"])
