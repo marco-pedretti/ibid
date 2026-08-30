@@ -22,24 +22,30 @@ Due comandi, per due bisogni diversi. Confonderli è ciò che rende un progetto 
 
 Serve **Docker**, e basta.
 
-```bash
-docker compose --profile demo up                 # costruisce e avvia (~30 s la prima volta)
-```
-
-Oppure, scaricando l'immagine pubblicata invece di costruirla:
+**Senza clonare niente**, due righe:
 
 ```bash
+curl -fsSLO https://raw.githubusercontent.com/marco-pedretti/ibid/main/compose.yml
 IBID_IMAGE=ghcr.io/marco-pedretti/ibid:latest   docker compose --profile demo up --no-build --pull always
 ```
 
-Le due strade arrivano allo stesso posto: la prima costruisce l'immagine qui, la seconda scarica quella pubblicata su `ghcr.io`. La differenza non è il tempo, è che la costruzione risolve le dipendenze dalla rete a ogni giro: l'immagine pubblicata sono i byte che sono stati provati.
+Il file di compose è l'unica cosa da procurarsi: l'indice della demo viaggia **dentro l'immagine**, quindi non c'è niente da montare e niente da costruire. Per chiudere e non lasciare tracce, `docker compose --profile demo down -v` nella stessa cartella.
 
-Con `make` sono `make demo` e `make demo-pull`, che sono esattamente quelle due righe. Su Windows PowerShell la variabile va messa da parte, perché il prefisso è sintassi POSIX:
+Su Windows PowerShell la variabile va da parte, perché il prefisso è sintassi POSIX:
 
 ```powershell
+curl.exe -fsSLO https://raw.githubusercontent.com/marco-pedretti/ibid/main/compose.yml
 $env:IBID_IMAGE = "ghcr.io/marco-pedretti/ibid:latest"
 docker compose --profile demo up --no-build --pull always
 ```
+
+Se il repository ce l'hai già, la stessa demo costruendo invece che scaricando:
+
+```bash
+docker compose --profile demo up                 # ~30 s la prima volta; con make, `make demo`
+```
+
+Le due strade arrivano allo stesso posto, e la differenza non è il tempo: la costruzione risolve le dipendenze dalla rete a ogni giro, e questo repository non ha un lockfile Python, quindi chi costruisce fra un anno non costruisce l'immagine che è stata provata. L'immagine pubblicata sono i byte che sono stati provati.
 
 L'interfaccia è su `http://localhost:8000`. Dentro c'è un **indice ridotto, committato nel repository**: 1.758 chunk ritagliati dai due corpus veri, con i vettori originali invece che ricalcolati. Niente corpus da scaricare, niente GPU: misurato, **17,9 secondi** dal comando alla pagina pronta.
 
