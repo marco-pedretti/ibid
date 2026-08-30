@@ -1,0 +1,100 @@
+# La demo, per chi non ha il repository.
+#
+# **Perche' esiste un secondo file.** `compose.yml` serve chi il repository ce
+# l'ha: i suoi servizi hanno una sezione `build`, e questo basta a rendere
+# impossibile avviarlo senza un clone. Con l'immagine assente compose prova a
+# **costruirla** e muore su un `Dockerfile` che non c'e'; con `--no-build`
+# ripiega sul default `ibid:local`, che su quella macchina non esiste. Nessuna
+# combinazione di variabili aggira quelle due righe: serviva un file senza
+# `build`, ed e' questo.
+#
+# Le due differenze con il profilo `demo` di `compose.yml` sono volute e sono
+# **solo** queste: qui non c'e' `build`, e non ci sono `profiles`, cosi' `up`
+# senza flag seleziona tutti e tre i servizi. Tutto il resto e' identico, e un
+# test lo confronta campo per campo invece di fidarsi.
+#
+#     curl -fsSL https://raw.githubusercontent.com/marco-pedretti/ibid/main/demo.yml -o compose.yml
+#     docker compose up
+#
+# In una cartella vuota: `-o compose.yml` sovrascrive senza chiedere. Per
+# chiudere e non lasciare volumi in giro, `docker compose down -v`.
+
+# Il nome del progetto e' scritto qui e non dedotto dalla cartella: chi scarica
+# questo file lo mette dove capita, e senza questa riga `down` dipenderebbe da
+# come si chiamava quella cartella.
+name: ibid-demo
+
+x-immagine: &immagine
+  # **Il default e' il registro**, al contrario di `compose.yml`, dove resta la
+  # costruzione locale perche' e' la strada provata su una macchina vergine
+  # (U-09). Qui costruire non e' un'opzione: non c'e' niente da cui costruire.
+  image: ${IBID_IMAGE:-ghcr.io/marco-pedretti/ibid:latest}
+  extra_hosts:
+    # Su Linux `host.docker.internal` non esiste da solo, e senza questa riga il
+    # default di `LLM_BASE_URL` funzionerebbe su due sistemi su tre.
+    - "host.docker.internal:host-gateway"
+  volumes:
+    # I pesi dei modelli, ~2,5 GB fra embedding, reranker e verificatore NLI:
+    # scaricati al primo avvio e poi fermi qui. L'indice della demo invece **e'
+    # dentro l'immagine**, ed e' cio' che rende questo file autosufficiente.
+    - model_cache:/cache
+  # Una demo si guarda e si chiude: `unless-stopped` la rimetterebbe in piedi a
+  # ogni avvio del demone, con la porta 8000 occupata e nessuno che ricorda di
+  # averlo chiesto.
+  restart: "no"
+
+services:
+  api-demo:
+    <<: *immagine
+    ports:
+      - "${API_PORT:-8000}:8000"
+    environment:
+      LLM_BASE_URL: ${LLM_BASE_URL:-http://host.docker.internal:11434/v1}
+      LLM_MODEL: ${LLM_MODEL:-gemma4:latest}
+      ONNX_PROVIDERS: ${ONNX_PROVIDERS:-}
+      QDRANT_URL: ${DEMO_QDRANT_URL:-http://qdrant-demo:6333}
+      # La demo cerca in esatta, ed e' l'unico punto in cui non e' configurata
+      # come la valutazione: la pagina «Che cos'e'» lo dice per nome. La ragione
+      # e' OQ-09.
+      SEARCH_EXACT: "1"
+    depends_on:
+      seed-demo:
+        # Non `service_healthy`: il caricamento **finisce**. Aprire la porta
+        # prima mostrerebbe un dataset vuoto al primo colpo d'occhio.
+        condition: service_completed_successfully
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:8000/health"]
+      interval: 10s
+      timeout: 3s
+      start_period: 20s
+      retries: 5
+
+  seed-demo:
+    <<: *immagine
+    # Carica l'indice ridotto su Qdrant e finisce. Nessuna GPU, nessuna rete: i
+    # vettori sono gia' quelli misurati.
+    command: ["python", "-m", "src.index.demo"]
+    environment:
+      QDRANT_URL: ${DEMO_QDRANT_URL:-http://qdrant-demo:6333}
+    depends_on:
+      qdrant-demo:
+        condition: service_healthy
+
+  qdrant-demo:
+    image: qdrant/qdrant:v1.19.0
+    volumes:
+      - qdrant_demo_data:/qdrant/storage
+    healthcheck:
+      # L'immagine di Qdrant non ha ne' curl ne' wget: il suo stesso binario sa
+      # dire se e' vivo. Un healthcheck che non puo' girare lascia il servizio
+      # `starting` per sempre, e `depends_on: service_healthy` non parte mai.
+      test: ["CMD", "/qdrant/qdrant", "--version"]
+      interval: 10s
+      timeout: 5s
+      start_period: 10s
+      retries: 5
+    restart: "no"
+
+volumes:
+  qdrant_demo_data:
+  model_cache:

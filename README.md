@@ -22,22 +22,16 @@ Due comandi, per due bisogni diversi. Confonderli è ciò che rende un progetto 
 
 Serve **Docker**, e basta.
 
-**Senza clonare niente**, due righe:
+**Senza clonare niente**, in una cartella vuota:
 
 ```bash
-curl -fsSLO https://raw.githubusercontent.com/marco-pedretti/ibid/main/compose.yml
-IBID_IMAGE=ghcr.io/marco-pedretti/ibid:latest   docker compose --profile demo up --no-build --pull always
+curl -fsSL https://raw.githubusercontent.com/marco-pedretti/ibid/main/demo.yml -o compose.yml
+docker compose up
 ```
 
-Il file di compose è l'unica cosa da procurarsi: l'indice della demo viaggia **dentro l'immagine**, quindi non c'è niente da montare e niente da costruire. Per chiudere e non lasciare tracce, `docker compose --profile demo down -v` nella stessa cartella.
+Su Windows è la stessa cosa con `curl.exe`. Nessun flag e nessuna variabile: `up` scarica da solo l'immagine che non trova. Un file di compose bisogna averlo, perché è quello che `docker compose` legge, ma è **l'unica** cosa da procurarsi: l'indice della demo viaggia dentro l'immagine, quindi non c'è niente da montare e niente da costruire. Per chiudere e non lasciare volumi in giro, `docker compose down -v` nella stessa cartella.
 
-Su Windows PowerShell la variabile va da parte, perché il prefisso è sintassi POSIX:
-
-```powershell
-curl.exe -fsSLO https://raw.githubusercontent.com/marco-pedretti/ibid/main/compose.yml
-$env:IBID_IMAGE = "ghcr.io/marco-pedretti/ibid:latest"
-docker compose --profile demo up --no-build --pull always
-```
+La cartella vuota non è una formalità: `-o compose.yml` sovrascrive senza chiedere.
 
 Se il repository ce l'hai già, la stessa demo costruendo invece che scaricando:
 

@@ -22,22 +22,16 @@ Two commands, for two different needs. Confusing them is what makes a project ha
 
 You need **Docker**, and nothing else.
 
-**Without cloning anything**, two lines:
+**Without cloning anything**, in an empty directory:
 
 ```bash
-curl -fsSLO https://raw.githubusercontent.com/marco-pedretti/ibid/main/compose.yml
-IBID_IMAGE=ghcr.io/marco-pedretti/ibid:latest   docker compose --profile demo up --no-build --pull always
+curl -fsSL https://raw.githubusercontent.com/marco-pedretti/ibid/main/demo.yml -o compose.yml
+docker compose up
 ```
 
-The compose file is the only thing to fetch: the demo index travels **inside the image**, so there is nothing to mount and nothing to build. To shut it down and leave no traces, `docker compose --profile demo down -v` in the same directory.
+On Windows the same, with `curl.exe`. No flags and no variables: `up` pulls the image it cannot find. You do need a compose file, since that is what `docker compose` reads, but it is the **only** thing to fetch: the demo index travels inside the image, so there is nothing to mount and nothing to build. To shut it down and leave no volumes behind, `docker compose down -v` in the same directory.
 
-On Windows PowerShell the variable goes on its own line, since the prefix is POSIX syntax:
-
-```powershell
-curl.exe -fsSLO https://raw.githubusercontent.com/marco-pedretti/ibid/main/compose.yml
-$env:IBID_IMAGE = "ghcr.io/marco-pedretti/ibid:latest"
-docker compose --profile demo up --no-build --pull always
-```
+The empty directory is not a formality: `-o compose.yml` overwrites without asking.
 
 If you already have the repository, the same demo, building instead of pulling:
 

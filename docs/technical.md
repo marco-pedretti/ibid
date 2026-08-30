@@ -110,6 +110,15 @@ C'è una seconda strada, che scarica l'immagine invece di costruirla:
 make demo-pull
 ```
 
+Chi il repository non ce l'ha usa `demo.yml`, che è la stessa demo senza la sezione `build`:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/marco-pedretti/ibid/main/demo.yml -o compose.yml
+docker compose up
+```
+
+**Perché sono due file.** Con una sezione `build` accanto a `image`, compose che non trova l'immagine prova a costruirla e muore su un `Dockerfile` assente; con `--no-build` ripiega sul default `ibid:local`, che su quella macchina non esiste. Nessuna variabile aggira quelle due righe. Le differenze fra i due file sono tre e sono dichiarate: niente `build`, niente `profiles` (così `up` senza flag prende tutti e tre i servizi) e un default d'immagine che punta al registro invece che alla costruzione locale. Che sia tutto qui lo controlla un test che confronta i due file campo per campo, non a vista.
+
 Su Windows quella riga del `Makefile` non regge: `IBID_IMAGE=... docker compose`
 è un prefisso di variabile POSIX, e `make` senza una shell che lo capisca non lo
 esegue. Le due righe equivalenti sono:
