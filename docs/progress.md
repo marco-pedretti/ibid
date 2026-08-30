@@ -5671,3 +5671,61 @@ aggiunga `latest` per `type=semver` sta nella documentazione di
 `metadata-action`, e il tag l'ha confermato. Se non fosse stato cosi', la riga
 giusta sarebbe stata `type=raw,value=latest,enable=${{ github.ref_type == 'tag'
 }}`, che e' la condizione corretta al posto di quella scartata piu' sopra.
+
+#### Il difetto che la pubblicazione ha scoperto (2026-08-30)
+
+**L'immagine pubblicata non sapeva avviarsi.** Un'ora dopo il tag, provando a
+scrivere nel README il comando per chi arriva da fuori, e' venuto fuori che non
+esisteva: `compose.yml` passava `data/demo/` come mount, quindi per avviare la
+demo serviva comunque una copia del repository, immagine scaricata compresa.
+Cioe' esattamente cio' che scaricare un'immagine dovrebbe togliere di mezzo.
+
+Il mount aveva una ragione scritta accanto (rifare il ritaglio senza ricostruire
+l'immagine) e la ragione era vera; quello che nessuno aveva confrontato e' il suo
+prezzo. Trenta secondi di `docker build` contro una demo pubblicata che non
+parte. I 20 MB sono entrati nell'immagine, `.dockerignore` ha guadagnato l'unica
+eccezione a `data/`, e il percorso e' rimasto `/app/data/demo`, quindi
+`src/index/demo.py` non e' cambiato di una riga.
+
+**Un secondo file, e la ragione per cui uno non bastava.** Tolto il mount, il
+comando restava scomodo: una variabile, `--profile demo`, `--no-build` e
+`--pull always`. L'ostacolo non erano i flag ma la sezione `build` di
+`compose.yml`: senza immagine locale compose prova a **costruirla** e muore su
+un `Dockerfile` che non c'e', e con `--no-build` ripiega sul default
+`ibid:local`, che su quella macchina non esiste. Nessuna combinazione di
+variabili aggira quelle due righe. Da li' `demo.yml`, senza `build` e senza
+`profiles`:
+
+    curl -fsSL .../demo.yml -o compose.yml
+    docker compose up
+
+`compose.yml` non e' stato toccato: il suo default resta la costruzione locale,
+che e' la strada provata su una macchina vergine, e cambiarlo avrebbe invalidato
+la verifica di U-09 fatta su Arch due giorni prima.
+
+Il prezzo di due file e' che divergano, e la divergenza non si vede leggendoli:
+si vede quando la demo scaricata si comporta diversamente da quella provata.
+Sette test li confrontano **campo per campo** sui due file risolti (`safe_load`
+espande le chiavi di merge, quindi il confronto e' su cio' che compose vedrebbe,
+non sul testo), con le tre sole differenze ammesse dichiarate una per una.
+
+**Cosa ha verificato la CI, e cosa non poteva verificare da sola.** Una `COPY`
+riuscita dice meno di quanto sembri: il caso facile (l'eccezione in
+`.dockerignore` senza effetto) fallisce da solo e rumorosamente, ma
+un'esclusione che lascia la cartella e porta via dei file passa, l'immagine si
+avvia, `/health` risponde e la demo si presenta con un indice a meta'. Lo smoke
+test non lo vedrebbe, perche' `/health` **di proposito** non guarda l'indice.
+Quindi il workflow ha uno step in piu' che controlla i cinque file dentro il
+container, prima della push.
+
+Provato con `workflow_dispatch` **sul ramo**, che pubblica il solo `sha-` e non
+muove `latest`: verde. Confermato anche dall'artefatto invece che dal log, senza
+Docker acceso: la storia dell'immagine pubblicata contiene
+`COPY data/demo ./data/demo`, e uno dei dodici layer pesa 10,2 MB compressi.
+
+**Cosa resta non verificato**: che i due comandi del README funzionino davvero
+su una macchina che non ha il repository. La configurazione e' validata
+(`demo.yml` da solo in una cartella vuota risolve senza flag, tre servizi,
+nessun bind mount, il progetto si chiama `ibid-demo`) ma il giro completo no. Si
+sapra' al primo avvio dopo la `v0.1.1`.
+
