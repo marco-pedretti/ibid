@@ -30,6 +30,13 @@ docker compose up
 # per chiudere: docker compose down -v
 ```
 
+Su Windows, in PowerShell, l'unica differenza è `curl.exe`: `curl` da solo è un alias di `Invoke-WebRequest`, che risponde *«Impossibile trovare un parametro corrispondente al nome 'fsSL'»*.
+
+```powershell
+curl.exe -fsSL https://raw.githubusercontent.com/marco-pedretti/ibid/main/demo.yml -o compose.yml
+docker compose up
+```
+
 **Clonando**, se poi vuoi metterci le mani:
 
 ```bash
@@ -40,7 +47,7 @@ docker compose --profile demo up
 
 La prima **scarica** l'immagine pubblicata, la seconda la **costruisce** (~30 s la prima volta, e con `make` è `make demo`). Arrivano allo stesso posto, e la differenza non è il tempo: la costruzione risolve le dipendenze dalla rete a ogni giro, e questo repository non ha un lockfile Python, quindi chi costruisce fra un anno non costruisce l'immagine che è stata provata.
 
-Due dettagli, e poi basta: su Windows il primo comando è `curl.exe`, e la cartella vuota non è una formalità, perché `-o compose.yml` sovrascrive senza chiedere.
+La cartella vuota non è una formalità: `-o compose.yml` sovrascrive senza chiedere.
 
 L'interfaccia è su `http://localhost:8000`. Dentro c'è un **indice ridotto**, che sta in git e viaggia dentro l'immagine: 1.758 chunk ritagliati dai due corpus veri, con i vettori originali invece che ricalcolati. Niente corpus da scaricare, niente GPU: misurato, **17,9 secondi** dal comando alla pagina pronta.
 
