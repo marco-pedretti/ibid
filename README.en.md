@@ -16,32 +16,33 @@ This is not a demo with links at the bottom of the answer. It is a measurement b
 
 ## Getting started
 
-Two commands, for two different needs. Confusing them is what makes a project hard to try.
+Two sections, for two different needs. Confusing them is what makes a project hard to try.
 
 ### Seeing it work
 
-You need **Docker**, and nothing else.
+You need **Docker**, and nothing else. Two commands either way: what changes is whether you also want the code.
 
-**Without cloning anything**, in an empty directory:
+**Without cloning**, in an empty directory:
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/marco-pedretti/ibid/main/demo.yml -o compose.yml
 docker compose up
+# to shut down: docker compose down -v
 ```
 
-On Windows the same, with `curl.exe`. No flags and no variables: `up` pulls the image it cannot find. You do need a compose file, since that is what `docker compose` reads, but it is the **only** thing to fetch: the demo index travels inside the image, so there is nothing to mount and nothing to build. To shut it down and leave no volumes behind, `docker compose down -v` in the same directory.
-
-The empty directory is not a formality: `-o compose.yml` overwrites without asking.
-
-If you already have the repository, the same demo, building instead of pulling:
+**Cloning**, if you then want to work on it:
 
 ```bash
-docker compose --profile demo up                 # ~30 s the first time; with make, `make demo`
+git clone https://github.com/marco-pedretti/ibid.git && cd ibid
+docker compose --profile demo up
+# to shut down: docker compose --profile demo down -v
 ```
 
-Both routes arrive at the same place, and the difference is not speed: a build resolves its dependencies from the network every time, and this repository has no Python lockfile, so whoever builds a year from now does not build the image that was tested. The published image is the bytes that were actually tested.
+The first **pulls** the published image, the second **builds** it (~30 s the first time, and with `make` it is `make demo`). They arrive at the same place, and the difference is not speed: a build resolves its dependencies from the network every time, and this repository has no Python lockfile, so whoever builds a year from now does not build the image that was tested.
 
-The interface is at `http://localhost:8000`. Inside is a **reduced index, committed to the repository**: 1,758 chunks cut out of the two real corpora, with the original vectors rather than recomputed ones. No corpus to download, no GPU: measured, **17.9 seconds** from the command to a page that answers.
+Two details, and that is all: on Windows the first command is `curl.exe`, and the empty directory is not a formality, since `-o compose.yml` overwrites without asking.
+
+The interface is at `http://localhost:8000`. Inside is a **reduced index**, which lives in git and travels inside the image: 1,758 chunks cut out of the two real corpora, with the original vectors rather than recomputed ones. No corpus to download, no GPU: measured, **17.9 seconds** from the command to a page that answers.
 
 It is there to **show, not to reproduce**, and the interface says so while it runs: the numbers on this page come from the full index, which is the section below. Generating answers also needs a model (`LLM_BASE_URL`, below); without one you can browse the corpus and retrieval still answers: only generation falls away.
 

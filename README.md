@@ -16,32 +16,33 @@ Non è una demo con dei link in fondo alla risposta. È un banco di misura, cost
 
 ## Avvio
 
-Due comandi, per due bisogni diversi. Confonderli è ciò che rende un progetto difficile da provare.
+Due sezioni, per due bisogni diversi. Confonderli è ciò che rende un progetto difficile da provare.
 
 ### Vederlo funzionare
 
-Serve **Docker**, e basta.
+Serve **Docker**, e basta. Due comandi in un caso e due nell'altro: cambia solo se vuoi anche il codice.
 
-**Senza clonare niente**, in una cartella vuota:
+**Senza clonare**, in una cartella vuota:
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/marco-pedretti/ibid/main/demo.yml -o compose.yml
 docker compose up
+# per chiudere: docker compose down -v
 ```
 
-Su Windows è la stessa cosa con `curl.exe`. Nessun flag e nessuna variabile: `up` scarica da solo l'immagine che non trova. Un file di compose bisogna averlo, perché è quello che `docker compose` legge, ma è **l'unica** cosa da procurarsi: l'indice della demo viaggia dentro l'immagine, quindi non c'è niente da montare e niente da costruire. Per chiudere e non lasciare volumi in giro, `docker compose down -v` nella stessa cartella.
-
-La cartella vuota non è una formalità: `-o compose.yml` sovrascrive senza chiedere.
-
-Se il repository ce l'hai già, la stessa demo costruendo invece che scaricando:
+**Clonando**, se poi vuoi metterci le mani:
 
 ```bash
-docker compose --profile demo up                 # ~30 s la prima volta; con make, `make demo`
+git clone https://github.com/marco-pedretti/ibid.git && cd ibid
+docker compose --profile demo up
+# per chiudere: docker compose --profile demo down -v
 ```
 
-Le due strade arrivano allo stesso posto, e la differenza non è il tempo: la costruzione risolve le dipendenze dalla rete a ogni giro, e questo repository non ha un lockfile Python, quindi chi costruisce fra un anno non costruisce l'immagine che è stata provata. L'immagine pubblicata sono i byte che sono stati provati.
+La prima **scarica** l'immagine pubblicata, la seconda la **costruisce** (~30 s la prima volta, e con `make` è `make demo`). Arrivano allo stesso posto, e la differenza non è il tempo: la costruzione risolve le dipendenze dalla rete a ogni giro, e questo repository non ha un lockfile Python, quindi chi costruisce fra un anno non costruisce l'immagine che è stata provata.
 
-L'interfaccia è su `http://localhost:8000`. Dentro c'è un **indice ridotto, committato nel repository**: 1.758 chunk ritagliati dai due corpus veri, con i vettori originali invece che ricalcolati. Niente corpus da scaricare, niente GPU: misurato, **17,9 secondi** dal comando alla pagina pronta.
+Due dettagli, e poi basta: su Windows il primo comando è `curl.exe`, e la cartella vuota non è una formalità, perché `-o compose.yml` sovrascrive senza chiedere.
+
+L'interfaccia è su `http://localhost:8000`. Dentro c'è un **indice ridotto**, che sta in git e viaggia dentro l'immagine: 1.758 chunk ritagliati dai due corpus veri, con i vettori originali invece che ricalcolati. Niente corpus da scaricare, niente GPU: misurato, **17,9 secondi** dal comando alla pagina pronta.
 
 Serve a **mostrare, non a riprodurre**, e l'interfaccia lo scrive mentre gira: i numeri di questa pagina vengono dall'indice completo, che è la sezione qui sotto. Per generare le risposte serve anche un modello (`LLM_BASE_URL`, sotto); senza, si sfoglia il corpus e il recupero risponde: cade solo la generazione.
 
