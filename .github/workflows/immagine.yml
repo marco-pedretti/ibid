@@ -61,6 +61,23 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
+      # **Cio' che una COPY riuscita non dimostra.** `.dockerignore` esclude
+      # `data/` e la riammette con `!data/demo/`: se quell'eccezione smettesse
+      # di avere effetto la COPY fallirebbe, rumorosamente, ed e' il caso
+      # facile. Il caso scomodo e' un'esclusione che lascia la cartella e porta
+      # via dei file: la COPY riesce, l'immagine parte, e la demo si presenta
+      # con un indice a meta'. Cinque file, e devono esserci tutti e cinque non
+      # vuoti.
+      - name: l'immagine porta l'indice della demo
+        run: |
+          docker run --rm ibid:prova sh -c '
+            set -e
+            for f in manifest.json ledger.jsonl ledger.dense.npy open_ragbench.jsonl open_ragbench.dense.npy; do
+              test -s "/app/data/demo/$f" || { echo "manca o e vuoto: $f"; exit 1; }
+            done
+            ls -l /app/data/demo
+          '
+
       # La suite non gira qui dentro: l'immagine porta `src` e `ui/dist`, non
       # `tests/` ne' `pytest` (vedi il `Dockerfile`). Cio' che si puo' chiedere a
       # un'immagine prima di pubblicarla e' che **si avvii e risponda**, ed e' il
