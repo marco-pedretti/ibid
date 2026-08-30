@@ -23,11 +23,23 @@ Two commands, for two different needs. Confusing them is what makes a project ha
 You need **Docker**, and nothing else.
 
 ```bash
-make demo                # builds the image and starts (~30 s the first time)
-make demo-pull           # or pulls the published one, no build
+docker compose --profile demo up                 # builds and starts (~30 s the first time)
 ```
 
-The two lines do the same thing by different routes: the first builds the image here, the second pulls the published one from `ghcr.io`. The difference is not speed, it is that a build resolves its dependencies from the network every time: the published image is the bytes that were actually tested.
+Or, pulling the published image instead of building it:
+
+```bash
+IBID_IMAGE=ghcr.io/marco-pedretti/ibid:latest   docker compose --profile demo up --no-build --pull always
+```
+
+The two routes arrive at the same place: the first builds the image here, the second pulls the published one from `ghcr.io`. The difference is not speed, it is that a build resolves its dependencies from the network every time: the published image is the bytes that were actually tested.
+
+With `make` those are `make demo` and `make demo-pull`, which are exactly those two lines. On Windows PowerShell the variable goes on its own line, since the prefix is POSIX syntax:
+
+```powershell
+$env:IBID_IMAGE = "ghcr.io/marco-pedretti/ibid:latest"
+docker compose --profile demo up --no-build --pull always
+```
 
 The interface is at `http://localhost:8000`. Inside is a **reduced index, committed to the repository**: 1,758 chunks cut out of the two real corpora, with the original vectors rather than recomputed ones. No corpus to download, no GPU: measured, **17.9 seconds** from the command to a page that answers.
 
