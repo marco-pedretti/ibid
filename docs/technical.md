@@ -1100,6 +1100,15 @@ progetto, immagini Docker comprese, a diventare AGPL.
 
 ## 10. Guasti comuni
 
+**`failed to connect to the docker API at npipe:////./pipe/dockerDesktopLinuxEngine`**,
+oppure `Cannot connect to the Docker daemon at unix:///var/run/docker.sock`. Non
+è un problema di configurazione: **il demone non è in esecuzione**. Il client
+`docker` resta nel PATH anche a demone spento, quindi il comando parte e
+fallisce solo quando prova a parlargli, il che fa sembrare il guasto più
+profondo di quello che è. Su Windows e macOS si avvia Docker Desktop e si
+aspetta che l'icona smetta di animarsi; su Linux, `systemctl start docker`. È il
+primo ostacolo che incontra chi prova la demo, ed è successo il 2026-08-30.
+
 **`UnicodeEncodeError: 'charmap' codec can't encode character`** su Windows. La
 console usa cp1252 e gli script stampano caratteri che non ci stanno. Non è un
 difetto della misura, ma uccide il processo:

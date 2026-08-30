@@ -20,7 +20,7 @@ Two sections, for two different needs. Confusing them is what makes a project ha
 
 ### Seeing it work
 
-You need **Docker**, and nothing else. Two commands either way: what changes is whether you also want the code.
+You need **Docker**, and nothing else, with the daemon running: on Windows and macOS that means Docker Desktop **open**, otherwise the command answers `failed to connect to the docker API` and nothing starts. Two commands either way: what changes is whether you also want the code.
 
 **Without cloning**, in an empty directory:
 

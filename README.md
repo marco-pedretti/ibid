@@ -20,7 +20,7 @@ Due sezioni, per due bisogni diversi. Confonderli è ciò che rende un progetto 
 
 ### Vederlo funzionare
 
-Serve **Docker**, e basta. Due comandi in un caso e due nell'altro: cambia solo se vuoi anche il codice.
+Serve **Docker**, e basta, con il demone acceso: su Windows e macOS vuol dire Docker Desktop **aperto**, altrimenti il comando risponde `failed to connect to the docker API` e non parte niente. Due comandi in un caso e due nell'altro: cambia solo se vuoi anche il codice.
 
 **Senza clonare**, in una cartella vuota:
 
