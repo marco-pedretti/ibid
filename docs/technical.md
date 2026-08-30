@@ -1150,7 +1150,16 @@ export LLM_MODEL=gemma3:12b                      # uno che si ha davvero
 Il default di `LLM_MODEL` è `gemma4:latest`: se `ollama list` non lo contiene,
 il server risponde ma con un errore sul modello. Con Docker, l'indirizzo di
 default punta a `host.docker.internal`, che è l'host visto da dentro il
-container e su Linux funziona grazie a `extra_hosts` in `compose.yml`.
+container e su Linux esiste grazie a `extra_hosts` in `compose.yml`.
+
+**Su Linux quella riga risolve il nome e non basta a raggiungere il servizio.**
+`host-gateway` punta all'indirizzo del bridge, e Ollama ascolta di default su
+`127.0.0.1:11434`, che da quell'indirizzo non risponde: il container riceve
+connessione rifiutata su un nome che risolve benissimo. Serve far ascoltare
+Ollama anche fuori dal loopback, con `OLLAMA_HOST=0.0.0.0 ollama serve`. Su
+Windows e macOS il default basta, perché Docker Desktop inoltra verso il
+loopback dell'host. *Dedotto dal meccanismo, non misurato*: il default di Ollama
+è nella sua documentazione, il resto è come funzionano le due reti.
 
 **`localhost:8000` risponde senza aver avviato niente**, dopo un riavvio della
 macchina. È un container della demo creato **prima del 2026-08-28**: fino a

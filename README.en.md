@@ -51,7 +51,7 @@ The empty directory is not a formality: `-o compose.yml` overwrites without aski
 
 The interface is at `http://localhost:8000`. Inside is a **reduced index**, which lives in git and travels inside the image: 1,758 chunks cut out of the two real corpora, with the original vectors rather than recomputed ones. No corpus to download, no GPU: measured, **17.9 seconds** from the command to a page that answers.
 
-It is there to **show, not to reproduce**, and the interface says so while it runs: the numbers on this page come from the full index, which is the section below. Generating answers also needs a model (`LLM_BASE_URL`, below); without one you can browse the corpus and retrieval still answers: only generation falls away.
+It is there to **show, not to reproduce**, and the interface says so while it runs: the numbers on this page come from the full index, which is the section below. Generating answers also needs a model, that is an OpenAI-compatible endpoint **running while the demo runs** (`ollama serve`, and leave it open: see `LLM_BASE_URL`, below). Without one you can browse the corpus and retrieval still answers, only generation falls away: that is not a failure, and the interface says so rather than leaving you to guess.
 
 ### Touching the code, and redoing the measurements
 

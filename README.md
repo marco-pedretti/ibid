@@ -51,7 +51,7 @@ La cartella vuota non è una formalità: `-o compose.yml` sovrascrive senza chie
 
 L'interfaccia è su `http://localhost:8000`. Dentro c'è un **indice ridotto**, che sta in git e viaggia dentro l'immagine: 1.758 chunk ritagliati dai due corpus veri, con i vettori originali invece che ricalcolati. Niente corpus da scaricare, niente GPU: misurato, **17,9 secondi** dal comando alla pagina pronta.
 
-Serve a **mostrare, non a riprodurre**, e l'interfaccia lo scrive mentre gira: i numeri di questa pagina vengono dall'indice completo, che è la sezione qui sotto. Per generare le risposte serve anche un modello (`LLM_BASE_URL`, sotto); senza, si sfoglia il corpus e il recupero risponde: cade solo la generazione.
+Serve a **mostrare, non a riprodurre**, e l'interfaccia lo scrive mentre gira: i numeri di questa pagina vengono dall'indice completo, che è la sezione qui sotto. Per generare le risposte serve anche un modello, cioè un endpoint OpenAI-compatibile **acceso mentre la demo gira** (`ollama serve`, e resta aperto: vedi `LLM_BASE_URL`, sotto). Senza, si sfoglia il corpus e il recupero risponde, cade solo la generazione: non è un guasto, e l'interfaccia lo dice invece di lasciarlo indovinare.
 
 ### Toccare il codice, e rifare le misure
 
