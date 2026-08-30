@@ -27,6 +27,10 @@ pytestmark = pytest.mark.skipif(
 #: pena tenere per sempre nella storia del repository per una dimostrazione.
 #: I `.npy` densi sono float32 quasi incomprimibili, quindi il peso in git e'
 #: quasi tutto li'.
+#:
+#: Dal 2026-08-30 questo tetto ne governa **due** di cose: dalla stessa cartella
+#: passa un layer dell'immagine pubblicata, che il `Dockerfile` copia perche'
+#: chi la scarica non ha un repository da cui montarla.
 PESO_MAX_MB = 25.0
 
 

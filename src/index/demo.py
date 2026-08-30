@@ -44,9 +44,11 @@ from src.index.store import _UPSERT_BATCH, ensure_collection, get_client
 #: accetta `vectors_config={}`), un punto solo, il manifesto nel payload.
 MARCATORE = "ibid_demo"
 
-#: Dove sta l'indice ridotto dentro il repository. In un container ci arriva
-#: montata: `./data/demo:/app/data/demo:ro`, che e' il motivo per cui
-#: l'immagine non la contiene e non deve essere ricostruita per cambiarla.
+#: Dove sta l'indice ridotto dentro il repository, e **dentro l'immagine**: il
+#: `Dockerfile` lo copia in `/app/data/demo`, cosi' il percorso e' lo stesso
+#: dentro e fuori dal container e questo modulo non deve saperlo. Montarlo, come
+#: si faceva fino al 2026-08-30, voleva dire che l'immagine pubblicata non
+#: sapeva avviarsi senza una copia del repository accanto.
 CARTELLA = Path(__file__).parent.parent.parent / "data" / "demo"
 
 

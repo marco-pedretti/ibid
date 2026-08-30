@@ -11,6 +11,11 @@
 
 # I corpus scaricati e gli indici. 2,3 GB.
 data/
+# **Tranne l'indice della demo**, 20 MB, e l'eccezione ha una ragione precisa:
+# senza, l'immagine pubblicata non sa avviarsi da sola. `compose.yml` glielo
+# passava montato, il che vuol dire che serviva una copia del repository, cioe'
+# esattamente cio' che scaricare un'immagine dovrebbe togliere di mezzo.
+!data/demo/
 
 # Le misure. Sono la memoria del progetto e non il codice del servizio: il
 # backend non le legge, e la dashboard che le legge non gira in questa immagine.

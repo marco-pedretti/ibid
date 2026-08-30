@@ -231,11 +231,29 @@ class TestProfiloDemo:
         riuscita."""
         assert 'restart: "no"' in blocco_del_servizio("seed-demo")
 
-    def test_l_indice_e_montato_in_sola_lettura(self):
-        """Il caricamento lo legge e basta, e sono ~21 MB che si rifanno con
-        `build_demo_index.py`: montarli evita di ricostruire l'immagine per
-        cambiare dei dati."""
-        assert "./data/demo:/app/data/demo:ro" in blocco_del_servizio("seed-demo")
+    def test_l_indice_sta_nell_immagine_e_non_e_montato(self):
+        """**Il difetto per cui l'immagine pubblicata non serviva a niente.**
+
+        Montato da `compose.yml`, `data/demo/` obbligava chi avvia la demo ad
+        avere una copia del repository, immagine scaricata compresa: senza il
+        mount `seed-demo` non trova i file e la demo parte vuota. Il `curl`
+        dell'immagine toglie di mezzo il clone solo se l'indice viaggia dentro.
+
+        Le due meta' si controllano insieme perche' e' il *paio* a essere
+        giusto: copiarlo lasciando il mount lo lascerebbe dipendere lo stesso.
+        """
+        assert "/app/data/demo" not in codice_del_servizio("seed-demo")
+        dockerfile = (ROOT / "Dockerfile").read_text(encoding="utf-8")
+        assert "COPY data/demo ./data/demo" in dockerfile
+
+    def test_l_indice_entra_nel_contesto_di_build(self):
+        """`.dockerignore` esclude `data/`, quindi senza l'eccezione la `COPY`
+        qui sopra fallisce alla costruzione: il guasto e' rumoroso, ma arriva in
+        CI invece che qui."""
+        ignore = (ROOT / ".dockerignore").read_text(encoding="utf-8")
+        assert "!data/demo/" in ignore
+        elenco = ignore.splitlines()
+        assert elenco.index("data/") < elenco.index("!data/demo/")
 
     def test_la_demo_cerca_in_esatta(self):
         """L'unico punto in cui la demo non è configurata come la valutazione, e

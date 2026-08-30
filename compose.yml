@@ -161,12 +161,11 @@ services:
     command: ["python", "-m", "src.index.demo"]
     environment:
       QDRANT_URL: ${DEMO_QDRANT_URL:-http://qdrant-demo:6333}
-    volumes:
-      # Montato, non copiato nell'immagine: sono ~21 MB che cambiano quando si
-      # rifà il ritaglio, e montarli evita di ricostruire l'immagine per
-      # cambiare dei dati. In sola lettura perché il caricamento li legge e
-      # basta.
-      - ./data/demo:/app/data/demo:ro
+    # **Nessun mount, e non è un'omissione**: `data/demo/` sta dentro l'immagine
+    # dal 2026-08-30. Montata, come era prima, obbligava chiunque a possedere una
+    # copia del repository per avviare la demo, immagine pubblicata compresa: il
+    # contrario di ciò per cui il registro esiste. Sono 20 MB, e si rifanno con
+    # `build_demo_index.py` ricostruendo l'immagine.
     depends_on:
       qdrant-demo:
         condition: service_healthy

@@ -92,6 +92,15 @@ ENV PATH="/opt/venv/bin:$PATH" \
 WORKDIR /app
 COPY src ./src
 
+# L'indice ridotto della demo: 20 MB, e **dentro l'immagine di proposito**.
+# Fino al 2026-08-30 arrivava montato da `compose.yml`, per poterlo rifare senza
+# ricostruire l'immagine. Quel vantaggio costava piu' di quanto valesse: chi
+# scarica l'immagine pubblicata non ha il repository, quindi non ha niente da
+# montare, e la demo che dovrebbe partire da sola non partiva affatto. Chi
+# ritaglia un indice nuovo con `build_demo_index.py` ricostruisce, e sono
+# trenta secondi.
+COPY data/demo ./data/demo
+
 # Il frontend costruito. **Non le sorgenti**: l'immagine esegue, non compila, e
 # `main.py` monta questa cartella solo se c'e' -- fuori dal container (`make
 # dev`) non c'e', e Vite serve la sua.
